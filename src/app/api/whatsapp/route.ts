@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           }
 
           if (shouldShowMenu && menuItems.length > 0) {
-            await sendWhatsAppCarousel(from, menuItems);
+            await sendWhatsAppCarousel(from, menuItems, (agent as any).fullMenuUrl);
           }
         }
       }
@@ -98,8 +98,10 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: any[])
     interactive: {
       type: "button",
       header: {
-        type: "text",
-        text: "Vidya's Kitchen 👩‍🍳"
+        type: "image",
+        image: {
+          link: LOGO_URL
+        }
       },
       body: { text: bodyText },
       action: {
@@ -130,7 +132,7 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: any[])
 /**
  * Sends an Interactive Carousel message to WhatsApp.
  */
-async function sendWhatsAppCarousel(to: string, items: any[]) {
+async function sendWhatsAppCarousel(to: string, items: any[], fullMenuUrl?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   // Carousel messages are "templates" or "interactive"

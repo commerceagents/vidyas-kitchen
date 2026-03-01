@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
+import { getRandomNudge } from "./nudges";
 
 /**
  * AI Agent "Brain" for Vidya's Kitchen
@@ -131,7 +132,13 @@ export class VidyaAgent {
         temperature: 0.7,
       });
 
-      const reply = response.choices[0].message.content || "";
+      let reply = response.choices[0].message.content || "";
+      
+      // 🍖 SUNDAY SPECIAL: If it's Sunday, occasionally inject a nudge
+      const isSunday = new Date().getDay() === 0;
+      if (isSunday && reply.toLowerCase().includes("vanakam") && Math.random() > 0.5) {
+        reply = getRandomNudge('sunday') + "\n\n" + reply;
+      }
       
       // 🚨 SMART TRIGGER: Only show the visual menu if they explicitly want it
       const shouldShowMenu = message.toLowerCase().includes("menu") || 
@@ -144,6 +151,8 @@ export class VidyaAgent {
                          message.toLowerCase().includes("hello") || 
                          message.toLowerCase().includes("kitchen") ||
                          message.toLowerCase().includes("instagram") ||
+                         message.toLowerCase().includes("saw your ad") ||
+                         message.toLowerCase().includes("interested in your menu") ||
                          reply.toLowerCase().includes("so glad you found us");
 
       const buttons = isGreeting ? [
@@ -155,7 +164,8 @@ export class VidyaAgent {
         shouldShowMenu,
         shouldShowButtons: isGreeting && !shouldShowMenu,
         buttons,
-        menuItems: menu 
+        menuItems: menu.slice(0, 5), // Only top 5 for carousel
+        fullMenuUrl: "https://larviparous-reflectible-sharda.ngrok-free.dev/menu" // Placeholder PWA link
       };
     } catch (err) {
       console.error("AI Agent Error:", err);
