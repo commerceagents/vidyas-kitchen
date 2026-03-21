@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { VidyaAgent } from "@/lib/ai/agent";
+import { VidyaAgent, MenuItem, Message } from "@/lib/ai/agent";
 
 /**
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
           agent.upsertCustomer(from).catch(e => console.error("[SUPABASE] Upsert failed:", e));
           
           console.log(`[AI] Processing message...`);
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, paymentLink } = await agent.processMessage(text, [], from);
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, paymentLink } = await agent.processMessage(text, [] as Message[], from);
           console.log(`[AI] Reply generated: "${reply.substring(0, 50)}..."`);
           
           if (shouldShowButtons && buttons.length > 0) {
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 /**
  * Sends a Button message to WhatsApp.
  */
-async function sendWhatsAppButtons(to: string, bodyText: string, buttons: any[]) {
+async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   // LOGO URL (User can replace this with their actual hosted logo)
@@ -139,7 +139,7 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: any[])
 /**
  * Sends an Interactive Carousel message to WhatsApp.
  */
-async function sendWhatsAppCarousel(to: string, items: any[], fullMenuUrl?: string) {
+async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   // Carousel messages are "templates" or "interactive"
@@ -203,8 +203,8 @@ async function sendWhatsAppCarousel(to: string, items: any[], fullMenuUrl?: stri
       console.log('[WHATSAPP] Carousel failed/unsupported. Falling back to List Message...');
       await sendWhatsAppList(to, items);
     }
-  } catch (error) {
-    console.error('Meta Carousel Error:', error);
+  } catch (_error) {
+    console.error('Meta Carousel Error:', _error);
     await sendWhatsAppList(to, items);
   }
 }
@@ -212,7 +212,7 @@ async function sendWhatsAppCarousel(to: string, items: any[], fullMenuUrl?: stri
 /**
  * Sends a List Message as a reliable fallback for menus.
  */
-async function sendWhatsAppList(to: string, items: any[]) {
+async function sendWhatsAppList(to: string, items: MenuItem[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   const payload = {
@@ -257,8 +257,8 @@ async function sendWhatsAppList(to: string, items: any[]) {
     });
     const d = await response.json();
     console.log('List Response:', JSON.stringify(d));
-  } catch (err) {
-    console.error('Meta List Error:', err);
+  } catch (_err) {
+    console.error('Meta List Error:', _err);
   }
 }
 

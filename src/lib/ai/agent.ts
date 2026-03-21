@@ -12,6 +12,22 @@ export interface Message {
   content: string;
 }
 
+export interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  unit?: string;
+  category: string;
+  image_url?: string;
+  description?: string;
+}
+
+export interface OrderItemInput {
+  menu_item_id: string;
+  quantity: number;
+  price: number;
+}
+
 export class VidyaAgent {
   private openai: OpenAI;
 
@@ -34,7 +50,7 @@ export class VidyaAgent {
   }
 
   async getMenuByCategory(category: string) {
-    const fallbackMenu: Record<string, any[]> = {
+    const fallbackMenu: Record<string, MenuItem[]> = {
       combo: [
         { id: 'c1', name: 'Weekly Veg Combo', price: 650, unit: '5 days', category: 'combo' },
         { id: 'c3', name: 'Weekly Non-Veg Combo', price: 950, unit: '5 days', category: 'combo' },
@@ -59,26 +75,26 @@ export class VidyaAgent {
         .eq('is_available', true);
       
       if (error || !data || data.length === 0) return Object.values(fallbackMenu).flat();
-      return data;
-    } catch (err) {
+      return data as MenuItem[];
+    } catch (_err) {
       return Object.values(fallbackMenu).flat();
     }
   }
 
-  async createOrder(phoneNumber: string, items: { menu_item_id: string, quantity: number, price: number }[], total: number) {
+  async createOrder(phoneNumber: string, _items: OrderItemInput[], total: number) {
     try {
       const { data: order, error: orderError } = await supabase
         .from('orders').insert({ phone_number: phoneNumber, total_amount: total, status: 'pending_payment' }).select().single();
       if (orderError) throw orderError;
       const paymentLink = await createPaymentLink(total, order.id, "WhatsApp Customer", phoneNumber);
       return { orderId: order.id, paymentLink, total };
-    } catch (err) {
-      console.error("Order Creation Error:", err);
+    } catch (_err) {
+      console.error("Order Creation Error:", _err);
       return null;
     }
   }
 
-  async processMessage(message: string, history: any[] = [], phoneNumber?: string) {
+  async processMessage(message: string, history: Message[] = [], phoneNumber?: string) {
     try {
       const lowerMessage = message.toLowerCase();
       const isGreeting = ["hi", "hello", "hey"].some(v => lowerMessage.includes(v));
@@ -105,7 +121,7 @@ export class VidyaAgent {
         const { data: pastOrders } = await supabase
           .from('orders').select('*, order_items(menu_items(name))').eq('phone_number', phoneNumber).order('created_at', { ascending: false }).limit(3);
         if (pastOrders && pastOrders.length > 0) {
-          const pastItems = pastOrders.flatMap((o: any) => o.order_items?.map((oi: any) => oi.menu_items?.name) || []);
+          const pastItems = pastOrders.flatMap((o) => (o.order_items as any[])?.map((oi) => oi.menu_items?.name) || []);
           memoryPrompt = `\nCUSTOMER MEMORY: This customer previously ordered: ${[...new Set(pastItems)].filter(Boolean).join(', ')}.`;
         }
       }
@@ -154,8 +170,8 @@ export class VidyaAgent {
       const { data, error } = await supabase.from("users").upsert({ phone_number: phoneNumber, full_name: name, role: 'customer' }, { onConflict: "phone_number" }).select().single();
       if (error) throw error;
       return data;
-    } catch (err) {
-      console.error("Supabase User Tracking Error:", err);
+    } catch (_err) {
+      console.error("Supabase User Tracking Error:", _err);
       return null;
     }
   }
