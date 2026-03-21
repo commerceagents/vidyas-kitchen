@@ -217,3 +217,19 @@ Webhook Verified! ✅
    Reload env: .env
  ✓ Compiled in 819ms (1532 modules)
  GET /dashboard 200 in 368ms
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.31.206:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 2.4s
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.31.206:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 2.5s
