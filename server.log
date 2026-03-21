@@ -1,209 +1,219 @@
 
 > vidyas-kitchen@0.1.0 dev
-> next dev -p 3001
+> next dev
 
    ▲ Next.js 15.5.12
-   - Local:        http://localhost:3001
-   - Network:      http://192.168.31.231:3001
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.31.206:3000
    - Environments: .env
 
  ✓ Starting...
- ✓ Ready in 5.8s
+ ✓ Ready in 3.6s
  ○ Compiling /api/whatsapp ...
- ✓ Compiled /api/whatsapp in 661ms (412 modules)
-Real WhatsApp Msg from 917550028179: Hi
-OpenAI Error: Error: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
-    at async VidyaAgent.processMessage (src/lib/ai/agent.ts:41:24)
-    at async POST (src/app/api/whatsapp/route.ts:44:27)
-  39 |   async processMessage(userMessage: string, history: Message[] = []) {
-  40 |     try {
-> 41 |       const response = await openai.chat.completions.create({
-     |                        ^
-  42 |         model: "gpt-4o",
-  43 |         messages: [
-  44 |           { role: "system", content: this.systemPrompt }, {
-  status: 429,
-  headers: Headers {
-    date: 'Sat, 28 Feb 2026 11:03:48 GMT',
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': '337',
-    connection: 'keep-alive',
-    vary: 'Origin',
-    'x-request-id': 'req_cccda4e5d9524590b574062eeb488a1e',
-    'x-openai-proxy-wasm': 'v0.1',
-    server: 'cloudflare',
-    'cf-cache-status': 'DYNAMIC',
-    'set-cookie': '__cf_bm=bSSJjZ2NFwVVO6CuyUB9GwbbZt43qWY6_AHlgu2p0v4-1772276628.2094204-1.0.1.1-MJ2LHqSiUGWOIVSKjd4Xx7mCES2NpaB6VMUzMAXEM9Zpud8nylJxehs8ZVmkdoSNtUmqLPYAgyexid.ljAxVB00osCeySS7ClNtm.ZsCdhKn2yocTW7HJgMBBCgOeHDb; HttpOnly; Secure; Path=/; Domain=api.openai.com; Expires=Sat, 28 Feb 2026 11:33:48 GMT, _cfuvid=WqjgrkCii4kJTsRNGwqjrGslozhNGMMjqPROZjMS.IQ-1772276628.2094204-1.0.1.1-4VNgLKepQCtNhEEv3hSR2sYzgi7sOUIrTNnvdcAyJcU; HttpOnly; SameSite=None; Secure; Path=/; Domain=api.openai.com',
-    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
-    'x-content-type-options': 'nosniff',
-    'cf-ray': '9d4f6ffe4df97f97-MAA',
-    'alt-svc': 'h3=":443"; ma=86400'
-  },
-  requestID: 'req_cccda4e5d9524590b574062eeb488a1e',
-  error: [Object],
-  code: 'insufficient_quota',
-  param: null,
-  type: 'insufficient_quota'
+ ✓ Compiled /api/whatsapp in 769ms (451 modules)
+[WHATSAPP] Incoming msg from 917550028179: "Menu"
+[AI] Processing message...
+Supabase User Tracking Error: {
+  message: 'AbortError: This operation was aborted',
+  details: 'AbortError: This operation was aborted\n' +
+    '    at node:internal/deps/undici/undici:13510:13\n' +
+    '    at async VidyaAgent.upsertCustomer (webpack-internal:///(rsc)/./src/lib/ai/agent.ts:321:37)',
+  hint: 'Request was aborted (timeout or manual cancellation)',
+  code: ''
 }
- POST /api/whatsapp 200 in 7491ms
-Real WhatsApp Msg from 917550028179: Hi vidya
- POST /api/whatsapp 200 in 2779ms
- ✓ Compiled in 41ms
+[AI] Reply generated: "Certainly! Here's the menu for 'Vidya's Kitchen':
+..."
+[WHATSAPP] Sending text message to 917550028179
+Meta API Response: {"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100,"error_data":{"messaging_product":"whatsapp","details":"Invalid parameter"},"fbtrace_id":"AG3phZJyNQVDbGMpV6Zii09"}}
+[WHATSAPP] Sending carousel to 917550028179
+Carousel Response: {
+  "error": {
+    "message": "(#100) Unexpected key \"buttons\" on param \"interactive['action']['cards'][0]\".",
+    "type": "OAuthException",
+    "code": 100,
+    "fbtrace_id": "AnDx2bENpyu4fKl5mrWwqfx"
+  }
+}
+ POST /api/whatsapp 200 in 19918ms
+ ✓ Compiled in 221ms (257 modules)
+[WHATSAPP] Incoming msg from 917550028179: "Menu"
+[AI] Processing message...
+Supabase User Tracking Error: {
+  message: 'AbortError: This operation was aborted',
+  details: 'AbortError: This operation was aborted\n' +
+    '    at node:internal/deps/undici/undici:13510:13\n' +
+    '    at runNextTicks (node:internal/process/task_queues:65:5)\n' +
+    '    at listOnTimeout (node:internal/timers:549:9)\n' +
+    '    at process.processTimers (node:internal/timers:523:7)\n' +
+    '    at async VidyaAgent.upsertCustomer (webpack-internal:///(rsc)/./src/lib/ai/agent.ts:321:37)',
+  hint: 'Request was aborted (timeout or manual cancellation)',
+  code: ''
+}
+[AI] Reply generated: "Certainly! Here's the menu for 'Vidya's Kitchen':
+..."
+[WHATSAPP] Sending text message to 917550028179
+Meta API Response: {"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100,"error_data":{"messaging_product":"whatsapp","details":"Invalid parameter"},"fbtrace_id":"Ak9Nu_gaEahTtWqtlV7yUZ0"}}
+[WHATSAPP] Sending carousel to 917550028179
+Carousel Response: {
+  "error": {
+    "message": "(#100) Unexpected key \"reply\" on param \"interactive['action']['cards'][0]['action']['buttons'][0]\".",
+    "type": "OAuthException",
+    "code": 100,
+    "fbtrace_id": "AfRKV6fcubZhUVDZmJp1q3r"
+  }
+}
+ POST /api/whatsapp 200 in 20366ms
+ ✓ Compiled in 192ms (257 modules)
+[WHATSAPP] Incoming msg from 917550028179: "Menu"
+[AI] Processing message...
+[AI] Reply generated: "Certainly! Here is the current menu from Vidya's K..."
+[WHATSAPP] Sending text message to 917550028179
+Meta API Response: {"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100,"error_data":{"messaging_product":"whatsapp","details":"Invalid parameter"},"fbtrace_id":"Alxfsrmxb4EKD9ADNspVoPY"}}
+[WHATSAPP] Sending carousel to 917550028179
+Carousel Response: {
+  "error": {
+    "message": "(#100) Unexpected key \"reply\" on param \"interactive['action']['cards'][0]['action']['buttons'][0]\".",
+    "type": "OAuthException",
+    "code": 100,
+    "fbtrace_id": "AeTrY9nPDRHzerY3ktKRBYO"
+  }
+}
+ POST /api/whatsapp 200 in 7535ms
+ ✓ Compiled in 251ms (257 modules)
+[WHATSAPP] Incoming msg from 917550028179: "Menu"
+[AI] Processing message...
+Supabase User Tracking Error: {
+  message: 'AbortError: This operation was aborted',
+  details: 'AbortError: This operation was aborted\n' +
+    '    at node:internal/deps/undici/undici:13510:13\n' +
+    '    at runNextTicks (node:internal/process/task_queues:65:5)\n' +
+    '    at listOnTimeout (node:internal/timers:549:9)\n' +
+    '    at process.processTimers (node:internal/timers:523:7)\n' +
+    '    at async VidyaAgent.upsertCustomer (webpack-internal:///(rsc)/./src/lib/ai/agent.ts:321:37)',
+  hint: 'Request was aborted (timeout or manual cancellation)',
+  code: ''
+}
+[AI] Reply generated: "Certainly! Here's the menu for 'Vidya's Kitchen':
+..."
+[WHATSAPP] Sending text message to 917550028179
+Meta API Response: {"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100,"error_data":{"messaging_product":"whatsapp","details":"Invalid parameter"},"fbtrace_id":"AhMicVGitX7eEetI0q7yt5v"}}
+[WHATSAPP] Sending carousel to 917550028179
+Carousel Response: {
+  "error": {
+    "message": "(#100) Unexpected key \"reply\" on param \"interactive['action']['cards'][0]['action']['buttons'][0]\".",
+    "type": "OAuthException",
+    "code": 100,
+    "fbtrace_id": "AhzsN38FL1ol84Y1OegS6BA"
+  }
+}
+[WHATSAPP] Carousel failed/unsupported. Falling back to List Message...
+List Response: {"error":{"message":"(#100) Invalid parameter","type":"OAuthException","code":100,"error_data":{"messaging_product":"whatsapp","details":"Invalid parameter"},"fbtrace_id":"ABQVLyZVAMbkv7_2e0L8jyW"}}
+ POST /api/whatsapp 200 in 17925ms
+ ✓ Compiled in 467ms (194 modules)
+ ✓ Compiled in 92ms
+ ✓ Compiled in 154ms (194 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 2.1s (1374 modules)
+ GET /privacy 404 in 2419ms
+ ✓ Compiled in 610ms (636 modules)
+ ✓ Compiled in 118ms (636 modules)
+ ✓ Compiled in 387ms (636 modules)
+ ✓ Compiled in 105ms (636 modules)
+ ✓ Compiled in 771ms (622 modules)
+ ✓ Compiled in 298ms (622 modules)
+ ✓ Compiled /_not-found in 448ms (1360 modules)
+ GET /privacy 404 in 721ms
+ ○ Compiling / ...
+ ✓ Compiled / in 837ms (1390 modules)
+ GET / 200 in 1218ms
+ ⚠ Cross origin request detected from larviparous-reflectible-sharda.ngrok-free.dev to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ ✓ Compiled /favicon.ico in 315ms (769 modules)
+ GET /favicon.ico 200 in 442ms
  ○ Compiling /api/whatsapp ...
- ✓ Compiled /api/whatsapp in 502ms (218 modules)
-Real WhatsApp Msg from 917550028179: Hi Vidya
-AI Reply: Hello! It seems like you might be looking to explore our catering options. How can I assist you today? Are you interested in checking out our menu, placing an order, or perhaps checking on an existing one?
-Meta API Response: {"error":{"message":"Error validating access token: Session has expired on Saturday, 28-Feb-26 03:00:00 PST. The current time is Saturday, 28-Feb-26 04:48:45 PST.","type":"OAuthException","code":190,"error_subcode":463,"fbtrace_id":"A-Y5Gq9ny80lEDfBI7S7Vxx"}}
- POST /api/whatsapp 200 in 18029ms
+ ✓ Compiled /api/whatsapp in 885ms (1032 modules)
+Webhook Verified! ✅
+ GET /api/whatsapp?hub.mode=subscribe&hub.challenge=1228045010&hub.verify_token=VIDYA_SECRET_2026&hub_mode=subscribe&hub_challenge=1228045010&hub_verify_token=VIDYA_SECRET_2026 200 in 1143ms
+ GET / 200 in 80ms
+ ✓ Compiled in 943ms (1404 modules)
+ GET / 200 in 189ms
+ ✓ Compiled /api/whatsapp in 449ms (1032 modules)
+[META RAW]: {
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "from": "919941292729",
+                "text": {
+                  "body": "Test Local"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+ POST /api/whatsapp 200 in 710ms
+ GET / 200 in 200ms
+ ✓ Compiled in 1051ms (1390 modules)
+ GET / 200 in 171ms
+ ○ Compiling /privacy ...
+ ✓ Compiled /privacy in 904ms (1394 modules)
+ HEAD /privacy 200 in 1310ms
+ ○ Compiling /chat ...
+ ✓ Compiled /chat in 852ms (1407 modules)
+ GET /chat 200 in 1151ms
+ ✓ Compiled /favicon.ico in 140ms (779 modules)
+ GET /favicon.ico 200 in 254ms
+ ○ Compiling /api/ai/chat ...
+ ✓ Compiled /api/ai/chat in 556ms (1689 modules)
+ POST /api/ai/chat 200 in 4946ms
+ POST /api/ai/chat 200 in 3258ms
+ ✓ Compiled in 1318ms (1421 modules)
+ ✓ Compiled in 1574ms (1436 modules)
+ GET / 200 in 547ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 814ms (800 modules)
+ GET /favicon.ico 200 in 943ms
+ ⨯ The requested resource isn't a valid image for /logo.png received null
+ ⨯ The requested resource isn't a valid image for /logo.png received null
+ ⨯ The requested resource isn't a valid image for /logo.png received null
+ ⨯ The requested resource isn't a valid image for /logo.png received null
+ ✓ Compiled in 523ms (783 modules)
+ GET / 200 in 226ms
+ GET / 200 in 331ms
+ GET / 200 in 167ms
+ ✓ Compiled in 1028ms (783 modules)
+ GET / 200 in 346ms
+ GET / 200 in 143ms
+ GET / 200 in 391ms
+ ✓ Compiled in 940ms (783 modules)
+ GET / 200 in 364ms
+ GET / 200 in 159ms
+ GET / 200 in 968ms
+ GET / 200 in 288ms
+ ✓ Compiled in 2.6s (1450 modules)
+ GET / 200 in 453ms
+ GET / 200 in 240ms
+ GET / 200 in 232ms
+ GET / 200 in 343ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 595ms (800 modules)
+ GET /favicon.ico 200 in 843ms
+ GET / 200 in 637ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 20s (1532 modules)
+ GET /dashboard 200 in 21979ms
+ GET /dashboard 200 in 719ms
+ GET /dashboard 200 in 87ms
+ ✓ Compiled /favicon.ico in 385ms (849 modules)
+ GET /favicon.ico 200 in 700ms
    Reload env: .env
- ✓ Compiled in 946ms (194 modules)
-   Reload env: .env
- ✓ Compiled in 410ms (194 modules)
- ○ Compiling /api/whatsapp ...
- ✓ Compiled /api/whatsapp in 1045ms (257 modules)
-Real WhatsApp Msg from 917550028179: Hi Vidya
-Supabase Upsert Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-AI Reply: Hello! It seems like you might be reaching out to Vidya's Kitchen. How can I assist you today? Are you looking to explore our delicious menu, place an order, or check on an existing order?
-Meta API Response: {"messaging_product":"whatsapp","contacts":[{"input":"917550028179","wa_id":"917550028179"}],"messages":[{"id":"wamid.HBgMOTE3NTUwMDI4MTc5FQIAERgSNDg2NDZGOTc4OTJBMTE4M0IxAA=="}]}
- POST /api/whatsapp 200 in 15810ms
- POST /api/whatsapp 200 in 19ms
- POST /api/whatsapp 200 in 14ms
- ✓ Compiled in 68ms
- ✓ Compiled /api/whatsapp in 310ms (257 modules)
-WhatsApp Msg from 917550028179: What's for dinner?
-Supabase Upsert Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Supabase Menu Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
- POST /api/whatsapp 200 in 24590ms
-WhatsApp Msg from 917550028179: What's for dinner?
-Meta API Response: {"messaging_product":"whatsapp","contacts":[{"input":"917550028179","wa_id":"917550028179"}],"messages":[{"id":"wamid.HBgMOTE3NTUwMDI4MTc5FQIAERgSODYyRDE3MkEwMzREOEI3QzlEAA=="}]}
- POST /api/whatsapp 200 in 15ms
- POST /api/whatsapp 200 in 7ms
-Supabase Upsert Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Supabase Menu Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Meta API Response: {"messaging_product":"whatsapp","contacts":[{"input":"917550028179","wa_id":"917550028179"}],"messages":[{"id":"wamid.HBgMOTE3NTUwMDI4MTc5FQIAERgSNTQwNzNDQjkxMDUwODU5OTc4AA=="}]}
- POST /api/whatsapp 200 in 23479ms
- POST /api/whatsapp 200 in 9ms
- POST /api/whatsapp 200 in 7ms
-WhatsApp Msg from 917550028179: Show me the breakfast menu then
-Supabase Upsert Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Supabase Menu Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
- POST /api/whatsapp 200 in 24673ms
-WhatsApp Msg from 917550028179: Show me the breakfast menu then
-Meta API Response: {"messaging_product":"whatsapp","contacts":[{"input":"917550028179","wa_id":"917550028179"}],"messages":[{"id":"wamid.HBgMOTE3NTUwMDI4MTc5FQIAERgSREY2RkZBOUQyRTdFNzMzMTk0AA=="}]}
- POST /api/whatsapp 200 in 16ms
- POST /api/whatsapp 200 in 11ms
-Supabase Upsert Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Supabase Menu Error: {
-  message: 'TypeError: fetch failed',
-  details: 'TypeError: fetch failed\n' +
-    '\n' +
-    'Caused by: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms) (UND_ERR_CONNECT_TIMEOUT)\n' +
-    'ConnectTimeoutError: Connect Timeout Error (attempted addresses: 2405:200:1607:2820:41::36:443, 49.44.79.236:443, timeout: 10000ms)\n' +
-    '    at onConnectTimeout (node:internal/deps/undici/undici:2602:28)\n' +
-    '    at Immediate._onImmediate (node:internal/deps/undici/undici:2583:11)\n' +
-    '    at process.processImmediate (node:internal/timers:485:21)\n' +
-    '    at process.callbackTrampoline (node:internal/async_hooks:130:17)',
-  hint: '',
-  code: ''
-}
-Meta API Response: {"messaging_product":"whatsapp","contacts":[{"input":"917550028179","wa_id":"917550028179"}],"messages":[{"id":"wamid.HBgMOTE3NTUwMDI4MTc5FQIAERgSN0U1QUQ5RkQxOEM5Mzk4QzY5AA=="}]}
- POST /api/whatsapp 200 in 24073ms
- POST /api/whatsapp 200 in 29ms
- POST /api/whatsapp 200 in 5ms
- ✓ Compiled in 26ms
+ ✓ Compiled in 819ms (1532 modules)
+ GET /dashboard 200 in 368ms
