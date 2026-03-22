@@ -39,7 +39,7 @@ export function DesktopLanding() {
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         {/* Blob 1 */}
         <motion.div
-          animate={{
+           animate={{
             x: [0, 80, -40, 0],
             y: [0, -60, 100, 0],
             scale: [1, 1.1, 0.95, 1],
@@ -83,61 +83,59 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '480px',
-          padding: '56px 40px 48px',
-          background: '#000000', // Pure Black
+          width: '460px',
+          padding: '40px',
+          background: '#0D0D0F', // Slightly off-black for visibility
           borderRadius: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          boxShadow: '0 40px 100px rgba(0,0,0,0.9)',
-          maxHeight: '90vh',
-          overflow: 'hidden'
+          boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(226,31,39,0.05)', // Glow separation
+          maxHeight: '92vh',
+          overflowY: 'auto',
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none'
         }}
       >
-        {/* Top Brand Logo */}
+        {/* Top Brand Logo - Large & No Border */}
         <div style={{
-          width: '72px',
-          height: '72px',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '50%',
+          width: '100px',
+          height: '100px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '28px',
-          padding: '4px',
-          boxShadow: '0 0 25px rgba(226,31,39,0.3)',
+          marginBottom: '20px',
           zIndex: 10
         }}>
           <Image 
             src="/VK_Logo.png" 
             alt="Vidya's Kitchen" 
-            width={64} 
-            height={64} 
+            width={100} 
+            height={100} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
           />
         </div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '40px' }}>
+        <div style={{ marginBottom: '24px' }}>
           <span style={{ 
-            fontSize: '12px', 
+            fontSize: '11px', 
             letterSpacing: '4px', 
             color: 'rgba(255,255,255,0.4)', 
             fontWeight: '700',
             display: 'block',
-            marginBottom: '8px'
+            marginBottom: '4px'
           }}>
             HEY BUDDY,
           </span>
           <h2 style={{
-            fontSize: '32px',
+            fontSize: '30px',
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.02em',
-            lineHeight: '1.1'
+            lineHeight: '1.2'
           }}>
             Welcome to <br />
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
@@ -147,21 +145,13 @@ export function DesktopLanding() {
         {/* Floating QR Section with HIGH FLARE Scanning Line */}
         <div style={{
           position: 'relative',
-          width: '300px',
-          height: '300px',
-          marginBottom: '32px',
+          width: '240px',
+          height: '240px',
+          marginBottom: '24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {/* Subtle Outer Glow for the QR */}
-          <div style={{
-            position: 'absolute',
-            inset: '30px',
-            background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 75%)',
-            zIndex: 5
-          }} />
-
           {/* THE SCANNING LINE FLARE SYSTEM */}
           <motion.div
             animate={{
@@ -180,33 +170,24 @@ export function DesktopLanding() {
               pointerEvents: 'none'
             }}
           >
-            {/* The Main Flare Line */}
             <div style={{
               width: '100%',
-              height: '3px',
+              height: '2px',
               background: 'linear-gradient(90deg, transparent 0%, rgba(226,31,39,0.8) 20%, #E21F27 50%, rgba(226,31,39,0.8) 80%, transparent 100%)',
-              boxShadow: '0 0 20px 2px rgba(226,31,39,0.6)',
-            }} />
-            {/* The Trail/Glow Flare */}
-            <div style={{
-              width: '100%',
-              height: '40px',
-              marginTop: '-20px',
-              background: 'linear-gradient(180deg, rgba(226,31,39,0.15) 0%, transparent 100%)',
-              filter: 'blur(10px)',
+              boxShadow: '0 0 20px 2px rgba(226,31,39,0.5)',
             }} />
           </motion.div>
 
           <div style={{
             background: '#ffffff',
-            padding: '16px',
-            borderRadius: '20px',
+            padding: '12px',
+            borderRadius: '40px', // iOS Squircle style
             zIndex: 20,
             boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
           }}>
             <QRCode 
               value={domain}
-              size={200}
+              size={150}
               fgColor="#101828"
               level="H"
             />
@@ -215,15 +196,15 @@ export function DesktopLanding() {
 
         {/* Funny Caption */}
         <p style={{
-          fontSize: '15px',
-          color: 'rgba(255,255,255,0.7)',
+          fontSize: '14px',
+          color: 'rgba(255,255,255,0.6)',
           lineHeight: '1.5',
-          marginBottom: '40px',
-          maxWidth: '320px',
+          marginBottom: '32px',
+          maxWidth: '300px',
           fontWeight: '500',
           fontStyle: 'italic'
         }}>
-          "Your phone is currently starving for a better view. Scan me to give it a digital feast!"
+          &ldquo;Your phone is currently starving for a better view. Scan me to give it a digital feast!&rdquo;
         </p>
 
         {/* Primary CTA (White Button) */}
@@ -235,7 +216,7 @@ export function DesktopLanding() {
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            padding: '16px 32px',
+            padding: '14px 24px',
             background: '#FFFFFF',
             color: '#101828',
             borderRadius: '16px',
@@ -263,9 +244,9 @@ export function DesktopLanding() {
 
       {/* Subtle Footer Branding */}
       <div style={{ 
-        marginTop: '32px', 
+        marginTop: '20px', 
         fontSize: '11px', 
-        color: 'rgba(255,255,255,0.3)',
+        color: 'rgba(255,255,255,0.2)',
         letterSpacing: '1px',
         fontWeight: '600',
         zIndex: 60
