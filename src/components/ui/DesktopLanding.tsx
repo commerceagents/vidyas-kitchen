@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
@@ -7,14 +8,26 @@ import { WhatsappLogo } from "@phosphor-icons/react";
 
 export function DesktopLanding() {
   const domain = "https://vidyaskitchenhome.com";
-  const whatsappNumber = "+91 95122 19780";
+  const whatsappNumber = "+91 75500 28179";
+
+  // Handle mobile detection within the component as a safety layer
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  useEffect(() => {
+    const checkScreen = () => setIsLargeScreen(window.innerWidth > 1024);
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
+  }, []);
+
+  if (!isLargeScreen) return null;
 
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
       zIndex: 50,
-      backgroundColor: '#050505',
+      backgroundColor: '#020202',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -23,225 +36,204 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'inherit'
     }}>
-      {/* Liquid Glow Backdrop */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+      {/* SVG Liquid Filter Definition */}
+      <svg style={{ position: 'fixed', top: -100, left: -100, width: 0, height: 0 }}>
+        <filter id="molten-bg">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="1" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="50" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
+
+      {/* Liquid Molten Backdrop */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <motion.div
           animate={{
-            x: [0, 100, -100, 0],
-            y: [0, -50, 50, 0],
-            scale: [1, 1.2, 0.8, 1],
+            scale: [1, 1.1, 1],
+            rotate: [0, 5, -5, 0],
           }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
           style={{
             position: 'absolute',
-            top: '10%',
-            left: '20%',
-            width: '600px',
-            height: '600px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(226,31,39,0.15) 0%, transparent 70%)',
-            filter: 'blur(80px)',
+            inset: '-10%',
+            filter: 'url(#molten-bg) blur(30px)',
+            background: 'radial-gradient(circle at 30% 30%, rgba(226,31,39,0.18) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(226,31,39,0.12) 0%, transparent 50%)',
           }}
         />
-        <motion.div
-          animate={{
-            x: [0, -120, 120, 0],
-            y: [0, 80, -80, 0],
-            scale: [1, 0.9, 1.1, 1],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          style={{
-            position: 'absolute',
-            bottom: '10%',
-            right: '25%',
-            width: '500px',
-            height: '500px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 70%)',
-            filter: 'blur(100px)',
-          }}
-        />
-        {/* Large soft arc at bottom like reference */}
-        <div style={{
-          position: 'absolute',
-          bottom: '-20%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '120%',
-          height: '400px',
-          borderRadius: '50% 50% 0 0',
-          background: 'radial-gradient(ellipse at top, rgba(226,31,39,0.2) 0%, transparent 70%)',
-          filter: 'blur(60px)',
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%)' 
         }} />
       </div>
 
-      {/* Logo at Top Center */}
-      <motion.div
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.5, duration: 1 }}
-        style={{
-          position: 'absolute',
-          top: '40px',
-          zIndex: 60,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}
-      >
-        <div style={{
-          width: '80px',
-          height: '80px',
-          backgroundColor: 'white',
-          borderRadius: '50%',
-          padding: '4px',
-          boxShadow: '0 0 20px rgba(226,31,39,0.3)'
-        }}>
-          <Image 
-            src="/VK_Logo.png" 
-            alt="Vidya's Kitchen" 
-            width={72} 
-            height={72} 
-            style={{ borderRadius: '50%', objectFit: 'contain' }}
-          />
-        </div>
-      </motion.div>
-
       {/* Main Glass Content */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.8, duration: 0.8 }}
+        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '420px',
-          padding: '48px 32px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          backdropFilter: 'blur(24px)',
-          borderRadius: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          width: '380px',
+          padding: '40px 32px 32px',
+          background: 'rgba(255, 255, 255, 0.01)',
+          backdropFilter: 'blur(30px)',
+          borderRadius: '40px',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
+          maxHeight: '90vh'
         }}
       >
-        <span style={{
-          fontSize: '12px',
-          fontWeight: '700',
-          letterSpacing: '0.4em',
-          textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.5)',
-          marginBottom: '12px'
-        }}>
-          Hey buddy,
-        </span>
-        
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: '800',
+        <div style={{
+          width: '60px',
+          height: '60px',
+          backgroundColor: 'white',
+          borderRadius: '50%',
+          padding: '4px',
           marginBottom: '24px',
-          background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.7) 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          lineHeight: '1.2'
+          boxShadow: '0 0 20px rgba(226,31,39,0.4)',
+        }}>
+          <Image 
+            src="/VK_Logo.png" 
+            alt="Vidya's Kitchen" 
+            width={52} 
+            height={52} 
+            style={{ borderRadius: '50%', objectFit: 'contain' }}
+          />
+        </div>
+
+        <h1 style={{
+          fontSize: '28px',
+          fontWeight: '900',
+          marginBottom: '16px',
+          color: '#ffffff',
+          letterSpacing: '-0.02em',
+          lineHeight: '1.1'
         }}>
           Welcome to <br />
-          <span style={{ color: '#E21F27', WebkitTextFillColor: '#E21F27' }}>Vidya&apos;s Kitchen</span>
+          <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
         </h1>
 
-        {/* QR Code Section */}
+        {/* REPLICA QR SECTION */}
         <div style={{
           position: 'relative',
-          padding: '24px',
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '24px',
-          marginBottom: '24px',
-          border: '1px solid rgba(226,31,39,0.2)'
+          width: '260px',
+          height: '260px',
+          background: 'rgba(226,31,39,0.02)',
+          borderRadius: '32px',
+          marginBottom: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden'
         }}>
+          {/* Glowing Top Light */}
           <div style={{
-            background: 'white',
-            padding: '12px',
-            borderRadius: '16px',
-            boxShadow: '0 0 20px rgba(226,31,39,0.2)'
-          }}>
-            <QRCode 
-              value={domain}
-              size={180}
-              fgColor="#000000"
-              level="H"
-            />
-          </div>
-          {/* Subtle glow behind QR */}
+            position: 'absolute',
+            top: '-20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '120px',
+            height: '60px',
+            background: 'radial-gradient(circle, rgba(226,31,39,0.6) 0%, transparent 70%)',
+            filter: 'blur(15px)',
+            zIndex: 10
+          }} />
+
+          {/* Grid Pattern Backdrop */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 100%)',
-            pointerEvents: 'none',
-            zIndex: -1
+            opacity: 0.15,
+            backgroundImage: `
+              linear-gradient(rgba(226,31,39,0.4) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(226,31,39,0.4) 1px, transparent 1px)
+            `,
+            backgroundSize: '16px 16px',
+            backgroundPosition: 'center'
           }} />
+
+          {/* Pulsating Dotted Wave Border */}
+          <motion.div 
+            animate={{ 
+              opacity: [0.3, 0.7, 0.3],
+              scale: [0.98, 1.02, 0.98]
+            }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            style={{
+              position: 'absolute',
+              inset: '20px',
+              borderRadius: '24px',
+              border: '2px dotted rgba(226,31,39,0.4)',
+              boxShadow: '0 0 20px rgba(226,31,39,0.1) inset'
+            }} 
+          />
+
+          <div style={{
+            background: '#ffffff',
+            padding: '12px',
+            borderRadius: '16px',
+            boxShadow: '0 0 30px rgba(226,31,39,0.2)',
+            zIndex: 20
+          }}>
+            <QRCode 
+              value={domain}
+              size={160}
+              fgColor="#E21F27"
+              level="H"
+            />
+          </div>
         </div>
 
         <p style={{
-          fontSize: '15px',
-          color: 'rgba(255,255,255,0.6)',
+          fontSize: '14px',
+          color: 'rgba(255,255,255,0.7)',
           lineHeight: '1.6',
-          marginBottom: '32px',
-          maxWidth: '300px'
+          marginBottom: '28px',
+          maxWidth: '280px',
+          fontWeight: '500'
         }}>
-          Look, akka, you can&apos;t really taste a virtual mutton biryani on a big monitor. Scan this to unlock the proper kitchen experience on your phone!
+          Scan the QR Code to experience our delicious home-cooked meals!
         </p>
 
-        {/* WhatsApp Button */}
+        {/* Premium Action Button */}
         <a 
-          href={`https://wa.me/919512219780`}
+          href={`https://wa.me/917550028179`}
           target="_blank"
           rel="noopener noreferrer"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            padding: '16px 24px',
-            backgroundColor: 'white',
-            color: '#000',
+            padding: '16px 32px',
+            background: 'linear-gradient(135deg, #E21F27 0%, #b3141b 100%)',
+            color: '#fff',
             borderRadius: '16px',
-            fontWeight: '700',
+            fontWeight: '800',
             fontSize: '15px',
             textDecoration: 'none',
-            transition: 'transform 0.2s ease',
+            transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             width: '100%',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(255,255,255,0.1)'
+            boxShadow: '0 10px 20px rgba(226,31,39,0.3)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 15px 30px rgba(226,31,39,0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 10px 20px rgba(226,31,39,0.3)';
+          }}
         >
-          <WhatsappLogo size={24} weight="fill" color="#25D366" />
-          Chat with Vidya Bot
+          <WhatsappLogo size={22} weight="fill" />
+          Order via WhatsApp
         </a>
-        
-        <span style={{
-          fontSize: '11px',
-          color: 'rgba(255,255,255,0.4)',
-          marginTop: '16px'
-        }}>
-          {whatsappNumber} • Order easily via WhatsApp
-        </span>
       </motion.div>
-
-      {/* Footer Branding */}
-      <div style={{
-        position: 'absolute',
-        bottom: '32px',
-        zIndex: 60,
-        opacity: 0.5,
-        fontSize: '12px',
-        letterSpacing: '0.1em'
-      }}>
-        VIDYA&apos;S KITCHEN • PREMIUM HOME CATERING
-      </div>
     </div>
   );
 }
