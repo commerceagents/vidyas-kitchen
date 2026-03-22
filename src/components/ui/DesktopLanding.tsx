@@ -1,73 +1,81 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 import { WhatsappLogo } from "@phosphor-icons/react";
 
-function NeuralBackground() {
-  const points = useMemo(() => {
-    return Array.from({ length: 30 }).map((_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2 + 2,
-      duration: Math.random() * 5 + 5,
-      delay: Math.random() * 3
-    }));
-  }, []);
-
+function SatinFluidBackground() {
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
-      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }}>
-        {points.slice(0, 15).map((point, i) => {
-          const nextPoint = points[(i + 1) % points.length];
-          return (
-            <line
-              key={`line-${i}`}
-              x1={`${point.x}%`}
-              y1={`${point.y}%`}
-              x2={`${nextPoint.x}%`}
-              y2={`${nextPoint.y}%`}
-              stroke="#E21F27"
-              strokeWidth="0.5"
-            />
-          );
-        })}
-      </svg>
-      {points.map((point) => (
-        <motion.div
-          key={point.id}
-          initial={{ opacity: 0.2 }}
-          animate={{
-            opacity: [0.2, 0.7, 0.2],
-            scale: [1, 1.4, 1],
-          }}
-          transition={{
-            duration: point.duration,
-            repeat: Infinity,
-            delay: point.delay,
-            ease: "easeInOut"
-          }}
-          style={{
-            position: 'absolute',
-            left: `${point.x}%`,
-            top: `${point.y}%`,
-            width: point.size,
-            height: point.size,
-            backgroundColor: '#E21F27',
-            borderRadius: '50%',
-            boxShadow: '0 0 12px rgba(226,31,39,0.8)',
-            zIndex: 10
-          }}
-        />
-      ))}
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#020202', zIndex: 0 }}>
+      {/* Wave 1 - Deep Red Satin */}
+      <motion.div
+        animate={{
+          scale: [1, 1.2, 1],
+          rotate: [0, 90, 180, 270, 360],
+          x: ['-20%', '10%', '-20%'],
+          y: ['-10%', '20%', '-10%'],
+        }}
+        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: 'absolute',
+          top: '-20%',
+          left: '-20%',
+          width: '120%',
+          height: '120%',
+          background: 'radial-gradient(ellipse at center, rgba(226,31,39,0.15) 0%, transparent 70%)',
+          filter: 'blur(80px)',
+          borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
+        }}
+      />
+      {/* Wave 2 - Royal Blue Depths */}
+      <motion.div
+        animate={{
+          scale: [1.1, 1, 1.1],
+          rotate: [360, 270, 180, 90, 0],
+          x: ['20%', '-10%', '20%'],
+          y: ['20%', '-10%', '20%'],
+        }}
+        transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: 'absolute',
+          bottom: '-20%',
+          right: '-20%',
+          width: '120%',
+          height: '120%',
+          background: 'radial-gradient(ellipse at center, rgba(30,58,138,0.12) 0%, transparent 70%)',
+          filter: 'blur(100px)',
+          borderRadius: '50% 50% 50% 50% / 50% 50% 50% 50%',
+        }}
+      />
+      {/* Wave 3 - Satin Sheen / Highlight */}
+      <motion.div
+        animate={{
+          opacity: [0.2, 0.4, 0.2],
+          x: ['-50%', '50%', '-50%'],
+        }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          top: '20%',
+          left: '0',
+          width: '200%',
+          height: '60%',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)',
+          transform: 'rotate(-45deg)',
+          filter: 'blur(40px)',
+          zIndex: 2
+        }}
+      />
+      {/* Grain/Texture Overlay */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%)',
-        zIndex: 5
+        opacity: 0.03,
+        pointerEvents: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+        zIndex: 3
       }} />
     </div>
   );
@@ -102,8 +110,8 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'inherit'
     }}>
-      {/* AI Neural Phase Background */}
-      <NeuralBackground />
+      {/* Satin Liquid Flow Background */}
+      <SatinFluidBackground />
 
       {/* Main REFINED Card */}
       <motion.div
@@ -122,7 +130,7 @@ export function DesktopLanding() {
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(226,31,39,0.05)',
+          boxShadow: '0 0 100px rgba(0,0,0,0.9), 0 0 50px rgba(226,31,39,0.03)',
           maxHeight: '92vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
@@ -156,7 +164,7 @@ export function DesktopLanding() {
             color: 'rgba(255,255,255,0.4)', 
             fontWeight: '700',
             display: 'block',
-            marginBottom: '12px' // Increased gap below HEY BUDDY
+            marginBottom: '12px'
           }}>
             HEY BUDDY,
           </span>
@@ -165,7 +173,7 @@ export function DesktopLanding() {
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.02em',
-            lineHeight: '1.4' // Increased line height
+            lineHeight: '1.4'
           }}>
             Welcome to <br />
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
@@ -209,10 +217,10 @@ export function DesktopLanding() {
           </motion.div>
 
           <div style={{
-            background: 'rgba(255, 255, 255, 0.08)', // Glass effect
+            background: 'rgba(255, 255, 255, 0.08)',
             backdropFilter: 'blur(12px)',
             padding: '16px',
-            borderRadius: '5px', // Subtle corners
+            borderRadius: '5px',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             zIndex: 20,
             boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
@@ -223,7 +231,7 @@ export function DesktopLanding() {
             <QRCode 
               value={domain}
               size={140}
-              fgColor="#FFFFFF" // White for glass contrast
+              fgColor="#FFFFFF"
               bgColor="transparent"
               level="H"
             />
