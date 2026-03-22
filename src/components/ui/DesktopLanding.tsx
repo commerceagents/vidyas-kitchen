@@ -8,25 +8,41 @@ import { WhatsappLogo } from "@phosphor-icons/react";
 
 function NeuralBackground() {
   const points = useMemo(() => {
-    return Array.from({ length: 40 }).map((_, i) => ({
+    return Array.from({ length: 30 }).map((_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 10 + 10,
-      delay: Math.random() * 5
+      size: Math.random() * 2 + 2,
+      duration: Math.random() * 5 + 5,
+      delay: Math.random() * 3
     }));
   }, []);
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }}>
+        {points.slice(0, 15).map((point, i) => {
+          const nextPoint = points[(i + 1) % points.length];
+          return (
+            <line
+              key={`line-${i}`}
+              x1={`${point.x}%`}
+              y1={`${point.y}%`}
+              x2={`${nextPoint.x}%`}
+              y2={`${nextPoint.y}%`}
+              stroke="#E21F27"
+              strokeWidth="0.5"
+            />
+          );
+        })}
+      </svg>
       {points.map((point) => (
         <motion.div
           key={point.id}
-          initial={{ opacity: 0.1, x: `${point.x}%`, y: `${point.y}%` }}
+          initial={{ opacity: 0.2 }}
           animate={{
-            opacity: [0.1, 0.4, 0.1],
-            y: [`${point.y}%`, `${point.y - 5}%`, `${point.y}%`],
+            opacity: [0.2, 0.7, 0.2],
+            scale: [1, 1.4, 1],
           }}
           transition={{
             duration: point.duration,
@@ -36,19 +52,22 @@ function NeuralBackground() {
           }}
           style={{
             position: 'absolute',
+            left: `${point.x}%`,
+            top: `${point.y}%`,
             width: point.size,
             height: point.size,
             backgroundColor: '#E21F27',
             borderRadius: '50%',
-            boxShadow: '0 0 10px rgba(226,31,39,0.5)',
+            boxShadow: '0 0 12px rgba(226,31,39,0.8)',
+            zIndex: 10
           }}
         />
       ))}
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'radial-gradient(circle at center, transparent 0%, rgba(2,2,2,0.8) 100%)',
-        zIndex: 1
+        background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%)',
+        zIndex: 5
       }} />
     </div>
   );
