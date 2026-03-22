@@ -236,3 +236,43 @@ Webhook Verified! ✅
  ○ Compiling /driver ...
  ✓ Compiled /driver in 3.9s (1476 modules)
  GET /driver 200 in 4704ms
+ ○ Compiling /api/whatsapp ...
+ ✓ Compiled /api/whatsapp in 1412ms (1757 modules)
+[META RAW]: {
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "from": "911234567890",
+                "type": "text",
+                "text": {
+                  "body": "Hi, I want to order some lunch for tomorrow"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
+[WHATSAPP] Incoming msg from 911234567890: "Hi, I want to order some lunch for tomorrow"
+[AI] Processing message...
+[AI] Reply generated: "Hi! I'm Vidya from Vidya's Kitchen. I'm so happy t..."
+[WHATSAPP] Sending buttons to 911234567890
+Button Response: {"error":{"message":"Error validating access token: Session has expired on Saturday, 21-Mar-26 13:00:00 PDT. The current time is Saturday, 21-Mar-26 13:27:41 PDT.","type":"OAuthException","code":190,"error_subcode":463,"fbtrace_id":"AWt_3mNxx4qq4cim67D8C_Q"}}
+ POST /api/whatsapp 200 in 3484ms
+ ✓ Compiled in 3.3s (682 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/simonsanthosh/Downloads/The Pixel Society/KnightWolf Files/Commerce-Agent/Project_1/.next/cache/webpack/client-development/9.pack.gz_' -> '/Users/simonsanthosh/Downloads/The Pixel Society/KnightWolf Files/Commerce-Agent/Project_1/.next/cache/webpack/client-development/9.pack.gz'
+ ✓ Compiled in 5.1s (1512 modules)
+ ✓ Compiled in 4.6s (1526 modules)
+ GET /driver 200 in 775ms
+ ✓ Compiled in 839ms (1512 modules)
+ ✓ Compiled in 2.8s (1475 modules)
+ ✓ Compiled in 3s (1489 modules)
+ ✓ Compiled in 3s (1489 modules)
