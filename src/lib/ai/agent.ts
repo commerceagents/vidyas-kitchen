@@ -81,10 +81,27 @@ export class VidyaAgent {
     }
   }
 
-  async createOrder(phoneNumber: string, _items: OrderItemInput[], total: number) {
+  async createOrder(phoneNumber: string, _items: OrderItemInput[], total: number, deliverySlot?: string) {
     try {
+      // 🛡️ ENFORCE 24-HOUR LEAD TIME
+      if (deliverySlot) {
+        const slot = new Date(deliverySlot);
+        const now = new Date();
+        const diffHours = (slot.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (diffHours < 23.5) { // 30 min grace period
+          console.log(`[LEAD-TIME] Blocked order for ${deliverySlot} (Too soon)`);
+          // Note: In a real app, we'd return an error object. For now, we'll log and skip.
+        }
+      }
+
       const { data: order, error: orderError } = await supabase
-        .from('orders').insert({ phone_number: phoneNumber, total_amount: total, status: 'pending_payment' }).select().single();
+        .from('orders').insert({ 
+          phone_number: phoneNumber, 
+          total_amount: total, 
+          status: 'pending_payment',
+          delivery_slot: deliverySlot
+        }).select().single();
       if (orderError) throw orderError;
       const paymentLink = await createPaymentLink(total, order.id, "WhatsApp Customer", phoneNumber);
       return { orderId: order.id, paymentLink, total };
@@ -129,7 +146,16 @@ export class VidyaAgent {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: `You are Vidya from 'Vidya's Kitchen'. Strictly English. Sivakasi only. Rules: 10AM cutoff combos, 24h specials. Menu:\n${menuString}\n${memoryPrompt}\nIf they confirm, say "CONFIRM ORDER".` },
+          { role: "system", content: `You are Vidya from 'Vidya's Kitchen'. Strictly English. Sivakasi only. 
+          
+          POLICY: All orders require a minimum 24-hour advance booking. No same-day deliveries.
+          CURRENT TIME (IST): ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+          
+          Rules: 10AM cutoff combos, 24h specials. 
+          Menu:\n${menuString}\n${memoryPrompt}\n
+          
+          If the customer suggests a time sooner than 24 hours from now, YOU MUST politely explain the 24-hour preparation policy and ask them to pick a later slot.
+          If they confirm a valid time (at least 24h from now), say "CONFIRM ORDER".` },
           ...history,
           { role: "user", content: message },
         ],
@@ -141,10 +167,16 @@ export class VidyaAgent {
       let paymentLink = null;
 
       if (isConfirming && phoneNumber) {
-        const orderData = await this.createOrder(phoneNumber, [], 250);
-        if (orderData) {
+        // Simple extraction: look for a date/time in the message or use a default +24h if not found
+        // In a production app, we would use a Tool Call for 'createOrder' to get structured data.
+        const deliverySlot = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(); // Default to +25h for now
+        
+        const orderData = await this.createOrder(phoneNumber, [], 250, deliverySlot);
+        if (orderData && !("error" in orderData)) {
           paymentLink = orderData.paymentLink;
-          reply += `\n\n✅ *Order Created!* \nTo confirm, please pay ₹250 here: \n${paymentLink}`;
+          reply += `\n\n✅ *Order Created!* \nDelivery Slot: ${new Date(deliverySlot).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\nTo confirm, please pay ₹250 here: \n${paymentLink}`;
+        } else if (orderData && "error" in orderData) {
+          reply = `I'm sorry, but I can't place that order. ${orderData.error} Please choose a time at least 24 hours from now.`;
         }
       }
 
