@@ -10,7 +10,6 @@ export function DesktopLanding() {
   const domain = "https://vidyaskitchenhome.com";
   const whatsappNumber = "+91 75500 28179";
 
-  // Handle mobile detection within the component as a safety layer
   const [isLargeScreen, setIsLargeScreen] = useState(false);
 
   useEffect(() => {
@@ -36,27 +35,72 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'inherit'
     }}>
-      {/* Abstract Red Background (Inspired by Blue Reference) */}
+      {/* Liquid Molten Obsidian Background */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(circle at 20% 20%, rgba(226,31,39,0.15) 0%, transparent 40%), radial-gradient(circle at 80% 80%, rgba(226,31,39,0.1) 0%, transparent 40%), radial-gradient(circle at 50% 50%, rgba(226,31,39,0.05) 0%, transparent 60%)',
-          filter: 'blur(60px)'
-        }} />
+        {/* Blob 1 */}
         <motion.div
           animate={{
-            opacity: [0.4, 0.6, 0.4],
+            x: [0, 100, -50, 0],
+            y: [0, -80, 120, 0],
+            scale: [1, 1.2, 0.9, 1],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          style={{
+            position: 'absolute',
+            top: '10%',
+            left: '20%',
+            width: '600px',
+            height: '600px',
+            background: 'radial-gradient(circle, rgba(226,31,39,0.12) 0%, transparent 70%)',
+            filter: 'blur(100px)',
+          }}
+        />
+        {/* Blob 2 */}
+        <motion.div
+          animate={{
+            x: [0, -120, 80, 0],
+            y: [0, 150, -100, 0],
+            scale: [1.1, 0.9, 1.3, 1.1],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          style={{
+            position: 'absolute',
+            bottom: '10%',
+            right: '15%',
+            width: '500px',
+            height: '500px',
+            background: 'radial-gradient(circle, rgba(160,20,30,0.1) 0%, transparent 70%)',
+            filter: 'blur(120px)',
+          }}
+        />
+        {/* Blob 3 */}
+        <motion.div
+          animate={{
+            x: [0, 80, -150, 0],
+            y: [0, 120, 80, 0],
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: '40%',
+            width: '450px',
+            height: '450px',
+            background: 'radial-gradient(circle, rgba(226,31,39,0.08) 0%, transparent 70%)',
+            filter: 'blur(90px)',
+          }}
+        />
+        {/* Blob 4 */}
+        <motion.div
+          animate={{
+            opacity: [0.3, 0.6, 0.3],
           }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '-10%',
-            right: '-10%',
-            width: '60%',
-            height: '60%',
-            background: 'radial-gradient(circle, rgba(226,31,39,0.08) 0%, transparent 70%)',
-            filter: 'blur(100px)',
+            inset: 0,
+            background: 'radial-gradient(circle at 50% 50%, rgba(226,31,39,0.04) 0%, transparent 60%)',
+            filter: 'blur(60px)'
           }}
         />
       </div>
@@ -74,7 +118,7 @@ export function DesktopLanding() {
           background: 'rgba(255, 255, 255, 0.02)',
           backdropFilter: 'blur(40px)',
           borderRadius: '40px',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          border: '0.5px solid rgba(255, 255, 255, 0.04)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -84,49 +128,82 @@ export function DesktopLanding() {
           overflow: 'hidden'
         }}
       >
-        {/* Full Card Grid Layout */}
+        {/* Shining Futuristic Effect Overlay */}
+        <motion.div
+          animate={{
+            x: ['-200%', '200%'],
+          }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '50%',
+            height: '100%',
+            background: 'linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.03) 55%, transparent 100%)',
+            transform: 'skewX(-20deg)',
+            zIndex: 5,
+            pointerEvents: 'none'
+          }}
+        />
+
+        {/* Smaller Glowing Grid */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          opacity: 0.1,
+          opacity: 0.15,
           backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            linear-gradient(rgba(226,31,39,0.4) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(226,31,39,0.4) 1px, transparent 1px)
           `,
-          backgroundSize: '24px 24px',
+          backgroundSize: '12px 12px',
           pointerEvents: 'none',
-          zIndex: -1
+          zIndex: -1,
+          filter: 'drop-shadow(0 0 1px rgba(226,31,39,0.3))'
         }} />
 
+        {/* Larger Logo Container */}
         <div style={{
-          width: '56px',
-          height: '56px',
+          width: '72px',
+          height: '72px',
           backgroundColor: 'white',
           borderRadius: '50%',
-          padding: '3px',
-          marginBottom: '20px',
-          boxShadow: '0 0 15px rgba(226,31,39,0.3)',
+          padding: '4px',
+          marginBottom: '24px',
+          boxShadow: '0 0 20px rgba(226,31,39,0.4)',
+          zIndex: 10
         }}>
           <Image 
             src="/VK_Logo.png" 
             alt="Vidya's Kitchen" 
-            width={50} 
-            height={50} 
+            width={64} 
+            height={64} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
           />
         </div>
 
-        <h1 style={{
-          fontSize: '24px',
-          fontWeight: '900',
-          marginBottom: '12px',
-          color: '#ffffff',
-          letterSpacing: '-0.02em',
-          lineHeight: '1.2'
-        }}>
-          Welcome to <br />
-          <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
-        </h1>
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{ 
+            fontSize: '10px', 
+            letterSpacing: '3px', 
+            color: 'rgba(255,255,255,0.4)', 
+            fontWeight: '800',
+            display: 'block',
+            marginBottom: '4px'
+          }}>
+            HEY BUDDY,
+          </span>
+          <h1 style={{
+            fontSize: '24px',
+            fontWeight: '900',
+            color: '#ffffff',
+            letterSpacing: '-0.02em',
+            lineHeight: '1.2'
+          }}>
+            Welcome to <br />
+            <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
+          </h1>
+        </div>
 
         {/* REPLICA QR SECTION */}
         <div style={{
@@ -152,27 +229,7 @@ export function DesktopLanding() {
             zIndex: 10
           }} />
 
-          {/* Precision Dotted Halo (Wave Animation) */}
-          <motion.div 
-            animate={{ 
-              opacity: [0.2, 0.6, 0.2],
-              scale: [0.95, 1.05, 0.95]
-            }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              position: 'absolute',
-              inset: '-10px',
-              borderRadius: '40px',
-              padding: '2px',
-              // Using radial-gradient to create crisp dots
-              backgroundImage: 'radial-gradient(circle, rgba(226,31,39,0.4) 1px, transparent 1px)',
-              backgroundSize: '8px 8px',
-              opacity: 0.5,
-              zIndex: 5
-            }} 
-          />
-
-          {/* QR Card Background with Inner Grid */}
+          {/* QR Card Background with Inner Micro-Grid */}
           <div style={{
             position: 'absolute',
             inset: 0,
@@ -187,12 +244,13 @@ export function DesktopLanding() {
              <div style={{
               position: 'absolute',
               inset: 0,
-              opacity: 0.2,
+              opacity: 0.25,
               backgroundImage: `
-                linear-gradient(rgba(226,31,39,0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(226,31,39,0.3) 1px, transparent 1px)
+                linear-gradient(rgba(226,31,39,0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(226,31,39,0.5) 1px, transparent 1px)
               `,
-              backgroundSize: '12px 12px'
+              backgroundSize: '6px 6px',
+              filter: 'drop-shadow(0 0 1px rgba(226,31,39,0.4))'
             }} />
             
             <div style={{
