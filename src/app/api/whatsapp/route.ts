@@ -95,8 +95,8 @@ export async function POST(req: Request) {
 async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
-  // LOGO URL (User can replace this with their actual hosted logo)
-  const LOGO_URL = "https://raw.githubusercontent.com/simonsanthosh/Assets/main/vidya_logo.png"; 
+  // LOGO URL (Using production domain asset)
+  const LOGO_URL = "https://vidyaskitchenhome.com/vk-logo.png"; 
 
   const payload = {
     messaging_product: "whatsapp",
