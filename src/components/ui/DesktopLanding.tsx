@@ -1,10 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 import { WhatsappLogo } from "@phosphor-icons/react";
+
+function NeuralBackground() {
+  const points = useMemo(() => {
+    return Array.from({ length: 40 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      duration: Math.random() * 10 + 10,
+      delay: Math.random() * 5
+    }));
+  }, []);
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {points.map((point) => (
+        <motion.div
+          key={point.id}
+          initial={{ opacity: 0.1, x: `${point.x}%`, y: `${point.y}%` }}
+          animate={{
+            opacity: [0.1, 0.4, 0.1],
+            y: [`${point.y}%`, `${point.y - 5}%`, `${point.y}%`],
+          }}
+          transition={{
+            duration: point.duration,
+            repeat: Infinity,
+            delay: point.delay,
+            ease: "easeInOut"
+          }}
+          style={{
+            position: 'absolute',
+            width: point.size,
+            height: point.size,
+            backgroundColor: '#E21F27',
+            borderRadius: '50%',
+            boxShadow: '0 0 10px rgba(226,31,39,0.5)',
+          }}
+        />
+      ))}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(circle at center, transparent 0%, rgba(2,2,2,0.8) 100%)',
+        zIndex: 1
+      }} />
+    </div>
+  );
+}
 
 export function DesktopLanding() {
   const domain = "https://vidyaskitchenhome.com";
@@ -35,45 +83,8 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'inherit'
     }}>
-      {/* Active Liquid Molten Obsidian Background */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        {/* Blob 1 */}
-        <motion.div
-           animate={{
-            x: [0, 80, -40, 0],
-            y: [0, -60, 100, 0],
-            scale: [1, 1.1, 0.95, 1],
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-          style={{
-            position: 'absolute',
-            top: '5%',
-            left: '15%',
-            width: '700px',
-            height: '700px',
-            background: 'radial-gradient(circle, rgba(226,31,39,0.12) 0%, transparent 70%)',
-            filter: 'blur(110px)',
-          }}
-        />
-        {/* Blob 2 */}
-        <motion.div
-          animate={{
-            x: [0, -100, 60, 0],
-            y: [0, 120, -80, 0],
-            scale: [1.05, 0.95, 1.2, 1.05],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          style={{
-            position: 'absolute',
-            bottom: '5%',
-            right: '10%',
-            width: '600px',
-            height: '600px',
-            background: 'radial-gradient(circle, rgba(160,20,30,0.1) 0%, transparent 70%)',
-            filter: 'blur(130px)',
-          }}
-        />
-      </div>
+      {/* AI Neural Phase Background */}
+      <NeuralBackground />
 
       {/* Main REFINED Card */}
       <motion.div
@@ -85,28 +96,28 @@ export function DesktopLanding() {
           zIndex: 60,
           width: '460px',
           padding: '40px',
-          background: '#0D0D0F', // Slightly off-black for visibility
+          background: '#0D0D0F',
           borderRadius: '32px',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(226,31,39,0.05)', // Glow separation
+          boxShadow: '0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(226,31,39,0.05)',
           maxHeight: '92vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none'
         }}
       >
-        {/* Top Brand Logo - Large & No Border */}
+        {/* Top Brand Logo */}
         <div style={{
           width: '100px',
           height: '100px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '20px',
+          marginBottom: '28px',
           zIndex: 10
         }}>
           <Image 
@@ -119,14 +130,14 @@ export function DesktopLanding() {
         </div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '28px' }}>
           <span style={{ 
             fontSize: '11px', 
             letterSpacing: '4px', 
             color: 'rgba(255,255,255,0.4)', 
             fontWeight: '700',
             display: 'block',
-            marginBottom: '4px'
+            marginBottom: '12px' // Increased gap below HEY BUDDY
           }}>
             HEY BUDDY,
           </span>
@@ -135,24 +146,24 @@ export function DesktopLanding() {
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.02em',
-            lineHeight: '1.2'
+            lineHeight: '1.4' // Increased line height
           }}>
             Welcome to <br />
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
           </h2>
         </div>
 
-        {/* Floating QR Section with HIGH FLARE Scanning Line */}
+        {/* Floating QR Section with Glass Effect */}
         <div style={{
           position: 'relative',
-          width: '240px',
-          height: '240px',
-          marginBottom: '24px',
+          width: '220px',
+          height: '220px',
+          marginBottom: '28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {/* THE SCANNING LINE FLARE SYSTEM */}
+          {/* THE SCANNING LINE FLARE */}
           <motion.div
             animate={{
               top: ['0%', '100%', '0%']
@@ -179,16 +190,22 @@ export function DesktopLanding() {
           </motion.div>
 
           <div style={{
-            background: '#ffffff',
-            padding: '12px',
-            borderRadius: '40px', // iOS Squircle style
+            background: 'rgba(255, 255, 255, 0.08)', // Glass effect
+            backdropFilter: 'blur(12px)',
+            padding: '16px',
+            borderRadius: '5px', // Subtle corners
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             zIndex: 20,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
             <QRCode 
               value={domain}
-              size={150}
-              fgColor="#101828"
+              size={140}
+              fgColor="#FFFFFF" // White for glass contrast
+              bgColor="transparent"
               level="H"
             />
           </div>
