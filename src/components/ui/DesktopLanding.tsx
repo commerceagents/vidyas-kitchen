@@ -95,7 +95,7 @@ export function DesktopLanding() {
           position: 'relative',
           zIndex: 60,
           width: '440px',
-          padding: '48px 40px', // Equalized top/bottom padding
+          padding: '36px 40px', // Reduced padding
           background: '#0D0D0F',
           borderRadius: '32px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -164,7 +164,12 @@ export function DesktopLanding() {
               maskPosition: ['0% -100%', '0% 200%'],
               WebkitMaskPosition: ['0% -100%', '0% 200%']
             }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            transition={{ 
+              duration: 7, // Slowed down
+              repeat: Infinity, 
+              ease: "linear",
+              repeatDelay: 2 // Added interval
+            }}
             style={{
               position: 'absolute',
               inset: 0,
@@ -190,10 +195,10 @@ export function DesktopLanding() {
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
           style={{
-            width: '100px',
-            height: '100px',
-            minWidth: '100px', // Force square aspect
-            minHeight: '100px',
+            width: '115px', // Enlarged
+            height: '115px',
+            minWidth: '115px',
+            minHeight: '115px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -201,15 +206,15 @@ export function DesktopLanding() {
             zIndex: 10,
             background: 'black',
             borderRadius: '50%',
-            border: '0.5px solid rgba(255,255,255,0.1)',
+            border: '0.1px solid rgba(255,255,255,0.05)', // Ultra-thin border
             flexShrink: 0
           }}
         >
           <Image 
             src="/VK_Logo.png" 
             alt="Vidya's Kitchen" 
-            width={75} 
-            height={75} 
+            width={85} // Larger image 
+            height={85} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
           />
         </motion.div>
@@ -352,8 +357,8 @@ export function DesktopLanding() {
 
       {/* Subtle Footer */}
       <div style={{ 
-        marginTop: '140px',
-        paddingBottom: '40px',
+        marginTop: '100px', // Reduced from 140px for symmetry
+        paddingBottom: '60px', // Added bottom padding for symmetry
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
