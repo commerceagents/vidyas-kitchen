@@ -202,7 +202,6 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         height: '81px'
       }}>
         <motion.div
-          whileHover={{ x: -4 }}
           transition={{ duration: 0.2 }}
         >
           <Link 
@@ -417,15 +416,15 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             <Image 
               src="/VK_Logo.png" 
               alt="Vidya's Kitchen" 
-              width={48} 
-              height={48} 
-              style={{ borderRadius: '50%', opacity: 0.8 }}
+              width={64} 
+              height={64} 
+              style={{ borderRadius: '50%', opacity: 0.9 }}
             />
             <p style={{
               fontSize: '10px',
               fontWeight: '900',
               letterSpacing: '0.3em',
-              color: 'rgba(255,255,255,0.3)',
+              color: 'rgba(255,255,255,0.4)',
               textTransform: 'uppercase',
               textAlign: 'center'
             }}>
