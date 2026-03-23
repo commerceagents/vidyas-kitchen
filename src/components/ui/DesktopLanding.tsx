@@ -94,14 +94,15 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '440px', // Decreased width
-          padding: '40px', 
+          width: '440px',
+          padding: '48px 40px', // Equalized top/bottom padding
           background: '#0D0D0F',
           borderRadius: '32px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          flexShrink: 0,
           textAlign: 'center',
           boxShadow: '0 40px 100px rgba(0,0,0,0.8)',
           maxHeight: '85vh',
@@ -141,8 +142,9 @@ export function DesktopLanding() {
           }} 
         />
 
-        {/* Vertical Sweep 'Shining' Grid */}
+        {/* Vertical Wave 'Shining' Grid */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
+          {/* Base Gray Grid */}
           <div style={{
             position: 'absolute',
             inset: 0,
@@ -155,17 +157,30 @@ export function DesktopLanding() {
             zIndex: 1,
             maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
           }} />
+          
+          {/* Animated White Shine Grid (Wave) */}
           <motion.div 
-            animate={{ y: ['-100%', '400%'] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
+            animate={{ 
+              maskPosition: ['0% -100%', '0% 200%'],
+              WebkitMaskPosition: ['0% -100%', '0% 200%']
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             style={{
               position: 'absolute',
-              left: 0,
-              width: '100%',
-              height: '150px', // Taller band
-              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.4), transparent)',
+              inset: 0,
+              backgroundImage: `
+                linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)
+              `,
+              backgroundSize: '10px 10px',
+              pointerEvents: 'none',
               zIndex: 2,
-              pointerEvents: 'none'
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
+              maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
+              WebkitMaskSize: '100% 150px',
+              maskSize: '100% 150px',
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat'
             }}
           />
         </div>
@@ -175,16 +190,19 @@ export function DesktopLanding() {
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
           style={{
-            width: '100px', // Increased size
+            width: '100px',
             height: '100px',
+            minWidth: '100px', // Force square aspect
+            minHeight: '100px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '32px', // More space
+            marginBottom: '32px',
             zIndex: 10,
             background: 'black',
             borderRadius: '50%',
-            border: '0.5px solid rgba(255,255,255,0.1)' // Thinner border
+            border: '0.5px solid rgba(255,255,255,0.1)',
+            flexShrink: 0
           }}
         >
           <Image 
@@ -206,7 +224,14 @@ export function DesktopLanding() {
             lineHeight: '1.4', // Increased line height for spacing
             textTransform: 'uppercase'
           }}>
-            <span style={{ fontSize: '14px', letterSpacing: '8px', opacity: 0.4, color: '#FFFFFF', display: 'block', marginBottom: '8px' }}>Welcome to</span>
+            <span style={{ 
+              fontSize: '14px', 
+              letterSpacing: '2px', // Reduced letter spacing
+              opacity: 0.4, 
+              color: '#FFFFFF', 
+              display: 'block', 
+              marginBottom: '8px' 
+            }}>Welcome to</span>
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
           </h2>
         </div>
@@ -310,7 +335,7 @@ export function DesktopLanding() {
               textDecoration: 'none'
             }}
           >
-            <WhatsappLogo size={24} weight="fill" />
+            <WhatsappLogo size={24} weight="fill" color={isHovered ? "#FFFFFF" : "#25D366"} />
             Order with Vidya Bot
           </motion.a>
           
