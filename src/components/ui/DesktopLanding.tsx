@@ -86,6 +86,32 @@ export function DesktopLanding() {
       {/* Glowing Blobs Background */}
       <GlowingBlobsBackground />
 
+      {/* Rotating Background Asset (Chicken Curry) */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: '-200px', // Half-clipped (for 400px width)
+          marginTop: '30px', // Minor vertical offset to balance with card shift
+          transform: 'translateY(-50%)',
+          width: '400px',
+          height: '400px',
+          zIndex: 5,
+          opacity: 0.15, // Subtle for premium background feel
+          pointerEvents: 'none'
+        }}
+      >
+        <Image 
+          src="/chicken_curry.png" 
+          alt="" 
+          width={400}
+          height={400}
+          style={{ objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.5))' }}
+        />
+      </motion.div>
+
       {/* Main REFINED Card */}
       <motion.div
         initial={{ y: 80, opacity: 0 }}
