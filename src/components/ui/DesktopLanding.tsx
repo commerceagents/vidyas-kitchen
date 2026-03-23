@@ -87,9 +87,9 @@ export function DesktopLanding() {
 
       {/* Main REFINED Card */}
       <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 40, opacity: 1 }} // More significant downward offset for optical centering
-        transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ y: 80, opacity: 0 }}
+        animate={{ y: 60, opacity: 1 }} // Lowered for better optical center
+        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: 'relative',
           zIndex: 60,
@@ -109,62 +109,95 @@ export function DesktopLanding() {
           scrollbarWidth: 'none'
         }}
       >
-        {/* Animated Grid Overlay */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.3, 0.1, 0.4, 0] }} // Significantly more visible shimmer
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }} // Faster shimmer
-          style={{
+        {/* Red Top-Center Glow */}
+        <div style={{
+          position: 'absolute',
+          top: '0',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '120px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, #E21F27 50%, transparent)',
+          zIndex: 20
+        }} />
+        <div style={{
+          position: 'absolute',
+          top: '0',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '80px',
+          height: '40px',
+          background: 'radial-gradient(circle at top, rgba(226,31,39,0.2) 0%, transparent 70%)',
+          filter: 'blur(20px)',
+          zIndex: 15
+        }} />
+
+        {/* Vertical Sweep 'Shining' Grid */}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
+          <div style={{
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)
+              linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
             `,
-            backgroundSize: '10px 10px', // Even tinier grid
+            backgroundSize: '10px 10px',
             pointerEvents: 'none',
             zIndex: 1,
-            maskImage: 'radial-gradient(circle at center, black, transparent 90%)'
-          }}
-        />
+            maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
+          }} />
+          <motion.div 
+            animate={{ top: ['-100%', '200%'] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            style={{
+              position: 'absolute',
+              left: 0,
+              width: '100%',
+              height: '50%',
+              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.08), transparent)',
+              zIndex: 2,
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
 
         {/* Top Brand Logo */}
         <motion.div 
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
           style={{
-            width: '80px',
-            height: '80px',
+            width: '100px', // Increased size
+            height: '100px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '24px',
+            marginBottom: '32px', // More space
             zIndex: 10,
             background: 'black',
             borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: '0.5px solid rgba(255,255,255,0.1)' // Thinner border
           }}
         >
           <Image 
             src="/VK_Logo.png" 
             alt="Vidya's Kitchen" 
-            width={60} 
-            height={60} 
+            width={75} 
+            height={75} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
           />
         </motion.div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '28px', zIndex: 10 }}>
+        <div style={{ marginBottom: '32px', zIndex: 10 }}>
           <h2 style={{
             fontSize: '28px',
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.04em',
-            lineHeight: '1.2',
+            lineHeight: '1.4', // Increased line height for spacing
             textTransform: 'uppercase'
           }}>
-            Welcome to <br />
+            <span style={{ fontSize: '14px', letterSpacing: '8px', opacity: 0.4, color: '#FFFFFF', display: 'block', marginBottom: '8px' }}>Welcome to</span>
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
           </h2>
         </div>
@@ -229,65 +262,57 @@ export function DesktopLanding() {
           </div>
         </div>
 
-        {/* Action Buttons Row */}
+        {/* Action Button Row */}
         <div style={{ 
           display: 'flex', 
-          gap: '12px', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px', 
           width: '100%',
           marginTop: 'auto',
           zIndex: 10
         }}>
-          {/* WhatsApp Button (White) */}
-          <a 
-            href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`}
+          {/* Combined "Order with Vidya Bot" Button */}
+          <motion.a 
+            href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=Hi!+I'd+like+to+order+from+today's+menu.`}
             target="_blank"
             rel="noopener noreferrer"
+            whileHover={{ 
+              backgroundColor: '#25D366', 
+              color: '#FFFFFF',
+              scale: 1.02
+            }}
+            whileTap={{ scale: 0.98 }}
             style={{
-              flex: 1,
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              padding: '16px',
+              gap: '10px',
+              padding: '18px',
               background: '#FFFFFF',
               color: '#000000',
-              borderRadius: '12px',
+              borderRadius: '16px',
               fontWeight: '900',
-              fontSize: '13px',
+              fontSize: '14px',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               textDecoration: 'none',
-              transition: 'all 0.2s ease'
+              transition: 'background-color 0.3s ease, color 0.3s ease'
             }}
           >
-            <WhatsappLogo size={20} weight="fill" color="#25D366" />
-            WA Bot
-          </a>
-
-          {/* Contact Us Button (Primary Red) */}
-          <a 
-            href="tel:+917550028179"
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '16px',
-              background: '#E21F27',
-              color: '#FFFFFF',
-              borderRadius: '12px',
-              fontWeight: '900',
-              fontSize: '13px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              textDecoration: 'none',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Phone size={20} weight="fill" />
-            Contact
-          </a>
+            <WhatsappLogo size={24} weight="fill" />
+            Order with Vidya Bot
+          </motion.a>
+          
+          <p style={{ 
+            fontSize: '10px', 
+            color: 'rgba(255,255,255,0.4)', 
+            letterSpacing: '1px',
+            fontWeight: '500'
+          }}>
+            Order from our daily menu or get instant support via WhatsApp
+          </p>
         </div>
       </motion.div>
 
