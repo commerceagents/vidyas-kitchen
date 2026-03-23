@@ -229,7 +229,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: '10px', 
           fontWeight: '900', 
           letterSpacing: '0.4em', 
-          color: 'rgba(255,255,255,0.15)', 
+          color: 'rgba(255,255,255,0.4)', 
           textTransform: 'uppercase',
           textAlign: 'right'
         }}>
@@ -268,7 +268,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     textTransform: 'uppercase',
                     letterSpacing: '0.2em',
                     transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
+                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
                     transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
                   }}
                   className="hover:text-white"
@@ -300,7 +300,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: '10px',
           fontWeight: '900',
           letterSpacing: '0.3em',
-          color: 'rgba(255,255,255,0.15)',
+          color: 'rgba(255,255,255,0.4)',
           textTransform: 'uppercase',
           marginBottom: '40px'
         }}>
@@ -409,7 +409,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '16px',
+            gap: '24px',
             paddingBottom: '80px',
             width: '100%'
           }}>
@@ -421,14 +421,17 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               style={{ borderRadius: '50%', opacity: 0.9 }}
             />
             <p style={{
-              fontSize: '10px',
+              fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.3em',
               color: 'rgba(255,255,255,0.4)',
               textTransform: 'uppercase',
-              textAlign: 'center'
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
-              &copy; 2026 Vidya&apos;s Kitchen. All rights reserved.
+              <span style={{ fontSize: '16px' }}>&copy;</span> 2026 Vidya&apos;s Kitchen. All rights reserved.
             </p>
           </footer>
         </motion.div>
