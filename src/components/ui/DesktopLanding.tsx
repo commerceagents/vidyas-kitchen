@@ -6,76 +6,57 @@ import Image from "next/image";
 import QRCode from "react-qr-code";
 import { WhatsappLogo } from "@phosphor-icons/react";
 
-function SatinFluidBackground() {
+import { Phone } from "@phosphor-icons/react";
+
+function GlowingBlobsBackground() {
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#020202', zIndex: 0 }}>
-      {/* Wave 1 - Deep Red Satin */}
+      {/* Blob 1 - Red Glow */}
       <motion.div
         animate={{
           scale: [1, 1.2, 1],
-          rotate: [0, 90, 180, 270, 360],
-          x: ['-20%', '10%', '-20%'],
-          y: ['-10%', '20%', '-10%'],
-        }}
-        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: 'absolute',
-          top: '-20%',
-          left: '-20%',
-          width: '120%',
-          height: '120%',
-          background: 'radial-gradient(ellipse at center, rgba(226,31,39,0.15) 0%, transparent 70%)',
-          filter: 'blur(80px)',
-          borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
-        }}
-      />
-      {/* Wave 2 - Royal Blue Depths */}
-      <motion.div
-        animate={{
-          scale: [1.1, 1, 1.1],
-          rotate: [360, 270, 180, 90, 0],
-          x: ['20%', '-10%', '20%'],
-          y: ['20%', '-10%', '20%'],
-        }}
-        transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: 'absolute',
-          bottom: '-20%',
-          right: '-20%',
-          width: '120%',
-          height: '120%',
-          background: 'radial-gradient(ellipse at center, rgba(30,58,138,0.12) 0%, transparent 70%)',
-          filter: 'blur(100px)',
-          borderRadius: '50% 50% 50% 50% / 50% 50% 50% 50%',
-        }}
-      />
-      {/* Wave 3 - Satin Sheen / Highlight */}
-      <motion.div
-        animate={{
-          opacity: [0.2, 0.4, 0.2],
-          x: ['-50%', '50%', '-50%'],
+          x: ['-10%', '10%', '-10%'],
+          y: ['-10%', '10%', '-10%'],
         }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
         style={{
           position: 'absolute',
           top: '20%',
-          left: '0',
-          width: '200%',
-          height: '60%',
-          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)',
-          transform: 'rotate(-45deg)',
-          filter: 'blur(40px)',
-          zIndex: 2
+          left: '20%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 70%)',
+          filter: 'blur(80px)',
+          borderRadius: '50%',
         }}
       />
-      {/* Grain/Texture Overlay */}
+      {/* Blob 2 - Dark Deep Blue Glow */}
+      <motion.div
+        animate={{
+          scale: [1.2, 1, 1.2],
+          x: ['10%', '-10%', '10%'],
+          y: ['10%', '-10%', '10%'],
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          bottom: '10%',
+          right: '15%',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(30,58,138,0.08) 0%, transparent 70%)',
+          filter: 'blur(100px)',
+          borderRadius: '50%',
+        }}
+      />
+      {/* Texture Overlay */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        opacity: 0.03,
+        opacity: 0.15, // Subtle glow
         pointerEvents: 'none',
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        zIndex: 3
+        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 80%)',
+        zIndex: 1
       }} />
     </div>
   );
@@ -110,8 +91,8 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'inherit'
     }}>
-      {/* Satin Liquid Flow Background */}
-      <SatinFluidBackground />
+      {/* Glowing Blobs Background */}
+      <GlowingBlobsBackground />
 
       {/* Main REFINED Card */}
       <motion.div
@@ -121,17 +102,17 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '460px',
-          padding: '40px',
+          width: '500px', // Wider card
+          padding: '32px 40px', // Slightly reduced vertical padding
           background: '#0D0D0F',
           borderRadius: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          boxShadow: '0 0 100px rgba(0,0,0,0.9), 0 0 50px rgba(226,31,39,0.03)',
-          maxHeight: '92vh',
+          boxShadow: '0 0 100px rgba(0,0,0,0.9)',
+          maxHeight: '88vh', // Reduced height
           overflowY: 'auto',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none'
@@ -139,41 +120,31 @@ export function DesktopLanding() {
       >
         {/* Top Brand Logo */}
         <div style={{
-          width: '100px',
-          height: '100px',
+          width: '80px', // Slightly smaller logo
+          height: '80px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '28px',
+          marginBottom: '20px',
           zIndex: 10
         }}>
           <Image 
             src="/VK_Logo.png" 
             alt="Vidya's Kitchen" 
-            width={100} 
-            height={100} 
+            width={80} 
+            height={80} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
           />
         </div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '28px' }}>
-          <span style={{ 
-            fontSize: '11px', 
-            letterSpacing: '4px', 
-            color: 'rgba(255,255,255,0.4)', 
-            fontWeight: '700',
-            display: 'block',
-            marginBottom: '12px'
-          }}>
-            HEY BUDDY,
-          </span>
+        <div style={{ marginBottom: '24px' }}>
           <h2 style={{
-            fontSize: '30px',
+            fontSize: '28px',
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.02em',
-            lineHeight: '1.4'
+            lineHeight: '1.3'
           }}>
             Welcome to <br />
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
@@ -183,9 +154,9 @@ export function DesktopLanding() {
         {/* Floating QR Section with Glass Effect */}
         <div style={{
           position: 'relative',
-          width: '220px',
-          height: '220px',
-          marginBottom: '28px',
+          width: '200px', // Adjusted size
+          height: '200px',
+          marginBottom: '24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -212,15 +183,15 @@ export function DesktopLanding() {
               width: '100%',
               height: '2px',
               background: 'linear-gradient(90deg, transparent 0%, rgba(226,31,39,0.8) 20%, #E21F27 50%, rgba(226,31,39,0.8) 80%, transparent 100%)',
-              boxShadow: '0 0 20px 2px rgba(226,31,39,0.5)',
+              boxShadow: '0 0 15px 1px rgba(226,31,39,0.4)',
             }} />
           </motion.div>
 
           <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
+            background: 'rgba(255, 255, 255, 0.05)',
             backdropFilter: 'blur(12px)',
-            padding: '16px',
-            borderRadius: '5px',
+            padding: '12px',
+            borderRadius: '12px',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             zIndex: 20,
             boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
@@ -240,10 +211,10 @@ export function DesktopLanding() {
 
         {/* Funny Caption */}
         <p style={{
-          fontSize: '14px',
-          color: 'rgba(255,255,255,0.6)',
+          fontSize: '13px',
+          color: 'rgba(255,255,255,0.5)',
           lineHeight: '1.5',
-          marginBottom: '32px',
+          marginBottom: '28px',
           maxWidth: '300px',
           fontWeight: '500',
           fontStyle: 'italic'
@@ -251,44 +222,69 @@ export function DesktopLanding() {
           &ldquo;Your phone is currently starving for a better view. Scan me to give it a digital feast!&rdquo;
         </p>
 
-        {/* Primary CTA (White Button) */}
-        <a 
-          href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '14px 24px',
-            background: '#FFFFFF',
-            color: '#101828',
-            borderRadius: '16px',
-            fontWeight: '800',
-            fontSize: '16px',
-            textDecoration: 'none',
-            transition: 'all 0.3s ease',
-            width: '100%',
-            justifyContent: 'center',
-            boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.background = '#F9FAFB';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.background = '#FFFFFF';
-          }}
-        >
-          <WhatsappLogo size={24} weight="fill" color="#25D366" />
-          Chat with Vidya Bot
-        </a>
+        {/* Action Buttons Row */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          width: '100%',
+          marginTop: 'auto' 
+        }}>
+          {/* WhatsApp Button (White) */}
+          <a 
+            href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              padding: '14px',
+              background: '#FFFFFF',
+              color: '#101828',
+              borderRadius: '16px',
+              fontWeight: '800',
+              fontSize: '15px',
+              textDecoration: 'none',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+            }}
+          >
+            <WhatsappLogo size={22} weight="fill" color="#25D366" />
+            WA Bot
+          </a>
+
+          {/* Contact Us Button (Primary Red) */}
+          <a 
+            href="tel:+917550028179"
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              padding: '14px',
+              background: '#E21F27',
+              color: '#FFFFFF',
+              borderRadius: '16px',
+              fontWeight: '800',
+              fontSize: '15px',
+              textDecoration: 'none',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 10px 20px rgba(226,31,39,0.2)'
+            }}
+          >
+            <Phone size={22} weight="fill" />
+            Contact
+          </a>
+        </div>
       </motion.div>
 
       {/* Subtle Footer Branding & Legal Links */}
       <div style={{ 
-        marginTop: '24px',
+        marginTop: '32px',
+        paddingBottom: '32px', // Added padding
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -300,7 +296,7 @@ export function DesktopLanding() {
           gap: '20px',
           opacity: 0.4
         }}>
-          {['Terms', 'Privacy', 'Refund Policy', 'Contact'].map((item) => (
+          {['Terms', 'Privacy', 'Refund Policy'].map((item) => (
             <a
               key={item}
               href={`/${item.toLowerCase().replace(' ', '-')}`}
