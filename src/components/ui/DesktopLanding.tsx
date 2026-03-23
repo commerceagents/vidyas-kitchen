@@ -202,7 +202,7 @@ export function DesktopLanding() {
             display: 'flex', // Restored
             alignItems: 'center', // Restored
             justifyContent: 'center', // Restored
-            marginBottom: '32px', // Restored
+            marginBottom: '12px', // Reduced from 32px
             zIndex: 10,
             background: 'transparent', // Explicitly transparent
             borderRadius: '50%',
@@ -234,7 +234,7 @@ export function DesktopLanding() {
               opacity: 0.4, 
               color: '#FFFFFF', 
               display: 'block', 
-              marginBottom: '8px' 
+              marginBottom: '2px' // Reduced from 8px
             }}>Welcome to</span>
             <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
           </h2>
