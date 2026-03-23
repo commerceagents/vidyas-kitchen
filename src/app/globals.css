@@ -44,7 +44,6 @@ body {
   }
   
   * {
-    @apply border-border;
     font-family: var(--font-jetbrains-mono), monospace !important;
   }
   body {
