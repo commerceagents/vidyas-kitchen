@@ -47,7 +47,8 @@ body {
     font-family: var(--font-jetbrains-mono), monospace !important;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: #000000 !important;
+    color: #ffffff !important;
     font-family: var(--font-jetbrains-mono), monospace;
   }
 }
