@@ -174,8 +174,6 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       backgroundColor: '#000000',
       color: '#FFFFFF',
       fontFamily: 'var(--font-jetbrains-mono), monospace',
-      display: 'flex',
-      flexDirection: 'column'
     }}>
       <style>{`
         ::selection { background: #FFFFFF; color: #000000; }
@@ -183,9 +181,11 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         * { scroll-behavior: smooth; }
         .back-link:hover { color: #FFFFFF !important; }
         .back-link:hover svg { color: #FFFFFF !important; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      {/* STICKY Top Header */}
+      {/* FIXED Top Header */}
       <header style={{
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         padding: '24px 48px',
@@ -194,9 +194,12 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         justifyContent: 'space-between',
         backgroundColor: 'rgba(0,0,0,0.85)',
         backdropFilter: 'blur(20px)',
-        zIndex: 100,
-        position: 'sticky',
-        top: 0
+        zIndex: 1000,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '81px'
       }}>
         <motion.div
           whileHover={{ x: -4 }}
@@ -235,192 +238,201 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         </div>
       </header>
 
-      {/* Main Layout - Page Scrolling */}
-      <div style={{ 
-        display: 'flex', 
-        flex: 1, 
-        maxWidth: '1600px', 
-        margin: '0 auto', 
-        width: '100%',
-        position: 'relative'
+      {/* FIXED Left Sidebar */}
+      <aside style={{
+        width: '320px',
+        borderRight: '1px solid rgba(255,255,255,0.05)',
+        padding: '0 48px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        position: 'fixed',
+        top: '81px',
+        left: 0,
+        bottom: 0,
+        zIndex: 100
       }}>
-        {/* Left Sidebar - STICKY & CENTERED */}
-        <aside style={{
-          width: '320px',
-          borderRight: '1px solid rgba(255,255,255,0.05)',
-          padding: '0 48px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          height: 'calc(100vh - 81px)',
-          position: 'sticky',
-          top: '81px'
-        }}>
-          <nav>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              {tabs.map((tab) => (
-                <li key={tab.id}>
-                  <button
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: '12px',
-                      fontWeight: '900',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.2em',
-                      transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-                      color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
-                      transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
-                    }}
-                    className="hover:text-white"
-                  >
-                    {activeTab === tab.id && <span style={{ marginRight: '8px', color: '#FFFFFF' }}>—</span>}
-                    {tab.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
+        <nav>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            {tabs.map((tab) => (
+              <li key={tab.id}>
+                <button
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: '12px',
+                    fontWeight: '900',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.2em',
+                    transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
+                    transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
+                  }}
+                  className="hover:text-white"
+                >
+                  {activeTab === tab.id && <span style={{ marginRight: '8px', color: '#FFFFFF' }}>—</span>}
+                  {tab.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
 
-        {/* Center Content - NATURAL SCROLL */}
-        <main style={{
-          flex: 1,
-          padding: '80px 100px',
-          borderRight: '1px solid rgba(255,255,255,0.05)'
+      {/* FIXED Right Sidebar */}
+      <aside style={{
+        width: '320px',
+        borderLeft: '1px solid rgba(255,255,255,0.05)',
+        padding: '0 48px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        position: 'fixed',
+        top: '81px',
+        right: 0,
+        bottom: 0,
+        zIndex: 100
+      }}>
+        <div style={{
+          fontSize: '10px',
+          fontWeight: '900',
+          letterSpacing: '0.3em',
+          color: 'rgba(255,255,255,0.15)',
+          textTransform: 'uppercase',
+          marginBottom: '40px'
         }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              style={{ maxWidth: '800px', margin: '0 auto' }}
-            >
-              <div style={{ textAlign: 'center', marginBottom: '100px', width: '100%' }}>
-                <h1 style={{
-                  fontSize: '72px',
-                  fontWeight: '900',
-                  letterSpacing: '-0.05em',
-                  lineHeight: '0.85',
-                  marginBottom: '24px',
-                  textTransform: 'uppercase',
-                  color: '#FFFFFF',
-                  textAlign: 'center',
-                  width: '100%'
-                }}>
-                  {content[activeTab].title}
-                </h1>
-                <p style={{
-                  fontSize: '11px',
-                  fontWeight: '900',
-                  letterSpacing: '0.25em',
-                  color: 'rgba(255,255,255,0.2)',
-                  textTransform: 'uppercase',
-                  textAlign: 'center',
-                  width: '100%'
-                }}>
-                  Last Updated: March 23, 2026
-                </p>
-              </div>
-              
-              <div style={{ color: 'rgba(255,255,255,0.5)', lineHeight: '2.2', fontSize: '18px' }}>
-                {content[activeTab].body}
-              </div>
+          On this page
+        </div>
+        <nav className="hide-scrollbar" style={{ overflowY: 'auto' }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {content[activeTab].toc.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={`#${item.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = document.getElementById(item.id);
+                    if (el) {
+                      const top = el.getBoundingClientRect().top + window.pageYOffset - 120;
+                      window.scrollTo({ top, behavior: 'smooth' });
+                    }
+                  }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                    color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
+                    transition: 'all 0.3s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    display: 'block'
+                  }}
+                  className="hover:text-white"
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
 
-              {/* Centered Footer */}
-              <footer style={{
-                marginTop: '150px',
-                paddingTop: '80px',
-                borderTop: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '24px',
-                paddingBottom: '100px'
-              }}>
-                <Image 
-                  src="/VK_Logo.png" 
-                  alt="Vidya's Kitchen" 
-                  width={32} 
-                  height={32} 
-                  style={{ borderRadius: '50%', opacity: 0.3 }}
-                />
-                <p style={{
-                  fontSize: '10px',
-                  fontWeight: '900',
-                  letterSpacing: '0.3em',
-                  color: 'rgba(255,255,255,0.1)',
-                  textTransform: 'uppercase',
-                  textAlign: 'center'
-                }}>
-                  &copy; 2026 Vidya&apos;s Kitchen. All rights reserved.
-                </p>
-              </footer>
-            </motion.div>
-          </AnimatePresence>
-        </main>
-
-        {/* Right Sidebar - STICKY & CENTERED */}
-        <aside style={{
-          width: '320px',
-          padding: '0 48px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          height: 'calc(100vh - 81px)',
-          position: 'sticky',
-          top: '81px'
-        }}>
-          <div style={{
-            fontSize: '10px',
-            fontWeight: '900',
-            letterSpacing: '0.3em',
-            color: 'rgba(255,255,255,0.15)',
-            textTransform: 'uppercase',
-            marginBottom: '40px'
+      {/* Main Content Area - Flows Naturally */}
+      <main style={{
+        marginLeft: '320px',
+        marginRight: '320px',
+        padding: '160px 100px 100px',
+        minHeight: '100vh',
+      }}>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{ 
+            maxWidth: '800px', 
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <div style={{ 
+            textAlign: 'center', 
+            marginBottom: '100px', 
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
           }}>
-            On this page
+            <h1 style={{
+              fontSize: '72px',
+              fontWeight: '900',
+              letterSpacing: '-0.05em',
+              lineHeight: '0.85',
+              marginBottom: '24px',
+              textTransform: 'uppercase',
+              color: '#FFFFFF',
+              textAlign: 'center',
+              width: '100%',
+              display: 'block'
+            }}>
+              {content[activeTab].title}
+            </h1>
+            <p style={{
+              fontSize: '11px',
+              fontWeight: '900',
+              letterSpacing: '0.25em',
+              color: 'rgba(255,255,255,0.2)',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              width: '100%',
+              display: 'block'
+            }}>
+              Last Updated: March 23, 2026
+            </p>
           </div>
-          <nav>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {content[activeTab].toc.map((item) => (
-                <li key={item.id}>
-                  <a
-                    href={`#${item.id}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const el = document.getElementById(item.id);
-                      if (el) {
-                        const top = el.getBoundingClientRect().top + window.pageYOffset - 120;
-                        window.scrollTo({ top, behavior: 'smooth' });
-                      }
-                    }}
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      textDecoration: 'none',
-                      color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
-                      transition: 'all 0.3s ease',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      display: 'block'
-                    }}
-                    className="hover:text-white"
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
-      </div>
+          
+          <div style={{ color: 'rgba(255,255,255,0.5)', lineHeight: '2.2', fontSize: '18px', width: '100%' }}>
+            {content[activeTab].body}
+          </div>
+
+          <footer style={{
+            marginTop: '150px',
+            paddingTop: '80px',
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '24px',
+            paddingBottom: '100px',
+            width: '100%'
+          }}>
+            <Image 
+              src="/VK_Logo.png" 
+              alt="Vidya's Kitchen" 
+              width={32} 
+              height={32} 
+              style={{ borderRadius: '50%', opacity: 0.3 }}
+            />
+            <p style={{
+              fontSize: '10px',
+              fontWeight: '900',
+              letterSpacing: '0.3em',
+              color: 'rgba(255,255,255,0.1)',
+              textTransform: 'uppercase',
+              textAlign: 'center'
+            }}>
+              &copy; 2026 Vidya&apos;s Kitchen. All rights reserved.
+            </p>
+          </footer>
+        </motion.div>
+      </main>
     </div>
   );
 }
