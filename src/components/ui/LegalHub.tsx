@@ -403,13 +403,13 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </div>
 
           <footer style={{
-            marginTop: '140px',
+            marginTop: '100px',
             paddingTop: '60px',
             borderTop: '1px solid rgba(255,255,255,0.05)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '32px',
+            gap: '24px',
             paddingBottom: '80px',
             width: '100%'
           }}>
@@ -420,34 +420,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               height={64} 
               style={{ borderRadius: '50%', opacity: 0.9 }}
             />
-            <nav style={{ display: 'flex', gap: '40px' }}>
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.3em',
-                    color: 'rgba(255,255,255,0.2)',
-                    transition: 'color 0.3s ease'
-                  }}
-                  className="hover:text-white"
-                >
-                  {tab.id === 'terms' ? 'TERMS' : tab.label.replace(' Policy', '')}
-                </button>
-              ))}
-            </nav>
             <p style={{
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.3em',
               color: 'rgba(255,255,255,0.2)',

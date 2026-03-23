@@ -293,34 +293,33 @@ export function DesktopLanding() {
 
       {/* Subtle Footer */}
       <div style={{ 
-        marginTop: '40px',
+        marginTop: '80px',
         paddingBottom: '40px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '16px',
+        gap: '24px',
         zIndex: 60
       }}>
         <div style={{
           display: 'flex',
-          gap: '24px',
-          opacity: 0.3
+          gap: '32px'
         }}>
           {['Terms', 'Privacy', 'Refund Policy'].map((item) => (
             <a
               key={item}
               href={`/${item.toLowerCase().replace(' ', '-')}`}
               style={{
-                fontSize: '10px',
-                color: 'white',
+                fontSize: '12px',
+                color: 'rgba(255,255,255,0.2)',
                 textDecoration: 'none',
                 letterSpacing: '2px',
-                fontWeight: '700',
+                fontWeight: '900',
                 textTransform: 'uppercase',
-                transition: 'opacity 0.2s ease'
+                transition: 'all 0.3s ease'
               }}
-              onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
-              onMouseOut={(e) => (e.currentTarget.style.opacity = '0.5')}
+              onMouseOver={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+              onMouseOut={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.2)')}
             >
               {item}
             </a>
@@ -328,8 +327,8 @@ export function DesktopLanding() {
         </div>
         
         <div style={{ 
-          fontSize: '9px', 
-          color: 'rgba(255,255,255,0.15)',
+          fontSize: '12px', 
+          color: 'rgba(255,255,255,0.2)',
           letterSpacing: '4px',
           fontWeight: '900',
           textTransform: 'uppercase'
