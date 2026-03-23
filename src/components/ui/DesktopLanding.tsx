@@ -87,8 +87,8 @@ export function DesktopLanding() {
 
       {/* Main REFINED Card */}
       <motion.div
-        initial={{ y: 40, opacity: 0 }}
-        animate={{ y: 20, opacity: 1 }} // Offset downward by 20px for user request
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 40, opacity: 1 }} // More significant downward offset for optical centering
         transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: 'relative',
@@ -112,19 +112,19 @@ export function DesktopLanding() {
         {/* Animated Grid Overlay */}
         <motion.div 
           initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.15, 0.05, 0.2, 0] }} // More visible pulse
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ opacity: [0, 0.3, 0.1, 0.4, 0] }} // Significantly more visible shimmer
+          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }} // Faster shimmer
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
+              linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)
             `,
-            backgroundSize: '12px 12px',
+            backgroundSize: '10px 10px', // Even tinier grid
             pointerEvents: 'none',
             zIndex: 1,
-            maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
+            maskImage: 'radial-gradient(circle at center, black, transparent 90%)'
           }}
         />
 
