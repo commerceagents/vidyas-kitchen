@@ -93,13 +93,13 @@ export function DesktopLanding() {
         style={{
           position: 'absolute',
           top: '50%',
-          right: '-200px', // Half-clipped (for 400px width)
-          marginTop: '30px', // Minor vertical offset to balance with card shift
+          right: '-150px', // Adjusted to show more of the dish
+          marginTop: '30px', 
           transform: 'translateY(-50%)',
           width: '400px',
           height: '400px',
           zIndex: 5,
-          opacity: 0.15, // Subtle for premium background feel
+          opacity: 0.4, // Increased opacity for better visibility
           pointerEvents: 'none'
         }}
       >
