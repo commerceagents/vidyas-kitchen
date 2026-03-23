@@ -93,22 +93,25 @@ export function DesktopLanding() {
         style={{
           position: 'absolute',
           top: '50%',
-          right: '-150px', // Adjusted to show more of the dish
-          marginTop: '30px', 
+          right: '-250px', // Half-clipped for 500px width
+          marginTop: '40px', 
           transform: 'translateY(-50%)',
-          width: '400px',
-          height: '400px',
+          width: '500px',
+          height: '500px',
           zIndex: 5,
-          opacity: 0.4, // Increased opacity for better visibility
-          pointerEvents: 'none'
+          opacity: 0.6, // More visible but still premium
+          pointerEvents: 'none',
+          borderRadius: '50%', // Perfect circular crop for rotation
+          overflow: 'hidden',
+          boxShadow: '0 0 50px rgba(0,0,0,0.8)'
         }}
       >
         <Image 
-          src="/chicken_curry.png" 
+          src="/chicken_curry_generated.png" 
           alt="" 
-          width={400}
-          height={400}
-          style={{ objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.5))' }}
+          width={500}
+          height={500}
+          style={{ objectFit: 'cover' }}
         />
       </motion.div>
 
