@@ -134,10 +134,10 @@ export function DesktopLanding() {
             top: '0',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '80px',
-            height: '40px',
-            background: 'radial-gradient(circle at top, rgba(226,31,39,0.2) 0%, transparent 70%)',
-            filter: 'blur(20px)',
+            width: '120px',
+            height: '60px', // More vertical spread
+            background: 'radial-gradient(circle at top, rgba(226,31,39,0.4) 0%, transparent 70%)', // Increased opacity
+            filter: 'blur(40px)', // Increased blur for spotlight effect
             zIndex: 15
           }} 
         />
@@ -199,14 +199,8 @@ export function DesktopLanding() {
             height: '115px',
             minWidth: '115px',
             minHeight: '115px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '32px',
             zIndex: 10,
-            background: 'black',
             borderRadius: '50%',
-            border: '0.1px solid rgba(255,255,255,0.05)', // Ultra-thin border
             flexShrink: 0
           }}
         >
@@ -272,9 +266,9 @@ export function DesktopLanding() {
           >
             <div style={{
               width: '100%',
-              height: '1px',
+              height: '2px', // Thicker line
               background: 'linear-gradient(90deg, transparent 0%, #E21F27 50%, transparent 100%)',
-              boxShadow: '0 0 15px rgba(226,31,39,0.8)',
+              boxShadow: '0 0 30px rgba(226,31,39,1)', // More intense spread
             }} />
           </motion.div>
 
