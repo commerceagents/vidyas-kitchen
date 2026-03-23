@@ -364,23 +364,24 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         >
           <div style={{ 
             textAlign: 'center', 
-            marginBottom: '100px', 
+            marginBottom: '80px', 
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center'
           }}>
             <h1 style={{
-              fontSize: '72px',
+              fontSize: '56px',
               fontWeight: '900',
-              letterSpacing: '-0.05em',
-              lineHeight: '0.85',
-              marginBottom: '24px',
+              letterSpacing: '-0.02em',
+              lineHeight: '1',
+              marginBottom: '20px',
               textTransform: 'uppercase',
               color: '#FFFFFF',
               textAlign: 'center',
               width: '100%',
-              display: 'block'
+              display: 'block',
+              whiteSpace: 'nowrap'
             }}>
               {content[activeTab].title}
             </h1>
@@ -388,7 +389,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.25em',
-              color: 'rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.4)',
               textTransform: 'uppercase',
               textAlign: 'center',
               width: '100%',
@@ -403,28 +404,28 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </div>
 
           <footer style={{
-            marginTop: '150px',
-            paddingTop: '80px',
+            marginTop: '100px',
+            paddingTop: '60px',
             borderTop: '1px solid rgba(255,255,255,0.05)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '24px',
-            paddingBottom: '100px',
+            gap: '16px',
+            paddingBottom: '80px',
             width: '100%'
           }}>
             <Image 
               src="/VK_Logo.png" 
               alt="Vidya's Kitchen" 
-              width={32} 
-              height={32} 
-              style={{ borderRadius: '50%', opacity: 0.3 }}
+              width={48} 
+              height={48} 
+              style={{ borderRadius: '50%', opacity: 0.8 }}
             />
             <p style={{
               fontSize: '10px',
               fontWeight: '900',
               letterSpacing: '0.3em',
-              color: 'rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.3)',
               textTransform: 'uppercase',
               textAlign: 'center'
             }}>
