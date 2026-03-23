@@ -58,6 +58,7 @@ export function DesktopLanding() {
   const whatsappNumber = "+91 75500 28179";
 
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const checkScreen = () => setIsLargeScreen(window.innerWidth > 1024);
@@ -109,28 +110,36 @@ export function DesktopLanding() {
           scrollbarWidth: 'none'
         }}
       >
-        {/* Red Top-Center Glow */}
-        <div style={{
-          position: 'absolute',
-          top: '0',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '120px',
-          height: '1px',
-          background: 'linear-gradient(90deg, transparent, #E21F27 50%, transparent)',
-          zIndex: 20
-        }} />
-        <div style={{
-          position: 'absolute',
-          top: '0',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '80px',
-          height: '40px',
-          background: 'radial-gradient(circle at top, rgba(226,31,39,0.2) 0%, transparent 70%)',
-          filter: 'blur(20px)',
-          zIndex: 15
-        }} />
+        {/* Red Top-Center Glow (Animated) */}
+        <motion.div 
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: '0',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '120px',
+            height: '1px',
+            background: 'linear-gradient(90deg, transparent, #E21F27 50%, transparent)',
+            zIndex: 20
+          }} 
+        />
+        <motion.div 
+          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.2, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: '0',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '80px',
+            height: '40px',
+            background: 'radial-gradient(circle at top, rgba(226,31,39,0.2) 0%, transparent 70%)',
+            filter: 'blur(20px)',
+            zIndex: 15
+          }} 
+        />
 
         {/* Vertical Sweep 'Shining' Grid */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
@@ -147,14 +156,14 @@ export function DesktopLanding() {
             maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
           }} />
           <motion.div 
-            animate={{ y: ['-100%', '300%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            animate={{ y: ['-100%', '400%'] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
             style={{
               position: 'absolute',
               left: 0,
               width: '100%',
-              height: '100px',
-              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent)',
+              height: '150px', // Taller band
+              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.4), transparent)',
               zIndex: 2,
               pointerEvents: 'none'
             }}
@@ -277,12 +286,14 @@ export function DesktopLanding() {
             href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=Hi!+I'd+like+to+order+from+today's+menu.`}
             target="_blank"
             rel="noopener noreferrer"
-            whileHover={{ 
-              backgroundColor: '#25D366', 
-              color: '#FFFFFF',
-              scale: 1.02
-            }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             whileTap={{ scale: 0.98 }}
+            animate={{
+              backgroundColor: isHovered ? '#25D366' : '#FFFFFF',
+              color: isHovered ? '#FFFFFF' : '#000000',
+              scale: isHovered ? 1.02 : 1
+            }}
             transition={{ type: 'spring', stiffness: 400, damping: 10 }}
             style={{
               width: '100%',
@@ -291,8 +302,6 @@ export function DesktopLanding() {
               justifyContent: 'center',
               gap: '10px',
               padding: '18px',
-              backgroundColor: '#FFFFFF',
-              color: '#000000',
               borderRadius: '16px',
               fontWeight: '900',
               fontSize: '14px',
