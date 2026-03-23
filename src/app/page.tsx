@@ -12,7 +12,14 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    // Initial check for desktop
+    
+    // Check if we should skip splash (e.g., coming back from Legal Hub)
+    const shouldSkip = localStorage.getItem('skip_splash') === 'true';
+    if (shouldSkip) {
+      setShowSplash(false);
+      localStorage.removeItem('skip_splash');
+    }
+
     const checkViewport = () => {
       setIsDesktop(window.innerWidth > 1024);
     };

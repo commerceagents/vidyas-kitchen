@@ -40,6 +40,21 @@ body {
   background-attachment: fixed;
 }
 
+@layer base {
+  :root {
+    --font-sans: var(--font-jetbrains-mono);
+  }
+  
+  * {
+    @apply border-border;
+    font-family: var(--font-jetbrains-mono), monospace !important;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-jetbrains-mono), monospace;
+  }
+}
+
 .card-ios {
   background: var(--surface);
   border-radius: var(--radius-ios);

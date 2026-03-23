@@ -73,29 +73,27 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               />
             </svg>
 
-            {/* Logo Wrapper - Grayscale to Color Transition */}
+            {/* Logo Wrapper - Black Border / Silver Polish */}
             <motion.div
-              initial={{ opacity: 0, filter: 'grayscale(100%)' }}
-              animate={{ opacity: 1, filter: 'grayscale(0%)' }}
-              transition={{ 
-                opacity: { duration: 1 },
-                filter: { delay: 1.5, duration: 2, ease: "easeInOut" } 
-              }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, ease: "easeOut" }}
               style={{
                 position: 'relative',
-                width: '160px',
-                height: '160px',
-                backgroundColor: 'white',
+                width: '120px', // Reduced size
+                height: '120px',
+                backgroundColor: 'black', // Black background
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 40px rgba(226,31,39,0.25)',
+                border: '1px solid rgba(255,255,255,0.1)', // Circular black border
+                boxShadow: '0 0 50px rgba(0,0,0,1)',
                 overflow: 'hidden',
                 zIndex: 20
               }}
             >
-              <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden' }}>
+              <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
                 <Image 
                   src="/VK_Logo.png" 
                   alt="Vidya's Kitchen" 
@@ -107,7 +105,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             </motion.div>
           </div>
 
-          {/* Loading Text - "LOADING" with shimmer effect in primary color */}
+          {/* Loading Text - Silver Shimmering Effect */}
           <div style={{
             position: 'absolute',
             bottom: '80px',
@@ -125,14 +123,14 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               }}
               transition={{
                 opacity: { delay: 0.5, duration: 1 },
-                backgroundPosition: { duration: 3, repeat: Infinity, ease: "linear" }
+                backgroundPosition: { duration: 4, repeat: Infinity, ease: "linear" }
               }}
               style={{
-                fontSize: '14px',
+                fontSize: '12px',
                 fontWeight: '900',
-                letterSpacing: '0.6em',
+                letterSpacing: '0.8em',
                 textTransform: 'uppercase',
-                background: 'linear-gradient(90deg, #E21F27 0%, #ffffff 50%, #E21F27 100%)',
+                background: 'linear-gradient(90deg, #333333 0%, #ffffff 50%, #333333 100%)', // Silver shimmer
                 backgroundSize: '200% auto',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -20,9 +20,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <body
-        className={`${outfit.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden`}
+        className={`${jetBrainsMono.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden bg-black`}
       >
         <ClientLayout>{children}</ClientLayout>
       </body>
