@@ -7,7 +7,6 @@
   --text-main: #ffffff;
   --text-muted: #a0a0a0;
   --radius-ios: 28px;
-  --font-jetbrains-mono: var(--font-jetbrains-mono);
 }
 
 @theme {
