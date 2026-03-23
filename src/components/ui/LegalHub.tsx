@@ -152,10 +152,13 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       color: '#FFFFFF',
       fontFamily: 'var(--font-jetbrains-mono), monospace',
       display: 'flex',
-      flexDirection: 'column',
-      selectionBackground: '#FFFFFF',
-      selectionColor: '#000000'
+      flexDirection: 'column'
     }}>
+      <style>{`
+        ::selection { background: #FFFFFF; color: #000000; }
+        ::-moz-selection { background: #FFFFFF; color: #000000; }
+        * { scroll-behavior: smooth; }
+      `}</style>
       {/* Top Header */}
       <header style={{
         borderBottom: '1px solid rgba(255,255,255,0.05)',
