@@ -244,7 +244,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         width: '100%',
         position: 'relative'
       }}>
-        {/* Left Sidebar - STICKY */}
+        {/* Left Sidebar - STICKY & CENTERED */}
         <aside style={{
           width: '320px',
           borderRight: '1px solid rgba(255,255,255,0.05)',
@@ -302,7 +302,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               style={{ maxWidth: '800px', margin: '0 auto' }}
             >
-              <div style={{ textAlign: 'center', marginBottom: '100px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '100px', width: '100%' }}>
                 <h1 style={{
                   fontSize: '72px',
                   fontWeight: '900',
@@ -310,7 +310,9 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                   lineHeight: '0.85',
                   marginBottom: '24px',
                   textTransform: 'uppercase',
-                  color: '#FFFFFF'
+                  color: '#FFFFFF',
+                  textAlign: 'center',
+                  width: '100%'
                 }}>
                   {content[activeTab].title}
                 </h1>
@@ -319,7 +321,9 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                   fontWeight: '900',
                   letterSpacing: '0.25em',
                   color: 'rgba(255,255,255,0.2)',
-                  textTransform: 'uppercase'
+                  textTransform: 'uppercase',
+                  textAlign: 'center',
+                  width: '100%'
                 }}>
                   Last Updated: March 23, 2026
                 </p>
@@ -362,7 +366,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </AnimatePresence>
         </main>
 
-        {/* Right Sidebar - STICKY */}
+        {/* Right Sidebar - STICKY & CENTERED */}
         <aside style={{
           width: '320px',
           padding: '0 48px',
