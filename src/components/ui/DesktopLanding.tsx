@@ -87,9 +87,9 @@ export function DesktopLanding() {
 
       {/* Main REFINED Card */}
       <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 20, opacity: 1 }} // Offset downward by 20px for user request
+        transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: 'relative',
           zIndex: 60,
@@ -112,19 +112,19 @@ export function DesktopLanding() {
         {/* Animated Grid Overlay */}
         <motion.div 
           initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.1, 0, 0.05, 0] }} // Shimmering pulse
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ opacity: [0, 0.15, 0.05, 0.2, 0] }} // More visible pulse
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+              linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
             `,
-            backgroundSize: '12px 12px', // Tiny grid
+            backgroundSize: '12px 12px',
             pointerEvents: 'none',
             zIndex: 1,
-            maskImage: 'radial-gradient(circle at center, black, transparent 90%)'
+            maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
           }}
         />
 
@@ -336,7 +336,7 @@ export function DesktopLanding() {
           alignItems: 'center',
           gap: '8px'
         }}>
-          <span style={{ fontSize: '18px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
+          <span style={{ fontSize: '16px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
         </div>
       </div>
     </div>
