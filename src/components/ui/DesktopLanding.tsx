@@ -286,16 +286,48 @@ export function DesktopLanding() {
         </a>
       </motion.div>
 
-      {/* Subtle Footer Branding */}
+      {/* Subtle Footer Branding & Legal Links */}
       <div style={{ 
-        marginTop: '20px', 
-        fontSize: '11px', 
-        color: 'rgba(255,255,255,0.2)',
-        letterSpacing: '1px',
-        fontWeight: '600',
+        marginTop: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '12px',
         zIndex: 60
       }}>
-        POWERED BY VIDYA&apos;S KITCHEN
+        <div style={{
+          display: 'flex',
+          gap: '20px',
+          opacity: 0.4
+        }}>
+          {['Terms', 'Privacy', 'Refund Policy', 'Contact'].map((item) => (
+            <a
+              key={item}
+              href={`/${item.toLowerCase().replace(' ', '-')}`}
+              style={{
+                fontSize: '10px',
+                color: 'white',
+                textDecoration: 'none',
+                letterSpacing: '1px',
+                fontWeight: '600',
+                transition: 'opacity 0.2s ease'
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseOut={(e) => (e.currentTarget.style.opacity = '0.5')}
+            >
+              {item.toUpperCase()}
+            </a>
+          ))}
+        </div>
+        
+        <div style={{ 
+          fontSize: '9px', 
+          color: 'rgba(255,255,255,0.2)',
+          letterSpacing: '2px',
+          fontWeight: '700'
+        }}>
+          POWERED BY VIDYA&apos;S KITCHEN
+        </div>
       </div>
     </div>
   );
