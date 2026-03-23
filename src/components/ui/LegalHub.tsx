@@ -141,7 +141,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
     // Scroll Spy Implementation
     const observerOptions = {
       root: null,
-      rootMargin: '-10% 0px -80% 0px',
+      rootMargin: '-20% 0px -60% 0px',
       threshold: 0
     };
 
@@ -153,7 +153,6 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       });
     }, observerOptions);
 
-    // Observe all sections
     const sections = document.querySelectorAll('section[id]');
     sections.forEach((section) => observer.observe(section));
 
@@ -171,33 +170,33 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
 
   return (
     <div style={{
-      height: '100vh',
+      minHeight: '100vh',
       backgroundColor: '#000000',
       color: '#FFFFFF',
       fontFamily: 'var(--font-jetbrains-mono), monospace',
       display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden' // Main container doesn't scroll
+      flexDirection: 'column'
     }}>
       <style>{`
         ::selection { background: #FFFFFF; color: #000000; }
         ::-moz-selection { background: #FFFFFF; color: #000000; }
         * { scroll-behavior: smooth; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .back-link:hover { color: #FFFFFF !important; }
+        .back-link:hover svg { color: #FFFFFF !important; }
       `}</style>
 
-      {/* FIXED Top Header */}
+      {/* STICKY Top Header */}
       <header style={{
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         padding: '24px 48px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between', // Corrected from 'between'
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(0,0,0,0.85)',
         backdropFilter: 'blur(20px)',
         zIndex: 100,
-        flexShrink: 0
+        position: 'sticky',
+        top: 0
       }}>
         <motion.div
           whileHover={{ x: -4 }}
@@ -210,15 +209,15 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.4)',
               textDecoration: 'none',
               textTransform: 'uppercase',
               fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.15em',
-              transition: 'color 0.3s ease'
+              transition: 'all 0.3s ease'
             }}
-            className="hover:text-white"
+            className="back-link"
           >
             <ArrowLeft size={18} weight="bold" />
             Back to Home
@@ -228,7 +227,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: '10px', 
           fontWeight: '900', 
           letterSpacing: '0.4em', 
-          color: 'rgba(255,255,255,0.2)', 
+          color: 'rgba(255,255,255,0.15)', 
           textTransform: 'uppercase',
           textAlign: 'right'
         }}>
@@ -236,26 +235,26 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         </div>
       </header>
 
-      {/* Scrollable Layout Container */}
+      {/* Main Layout - Page Scrolling */}
       <div style={{ 
         display: 'flex', 
         flex: 1, 
         maxWidth: '1600px', 
         margin: '0 auto', 
         width: '100%',
-        height: 'calc(100vh - 81px)',
-        position: 'relative',
-        overflow: 'hidden'
+        position: 'relative'
       }}>
-        {/* Left Sidebar - FIXED */}
+        {/* Left Sidebar - STICKY */}
         <aside style={{
           width: '320px',
           borderRight: '1px solid rgba(255,255,255,0.05)',
-          padding: '60px 48px',
+          padding: '0 48px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-start',
-          flexShrink: 0
+          justifyContent: 'center',
+          height: 'calc(100vh - 81px)',
+          position: 'sticky',
+          top: '81px'
         }}>
           <nav>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -273,13 +272,13 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                       fontWeight: '900',
                       textTransform: 'uppercase',
                       letterSpacing: '0.2em',
-                      transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
-                      color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.15)',
-                      transform: activeTab === tab.id ? 'translateX(10px)' : 'translateX(0)'
+                      transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                      color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.1)',
+                      transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
                     }}
                     className="hover:text-white"
                   >
-                    {activeTab === tab.id && <span style={{ marginRight: '8px' }}>—</span>}
+                    {activeTab === tab.id && <span style={{ marginRight: '8px', color: '#FFFFFF' }}>—</span>}
                     {tab.label}
                   </button>
                 </li>
@@ -288,13 +287,11 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </nav>
         </aside>
 
-        {/* Center Content - SCROLLABLE */}
-        <main className="hide-scrollbar" style={{
+        {/* Center Content - NATURAL SCROLL */}
+        <main style={{
           flex: 1,
           padding: '80px 100px',
-          borderRight: '1px solid rgba(255,255,255,0.05)',
-          overflowY: 'auto',
-          scrollBehavior: 'smooth'
+          borderRight: '1px solid rgba(255,255,255,0.05)'
         }}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -303,38 +300,39 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              style={{ maxWidth: '700px', margin: '0 auto' }}
+              style={{ maxWidth: '800px', margin: '0 auto' }}
             >
-              <h1 style={{
-                fontSize: '72px',
-                fontWeight: '900',
-                letterSpacing: '-0.05em',
-                lineHeight: '0.85',
-                marginBottom: '20px',
-                textTransform: 'uppercase',
-                color: '#FFFFFF'
-              }}>
-                {content[activeTab].title}
-              </h1>
-              <p style={{
-                fontSize: '11px',
-                fontWeight: '900',
-                letterSpacing: '0.25em',
-                color: 'rgba(255,255,255,0.25)',
-                marginBottom: '100px',
-                textTransform: 'uppercase'
-              }}>
-                Last Updated: March 23, 2026
-              </p>
+              <div style={{ textAlign: 'center', marginBottom: '100px' }}>
+                <h1 style={{
+                  fontSize: '72px',
+                  fontWeight: '900',
+                  letterSpacing: '-0.05em',
+                  lineHeight: '0.85',
+                  marginBottom: '24px',
+                  textTransform: 'uppercase',
+                  color: '#FFFFFF'
+                }}>
+                  {content[activeTab].title}
+                </h1>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '900',
+                  letterSpacing: '0.25em',
+                  color: 'rgba(255,255,255,0.2)',
+                  textTransform: 'uppercase'
+                }}>
+                  Last Updated: March 23, 2026
+                </p>
+              </div>
               
-              <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: '2' }}>
+              <div style={{ color: 'rgba(255,255,255,0.5)', lineHeight: '2.2', fontSize: '18px' }}>
                 {content[activeTab].body}
               </div>
 
-              {/* Dynamic Footer Inside Scroll Area */}
+              {/* Centered Footer */}
               <footer style={{
                 marginTop: '150px',
-                paddingTop: '60px',
+                paddingTop: '80px',
                 borderTop: '1px solid rgba(255,255,255,0.05)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -347,13 +345,13 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                   alt="Vidya's Kitchen" 
                   width={32} 
                   height={32} 
-                  style={{ borderRadius: '50%', opacity: 0.5 }}
+                  style={{ borderRadius: '50%', opacity: 0.3 }}
                 />
                 <p style={{
                   fontSize: '10px',
                   fontWeight: '900',
                   letterSpacing: '0.3em',
-                  color: 'rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.1)',
                   textTransform: 'uppercase',
                   textAlign: 'center'
                 }}>
@@ -364,19 +362,22 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </AnimatePresence>
         </main>
 
-        {/* Right Sidebar - FIXED (ToC) */}
+        {/* Right Sidebar - STICKY */}
         <aside style={{
           width: '320px',
-          padding: '60px 48px',
+          padding: '0 48px',
           display: 'flex',
           flexDirection: 'column',
-          flexShrink: 0
+          justifyContent: 'center',
+          height: 'calc(100vh - 81px)',
+          position: 'sticky',
+          top: '81px'
         }}>
           <div style={{
             fontSize: '10px',
             fontWeight: '900',
             letterSpacing: '0.3em',
-            color: 'rgba(255,255,255,0.2)',
+            color: 'rgba(255,255,255,0.15)',
             textTransform: 'uppercase',
             marginBottom: '40px'
           }}>
@@ -390,13 +391,17 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     href={`#${item.id}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                      const el = document.getElementById(item.id);
+                      if (el) {
+                        const top = el.getBoundingClientRect().top + window.pageYOffset - 120;
+                        window.scrollTo({ top, behavior: 'smooth' });
+                      }
                     }}
                     style={{
                       fontSize: '11px',
                       fontWeight: '700',
                       textDecoration: 'none',
-                      color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.25)',
+                      color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
                       transition: 'all 0.3s ease',
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
