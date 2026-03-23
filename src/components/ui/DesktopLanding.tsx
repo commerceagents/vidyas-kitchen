@@ -207,15 +207,16 @@ export function DesktopLanding() {
           </motion.div>
 
           <div style={{
-            background: 'rgba(255, 255, 255, 0.03)',
-            backdropFilter: 'blur(20px)',
+            background: 'rgba(255, 255, 255, 0.02)', // Even more subtle
+            backdropFilter: 'blur(40px)', // Stronger glass
             padding: '16px',
             borderRadius: '16px',
             border: '1px solid rgba(255, 255, 255, 0.05)',
             zIndex: 20,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
           }}>
             <QRCode 
               value={domain}
@@ -223,6 +224,7 @@ export function DesktopLanding() {
               fgColor="#FFFFFF"
               bgColor="transparent"
               level="H"
+              style={{ borderRadius: '8px' }} // Subtle corner radius on the SVG itself
             />
           </div>
         </div>
