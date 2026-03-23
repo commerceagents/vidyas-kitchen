@@ -211,7 +211,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'rgba(255,255,255,0.2)',
               textDecoration: 'none',
               textTransform: 'uppercase',
               fontSize: '11px',
@@ -229,7 +229,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: '10px', 
           fontWeight: '900', 
           letterSpacing: '0.4em', 
-          color: 'rgba(255,255,255,0.4)', 
+          color: 'rgba(255,255,255,0.2)', 
           textTransform: 'uppercase',
           textAlign: 'right'
         }}>
@@ -268,7 +268,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     textTransform: 'uppercase',
                     letterSpacing: '0.2em',
                     transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
                     transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
                   }}
                   className="hover:text-white"
@@ -300,7 +300,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: '10px',
           fontWeight: '900',
           letterSpacing: '0.3em',
-          color: 'rgba(255,255,255,0.4)',
+          color: 'rgba(255,255,255,0.2)',
           textTransform: 'uppercase',
           marginBottom: '40px'
         }}>
@@ -388,7 +388,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.25em',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'rgba(255,255,255,0.2)',
               textTransform: 'uppercase',
               textAlign: 'center',
               width: '100%',
@@ -424,7 +424,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               fontSize: '11px',
               fontWeight: '900',
               letterSpacing: '0.3em',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'rgba(255,255,255,0.2)',
               textTransform: 'uppercase',
               textAlign: 'center',
               display: 'flex',
