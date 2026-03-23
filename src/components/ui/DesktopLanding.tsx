@@ -93,7 +93,7 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '520px', 
+          width: '440px', // Decreased width
           padding: '40px', 
           background: '#0D0D0F',
           borderRadius: '32px',
@@ -112,19 +112,19 @@ export function DesktopLanding() {
         {/* Animated Grid Overlay */}
         <motion.div 
           initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.05, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ opacity: [0, 0.1, 0, 0.05, 0] }} // Shimmering pulse
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
             `,
-            backgroundSize: '20px 20px',
+            backgroundSize: '12px 12px', // Tiny grid
             pointerEvents: 'none',
             zIndex: 1,
-            maskImage: 'radial-gradient(circle at center, black, transparent 80%)'
+            maskImage: 'radial-gradient(circle at center, black, transparent 90%)'
           }}
         />
 
