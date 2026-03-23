@@ -147,14 +147,14 @@ export function DesktopLanding() {
             maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
           }} />
           <motion.div 
-            animate={{ top: ['-100%', '200%'] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            animate={{ y: ['-100%', '300%'] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
             style={{
               position: 'absolute',
               left: 0,
               width: '100%',
-              height: '50%',
-              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.08), transparent)',
+              height: '100px',
+              background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent)',
               zIndex: 2,
               pointerEvents: 'none'
             }}
@@ -283,6 +283,7 @@ export function DesktopLanding() {
               scale: 1.02
             }}
             whileTap={{ scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
             style={{
               width: '100%',
               display: 'flex',
@@ -290,15 +291,14 @@ export function DesktopLanding() {
               justifyContent: 'center',
               gap: '10px',
               padding: '18px',
-              background: '#FFFFFF',
+              backgroundColor: '#FFFFFF',
               color: '#000000',
               borderRadius: '16px',
               fontWeight: '900',
               fontSize: '14px',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              textDecoration: 'none',
-              transition: 'background-color 0.3s ease, color 0.3s ease'
+              textDecoration: 'none'
             }}
           >
             <WhatsappLogo size={24} weight="fill" />
