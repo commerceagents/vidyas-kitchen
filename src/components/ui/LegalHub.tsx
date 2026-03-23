@@ -146,34 +146,94 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono flex flex-col selection:bg-white selection:text-black">
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#000000',
+      color: '#FFFFFF',
+      fontFamily: 'var(--font-jetbrains-mono), monospace',
+      display: 'flex',
+      flexDirection: 'column',
+      selectionBackground: '#FFFFFF',
+      selectionColor: '#000000'
+    }}>
       {/* Top Header */}
-      <header className="border-b border-white/5 px-8 py-6 flex items-center justify-between sticky top-0 bg-black/80 backdrop-blur-xl z-50">
+      <header style={{
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        padding: '24px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'between',
+        position: 'sticky',
+        top: 0,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        backdropFilter: 'blur(20px)',
+        zIndex: 100
+      }}>
         <Link 
           href="/" 
           id="back-to-home"
-          className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors group"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'rgba(255,255,255,0.4)',
+            textDecoration: 'none',
+            textTransform: 'uppercase',
+            fontSize: '11px',
+            fontWeight: '900',
+            letterSpacing: '0.1em'
+          }}
+          className="group hover:text-white transition-colors"
         >
-          <ArrowLeft size={20} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-bold tracking-tight text-sm uppercase">Back to Home</span>
+          <ArrowLeft size={18} weight="bold" />
+          Back to Home
         </Link>
-        <div className="text-[10px] font-black tracking-[0.3em] text-white/20 uppercase">Vidya&apos;s Kitchen Legal</div>
+        <div style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.3em', color: 'rgba(255,255,255,0.15)', textTransform: 'uppercase' }}>
+          Vidya&apos;s Kitchen Legal
+        </div>
       </header>
 
-      <div className="flex flex-1 max-w-[1400px] mx-auto w-full">
+      <div style={{ 
+        display: 'flex', 
+        flex: 1, 
+        maxWidth: '1400px', 
+        margin: '0 auto', 
+        width: '100%',
+        position: 'relative'
+      }}>
         {/* Left Sidebar - Options */}
-        <aside className="w-80 border-r border-white/5 p-12 hidden lg:block sticky top-24 h-[calc(100vh-80px)]">
-          <nav className="flex flex-col h-full justify-center">
-            <ul className="space-y-4">
+        <aside style={{
+          width: '300px',
+          borderRight: '1px solid rgba(255,255,255,0.05)',
+          padding: '48px',
+          position: 'sticky',
+          top: '80px',
+          height: 'calc(100vh - 80px)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
+        }}>
+          <nav>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {tabs.map((tab) => (
                 <li key={tab.id}>
                   <button
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left text-sm transition-all duration-300 font-bold uppercase tracking-widest ${
-                      activeTab === tab.id
-                        ? "text-white scale-105"
-                        : "text-white/20 hover:text-white"
-                    }`}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '12px',
+                      fontWeight: '900',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.2em',
+                      transition: 'all 0.3s ease',
+                      color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.15)',
+                      transform: activeTab === tab.id ? 'scale(1.05)' : 'scale(1)'
+                    }}
+                    className="hover:text-white"
                   >
                     {tab.label}
                   </button>
@@ -184,7 +244,12 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         </aside>
 
         {/* Main Content Pane */}
-        <main className="flex-1 p-8 md:p-24 overflow-y-auto min-h-screen border-r border-white/5">
+        <main style={{
+          flex: 1,
+          padding: '80px',
+          borderRight: '1px solid rgba(255,255,255,0.05)',
+          minHeight: '100vh'
+        }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -192,12 +257,31 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-3xl"
+              style={{ maxWidth: '650px' }}
             >
-              <h1 className="text-6xl font-black text-white mb-2 tracking-tighter uppercase">{content[activeTab].title}</h1>
-              <p className="text-xs font-bold text-white/30 mb-20 tracking-widest uppercase">Last Updated: {content[activeTab].lastUpdated}</p>
+              <h1 style={{
+                fontSize: '64px',
+                fontWeight: '900',
+                letterSpacing: '-0.04em',
+                lineHeight: '0.9',
+                marginBottom: '16px',
+                textTransform: 'uppercase',
+                color: '#FFFFFF'
+              }}>
+                {content[activeTab].title}
+              </h1>
+              <p style={{
+                fontSize: '10px',
+                fontWeight: '900',
+                letterSpacing: '0.2em',
+                color: 'rgba(255,255,255,0.2)',
+                marginBottom: '80px',
+                textTransform: 'uppercase'
+              }}>
+                Last Updated: {content[activeTab].lastUpdated}
+              </p>
               
-              <div className="prose prose-invert max-w-none">
+              <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
                 {content[activeTab].body}
               </div>
             </motion.div>
@@ -205,15 +289,38 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         </main>
 
         {/* Right Sidebar - On This Page */}
-        <aside className="w-72 p-12 hidden xl:block sticky top-24 h-[calc(100vh-80px)]">
-          <div className="mb-8 text-[10px] font-black tracking-widest text-white/20 uppercase">On this page</div>
+        <aside style={{
+          width: '280px',
+          padding: '48px',
+          position: 'sticky',
+          top: '80px',
+          height: 'calc(100vh - 80px)'
+        }}>
+          <div style={{
+            fontSize: '10px',
+            fontWeight: '900',
+            letterSpacing: '0.2em',
+            color: 'rgba(255,255,255,0.2)',
+            textTransform: 'uppercase',
+            marginBottom: '32px'
+          }}>
+            On this page
+          </div>
           <nav>
-            <ul className="space-y-6">
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {content[activeTab].toc.map((item) => (
                 <li key={item.id}>
                   <a
                     href={`#${item.id}`}
-                    className="text-[11px] font-bold text-white/40 hover:text-white transition-colors uppercase leading-tight block"
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      textDecoration: 'none',
+                      color: 'rgba(255,255,255,0.3)',
+                      transition: 'color 0.2s ease',
+                      textTransform: 'uppercase'
+                    }}
+                    className="hover:text-white"
                   >
                     {item.label}
                   </a>
@@ -225,19 +332,45 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-16 px-8 bg-black">
-        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex flex-col items-center md:items-start gap-2">
-            <p className="text-[10px] text-white/30 font-bold tracking-widest uppercase">
-              &copy; 2026 Vidya&apos;s Kitchen. All rights reserved.
-            </p>
-          </div>
-          <div className="flex gap-12">
-            <a href="tel:+917550028179" className="text-xs font-black text-[#E21F27] flex items-center gap-3 hover:opacity-80 transition-opacity tracking-widest uppercase">
-              <Phone size={20} weight="fill" />
-              Contact Us
-            </a>
-          </div>
+      <footer style={{
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        padding: '64px 32px',
+        backgroundColor: '#000000'
+      }}>
+        <div style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <p style={{
+            fontSize: '10px',
+            fontWeight: '900',
+            letterSpacing: '0.2em',
+            color: 'rgba(255,255,255,0.2)',
+            textTransform: 'uppercase'
+          }}>
+            &copy; 2026 Vidya&apos;s Kitchen. All rights reserved.
+          </p>
+          <a 
+            href="tel:+917550028179" 
+            style={{
+              fontSize: '12px',
+              fontWeight: '900',
+              color: '#E21F27',
+              textDecoration: 'none',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}
+          >
+            <Phone size={20} weight="fill" />
+            Contact Us
+          </a>
         </div>
       </footer>
     </div>
