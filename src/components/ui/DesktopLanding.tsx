@@ -293,12 +293,12 @@ export function DesktopLanding() {
 
       {/* Subtle Footer */}
       <div style={{ 
-        marginTop: '80px',
+        marginTop: '140px',
         paddingBottom: '40px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '24px',
+        gap: '32px',
         zIndex: 60
       }}>
         <div style={{
@@ -331,9 +331,12 @@ export function DesktopLanding() {
           color: 'rgba(255,255,255,0.2)',
           letterSpacing: '4px',
           fontWeight: '900',
-          textTransform: 'uppercase'
+          textTransform: 'uppercase',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
         }}>
-          © 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
+          <span style={{ fontSize: '18px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
         </div>
       </div>
     </div>
