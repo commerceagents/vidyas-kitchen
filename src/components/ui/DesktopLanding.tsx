@@ -199,7 +199,12 @@ export function DesktopLanding() {
             height: '115px',
             minWidth: '115px',
             minHeight: '115px',
+            display: 'flex', // Restored
+            alignItems: 'center', // Restored
+            justifyContent: 'center', // Restored
+            marginBottom: '32px', // Restored
             zIndex: 10,
+            background: 'transparent', // Explicitly transparent
             borderRadius: '50%',
             flexShrink: 0
           }}
