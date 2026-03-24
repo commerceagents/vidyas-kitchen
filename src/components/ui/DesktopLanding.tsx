@@ -110,7 +110,7 @@ export function DesktopLanding() {
           />
         </motion.div>
 
-        {/* Chalk Thought Bubble (Right side for Chicken Curry) */}
+        {/* User-provided Vector: Homemade Spices (Beside Chicken Curry) */}
         <motion.div
           animate={{ 
             y: [0, -10, 0],
@@ -119,12 +119,11 @@ export function DesktopLanding() {
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '-40px',
-            right: '250px',
-            width: '260px',
+            top: '50px',
+            right: '200px', // Positioned bedside the bowl without overlap
+            width: '280px',
             height: '240px',
             zIndex: 3,
-            mixBlendMode: 'screen',
             pointerEvents: 'none',
             display: 'flex',
             alignItems: 'center',
@@ -132,22 +131,12 @@ export function DesktopLanding() {
           }}
         >
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Image src="/chalk_thought.png" alt="" fill style={{ objectFit: 'contain', opacity: 0.5 }} />
-            <div style={{ 
-              position: 'absolute', 
-              top: '40%', 
-              left: '50%', 
-              transform: 'translate(-50%, -50%)',
-              fontFamily: 'var(--font-caveat)',
-              fontSize: '28px',
-              color: 'rgba(255,255,255,0.7)',
-              width: '150px',
-              textAlign: 'center',
-              lineHeight: '1',
-              whiteSpace: 'nowrap'
-            }}>
-              homemade spices
-            </div>
+            <Image 
+              src="/hm_spices_vector.svg" 
+              alt="Homemade Spices" 
+              fill 
+              style={{ objectFit: 'contain', opacity: 0.6 }} 
+            />
           </div>
         </motion.div>
       </div>
@@ -169,45 +158,37 @@ export function DesktopLanding() {
         >
           <Image 
             src="/fish_curry_generated.png" 
-            alt="" 
+            alt="Fish Curry" 
             width={500}
             height={500}
             style={{ objectFit: 'cover' }}
           />
         </motion.div>
 
-        {/* Chalk Arrow + Chef's Special (Left side for Fish Curry) */}
+        {/* User-provided Vector: Chef's Special (Beside Fish Curry) */}
         <motion.div
           animate={{ 
-            x: [0, 10, 0],
-            rotate: [5, 0, 5]
+            x: [0, 8, 0],
+            rotate: [2, -2, 2]
           }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '0px',
-            left: '300px',
-            width: '200px',
-            height: '200px',
+            top: '20px',
+            left: '220px', // Positioned bedside the bowl without overlap
+            width: '260px',
+            height: '240px',
             zIndex: 3,
-            mixBlendMode: 'screen',
             pointerEvents: 'none'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%', transform: 'rotate(200deg)' }}>
-            <Image src="/chalk_arrow.png" alt="" fill style={{ objectFit: 'contain', opacity: 0.5 }} />
-          </div>
-          <div style={{ 
-            position: 'absolute', 
-            top: '-20px', 
-            left: '0px',
-            fontFamily: 'var(--font-caveat)',
-            fontSize: '36px',
-            color: 'rgba(255,255,255,0.7)',
-            transform: 'rotate(-15deg)',
-            whiteSpace: 'nowrap'
-          }}>
-            Chef's Special
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <Image 
+              src="/chef's_spl_vector.svg" 
+              alt="Chef's Special" 
+              fill 
+              style={{ objectFit: 'contain', opacity: 0.6 }} 
+            />
           </div>
         </motion.div>
       </div>
