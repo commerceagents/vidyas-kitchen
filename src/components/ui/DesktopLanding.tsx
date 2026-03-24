@@ -110,42 +110,45 @@ export function DesktopLanding() {
           />
         </motion.div>
 
-        {/* Chalk Garnish - Steam (Above Chicken Curry) */}
+        {/* Chalk Thought Bubble (Right side for Chicken Curry) */}
         <motion.div
-          animate={{ y: [0, -15, 0], opacity: [0.1, 0.2, 0.1] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ 
+            y: [0, -10, 0],
+            rotate: [-2, 2, -2]
+          }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '-60px',
-            right: '180px',
-            width: '150px',
-            height: '150px',
+            top: '-40px',
+            right: '250px',
+            width: '260px',
+            height: '240px',
             zIndex: 3,
             mixBlendMode: 'screen',
             pointerEvents: 'none',
-            filter: 'brightness(1.5) contrast(1.2)'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          <Image src="/chalk_steam.png" alt="" fill style={{ objectFit: 'contain' }} />
-        </motion.div>
-
-        {/* Chalk Garnish - Cinnamon (Beside Chicken Curry) */}
-        <motion.div
-          animate={{ rotate: [15, 20, 15], x: [0, 10, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          style={{
-            position: 'absolute',
-            bottom: '20px',
-            right: '140px',
-            width: '120px',
-            height: '120px',
-            zIndex: 3,
-            mixBlendMode: 'screen',
-            pointerEvents: 'none',
-            filter: 'brightness(1.4)'
-          }}
-        >
-          <Image src="/chalk_cinnamon.png" alt="" fill style={{ objectFit: 'contain' }} />
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <Image src="/chalk_thought.png" alt="" fill style={{ objectFit: 'contain', opacity: 0.5 }} />
+            <div style={{ 
+              position: 'absolute', 
+              top: '40%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)',
+              fontFamily: 'var(--font-caveat)',
+              fontSize: '28px',
+              color: 'rgba(255,255,255,0.7)',
+              width: '150px',
+              textAlign: 'center',
+              lineHeight: '1',
+              whiteSpace: 'nowrap'
+            }}>
+              homemade spices
+            </div>
+          </div>
         </motion.div>
       </div>
 
@@ -173,42 +176,39 @@ export function DesktopLanding() {
           />
         </motion.div>
 
-        {/* Chalk Garnish - Steam (Above Fish Curry) */}
+        {/* Chalk Arrow + Chef's Special (Left side for Fish Curry) */}
         <motion.div
-          animate={{ y: [0, -20, 0], opacity: [0.1, 0.2, 0.1] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ 
+            x: [0, 10, 0],
+            rotate: [5, 0, 5]
+          }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '-70px',
-            left: '180px',
-            width: '160px',
-            height: '160px',
+            top: '0px',
+            left: '300px',
+            width: '200px',
+            height: '200px',
             zIndex: 3,
             mixBlendMode: 'screen',
-            pointerEvents: 'none',
-            filter: 'brightness(1.5) contrast(1.2)'
+            pointerEvents: 'none'
           }}
         >
-          <Image src="/chalk_steam.png" alt="" fill style={{ objectFit: 'contain' }} />
-        </motion.div>
-
-        {/* Chalk Garnish - Star Anise (Beside Fish Curry) */}
-        <motion.div
-          animate={{ rotate: [0, 10, 0], y: [0, 15, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          style={{
-            position: 'absolute',
-            bottom: '30px',
-            left: '150px',
-            width: '100px',
-            height: '100px',
-            zIndex: 3,
-            mixBlendMode: 'screen',
-            pointerEvents: 'none',
-            filter: 'brightness(1.4)'
-          }}
-        >
-          <Image src="/chalk_star_anise.png" alt="" fill style={{ objectFit: 'contain' }} />
+          <div style={{ position: 'relative', width: '100%', height: '100%', transform: 'rotate(200deg)' }}>
+            <Image src="/chalk_arrow.png" alt="" fill style={{ objectFit: 'contain', opacity: 0.5 }} />
+          </div>
+          <div style={{ 
+            position: 'absolute', 
+            top: '-20px', 
+            left: '0px',
+            fontFamily: 'var(--font-caveat)',
+            fontSize: '36px',
+            color: 'rgba(255,255,255,0.7)',
+            transform: 'rotate(-15deg)',
+            whiteSpace: 'nowrap'
+          }}>
+            Chef's Special
+          </div>
         </motion.div>
       </div>
 

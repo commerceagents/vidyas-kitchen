@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 
 const jetBrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+});
+
+const caveat = Caveat({
+  variable: "--font-caveat",
   subsets: ["latin"],
 });
 
@@ -22,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <body
-        className={`${jetBrainsMono.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden bg-black`}
+        className={`${jetBrainsMono.variable} ${caveat.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden bg-black`}
       >
         <ClientLayout>{children}</ClientLayout>
       </body>
