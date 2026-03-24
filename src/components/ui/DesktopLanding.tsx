@@ -114,6 +114,134 @@ export function DesktopLanding() {
         />
       </motion.div>
 
+      {/* --- CHALK ILLUSTRATIONS (THE CHEF'S SKETCHBOOK) --- */}
+      
+      {/* Floating Aromatic Steam (Top Left) */}
+      <motion.div
+        animate={{ 
+          y: [0, -15, 0],
+          x: [0, 10, 0],
+          rotate: [0, 2, 0]
+        }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          top: '15%',
+          left: '10%',
+          width: '400px',
+          height: '300px',
+          zIndex: 3,
+          opacity: 0.15,
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ width: '400px', height: '600px', position: 'relative', top: '0' }}>
+          <Image 
+            src="/chalk_illustrations.png" 
+            alt="" 
+            width={400}
+            height={400}
+            style={{ objectPosition: 'center top' }} // Extracting the steam
+          />
+        </div>
+      </motion.div>
+
+      {/* Floating Star Anise (Bottom Right) */}
+      <motion.div
+        animate={{ 
+          y: [0, 20, 0],
+          rotate: [0, 360]
+        }}
+        transition={{ 
+          y: { duration: 15, repeat: Infinity, ease: "easeInOut" },
+          rotate: { duration: 100, repeat: Infinity, ease: "linear" }
+        }}
+        style={{
+          position: 'absolute',
+          bottom: '15%',
+          right: '15%',
+          width: '150px',
+          height: '150px',
+          zIndex: 3,
+          opacity: 0.2,
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ width: '150px', height: '150px', position: 'relative' }}>
+          <Image 
+            src="/chalk_illustrations.png" 
+            alt="" 
+            fill
+            style={{ objectPosition: '0% 50%', objectFit: 'cover', transform: 'scale(3)' }} // Isolating Star Anise
+          />
+        </div>
+      </motion.div>
+
+      {/* Floating Cinnamon (Top Right) */}
+      <motion.div
+        animate={{ 
+          x: [0, -15, 0],
+          y: [0, 10, 0],
+          rotate: [15, 20, 15]
+        }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          top: '20%',
+          right: '25%',
+          width: '180px',
+          height: '180px',
+          zIndex: 3,
+          opacity: 0.15,
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ width: '180px', height: '180px', position: 'relative' }}>
+          <Image 
+            src="/chalk_illustrations.png" 
+            alt="" 
+            fill
+            style={{ objectPosition: '50% 75%', objectFit: 'cover', transform: 'scale(2.5)' }} // Isolating Cinnamon
+          />
+        </div>
+      </motion.div>
+
+      {/* Floating Herbs (Bottom Left) */}
+      <motion.div
+        animate={{ 
+          y: [0, -25, 0],
+          rotate: [-5, 5, -5]
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          bottom: '10%',
+          left: '20%',
+          width: '220px',
+          height: '250px',
+          zIndex: 3,
+          opacity: 0.2,
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ width: '220px', height: '250px', position: 'relative' }}>
+          <Image 
+            src="/chalk_illustrations.png" 
+            alt="" 
+            fill
+            style={{ objectPosition: '85% 60%', objectFit: 'cover', transform: 'scale(2.2)' }} // Isolating Herbs
+          />
+        </div>
+      </motion.div>
+
       {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
       <motion.div
         initial={{ y: '-50%', rotate: 0 }}
