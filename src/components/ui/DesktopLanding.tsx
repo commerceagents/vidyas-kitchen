@@ -86,28 +86,55 @@ export function DesktopLanding() {
       {/* Glowing Blobs Background */}
       <GlowingBlobsBackground />
 
-      {/* Rotating Background Asset (Chicken Curry) */}
+      {/* Rotating Background Asset (Chicken Curry - TOP CENTER) */}
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
         style={{
           position: 'absolute',
-          top: '50%',
-          right: '-250px', // Half-clipped for 500px width
-          marginTop: '40px', 
-          transform: 'translateY(-50%)',
+          top: '-250px', // Half-clipped from top
+          left: '50%',
+          transform: 'translateX(-50%)',
           width: '500px',
           height: '500px',
           zIndex: 5,
-          opacity: 0.6, // More visible but still premium
+          opacity: 0.6,
           pointerEvents: 'none',
-          borderRadius: '50%', // Perfect circular crop for rotation
+          borderRadius: '50%',
           overflow: 'hidden',
           boxShadow: '0 0 50px rgba(0,0,0,0.8)'
         }}
       >
         <Image 
           src="/chicken_curry_generated.png" 
+          alt="" 
+          width={500}
+          height={500}
+          style={{ objectFit: 'cover' }}
+        />
+      </motion.div>
+
+      {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
+      <motion.div
+        animate={{ rotate: -360 }} // Counter-rotation for variety
+        transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '-250px', // Half-clipped from left
+          transform: 'translateY(-50%)',
+          width: '500px',
+          height: '500px',
+          zIndex: 5,
+          opacity: 0.6,
+          pointerEvents: 'none',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+        }}
+      >
+        <Image 
+          src="/fish_curry_generated.png" 
           alt="" 
           width={500}
           height={500}
