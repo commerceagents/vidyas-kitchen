@@ -86,18 +86,18 @@ export function DesktopLanding() {
       {/* Glowing Blobs Background */}
       <GlowingBlobsBackground />
 
-      {/* Rotating Background Asset (Chicken Curry - TOP CENTER) */}
+      {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
       <motion.div
-        initial={{ x: '-50%', rotate: 0 }}
+        initial={{ y: '-50%', rotate: 0 }}
         animate={{ rotate: 360 }}
         transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
         style={{
           position: 'absolute',
-          top: '-250px', // Half-clipped from top
-          left: '50%',
+          top: '50%',
+          right: '-250px', // Half-clipped from right
           width: '500px',
           height: '500px',
-          zIndex: 4, // Slightly behind the card mechanics
+          zIndex: 4,
           opacity: 0.5,
           pointerEvents: 'none',
           borderRadius: '50%',
