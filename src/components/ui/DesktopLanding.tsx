@@ -8,50 +8,130 @@ import { WhatsappLogo } from "@phosphor-icons/react";
 
 import { Phone } from "@phosphor-icons/react";
 
-function GlowingBlobsBackground() {
+function AmbientBreathingBackground() {
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000000', zIndex: 0 }}>
-      {/* Blob 1 - Red Glow (Increased Visibility) */}
+      {/* Centered Breathing Ambient Glow */}
       <motion.div
         animate={{
-          scale: [1, 1.3, 1],
-          x: ['-5%', '5%', '-5%'],
-          y: ['-5%', '5%', '-5%'],
+          opacity: [0.35, 0.65, 0.35],
+          scale: [1, 1.08, 1],
         }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ 
+          duration: 10, 
+          repeat: Infinity, 
+          ease: "easeInOut" 
+        }}
         style={{
           position: 'absolute',
-          top: '15%',
-          left: '15%',
-          width: '700px', // Bigger
-          height: '700px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.18) 0%, transparent 70%)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '120vw',
+          height: '120vh',
+          background: 'radial-gradient(circle at center, rgba(226,31,39,0.07) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
-        }}
-      />
-      {/* Blob 2 - Dark Deep Blue Glow (Increased Visibility) */}
-      <motion.div
-        animate={{
-          scale: [1.3, 1, 1.3],
-          x: ['5%', '-5%', '5%'],
-          y: ['5%', '-5%', '5%'],
-        }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: 'absolute',
-          bottom: '5%',
-          right: '10%',
-          width: '800px', // Bigger
-          height: '800px',
-          background: 'radial-gradient(circle, rgba(30,58,138,0.15) 0%, transparent 70%)',
-          filter: 'blur(120px)',
-          borderRadius: '50%',
+          pointerEvents: 'none',
         }}
       />
     </div>
   );
 }
+
+const ChefSpecialVector = () => (
+  <motion.svg 
+    width="191" 
+    height="123" 
+    viewBox="0 0 191 123" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ opacity: 0.7, mixBlendMode: 'screen' }}
+  >
+    {/* Arrow Path */}
+    <motion.path
+      d="M2.96177 113.691C35.0357 115.69 119.349 117.808 69.3486 42.8082C53.774 19.4475 22.8486 16.3082 17.3486 42.8082C10.6033 75.3083 49.2081 100.285 64.3486 100.808C94.8486 101.863 103.849 54.3082 78.3486 9.30823M2.96177 113.691L11.8596 120.35M2.96177 113.691L11.3323 105.132"
+      stroke="white"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 1 }}
+      transition={{ duration: 2.5, ease: "easeInOut" }}
+    />
+    
+    {/* Text Paths Staggered */}
+    {[
+      "M112.551 29.3567C109.831 29.3423 107.575 30.6978 106.182 32.8804C104.79 35.063 104.381 37.892 105.024 40.8906C105.667 43.8893 107.31 46.8143 109.679 49.191C112.047 51.5676 114.951 53.2013 117.915 53.6923",
+      "M129.231 35.5398L121.782 50.1504M126.96 46.1667L134.257 32.0963M126.331 43.3762L121.328 39.5222",
+      "M140.236 39.8093L144.17 38.634L148.972 32.7482M140.236 39.8093L135.434 45.6951M140.236 39.8093L135.553 43.6845M140.236 39.8093L144.919 35.934",
+      "M149.882 43.1884L155.656 32.3339M149.882 43.1884L153.284 49.3322M152.09 39.0181L156.402 37.0722",
+      "M156.963 18.3975L154.557 24.3188",
+      "M158.336 46.1245C160.038 43.5113 162.721 41.7423 165.419 41.3853C168.118 41.0282 170.612 42.1127 172.012 44.2255C173.411 46.3382 173.597 49.3009 172.502 52.0524C171.407 54.8038 169.125 57.1183 166.427 58.1408",
+      "M174.453 51.5273C176.155 48.9141 178.838 47.1451 181.536 46.7881C184.234 46.431 186.729 47.5155 188.128 49.6283C189.528 51.7411 189.713 54.7037 188.618 57.4552C187.523 60.2066 185.241 62.5211 182.544 63.5435",
+      "M184.453 54.5273C185.966 52.3486 188.461 51.1094 191.042 51.2526",
+      "M149.431 83.1537L153.365 81.9785L158.167 76.0927M149.431 83.1537L144.629 89.0396"
+    ].map((d, i) => (
+      <motion.path
+        key={i}
+        d={d}
+        stroke="white"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 2.5 + (i * 0.1), duration: 0.5 }}
+      />
+    ))}
+  </motion.svg>
+);
+
+const HomemadeSpicesVector = () => (
+  <motion.svg 
+    width="184" 
+    height="142" 
+    viewBox="0 0 184 142" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ opacity: 0.7, mixBlendMode: 'screen' }}
+  >
+    {/* Floating Bubbles */}
+    {[
+      { cx: 15.8208, cy: 11.4583, r: 5.62083 },
+      { cx: 21.166, cy: 27.4219, r: 6.73229 },
+      { cx: 33.7297, cy: 40.3533, r: 5.12708 },
+      { cx: 49.9192, cy: 73.085, r: 5.12708 }
+    ].map((circle, i) => (
+      <motion.circle
+        key={i}
+        {...circle}
+        stroke="white"
+        strokeWidth="1"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: i * 0.2, duration: 0.8, type: "spring" }}
+      />
+    ))}
+
+    {/* Text Paths Staggered */}
+    {[
+      "M96.062 25.1257L88.9416 39.5312M94.6288 35.8453L101.597 22.0195M92.1748 33.4005L87.218 29.5036",
+      "M115.421 27.6015C114.398 25.0416 112.441 23.1611 110.155 22.5694C107.869 21.9777 105.467 22.7317 103.717 24.5828C101.966 26.434 101.031 29.1969 101.218 31.9701C101.405 34.7434 102.694 37.242 104.673 38.6575",
+      "M135.253 29.8978C134.113 27.3821 132.062 25.5683 129.742 25.0441C127.421 24.5199 125.068 25.3409 123.411 27.2424"
+    ].map((d, i) => (
+      <motion.path
+        key={i}
+        d={d}
+        stroke="white"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1 + (i * 0.1), duration: 0.6 }}
+      />
+    ))}
+  </motion.svg>
+);
 
 export function DesktopLanding() {
   const domain = "https://vidyaskitchenhome.com";
@@ -83,8 +163,8 @@ export function DesktopLanding() {
       color: 'white',
       fontFamily: 'var(--font-jetbrains-mono), monospace'
     }}>
-      {/* Glowing Blobs Background */}
-      <GlowingBlobsBackground />
+      {/* Ambient Breathing Background */}
+      <AmbientBreathingBackground />
 
       {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
       <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
@@ -110,19 +190,20 @@ export function DesktopLanding() {
           />
         </motion.div>
 
-        {/* User-provided Vector: Homemade Spices (Beside Chicken Curry) */}
+        {/* Artisanal Animation: Homemade Spices */}
         <motion.div
           animate={{ 
             y: [0, -10, 0],
-            rotate: [-2, 2, -2]
+            rotate: [-2, 2, -2],
+            opacity: [0.5, 0.7, 0.5]
           }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
             top: '80px',
-            right: '480px', // Dramatically moved to completely clear the rim
-            width: '180px', // Further reduced size for boutique look
-            height: '160px',
+            right: '480px',
+            width: '184px',
+            height: '142px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -130,14 +211,7 @@ export function DesktopLanding() {
             justifyContent: 'center'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Image 
-              src="/hm_spices_vector.svg" 
-              alt="Homemade Spices" 
-              fill 
-              style={{ objectFit: 'contain', opacity: 0.6 }} 
-            />
-          </div>
+          <HomemadeSpicesVector />
         </motion.div>
       </div>
 
@@ -165,31 +239,25 @@ export function DesktopLanding() {
           />
         </motion.div>
 
-        {/* User-provided Vector: Chef's Special (Beside Fish Curry) */}
+        {/* Artisanal Animation: Chef's Special */}
         <motion.div
           animate={{ 
             x: [0, 8, 0],
-            rotate: [2, -2, 2]
+            rotate: [2, -2, 2],
+            opacity: [0.5, 0.7, 0.5]
           }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
             top: '60px',
-            left: '480px', // Dramatically moved to the right to completely clear the rim
-            width: '180px', // Further reduced size for boutique look
-            height: '160px',
+            left: '480px',
+            width: '191px',
+            height: '123px',
             zIndex: 3,
             pointerEvents: 'none'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Image 
-              src="/chef's_spl_vector.svg" 
-              alt="Chef's Special" 
-              fill 
-              style={{ objectFit: 'contain', opacity: 0.6 }} 
-            />
-          </div>
+          <ChefSpecialVector />
         </motion.div>
       </div>
 
@@ -268,8 +336,7 @@ export function DesktopLanding() {
           {/* Animated White Shine Grid (Wave) */}
           <motion.div 
             animate={{ 
-              maskPosition: ['0% -100%', '0% 200%'],
-              WebkitMaskPosition: ['0% -100%', '0% 200%']
+              maskPosition: ['0% -100%', '0% 200%']
             }}
             transition={{ 
               duration: 7, // Slowed down
@@ -293,7 +360,7 @@ export function DesktopLanding() {
               maskSize: '100% 150px',
               WebkitMaskRepeat: 'no-repeat',
               maskRepeat: 'no-repeat'
-            }}
+            } as any}
           />
         </div>
 
