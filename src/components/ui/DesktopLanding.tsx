@@ -88,17 +88,17 @@ export function DesktopLanding() {
 
       {/* Rotating Background Asset (Chicken Curry - TOP CENTER) */}
       <motion.div
+        initial={{ x: '-50%', rotate: 0 }}
         animate={{ rotate: 360 }}
         transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
         style={{
           position: 'absolute',
           top: '-250px', // Half-clipped from top
           left: '50%',
-          transform: 'translateX(-50%)',
           width: '500px',
           height: '500px',
-          zIndex: 5,
-          opacity: 0.6,
+          zIndex: 4, // Slightly behind the card mechanics
+          opacity: 0.5,
           pointerEvents: 'none',
           borderRadius: '50%',
           overflow: 'hidden',
@@ -116,17 +116,17 @@ export function DesktopLanding() {
 
       {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
       <motion.div
-        animate={{ rotate: -360 }} // Counter-rotation for variety
+        initial={{ y: '-50%', rotate: 0 }}
+        animate={{ rotate: -360 }} // Counter-clockwise for variety
         transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
         style={{
           position: 'absolute',
           top: '50%',
           left: '-250px', // Half-clipped from left
-          transform: 'translateY(-50%)',
           width: '500px',
           height: '500px',
-          zIndex: 5,
-          opacity: 0.6,
+          zIndex: 4,
+          opacity: 0.5,
           pointerEvents: 'none',
           borderRadius: '50%',
           overflow: 'hidden',
