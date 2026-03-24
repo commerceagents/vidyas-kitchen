@@ -87,188 +87,130 @@ export function DesktopLanding() {
       <GlowingBlobsBackground />
 
       {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
-      <motion.div
-        initial={{ y: '-50%', rotate: 0 }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: 'absolute',
-          top: '50%',
-          right: '-250px', // Half-clipped from right
-          width: '500px',
-          height: '500px',
-          zIndex: 4,
-          opacity: 0.5,
-          pointerEvents: 'none',
-          borderRadius: '50%',
-          overflow: 'hidden',
-          boxShadow: '0 0 50px rgba(0,0,0,0.8)'
-        }}
-      >
-        <Image 
-          src="/chicken_curry_generated.png" 
-          alt="" 
-          width={500}
-          height={500}
-          style={{ objectFit: 'cover' }}
-        />
-      </motion.div>
-
-      {/* --- CHALK ILLUSTRATIONS (THE CHEF'S SKETCHBOOK) --- */}
-      
-      {/* Floating Aromatic Steam (Top Left) */}
-      <motion.div
-        animate={{ 
-          y: [0, -15, 0],
-          x: [0, 10, 0],
-          rotate: [0, 2, 0]
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: 'absolute',
-          top: '15%',
-          left: '10%',
-          width: '400px',
-          height: '300px',
-          zIndex: 3,
-          opacity: 0.15,
-          pointerEvents: 'none',
-          mixBlendMode: 'screen',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ width: '400px', height: '600px', position: 'relative', top: '0' }}>
+      <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+          style={{
+            width: '100%',
+            height: '100%',
+            opacity: 0.5,
+            pointerEvents: 'none',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+          }}
+        >
           <Image 
-            src="/chalk_illustrations.png" 
+            src="/chicken_curry_generated.png" 
             alt="" 
-            width={400}
-            height={400}
-            style={{ objectPosition: 'center top' }} // Extracting the steam
+            width={500}
+            height={500}
+            style={{ objectFit: 'cover' }}
           />
-        </div>
-      </motion.div>
+        </motion.div>
 
-      {/* Floating Star Anise (Bottom Right) */}
-      <motion.div
-        animate={{ 
-          y: [0, 20, 0],
-          rotate: [0, 360]
-        }}
-        transition={{ 
-          y: { duration: 15, repeat: Infinity, ease: "easeInOut" },
-          rotate: { duration: 100, repeat: Infinity, ease: "linear" }
-        }}
-        style={{
-          position: 'absolute',
-          bottom: '15%',
-          right: '15%',
-          width: '150px',
-          height: '150px',
-          zIndex: 3,
-          opacity: 0.2,
-          pointerEvents: 'none',
-          mixBlendMode: 'screen',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ width: '150px', height: '150px', position: 'relative' }}>
-          <Image 
-            src="/chalk_illustrations.png" 
-            alt="" 
-            fill
-            style={{ objectPosition: '0% 50%', objectFit: 'cover', transform: 'scale(3)' }} // Isolating Star Anise
-          />
-        </div>
-      </motion.div>
+        {/* Chalk Garnish - Steam (Above Chicken Curry) */}
+        <motion.div
+          animate={{ y: [0, -15, 0], opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: '-60px',
+            right: '180px',
+            width: '150px',
+            height: '150px',
+            zIndex: 3,
+            mixBlendMode: 'screen',
+            pointerEvents: 'none',
+            filter: 'brightness(1.5) contrast(1.2)'
+          }}
+        >
+          <Image src="/chalk_steam.png" alt="" fill style={{ objectFit: 'contain' }} />
+        </motion.div>
 
-      {/* Floating Cinnamon (Top Right) */}
-      <motion.div
-        animate={{ 
-          x: [0, -15, 0],
-          y: [0, 10, 0],
-          rotate: [15, 20, 15]
-        }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: 'absolute',
-          top: '20%',
-          right: '25%',
-          width: '180px',
-          height: '180px',
-          zIndex: 3,
-          opacity: 0.15,
-          pointerEvents: 'none',
-          mixBlendMode: 'screen',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ width: '180px', height: '180px', position: 'relative' }}>
-          <Image 
-            src="/chalk_illustrations.png" 
-            alt="" 
-            fill
-            style={{ objectPosition: '50% 75%', objectFit: 'cover', transform: 'scale(2.5)' }} // Isolating Cinnamon
-          />
-        </div>
-      </motion.div>
-
-      {/* Floating Herbs (Bottom Left) */}
-      <motion.div
-        animate={{ 
-          y: [0, -25, 0],
-          rotate: [-5, 5, -5]
-        }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: 'absolute',
-          bottom: '10%',
-          left: '20%',
-          width: '220px',
-          height: '250px',
-          zIndex: 3,
-          opacity: 0.2,
-          pointerEvents: 'none',
-          mixBlendMode: 'screen',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ width: '220px', height: '250px', position: 'relative' }}>
-          <Image 
-            src="/chalk_illustrations.png" 
-            alt="" 
-            fill
-            style={{ objectPosition: '85% 60%', objectFit: 'cover', transform: 'scale(2.2)' }} // Isolating Herbs
-          />
-        </div>
-      </motion.div>
+        {/* Chalk Garnish - Cinnamon (Beside Chicken Curry) */}
+        <motion.div
+          animate={{ rotate: [15, 20, 15], x: [0, 10, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            right: '140px',
+            width: '120px',
+            height: '120px',
+            zIndex: 3,
+            mixBlendMode: 'screen',
+            pointerEvents: 'none',
+            filter: 'brightness(1.4)'
+          }}
+        >
+          <Image src="/chalk_cinnamon.png" alt="" fill style={{ objectFit: 'contain' }} />
+        </motion.div>
+      </div>
 
       {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
-      <motion.div
-        initial={{ y: '-50%', rotate: 0 }}
-        animate={{ rotate: -360 }} // Counter-clockwise for variety
-        transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '-250px', // Half-clipped from left
-          width: '500px',
-          height: '500px',
-          zIndex: 4,
-          opacity: 0.5,
-          pointerEvents: 'none',
-          borderRadius: '50%',
-          overflow: 'hidden',
-          boxShadow: '0 0 50px rgba(0,0,0,0.8)'
-        }}
-      >
-        <Image 
-          src="/fish_curry_generated.png" 
-          alt="" 
-          width={500}
-          height={500}
-          style={{ objectFit: 'cover' }}
-        />
-      </motion.div>
+      <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+        <motion.div
+          animate={{ rotate: -360 }}
+          transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
+          style={{
+            width: '100%',
+            height: '100%',
+            opacity: 0.5,
+            pointerEvents: 'none',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+          }}
+        >
+          <Image 
+            src="/fish_curry_generated.png" 
+            alt="" 
+            width={500}
+            height={500}
+            style={{ objectFit: 'cover' }}
+          />
+        </motion.div>
+
+        {/* Chalk Garnish - Steam (Above Fish Curry) */}
+        <motion.div
+          animate={{ y: [0, -20, 0], opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: '-70px',
+            left: '180px',
+            width: '160px',
+            height: '160px',
+            zIndex: 3,
+            mixBlendMode: 'screen',
+            pointerEvents: 'none',
+            filter: 'brightness(1.5) contrast(1.2)'
+          }}
+        >
+          <Image src="/chalk_steam.png" alt="" fill style={{ objectFit: 'contain' }} />
+        </motion.div>
+
+        {/* Chalk Garnish - Star Anise (Beside Fish Curry) */}
+        <motion.div
+          animate={{ rotate: [0, 10, 0], y: [0, 15, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            bottom: '30px',
+            left: '150px',
+            width: '100px',
+            height: '100px',
+            zIndex: 3,
+            mixBlendMode: 'screen',
+            pointerEvents: 'none',
+            filter: 'brightness(1.4)'
+          }}
+        >
+          <Image src="/chalk_star_anise.png" alt="" fill style={{ objectFit: 'contain' }} />
+        </motion.div>
+      </div>
 
       {/* Main REFINED Card */}
       <motion.div
