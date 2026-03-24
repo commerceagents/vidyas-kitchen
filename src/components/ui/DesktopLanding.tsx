@@ -119,10 +119,10 @@ export function DesktopLanding() {
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '60px',
-            right: '240px', // Moved further from the bowl rim
-            width: '240px', // Reduced size
-            height: '200px', // Reduced size
+            top: '80px',
+            right: '480px', // Dramatically moved to completely clear the rim
+            width: '180px', // Further reduced size for boutique look
+            height: '160px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -174,10 +174,10 @@ export function DesktopLanding() {
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '40px',
-            left: '260px', // Moved "to the right" (away from bowl rim)
-            width: '220px', // Reduced size
-            height: '200px', // Reduced size
+            top: '60px',
+            left: '480px', // Dramatically moved to the right to completely clear the rim
+            width: '180px', // Further reduced size for boutique look
+            height: '160px',
             zIndex: 3,
             pointerEvents: 'none'
           }}
