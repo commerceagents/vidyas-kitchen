@@ -119,10 +119,10 @@ export function DesktopLanding() {
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '50px',
-            right: '200px', // Positioned bedside the bowl without overlap
-            width: '280px',
-            height: '240px',
+            top: '60px',
+            right: '240px', // Moved further from the bowl rim
+            width: '240px', // Reduced size
+            height: '200px', // Reduced size
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -174,10 +174,10 @@ export function DesktopLanding() {
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '20px',
-            left: '220px', // Positioned bedside the bowl without overlap
-            width: '260px',
-            height: '240px',
+            top: '40px',
+            left: '260px', // Moved "to the right" (away from bowl rim)
+            width: '220px', // Reduced size
+            height: '200px', // Reduced size
             zIndex: 3,
             pointerEvents: 'none'
           }}
