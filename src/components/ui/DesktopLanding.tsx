@@ -7,6 +7,8 @@ import QRCode from "react-qr-code";
 import { WhatsappLogo } from "@phosphor-icons/react";
 
 import { Phone } from "@phosphor-icons/react";
+import { ChefSpecialVector } from "./vectors/ChefSpecialVector";
+import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 
 function GlowingBlobsBackground() {
   return (
@@ -130,12 +132,9 @@ export function DesktopLanding() {
             justifyContent: 'center'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Image 
-              src="/hm_spices_vector.svg" 
-              alt="Homemade Spices" 
-              fill 
-              style={{ objectFit: 'contain', opacity: 0.6 }} 
+          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <HomemadeSpicesVector 
+              style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
             />
           </div>
         </motion.div>
@@ -182,12 +181,9 @@ export function DesktopLanding() {
             pointerEvents: 'none'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Image 
-              src="/chef's_spl_vector.svg" 
-              alt="Chef's Special" 
-              fill 
-              style={{ objectFit: 'contain', opacity: 0.6 }} 
+          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ChefSpecialVector 
+              style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
             />
           </div>
         </motion.div>
@@ -270,7 +266,7 @@ export function DesktopLanding() {
             animate={{ 
               maskPosition: ['0% -100%', '0% 200%'],
               WebkitMaskPosition: ['0% -100%', '0% 200%']
-            }}
+            } as any}
             transition={{ 
               duration: 7, // Slowed down
               repeat: Infinity, 
