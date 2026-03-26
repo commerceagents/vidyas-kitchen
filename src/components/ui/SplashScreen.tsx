@@ -8,14 +8,21 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
 
+  const [showPulse, setShowPulse] = useState(false);
+
   useEffect(() => {
     setMounted(true);
-    // Faster loading duration: 4 seconds total
+    // Trigger pulse at 3.5s (when circle completes)
+    const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
+    // Faster loading duration: 4.5 seconds total to allow for pulse reveal
     const timer = setTimeout(() => {
       setIsVisible(false);
       if (onComplete) setTimeout(onComplete, 800); 
-    }, 4000);
-    return () => clearTimeout(timer);
+    }, 4500);
+    return () => {
+      clearTimeout(pulseTimer);
+      clearTimeout(timer);
+    };
   }, [onComplete]);
 
   if (!mounted) return null;
@@ -45,7 +52,52 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
         >
           {/* Main Visual Group - Reduced container size for smaller gap */}
           <div style={{ position: 'relative', width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {/* Circular Progress Ring - Reduced radius to 95 for tighter fit */}
+            {/* Outer Pulsing Glow (Behind Logo) */}
+            <AnimatePresence>
+              {showPulse && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ 
+                    scale: [1, 2.5], 
+                    opacity: [0, 0.6, 0] 
+                  }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  style={{
+                    position: 'absolute',
+                    width: '120px',
+                    height: '120px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(226, 31, 39, 0.8) 0%, rgba(226, 31, 39, 0) 70%)',
+                    filter: 'blur(10px)',
+                    zIndex: 10
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Completion Ripple Wave */}
+            <AnimatePresence>
+              {showPulse && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ 
+                    scale: 3.5, 
+                    opacity: 0 
+                  }}
+                  transition={{ duration: 1.2, ease: "easeOut" }}
+                  style={{
+                    position: 'absolute',
+                    width: '120px',
+                    height: '120px',
+                    borderRadius: '50%',
+                    border: '2px solid rgba(226, 31, 39, 0.4)',
+                    zIndex: 10
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Circular Progress Ring - Reduced radius to 75 for boutique look */}
             <svg 
               style={{ position: 'absolute', top: 0, left: 0, width: '200px', height: '200px', transform: 'rotate(-90deg)' }} 
               viewBox="0 0 200 200"
@@ -53,12 +105,12 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               <motion.circle
                 cx="100"
                 cy="100"
-                r="95"
+                r="75"
                 fill="transparent"
                 stroke="#E21F27"
-                strokeWidth="4"
-                strokeDasharray="596.9" /* 2 * PI * 95 */
-                initial={{ strokeDashoffset: 596.9 }}
+                strokeWidth="3"
+                strokeDasharray="471.24" /* 2 * PI * 75 */
+                initial={{ strokeDashoffset: 471.24 }}
                 animate={{ strokeDashoffset: 0 }}
                 transition={{ duration: 3.5, ease: "easeInOut" }}
                 strokeLinecap="round"
@@ -67,9 +119,9 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
 
             {/* Logo Wrapper - Black Border / Silver Polish */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
               style={{
                 position: 'relative',
                 width: '120px', // Reduced size

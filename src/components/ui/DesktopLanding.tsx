@@ -91,8 +91,13 @@ export function DesktopLanding() {
       {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
       <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+          initial={{ x: 400, rotate: 180, opacity: 0 }}
+          animate={{ x: 0, rotate: [180, 0], opacity: 0.5 }}
+          transition={{ 
+            duration: 2.5, 
+            ease: [0.22, 1, 0.36, 1],
+            rotate: { duration: 60, repeat: Infinity, ease: "linear" } 
+          }}
           style={{
             width: '100%',
             height: '100%',
@@ -127,24 +132,32 @@ export function DesktopLanding() {
             height: '160px',
             zIndex: 3,
             pointerEvents: 'none',
-            display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5, duration: 1.5 }}
+            style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <HomemadeSpicesVector 
               style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
             />
-          </div>
+          </motion.div>
         </motion.div>
       </div>
 
       {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
       <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
+          initial={{ x: -400, rotate: -180, opacity: 0 }}
+          animate={{ x: 0, rotate: [-180, 0], opacity: 0.5 }}
+          transition={{ 
+            duration: 2.5, 
+            ease: [0.22, 1, 0.36, 1],
+            rotate: { duration: 70, repeat: Infinity, ease: "linear" } 
+          }}
           style={{
             width: '100%',
             height: '100%',
@@ -181,19 +194,24 @@ export function DesktopLanding() {
             pointerEvents: 'none'
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5, duration: 1.5 }}
+            style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <ChefSpecialVector 
               style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
             />
-          </div>
+          </motion.div>
         </motion.div>
       </div>
 
       {/* Main REFINED Card */}
       <motion.div
-        initial={{ y: 80, opacity: 0 }}
-        animate={{ y: 60, opacity: 1 }} // Lowered for better optical center
-        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ scale: 0.8, filter: 'blur(20px)', opacity: 0, y: 80 }}
+        animate={{ scale: 1, filter: 'blur(0px)', opacity: 1, y: 60 }}
+        transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
         style={{
           position: 'relative',
           zIndex: 60,
@@ -461,17 +479,23 @@ export function DesktopLanding() {
       {/* Subtle Footer */}
       <div style={{ 
         marginTop: '100px', // Reduced from 140px for symmetry
-        paddingBottom: '60px', // Added bottom padding for symmetry
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '32px',
         zIndex: 60
       }}>
-        <div style={{
-          display: 'flex',
-          gap: '32px'
-        }}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2.2, duration: 1 }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '32px'
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            gap: '32px'
+          }}>
           {['Terms', 'Privacy', 'Refund Policy'].map((item) => (
             <a
               key={item}
@@ -491,20 +515,21 @@ export function DesktopLanding() {
               {item}
             </a>
           ))}
-        </div>
-        
-        <div style={{ 
-          fontSize: '12px', 
-          color: 'rgba(255,255,255,0.2)',
-          letterSpacing: '4px',
-          fontWeight: '900',
-          textTransform: 'uppercase',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ fontSize: '16px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
-        </div>
+          </div>
+          
+          <div style={{ 
+            fontSize: '12px', 
+            color: 'rgba(255,255,255,0.2)',
+            letterSpacing: '4px',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span style={{ fontSize: '16px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
+          </div>
+        </motion.div>
       </div>
     </div>
   );
