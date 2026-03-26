@@ -50,14 +50,6 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               style={{ position: 'absolute', top: 0, left: 0, width: '200px', height: '200px', transform: 'rotate(-90deg)' }} 
               viewBox="0 0 200 200"
             >
-              <circle
-                cx="100"
-                cy="100"
-                r="95"
-                fill="transparent"
-                stroke="rgba(255, 255, 255, 0.05)"
-                strokeWidth="2"
-              />
               <motion.circle
                 cx="100"
                 cy="100"
@@ -87,7 +79,6 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.1)', // Circular black border
                 boxShadow: '0 0 50px rgba(0,0,0,1)',
                 overflow: 'hidden',
                 zIndex: 20
@@ -95,7 +86,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             >
               <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
                 <Image 
-                  src="/VK_Logo.png" 
+                  src="/VK_Logo.webp" 
                   alt="Vidya's Kitchen" 
                   fill
                   style={{ objectFit: 'contain' }}

@@ -100,14 +100,14 @@ export function DesktopLanding() {
             pointerEvents: 'none',
             borderRadius: '50%',
             overflow: 'hidden',
+            position: 'relative',
             boxShadow: '0 0 50px rgba(0,0,0,0.8)'
           }}
         >
-          <Image 
-            src="/chicken_curry_generated.png" 
-            alt="" 
-            width={500}
-            height={500}
+          <Image
+            src="/chicken_curry_generated.webp"
+            alt="Special Chicken Curry"
+            fill
             style={{ objectFit: 'cover' }}
           />
         </motion.div>
@@ -152,14 +152,14 @@ export function DesktopLanding() {
             pointerEvents: 'none',
             borderRadius: '50%',
             overflow: 'hidden',
+            position: 'relative',
             boxShadow: '0 0 50px rgba(0,0,0,0.8)'
           }}
         >
-          <Image 
-            src="/fish_curry_generated.png" 
-            alt="Fish Curry" 
-            width={500}
-            height={500}
+          <Image
+            src="/fish_curry_generated.webp"
+            alt="Homemade Fish Curry"
+            fill
             style={{ objectFit: 'cover' }}
           />
         </motion.div>
@@ -313,11 +313,12 @@ export function DesktopLanding() {
           }}
         >
           <Image 
-            src="/VK_Logo.png" 
+            src="/VK_Logo.webp" 
             alt="Vidya's Kitchen" 
             width={85} // Larger image 
             height={85} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
+            priority
           />
         </motion.div>
 
