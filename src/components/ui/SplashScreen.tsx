@@ -100,8 +100,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                         width: Math.random() * 3 + 1 + 'px',
                         height: Math.random() * 3 + 1 + 'px',
                         borderRadius: '50%',
-                        backgroundColor: i % 3 === 0 ? '#FFFFFF' : (i % 3 === 1 ? '#FFD700' : '#FFFACD'), // White, Gold, LemonChiffon
-                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.9)',
+                        backgroundColor: '#E21F27',
+                        boxShadow: '0 0 10px rgba(226, 31, 39, 0.9)',
                         zIndex: 15
                       }}
                     />
