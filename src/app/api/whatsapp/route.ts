@@ -96,7 +96,7 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: 
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   // LOGO URL (Using production domain asset)
-  const LOGO_URL = "https://vidyaskitchenhome.com/vk-logo.png"; 
+  const LOGO_URL = "https://vidyaskitchenhome.com/logo.png"; 
 
   const payload = {
     messaging_product: "whatsapp",
