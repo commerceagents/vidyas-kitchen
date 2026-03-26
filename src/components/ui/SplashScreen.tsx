@@ -58,8 +58,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ 
-                    scale: [1, 1.25], 
-                    opacity: [0, 0.8, 0] 
+                    scale: [1, 1.5], 
+                    opacity: [0, 1, 0] 
                   }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   style={{
@@ -67,8 +67,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                     width: '120px',
                     height: '120px',
                     borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(139, 31, 39, 0.9) 0%, rgba(139, 31, 39, 0) 75%)',
-                    filter: 'blur(8px)',
+                    background: 'radial-gradient(circle, rgba(226, 31, 39, 1) 0%, rgba(226, 31, 39, 0) 80%)',
+                    filter: 'blur(15px)',
                     zIndex: 10
                   }}
                 />
@@ -119,8 +119,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
 
             {/* Logo Wrapper - Black Border / Silver Polish */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
               style={{
                 position: 'relative',
@@ -136,6 +136,29 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 zIndex: 20
               }}
             >
+              {/* Shine Overlay Effect */}
+              <motion.div
+                animate={{
+                  x: ['-200%', '200%'],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "linear",
+                  delay: 0.5
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)',
+                  zIndex: 25,
+                  pointerEvents: 'none'
+                }}
+              />
+
               <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
                 <Image 
                   src="/VK_Logo.webp" 
