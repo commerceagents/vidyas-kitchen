@@ -58,17 +58,17 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ 
-                    scale: [1, 2.5], 
-                    opacity: [0, 0.6, 0] 
+                    scale: [1, 1.25], 
+                    opacity: [0, 0.8, 0] 
                   }}
-                  transition={{ duration: 1, ease: "easeOut" }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                   style={{
                     position: 'absolute',
                     width: '120px',
                     height: '120px',
                     borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(226, 31, 39, 0.8) 0%, rgba(226, 31, 39, 0) 70%)',
-                    filter: 'blur(10px)',
+                    background: 'radial-gradient(circle, rgba(139, 31, 39, 0.9) 0%, rgba(139, 31, 39, 0) 75%)',
+                    filter: 'blur(8px)',
                     zIndex: 10
                   }}
                 />
@@ -79,18 +79,18 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             <AnimatePresence>
               {showPulse && (
                 <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
+                  initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ 
-                    scale: 3.5, 
+                    scale: 1.3, 
                     opacity: 0 
                   }}
-                  transition={{ duration: 1.2, ease: "easeOut" }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                   style={{
                     position: 'absolute',
                     width: '120px',
                     height: '120px',
                     borderRadius: '50%',
-                    border: '2px solid rgba(226, 31, 39, 0.4)',
+                    border: '1px solid rgba(139, 31, 39, 0.6)',
                     zIndex: 10
                   }}
                 />
