@@ -38,14 +38,7 @@ export class VidyaAgent {
   }
 
   getActiveCategory(): string {
-    const now = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      timeZone: 'Asia/Kolkata',
-      hour: 'numeric',
-      hour12: false
-    };
-    const hour = parseInt(new Intl.DateTimeFormat('en-US', options).format(now));
-    if (hour >= 5 && hour < 11) return 'combo';
+    // 🥗 Removed Breakfast/Combo timing. Default to 'special_chicken' for general browsing.
     return 'special_chicken';
   }
 
@@ -103,8 +96,14 @@ export class VidyaAgent {
           delivery_slot: deliverySlot
         }).select().single();
       if (orderError) throw orderError;
-      const paymentLink = await createPaymentLink(total, order.id, "WhatsApp Customer", phoneNumber);
-      return { orderId: order.id, paymentLink, total };
+      const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", phoneNumber);
+      
+      // Update order with the payment link ID for precise callback matching
+      if (paymentLinkId) {
+        await supabase.from('orders').update({ payment_link_id: paymentLinkId }).eq('id', order.id);
+      }
+
+      return { orderId: order.id, paymentLink: short_url, total };
     } catch (_err) {
       console.error("Order Creation Error:", _err);
       return null;

@@ -31,11 +31,11 @@ export async function createPaymentLink(amount: number, orderId: string, custome
       callback_method: "get",
     });
 
-    return paymentLink.short_url;
+    return { short_url: paymentLink.short_url, id: paymentLink.id };
   } catch (error) {
     console.error("Razorpay Link Error:", error);
     // Fallback to UPI link if Razorpay fails or is not configured
-    return generateUPILink(amount, orderId);
+    return { short_url: generateUPILink(amount, orderId), id: null };
   }
 }
 

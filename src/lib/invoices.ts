@@ -6,7 +6,7 @@ export async function generateInvoicePDF(order: any, items: any[]) {
 
   // Header 
   doc.setFontSize(22);
-  doc.setTextColor(0, 102, 204); // Blue color for Vidya's Kitchen
+  doc.setTextColor(226, 31, 39); // Vidya's Kitchen Brand Red (#E21F27)
   doc.text("Vidya's Kitchen", 105, 20, { align: "center" });
 
   doc.setFontSize(10);
@@ -35,7 +35,7 @@ export async function generateInvoicePDF(order: any, items: any[]) {
     head: [['#', 'Item', 'Qty', 'Unit Price', 'Subtotal']],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [0, 102, 204] }
+    headStyles: { fillColor: [226, 31, 39] } // Brand Red
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 10;
