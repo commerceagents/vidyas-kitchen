@@ -92,11 +92,11 @@ export function DesktopLanding() {
       <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         <motion.div
           initial={{ x: 400, rotate: 180, opacity: 0 }}
-          animate={{ x: 0, rotate: [180, 0], opacity: 0.5 }}
+          animate={{ x: 0, rotate: 0, opacity: 0.5 }}
           transition={{ 
-            duration: 2.5, 
-            ease: [0.22, 1, 0.36, 1],
-            rotate: { duration: 60, repeat: Infinity, ease: "linear" } 
+            x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
+            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 1.5, ease: "easeOut" }
           }}
           style={{
             width: '100%',
@@ -106,7 +106,8 @@ export function DesktopLanding() {
             borderRadius: '50%',
             overflow: 'hidden',
             position: 'relative',
-            boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+            boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+            willChange: 'transform, opacity'
           }}
         >
           <Image
@@ -152,11 +153,11 @@ export function DesktopLanding() {
       <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         <motion.div
           initial={{ x: -400, rotate: -180, opacity: 0 }}
-          animate={{ x: 0, rotate: [-180, 0], opacity: 0.5 }}
+          animate={{ x: 0, rotate: 0, opacity: 0.5 }}
           transition={{ 
-            duration: 2.5, 
-            ease: [0.22, 1, 0.36, 1],
-            rotate: { duration: 70, repeat: Infinity, ease: "linear" } 
+            x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
+            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 1.5, ease: "easeOut" }
           }}
           style={{
             width: '100%',
@@ -166,7 +167,8 @@ export function DesktopLanding() {
             borderRadius: '50%',
             overflow: 'hidden',
             position: 'relative',
-            boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+            boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+            willChange: 'transform, opacity'
           }}
         >
           <Image

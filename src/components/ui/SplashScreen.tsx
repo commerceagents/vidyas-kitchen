@@ -55,23 +55,58 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             {/* Outer Pulsing Glow (Behind Logo) */}
             <AnimatePresence>
               {showPulse && (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ 
-                    scale: [1, 1.5], 
-                    opacity: [0, 1, 0] 
-                  }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  style={{
-                    position: 'absolute',
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(226, 31, 39, 1) 0%, rgba(226, 31, 39, 0) 80%)',
-                    filter: 'blur(15px)',
-                    zIndex: 10
-                  }}
-                />
+                <>
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ 
+                      scale: [1, 1.5], 
+                      opacity: [0, 1, 0] 
+                    }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    style={{
+                      position: 'absolute',
+                      width: '120px',
+                      height: '120px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(226, 31, 39, 1) 0%, rgba(226, 31, 39, 0) 80%)',
+                      filter: 'blur(15px)',
+                      zIndex: 10
+                    }}
+                  />
+                  
+                  {/* Glitter Particles Effect */}
+                  {[...Array(20)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ 
+                        opacity: 0, 
+                        scale: 0,
+                        x: 0,
+                        y: 0
+                      }}
+                      animate={{ 
+                        opacity: [0, 1, 0],
+                        scale: [0, 1, 0],
+                        x: (Math.random() - 0.5) * 300,
+                        y: (Math.random() - 0.5) * 300,
+                      }}
+                      transition={{ 
+                        duration: 1.2, 
+                        ease: [0.16, 1, 0.3, 1],
+                        delay: Math.random() * 0.1
+                      }}
+                      style={{
+                        position: 'absolute',
+                        width: Math.random() * 3 + 1 + 'px',
+                        height: Math.random() * 3 + 1 + 'px',
+                        borderRadius: '50%',
+                        backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#FFD700', // White and Gold
+                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.8)',
+                        zIndex: 15
+                      }}
+                    />
+                  ))}
+                </>
               )}
             </AnimatePresence>
 
