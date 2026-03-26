@@ -74,8 +74,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                     }}
                   />
                   
-                  {/* Glitter Particles Effect */}
-                  {[...Array(20)].map((_, i) => (
+                  {/* Glitter Particles Effect - Shimmering burst */}
+                  {[...Array(35)].map((_, i) => (
                     <motion.div
                       key={i}
                       initial={{ 
@@ -85,23 +85,23 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                         y: 0
                       }}
                       animate={{ 
-                        opacity: [0, 1, 0],
-                        scale: [0, 1, 0],
-                        x: (Math.random() - 0.5) * 300,
-                        y: (Math.random() - 0.5) * 300,
+                        opacity: [0, 1, 0.8, 1, 0],
+                        scale: [0, 1.2, 0.8, 1.1, 0],
+                        x: (Math.random() - 0.5) * 350,
+                        y: (Math.random() - 0.5) * 350,
                       }}
                       transition={{ 
-                        duration: 1.2, 
+                        duration: 1.5, 
                         ease: [0.16, 1, 0.3, 1],
-                        delay: Math.random() * 0.1
+                        delay: Math.random() * 0.2
                       }}
                       style={{
                         position: 'absolute',
                         width: Math.random() * 3 + 1 + 'px',
                         height: Math.random() * 3 + 1 + 'px',
                         borderRadius: '50%',
-                        backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#FFD700', // White and Gold
-                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.8)',
+                        backgroundColor: i % 3 === 0 ? '#FFFFFF' : (i % 3 === 1 ? '#FFD700' : '#FFFACD'), // White, Gold, LemonChiffon
+                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.9)',
                         zIndex: 15
                       }}
                     />

@@ -90,32 +90,44 @@ export function DesktopLanding() {
 
       {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
       <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+        {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: 400, rotate: 180, opacity: 0 }}
-          animate={{ x: 0, rotate: 0, opacity: 0.5 }}
+          initial={{ x: 400, opacity: 0 }}
+          animate={{ x: 0, opacity: 0.5 }}
           transition={{ 
             x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] },
             opacity: { duration: 1.5, ease: "easeOut" }
           }}
           style={{
             width: '100%',
             height: '100%',
-            opacity: 0.5,
-            pointerEvents: 'none',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            position: 'relative',
-            boxShadow: '0 0 50px rgba(0,0,0,0.8)',
-            willChange: 'transform, opacity'
+            willChange: 'transform, opacity',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden'
           }}
         >
-          <Image
-            src="/chicken_curry_generated.webp"
-            alt="Special Chicken Curry"
-            fill
-            style={{ objectFit: 'cover' }}
-          />
+          {/* Inner Motion Div for Infinite Rotation */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              position: 'relative',
+              boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+              WebkitTransform: 'translateZ(0)',
+              transform: 'translateZ(0)'
+            }}
+          >
+            <Image
+              src="/chicken_curry_generated.webp"
+              alt="Special Chicken Curry"
+              fill
+              style={{ objectFit: 'cover' }}
+            />
+          </motion.div>
         </motion.div>
 
         {/* User-provided Vector: Homemade Spices (Beside Chicken Curry) */}
@@ -151,32 +163,44 @@ export function DesktopLanding() {
 
       {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
       <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+        {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: -400, rotate: -180, opacity: 0 }}
-          animate={{ x: 0, rotate: 0, opacity: 0.5 }}
+          initial={{ x: -400, opacity: 0 }}
+          animate={{ x: 0, opacity: 0.5 }}
           transition={{ 
             x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] },
             opacity: { duration: 1.5, ease: "easeOut" }
           }}
           style={{
             width: '100%',
             height: '100%',
-            opacity: 0.5,
-            pointerEvents: 'none',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            position: 'relative',
-            boxShadow: '0 0 50px rgba(0,0,0,0.8)',
-            willChange: 'transform, opacity'
+            willChange: 'transform, opacity',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden'
           }}
         >
-          <Image
-            src="/fish_curry_generated.webp"
-            alt="Homemade Fish Curry"
-            fill
-            style={{ objectFit: 'cover' }}
-          />
+          {/* Inner Motion Div for Infinite Rotation */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              position: 'relative',
+              boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+              WebkitTransform: 'translateZ(0)',
+              transform: 'translateZ(0)'
+            }}
+          >
+            <Image
+              src="/fish_curry_generated.webp"
+              alt="Homemade Fish Curry"
+              fill
+              style={{ objectFit: 'cover' }}
+            />
+          </motion.div>
         </motion.div>
 
         {/* User-provided Vector: Chef's Special (Beside Fish Curry) */}
