@@ -108,7 +108,7 @@ export function DesktopLanding() {
         >
           {/* Inner Motion Div for Infinite Rotation */}
           <motion.div
-            animate={{ rotate: 360 }}
+            animate={{ rotate: -360 }}
             transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
             style={{
               width: '100%',
@@ -242,7 +242,7 @@ export function DesktopLanding() {
           position: 'relative',
           zIndex: 60,
           width: '440px',
-          padding: '36px 40px', // Reduced padding
+          padding: '24px 40px', // Further reduced padding
           background: '#0D0D0F',
           borderRadius: '32px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -349,7 +349,8 @@ export function DesktopLanding() {
             display: 'flex', // Restored
             alignItems: 'center', // Restored
             justifyContent: 'center', // Restored
-            marginBottom: '12px', // Reduced from 32px
+            marginTop: '-12px', // Pushed slightly higher
+            marginBottom: '4px', // Optimized spacing
             zIndex: 10,
             background: 'transparent', // Explicitly transparent
             borderRadius: '50%',
@@ -367,7 +368,7 @@ export function DesktopLanding() {
         </motion.div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '32px', zIndex: 10 }}>
+        <div style={{ marginBottom: '16px', zIndex: 10 }}>
           <h2 style={{
             fontSize: '28px',
             fontWeight: '900',
@@ -393,7 +394,7 @@ export function DesktopLanding() {
           position: 'relative',
           width: '180px',
           height: '180px',
-          marginBottom: '28px',
+          marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -460,7 +461,7 @@ export function DesktopLanding() {
             maxWidth: '420px',
             lineHeight: '1.4',
             marginTop: '8px',
-            marginBottom: '20px',
+            marginBottom: '12px',
             zIndex: 10,
             textTransform: 'none',
             letterSpacing: '0.01em',
@@ -468,7 +469,7 @@ export function DesktopLanding() {
             whiteSpace: 'pre-line'
           }}
         >
-          {"Hungry? Scan to explore our gourmet menu\nand order your favorites in seconds! 🥘"}
+          {"Hungry? Scan to explore our gourmet menu\nand order your favorites in seconds!"}
         </motion.p>
 
         {/* Action Button Row */}
@@ -488,11 +489,9 @@ export function DesktopLanding() {
             rel="noopener noreferrer"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            whileTap={{ scale: 0.98 }}
             animate={{
               backgroundColor: isHovered ? '#25D366' : '#FFFFFF',
-              color: isHovered ? '#FFFFFF' : '#000000',
-              scale: isHovered ? 1.02 : 1
+              color: isHovered ? '#FFFFFF' : '#000000'
             }}
             transition={{ type: 'spring', stiffness: 400, damping: 10 }}
             style={{
