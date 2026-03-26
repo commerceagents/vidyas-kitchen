@@ -448,6 +448,27 @@ export function DesktopLanding() {
           </div>
         </div>
 
+        {/* QR Instruction Text */}
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.8, duration: 1 }}
+          style={{
+            fontSize: '13px',
+            color: 'rgba(255, 255, 255, 0.5)',
+            textAlign: 'center',
+            maxWidth: '220px',
+            lineHeight: '1.5',
+            marginTop: '-10px',
+            zIndex: 10,
+            textTransform: 'none',
+            letterSpacing: '0.02em',
+            fontWeight: '400'
+          }}
+        >
+          Not just for show! Scan with your phone to take the app with you! 📱
+        </motion.p>
+
         {/* Action Button Row */}
         <div style={{ 
           display: 'flex', 
