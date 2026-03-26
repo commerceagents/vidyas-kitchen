@@ -454,19 +454,20 @@ export function DesktopLanding() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.8, duration: 1 }}
           style={{
-            fontSize: '13px',
-            color: 'rgba(255, 255, 255, 0.5)',
+            fontSize: '14px',
+            color: 'rgba(255, 255, 255, 0.6)',
             textAlign: 'center',
-            maxWidth: '220px',
-            lineHeight: '1.5',
+            maxWidth: '300px',
+            lineHeight: '1.6',
             marginTop: '-10px',
             zIndex: 10,
             textTransform: 'none',
-            letterSpacing: '0.02em',
-            fontWeight: '400'
+            letterSpacing: '0.01em',
+            fontWeight: '400',
+            whiteSpace: 'pre-line'
           }}
         >
-          Not just for show! Scan with your phone to take the app with you! 📱
+          {"Hungry? Scan to explore our gourmet menu\nand order your favorites in seconds! 🥘"}
         </motion.p>
 
         {/* Action Button Row */}
