@@ -147,6 +147,43 @@ export class VidyaAgent {
         };
       }
 
+      // 🧠 SMART PATH for Subscription Plans
+      const subscriptionPrices: Record<string, { name: string; price: number }> = {
+        "weekly veg plan": { name: "Weekly Veg Plan (5 days)", price: 650 },
+        "weekly non-veg plan": { name: "Weekly Non-Veg Plan (5 days)", price: 950 },
+      };
+
+      const matchedPlan = Object.entries(subscriptionPrices).find(([key]) =>
+        lowerMessage.includes(key)
+      );
+
+      if (matchedPlan && phoneNumber) {
+        const [, plan] = matchedPlan;
+        try {
+          const { short_url } = await createPaymentLink(plan.price, `sub_${Date.now()}`, "Subscriber", phoneNumber);
+          const reply = `Excellent choice! The *${plan.name}* subscription is ₹${plan.price} for 5 days of slow-cooked home meals.\n\nPay securely here to confirm your slot:\n${short_url}\n\nOnce paid, I'll have everything ready for you. Patience is a gourmet virtue! 😉`;
+          return {
+            reply,
+            shouldShowMenu: false,
+            shouldShowButtons: false,
+            shouldSendPwaLink: false,
+            buttons: [],
+            menuItems: [],
+            headerImage: undefined
+          };
+        } catch (_err) {
+          return {
+            reply: `The *${plan.name}* costs ₹${plan.price} for 5 days. To book your slot, please call or message Vidya directly and she'll get your payment link sorted!`,
+            shouldShowMenu: false,
+            shouldShowButtons: false,
+            shouldSendPwaLink: false,
+            buttons: [],
+            menuItems: [],
+            headerImage: undefined
+          };
+        }
+      }
+
       // 🧠 SMART PATH for Quick Reorder
       if (lowerMessage === "quick reorder" && phoneNumber) {
         const { data: pastOrders } = await supabase
