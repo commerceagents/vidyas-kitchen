@@ -45,18 +45,18 @@ export class VidyaAgent {
   async getMenuByCategory(category: string) {
     const fallbackMenu: Record<string, MenuItem[]> = {
       combo: [
-        { id: 'c1', name: 'Weekly Veg Combo', price: 650, unit: '5 days', category: 'combo' },
-        { id: 'c3', name: 'Weekly Non-Veg Combo', price: 950, unit: '5 days', category: 'combo' },
+        { id: 'c1', name: 'Weekly Veg Combo', price: 650, unit: '5 days', category: 'combo', image_url: '/images/veg-combo.png' },
+        { id: 'c3', name: 'Weekly Non-Veg Combo', price: 950, unit: '5 days', category: 'combo', image_url: '/images/veg-combo.png' },
       ],
       special_chicken: [
-        { id: 'sc1', name: 'Pepper Chicken', price: 750, unit: '1kg', category: 'special_chicken' },
-        { id: 'sc2', name: 'Chicken Gravy', price: 750, unit: '1kg', category: 'special_chicken' },
+        { id: 'sc1', name: 'Pepper Chicken', price: 750, unit: '1kg', category: 'special_chicken', image_url: '/images/pepper-chicken.png' },
+        { id: 'sc2', name: 'Chicken Gravy', price: 750, unit: '1kg', category: 'special_chicken', image_url: '/images/pepper-chicken.png' },
       ],
       special_mutton: [
-        { id: 'sm1', name: 'Mutton Chukka', price: 1600, unit: '1kg', category: 'special_mutton' },
+        { id: 'sm1', name: 'Mutton Chukka', price: 1600, unit: '1kg', category: 'special_mutton', image_url: '/images/pepper-chicken.png' },
       ],
       special_egg: [
-        { id: 'se1', name: 'Egg Chalna', price: 300, unit: '6 eggs', category: 'special_egg' },
+        { id: 'se1', name: 'Egg Chalna', price: 300, unit: '6 eggs', category: 'special_egg', image_url: '/images/veg-combo.png' },
       ]
     };
 
@@ -120,14 +120,59 @@ export class VidyaAgent {
       // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
       if (isGreeting && history.length === 0) {
         return { 
-          reply: "Hi! I'm Vidya from Vidya's Kitchen. I'm so happy to have you here! Looking for a delicious home-cooked meal in Sivakasi? 🥘", 
+          reply: "Vidya here! My spices are currently marinating in a top-secret Sivakasi location. For the full five-star buffet, our app is where the magic happens. For a quick 'repeat performance' of your favorites, I've got you right here! 😉\n\nhttps://vidyaskitchenhome.com", 
           shouldShowMenu: false,
           shouldShowButtons: true,
           buttons: [
-            { id: 'view_menu', title: `View Menu 🍱` },
-            { id: 'check_location', title: `Check Delivery 📍` }
+            { id: 'view_app', title: 'Launch Gourmet App' },
+            { id: 'quick_reorder', title: 'Quick Reorder' },
+            { id: 'view_menu', title: 'Todays Specials' }
           ],
-          menuItems: menu.slice(0, 5)
+          menuItems: menu.slice(0, 5),
+          headerImage: "https://vidyaskitchenhome.com/hero-spread.png"
+        };
+      }
+
+      // 🧠 SMART PATH for Quick Reorder
+      if (lowerMessage === "quick reorder" && phoneNumber) {
+        const { data: pastOrders } = await supabase
+          .from('orders')
+          .select('*, order_items(menu_items(*))')
+          .eq('phone_number', phoneNumber)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (pastOrders && pastOrders.length > 0) {
+          const items = pastOrders.flatMap(o => (o.order_items as any[]).map(oi => oi.menu_items)).filter(Boolean);
+          const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values()).slice(0, 10);
+          
+          return {
+            reply: "Welcome back! Here are your recent favorites. Just tap to repeat an order! 😉",
+            shouldShowMenu: true,
+            shouldShowButtons: false,
+            buttons: [],
+            menuItems: uniqueItems as MenuItem[],
+            headerImage: undefined
+          };
+        }
+        return {
+          reply: "It looks like you haven't ordered yet! Why not try one of my today's specials? They're quite famous in Sivakasi. 😉",
+          shouldShowMenu: true,
+          shouldShowButtons: false,
+          buttons: [],
+          menuItems: menu.slice(0, 5),
+          headerImage: undefined
+        };
+      }
+
+      // 🧠 SMART PATH for Specials/Menu
+      if (lowerMessage === "show me the menu" || lowerMessage === "todays specials") {
+        return {
+          reply: "My gourmet kitchen is humming with activity! Here's what's slow-cooking for tomorrow. Take your pick! 😉",
+          shouldShowMenu: true,
+          shouldShowButtons: false,
+          buttons: [],
+          menuItems: menu
         };
       }
 
@@ -149,14 +194,15 @@ export class VidyaAgent {
 
           PERSONALITY: 
           - Warm, welcoming, and ultra-polite (proper English only).
-          - Professional yet maternal; you care deeply about the quality of every meal.
+          - Professional yet witty; you treat cooking as a fine art and customers as honored guests.
           - You speak with the pride of a small boutique owner.
+          - NO EMOJIS in button titles.
 
           OPERATIONAL RULES (STRICT):
           - AREA: We ONLY deliver within Sivakasi.
           - LEAD TIME: All orders MUST be placed at least 24 hours in advance. No exceptions.
-          - BREAKFAST: We do NOT offer breakfast. Focus on Lunch/Dinner Gourmet Specials.
-          - CURRENCY: All prices are in Indian Rupees (₹).
+          - STYLE: "Patience is a gourmet virtue! My slow-cooked masterpieces need a 24-hour head start to reach perfection."
+          - CONVERSATION: If they show interest in a dish, encourage the PWA app for the best experience.
 
           CURRENT LOGICAL STATE:
           - TIME (IST): ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
@@ -165,9 +211,9 @@ export class VidyaAgent {
           ${memoryPrompt}
 
           CONVERSATIONAL FLOW:
-          1. Greet warmly if it's the first message.
-          2. If they ask for something sooner than 24 hours, politely explain that "authentic home-style cooking takes time to prepare with love" and suggest a slot 24h+ from now.
-          3. Once a valid item and time (at least 24h from now) are selected, ask for their delivery address in Sivakasi.
+          1. Greet warmly if first message. Favor PWA app link.
+          2. Use professional yet funny responses for lead-time education.
+          3. If they confirm a valid item and time (at least 24h from now), ask for their Sivakasi address.
           4. When everything is settled, say "CONFIRM ORDER" to finalize.` },
           ...history,
           { role: "user", content: message },
@@ -195,18 +241,20 @@ export class VidyaAgent {
 
       return { 
         reply, 
-        shouldShowMenu: lowerMessage.includes("menu"),
+        shouldShowMenu: lowerMessage.includes("menu") || lowerMessage.includes("specials"),
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
         buttons: isGreeting ? [
-          { id: 'view_menu', title: `View Menu 🍱` },
-          { id: 'check_location', title: `Check Delivery 📍` }
+          { id: 'view_app', title: 'Launch Gourmet App' },
+          { id: 'quick_reorder', title: 'Quick Reorder' },
+          { id: 'view_menu', title: 'Todays Specials' }
         ] : [],
         menuItems: menu.slice(0, 5),
+        headerImage: isGreeting ? "https://vidyaskitchenhome.com/images/hero-spread.png" : undefined,
         paymentLink
       };
     } catch (err) {
       console.error("AI Agent Error:", err);
-      return { reply: "Sorry, I'm taking a short break. Try again!", shouldShowMenu: false, menuItems: [] };
+      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, menuItems: [], buttons: [], shouldShowButtons: false };
     }
   }
 

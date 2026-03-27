@@ -51,6 +51,8 @@ export async function POST(req: Request) {
             if (reply.id === 'view_menu') text = "Show me the menu";
             else if (reply.id === 'bestsellers') text = "What are your bestsellers?";
             else if (reply.id === 'check_location') text = "Check my delivery area";
+            else if (reply.id === 'view_app') text = "Launch Gourmet App";
+            else if (reply.id === 'quick_reorder') text = "Quick Reorder";
             else text = reply.title; 
           }
         }
@@ -63,12 +65,12 @@ export async function POST(req: Request) {
           agent.upsertCustomer(from).catch(e => console.error("[SUPABASE] Upsert failed:", e));
           
           console.log(`[AI] Processing message...`);
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, paymentLink } = await agent.processMessage(text, [] as Message[], from);
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage } = await agent.processMessage(text, [] as Message[], from);
           console.log(`[AI] Reply generated: "${reply.substring(0, 50)}..."`);
           
-          if (shouldShowButtons && buttons.length > 0) {
+          if (shouldShowButtons && buttons && buttons.length > 0) {
             console.log(`[WHATSAPP] Sending buttons to ${from}`);
-            await sendWhatsAppButtons(from, reply, buttons);
+            await sendWhatsAppButtons(from, reply, buttons, headerImage);
           } else {
             console.log(`[WHATSAPP] Sending text message to ${from}`);
             await sendWhatsAppMessage(from, reply);
@@ -92,11 +94,12 @@ export async function POST(req: Request) {
 /**
  * Sends a Button message to WhatsApp.
  */
-async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[]) {
+async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[], headerUrl?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   
   // LOGO URL (Using production domain asset)
-  const LOGO_URL = "https://vidyaskitchenhome.com/logo.png"; 
+  const LOGO_URL = "https://vidyaskitchenhome.com/VK_Logo.webp"; 
+  const HEADER_URL = headerUrl || LOGO_URL;
 
   const payload = {
     messaging_product: "whatsapp",
@@ -107,7 +110,7 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: 
       header: {
         type: "image",
         image: {
-          link: LOGO_URL
+          link: HEADER_URL
         }
       },
       body: { text: bodyText },
@@ -162,8 +165,8 @@ async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?
           header: {
             type: "image",
             image: {
-              // We'll use a placeholder if no image_url exists
-              link: item.image_url || "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80"
+              // Use production domain for images
+              link: item.image_url ? `https://vidyaskitchenhome.com${item.image_url}` : "https://vidyaskitchenhome.com/hero-spread.png"
             }
           },
           body: {
