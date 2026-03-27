@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         if (message.type === "text") {
           text = message.text?.body;
         } 
-        // Handle button clicks from carousels AND interactive buttons
+        // Handle button clicks from interactive buttons
         else if (message.type === "interactive") {
           const interactive = message.interactive;
           if (interactive.type === "button_reply") {
@@ -53,7 +53,12 @@ export async function POST(req: Request) {
             else if (reply.id === 'check_location') text = "Check my delivery area";
             else if (reply.id === 'view_app') text = "Launch Gourmet App";
             else if (reply.id === 'quick_reorder') text = "Quick Reorder";
+            else if (reply.id === 'restart') text = "hi";
             else text = reply.title; 
+          } else if (interactive.type === "list_reply") {
+            // User selected an item from the list
+            const listReply = interactive.list_reply;
+            text = `I would like to order ${listReply.title}`;
           }
         }
 
@@ -68,7 +73,14 @@ export async function POST(req: Request) {
           const result = await agent.processMessage(text, [] as Message[], from);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage } = result;
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendPwaLink } = result;
+
+          // Special case: user tapped "Launch Gourmet App"
+          if (shouldSendPwaLink) {
+            await sendWhatsAppMessage(from, "Excellent taste! 😉 Open the link below in your browser. You'll get an option to *Install the App* or *Continue in Browser*:\n\nhttps://vidyaskitchenhome.com\n\nInstalling the PWA gives you the full gourmet experience — faster ordering, order history, and more!");
+            await sendRestartReply(from);
+            return NextResponse.json({ status: "success" });
+          }
 
           if (shouldShowButtons && buttons && buttons.length > 0) {
             console.log(`[WHATSAPP] Sending buttons...`);
@@ -76,11 +88,13 @@ export async function POST(req: Request) {
           } else {
             console.log(`[WHATSAPP] Sending text message...`);
             await sendWhatsAppMessage(from, reply);
+            // Send persistent restart reply after every plain text message
+            await sendRestartReply(from);
           }
 
-          if (shouldShowMenu && menuItems.length > 0) {
-            console.log(`[WHATSAPP] Sending carousel to ${from}`);
-            await sendWhatsAppCarousel(from, menuItems);
+          if (shouldShowMenu && menuItems && menuItems.length > 0) {
+            console.log(`[WHATSAPP] Sending list/carousel...`);
+            await sendWhatsAppList(from, menuItems);
           }
         }
       }
@@ -210,11 +224,22 @@ async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?
 }
 
 /**
- * Sends a List Message as a reliable fallback for menus.
+ * Sends a List Message with Specials + Subscription Plans sections.
  */
 async function sendWhatsAppList(to: string, items: MenuItem[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  
+
+  const subscriptionPlans = [
+    { id: 'sub_veg_weekly', title: 'Weekly Veg Plan', description: '5 days of home-cooked veg meals. Pay online & relax. ₹650' },
+    { id: 'sub_nonveg_weekly', title: 'Weekly Non-Veg Plan', description: '5 days of rich non-veg gourmet meals. ₹950' },
+  ];
+
+  const specialRows = items.slice(0, 8).map(item => ({
+    id: item.id.substring(0, 24),
+    title: item.name.substring(0, 24),
+    description: `₹${item.price} per ${item.unit || 'unit'} — Tap to order`.substring(0, 72)
+  }));
+
   const payload = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -222,24 +247,19 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     type: "interactive",
     interactive: {
       type: "list",
-      header: { type: "text", text: "Vidya's Kitchen Menu" },
-      body: { text: "Choose a delicious meal to order! 🍱" },
-      footer: { text: "Quality Home Cooking" },
+      header: { type: "text", text: "Vidya's Kitchen" },
+      body: { text: "Here's what's cooking tomorrow. Pick a dish or subscribe to a weekly plan and we'll handle the rest!" },
+      footer: { text: "24-hour advance booking required" },
       action: {
         button: "View All Items",
         sections: [
           {
-            title: "Available Now",
-            rows: items.slice(0, 10).map(item => {
-              const row: any = {
-                id: item.id.substring(0, 24),
-                title: item.name.substring(0, 24)
-              };
-              if (item.unit || item.description) {
-                row.description = `₹${item.price} per ${item.unit || "unit"}`.substring(0, 72);
-              }
-              return row;
-            })
+            title: "Today's Specials",
+            rows: specialRows
+          },
+          {
+            title: "Subscription Plans",
+            rows: subscriptionPlans
           }
         ]
       }
@@ -259,6 +279,41 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     console.log('List Response:', JSON.stringify(d));
   } catch (_err) {
     console.error('Meta List Error:', _err);
+  }
+}
+
+/**
+ * Sends a persistent "Restart Conversation" quick reply button.
+ */
+async function sendRestartReply(to: string) {
+  const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: "Need something else? I'm always here." },
+      action: {
+        buttons: [
+          { type: "reply", reply: { id: "restart", title: "Start Over" } }
+        ]
+      }
+    }
+  };
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const d = await response.json();
+    console.log('Restart Reply Response:', JSON.stringify(d));
+  } catch (_err) {
+    console.error('Meta Restart Reply Error:', _err);
   }
 }
 

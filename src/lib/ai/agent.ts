@@ -120,16 +120,30 @@ export class VidyaAgent {
       // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
       if (isGreeting && history.length === 0) {
         return { 
-          reply: "Vidya here! My spices are currently marinating in a top-secret Sivakasi location. For the full five-star buffet, our app is where the magic happens. For a quick 'repeat performance' of your favorites, I've got you right here! 😉\n\nhttps://vidyaskitchenhome.com", 
+          reply: "Vidya here! My spices are currently marinating in a top-secret Sivakasi location. For the full five-star buffet, our app is where the magic happens. For a quick 'repeat performance' of your favorites, I'm right here! 😉", 
           shouldShowMenu: false,
           shouldShowButtons: true,
+          shouldSendPwaLink: false,
           buttons: [
             { id: 'view_app', title: 'Launch Gourmet App' },
             { id: 'quick_reorder', title: 'Quick Reorder' },
             { id: 'view_menu', title: 'Todays Specials' }
           ],
           menuItems: menu.slice(0, 5),
-          headerImage: "https://vidyaskitchenhome.com/hero-spread.png"
+          headerImage: undefined
+        };
+      }
+
+      // 🧠 FAST PATH for Launch App
+      if (lowerMessage === "launch gourmet app") {
+        return {
+          reply: "",
+          shouldShowMenu: false,
+          shouldShowButtons: false,
+          shouldSendPwaLink: true,
+          buttons: [],
+          menuItems: [],
+          headerImage: undefined
         };
       }
 
@@ -145,11 +159,11 @@ export class VidyaAgent {
         if (pastOrders && pastOrders.length > 0) {
           const items = pastOrders.flatMap(o => (o.order_items as any[]).map(oi => oi.menu_items)).filter(Boolean);
           const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values()).slice(0, 10);
-          
           return {
             reply: "Welcome back! Here are your recent favorites. Just tap to repeat an order! 😉",
             shouldShowMenu: true,
             shouldShowButtons: false,
+            shouldSendPwaLink: false,
             buttons: [],
             menuItems: uniqueItems as MenuItem[],
             headerImage: undefined
@@ -159,6 +173,7 @@ export class VidyaAgent {
           reply: "It looks like you haven't ordered yet! Why not try one of my today's specials? They're quite famous in Sivakasi. 😉",
           shouldShowMenu: true,
           shouldShowButtons: false,
+          shouldSendPwaLink: false,
           buttons: [],
           menuItems: menu.slice(0, 5),
           headerImage: undefined
@@ -168,12 +183,13 @@ export class VidyaAgent {
       // 🧠 SMART PATH for Specials/Menu
       if (lowerMessage === "show me the menu" || lowerMessage === "todays specials") {
         return {
-          reply: "My gourmet kitchen is humming with activity! Here's what's slow-cooking for tomorrow. Take your pick! 😉",
+          reply: "My gourmet kitchen is humming with activity! Here's what's slow-cooking for tomorrow. Take your pick!",
           shouldShowMenu: true,
           shouldShowButtons: false,
+          shouldSendPwaLink: false,
           buttons: [],
-          menuItems: menu
-        };
+          menuItems: menu,
+          headerImage: undefined
       }
 
       const menuString = menu.map(item => `${item.name}: ₹${item.price}`).join('\n');
@@ -243,18 +259,19 @@ export class VidyaAgent {
         reply, 
         shouldShowMenu: lowerMessage.includes("menu") || lowerMessage.includes("specials"),
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
+        shouldSendPwaLink: false,
         buttons: isGreeting ? [
           { id: 'view_app', title: 'Launch Gourmet App' },
           { id: 'quick_reorder', title: 'Quick Reorder' },
           { id: 'view_menu', title: 'Todays Specials' }
         ] : [],
         menuItems: menu.slice(0, 5),
-        headerImage: isGreeting ? "https://vidyaskitchenhome.com/images/hero-spread.png" : undefined,
+        headerImage: undefined,
         paymentLink
       };
     } catch (err) {
       console.error("AI Agent Error:", err);
-      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, menuItems: [], buttons: [], shouldShowButtons: false };
+      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, shouldShowButtons: false, shouldSendPwaLink: false, menuItems: [], buttons: [], headerImage: undefined };
     }
   }
 
