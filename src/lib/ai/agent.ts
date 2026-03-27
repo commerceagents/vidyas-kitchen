@@ -227,6 +227,7 @@ export class VidyaAgent {
           buttons: [],
           menuItems: menu,
           headerImage: undefined
+        };
       }
 
       const menuString = menu.map(item => `${item.name}: ₹${item.price}`).join('\n');
