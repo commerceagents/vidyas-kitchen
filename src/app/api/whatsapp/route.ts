@@ -65,14 +65,16 @@ export async function POST(req: Request) {
           agent.upsertCustomer(from).catch(e => console.error("[SUPABASE] Upsert failed:", e));
           
           console.log(`[AI] Processing message...`);
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage } = await agent.processMessage(text, [] as Message[], from);
-          console.log(`[AI] Reply generated: "${reply.substring(0, 50)}..."`);
+          const result = await agent.processMessage(text, [] as Message[], from);
+          console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage } = result;
+
           if (shouldShowButtons && buttons && buttons.length > 0) {
-            console.log(`[WHATSAPP] Sending buttons to ${from}`);
+            console.log(`[WHATSAPP] Sending buttons...`);
             await sendWhatsAppButtons(from, reply, buttons, headerImage);
           } else {
-            console.log(`[WHATSAPP] Sending text message to ${from}`);
+            console.log(`[WHATSAPP] Sending text message...`);
             await sendWhatsAppMessage(from, reply);
           }
 
@@ -94,13 +96,10 @@ export async function POST(req: Request) {
 /**
  * Sends a Button message to WhatsApp.
  */
-async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[], headerUrl?: string) {
+async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[], _headerUrl?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  
-  // LOGO URL (Using production domain asset)
-  const LOGO_URL = "https://vidyaskitchenhome.com/VK_Logo.webp"; 
-  const HEADER_URL = headerUrl || LOGO_URL;
 
+  // Using text header to avoid image 404 errors from Meta API
   const payload = {
     messaging_product: "whatsapp",
     to,
@@ -108,10 +107,8 @@ async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: 
     interactive: {
       type: "button",
       header: {
-        type: "image",
-        image: {
-          link: HEADER_URL
-        }
+        type: "text",
+        text: "Vidya's Kitchen"
       },
       body: { text: bodyText },
       action: {
