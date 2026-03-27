@@ -56,9 +56,11 @@ export async function POST(req: Request) {
             else if (reply.id === 'restart') text = "hi";
             else text = reply.title; 
           } else if (interactive.type === "list_reply") {
-            // User selected an item from the list
             const listReply = interactive.list_reply;
-            text = `I would like to order ${listReply.title}`;
+            // Subscription plan IDs get routed directly
+            if (listReply.id === 'sub_veg_weekly') text = "weekly veg plan";
+            else if (listReply.id === 'sub_nonveg_weekly') text = "weekly non-veg plan";
+            else text = `I would like to order ${listReply.title}`;
           }
         }
 
