@@ -36,7 +36,7 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <main className="fixed inset-0 bg-[#0a0a0a] overscroll-none touch-none overflow-hidden select-none">
+    <main className={`fixed inset-0 bg-[#0a0a0a] ${isDesktop ? "overscroll-none touch-none overflow-hidden select-none" : ""}`}>
       <AnimatePresence mode="wait">
         {showSplash ? (
           <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />

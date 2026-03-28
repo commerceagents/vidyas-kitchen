@@ -78,7 +78,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone }: PhoneLoginScree
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col overflow-y-auto overscroll-contain">
       {/* Background gradient */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-[#E21F27] opacity-[0.06] blur-[100px] rounded-full" />
@@ -91,8 +91,14 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone }: PhoneLoginScree
         transition={{ duration: 0.6 }}
         className="flex flex-col items-center pt-16 pb-8 px-6"
       >
-        <div className="w-20 h-20 mb-5 relative">
-          <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" fill className="object-contain" />
+        <div className="w-20 h-20 mb-5 relative overflow-hidden rounded-full">
+          <Image
+            src="/VK_Logo.webp"
+            alt="Vidya's Kitchen"
+            width={80}
+            height={80}
+            className="object-contain w-full h-full"
+          />
         </div>
         <h1 className="text-white text-2xl font-bold tracking-tight">Vidya's Kitchen</h1>
         <p className="text-white/40 text-sm mt-1">Gourmet home cooking, Sivakasi</p>
