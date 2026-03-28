@@ -4,82 +4,133 @@ import { useState, useRef, useEffect, CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
+// ─── Types ────────────────────────────────────────────────────────
 interface PhoneLoginScreenProps {
   onVerified: (phone: string) => void;
   prefilledPhone?: string;
   displayName?: string;
 }
 
-// ─── Design tokens ────────────────────────────────────────────────
+type LegalTab = "terms" | "privacy" | "refund";
+
+// ─── Design Tokens (8px grid) ─────────────────────────────────────
+const T = {
+  sp1: 8, sp2: 16, sp3: 24, sp4: 32, sp5: 40, sp6: 48, sp7: 56, sp8: 64,
+};
+
 const C = {
   bg: "#0a0a0a",
   surface: "#161616",
   surfaceHigh: "#1e1e1e",
   border: "rgba(255,255,255,0.09)",
-  borderActive: "#E21F27",
-  borderValid: "#22c55e",
   red: "#E21F27",
   green: "#22c55e",
   white: "#ffffff",
   muted: "rgba(255,255,255,0.45)",
-  faint: "rgba(255,255,255,0.18)",
+  faint: "rgba(255,255,255,0.20)",
+  mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
 };
 
-// ─── Static Styles ────────────────────────────────────────────────
+// ─── Legal content ────────────────────────────────────────────────
+const legalContent: Record<LegalTab, { title: string; sections: { heading: string; text: string }[] }> = {
+  terms: {
+    title: "TERMS OF SERVICE",
+    sections: [
+      { heading: "1. ACCEPTANCE OF TERMS", text: "by accessing vidya's kitchen services via our website or whatsapp bot, you agree to be bound by these terms of service. if you do not agree, please do not use our services." },
+      { heading: "2. SERVICE DESCRIPTION", text: "vidya's kitchen provides home-cooked meal catering and delivery services. all orders are subject to availability and acceptance by us." },
+      { heading: "3. USER OBLIGATIONS", text: "users must provide accurate information for order delivery and payment. any misuse of the whatsapp bot or website to place fraudulent orders is strictly prohibited." },
+      { heading: "4. PRICING AND PAYMENT", text: "all prices are listed in indian rupees (inr). payments must be made via secure razorpay links provided after order confirmation. orders will only be processed once payment is confirmed." },
+      { heading: "5. LIMITATION OF LIABILITY", text: "vidya's kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services beyond the order value." },
+      { heading: "6. GOVERNING LAW", text: "these terms are governed by the laws of india. any disputes shall be subject to the exclusive jurisdiction of the courts in sivakasi, tamil nadu." },
+    ],
+  },
+  privacy: {
+    title: "PRIVACY POLICY",
+    sections: [
+      { heading: "1. INFORMATION WE COLLECT", text: "we collect your whatsapp name, phone number, items ordered, delivery preferences, and special instructions. we use razorpay for payments and do not store card details." },
+      { heading: "2. HOW WE USE INFORMATION", text: "your data is used solely to provide and improve our services — including processing orders, sending payment links, and responding to queries on whatsapp." },
+      { heading: "3. DATA SHARING", text: "we do not sell or rent your personal information. data is shared only with razorpay to facilitate payments." },
+    ],
+  },
+  refund: {
+    title: "REFUND POLICY",
+    sections: [
+      { heading: "1. ORDER CANCELLATION", text: "cancellations are only permitted within 15 minutes of placing the order. once food preparation has started, we cannot accept cancellations." },
+      { heading: "2. REFUND ELIGIBILITY", text: "refunds are issued if the delivered food is spoiled, wrong items were delivered, or the order was not delivered due to our error." },
+      { heading: "3. REFUND PROCESS", text: "to request a refund, please contact us on whatsapp with photos of the issue within 1 hour of delivery. approved refunds will be processed via razorpay within 5–7 business days." },
+    ],
+  },
+};
+
+// ─── Formatting ───────────────────────────────────────────────────
+const formatDisplay = (val: string) =>
+  val.length > 5 ? val.slice(0, 5) + " " + val.slice(5) : val;
+
+// ─── Styles ───────────────────────────────────────────────────────
 const S: Record<string, CSSProperties> = {
   root: {
     position: "fixed", inset: 0,
     background: C.bg,
-    overflowY: "auto",
-    overscrollBehavior: "contain",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
+    fontFamily: C.mono,
+    display: "flex", flexDirection: "column",
+    overflowY: "auto", overscrollBehavior: "contain",
   },
   glow: {
     position: "absolute", top: 0, left: "50%",
     transform: "translateX(-50%)",
-    width: 320, height: 260,
-    background: C.red,
-    opacity: 0.06,
-    filter: "blur(90px)",
-    borderRadius: "50%",
+    width: 300, height: 240,
+    background: C.red, opacity: 0.055,
+    filter: "blur(80px)", borderRadius: "50%",
     pointerEvents: "none",
   },
   inner: {
     position: "relative", zIndex: 1,
-    minHeight: "100%",
+    flex: 1,
     display: "flex", flexDirection: "column",
-    padding: "72px 24px 40px",
+    padding: `${T.sp8}px ${T.sp3}px ${T.sp3}px`,
   },
-  logoWrap: { width: 56, height: 56, marginBottom: 28, borderRadius: 16, overflow: "hidden" },
-  h1: {
-    fontSize: 34, fontWeight: 700, color: C.white,
-    letterSpacing: "-0.5px", lineHeight: 1.1,
-    margin: 0, marginBottom: 8,
+  logoWrap: {
+    width: 80, height: 80,
+    marginBottom: T.sp4,
+    borderRadius: 20, overflow: "hidden",
+    flexShrink: 0,
   },
-  sub: {
-    fontSize: 12, color: C.muted, margin: 0,
-    letterSpacing: "0.08em", textTransform: "uppercase",
-    marginBottom: 40,
+  greeting: {
+    fontSize: 32, fontWeight: 800,
+    lineHeight: 1.1, letterSpacing: "-0.5px",
+    color: C.white,
+    margin: 0, marginBottom: T.sp1,
+  },
+  greetingAccent: { color: C.red },
+  subtitle: {
+    fontSize: 11, fontWeight: 700,
+    color: C.red,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    marginBottom: T.sp5,
+    margin: 0, marginBottom: T.sp5,
   },
   label: {
-    fontSize: 13, color: C.muted,
-    marginBottom: 10, display: "block",
-    letterSpacing: "0.02em",
+    display: "block", fontSize: 11,
+    color: C.muted, letterSpacing: "0.08em",
+    textTransform: "uppercase", fontWeight: 600,
+    marginBottom: T.sp1,
   },
-  countryBtn: {
-    display: "flex", alignItems: "center", gap: 5,
-    padding: "16px 14px 16px 18px",
+  countryChip: {
+    display: "flex", alignItems: "center", gap: 6,
+    padding: `${T.sp2}px ${T.sp2}px ${T.sp2}px ${T.sp2}px`,
     background: "transparent", border: "none",
-    cursor: "pointer", flexShrink: 0,
+    cursor: "default", flexShrink: 0,
   },
-  countryText: {
+  flagText: { fontSize: 16, lineHeight: 1 },
+  codeText: {
     color: "rgba(255,255,255,0.8)",
-    fontSize: 14, fontWeight: 600,
-    letterSpacing: "0.03em",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
+    fontSize: 14, fontWeight: 700,
+    letterSpacing: "0.06em",
+    fontFamily: C.mono,
   },
-  divider: {
-    width: 1, height: 20,
+  vDivider: {
+    width: 1, height: 18,
     background: "rgba(255,255,255,0.09)",
     flexShrink: 0,
   },
@@ -87,105 +138,147 @@ const S: Record<string, CSSProperties> = {
     flex: 1, background: "transparent",
     border: "none", outline: "none",
     color: C.white, fontSize: 15,
-    padding: "16px 14px",
-    letterSpacing: "0.06em",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
+    padding: `${T.sp2}px ${T.sp2}px`,
+    letterSpacing: "0.08em",
+    fontFamily: C.mono,
   },
   greenTick: {
     width: 28, height: 28, borderRadius: "50%",
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, marginRight: 14,
+    flexShrink: 0, marginRight: T.sp2,
     boxShadow: "0 0 14px rgba(34,197,94,0.45)",
   },
   hint: {
-    fontSize: 11, color: C.muted, marginTop: 8, paddingLeft: 2,
-    letterSpacing: "0.02em",
+    fontSize: 10, color: C.muted, marginTop: T.sp1, paddingLeft: 2,
+    letterSpacing: "0.04em", textTransform: "lowercase",
   },
-  terms: {
-    fontSize: 11, color: "rgba(255,255,255,0.2)",
-    textAlign: "center", marginTop: 24,
-    lineHeight: 1.7,
-    fontFamily: "var(--font-jetbrains-mono), monospace",
+  spacer: { flex: 1 },
+  termsLink: {
+    textAlign: "center" as const,
+    paddingBottom: T.sp4,
+    paddingTop: T.sp2,
   },
+  termsText: {
+    fontSize: 10, color: "rgba(255,255,255,0.22)",
+    letterSpacing: "0.04em", lineHeight: 1.7,
+    fontFamily: C.mono, cursor: "pointer",
+    background: "none", border: "none",
+    fontWeight: 400,
+  },
+  termsAccent: { color: "rgba(226,31,39,0.55)", cursor: "pointer" },
   backdrop: {
     position: "fixed", inset: 0,
-    background: "rgba(0,0,0,0.65)",
-    backdropFilter: "blur(6px)",
-    WebkitBackdropFilter: "blur(6px)",
+    background: "rgba(0,0,0,0.7)",
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
     zIndex: 40,
   },
-  sheet: {
+  // OTP Sheet
+  otpSheet: {
     position: "fixed", bottom: 0, left: 0, right: 0,
     zIndex: 50,
     background: "#141414",
     borderRadius: "28px 28px 0 0",
     borderTop: "1px solid rgba(255,255,255,0.06)",
-    padding: "20px 24px 40px",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
+    padding: `${T.sp3}px ${T.sp3}px ${T.sp5}px`,
+    fontFamily: C.mono,
   },
   handle: {
-    width: 40, height: 4,
-    borderRadius: 4, background: "rgba(255,255,255,0.12)",
-    margin: "0 auto 24px",
+    width: 40, height: 4, borderRadius: 4,
+    background: "rgba(255,255,255,0.12)",
+    margin: `0 auto ${T.sp3}px`,
   },
   sheetTitle: {
-    fontSize: 20, fontWeight: 700, color: C.white,
-    margin: 0, marginBottom: 6,
+    fontSize: 18, fontWeight: 800,
+    color: C.white, margin: 0,
+    marginBottom: T.sp1,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.02em",
   },
-  sheetSub: { fontSize: 13, color: C.muted, marginBottom: 28 },
+  sheetSub: {
+    fontSize: 12, color: C.muted,
+    marginBottom: T.sp4, letterSpacing: "0.02em",
+  },
   otpRow: {
-    display: "flex", gap: 12, justifyContent: "center",
-    marginBottom: 24,
+    display: "flex", gap: T.sp2,
+    justifyContent: "center",
+    marginBottom: T.sp3,
+  },
+  // Legal sheet
+  legalSheet: {
+    position: "fixed", inset: 0,
+    zIndex: 50,
+    background: "#0a0a0a",
+    fontFamily: C.mono,
+    display: "flex", flexDirection: "column",
+  },
+  legalHeader: {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: `${T.sp2}px ${T.sp3}px`,
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    flexShrink: 0,
+  },
+  legalTabBar: {
+    display: "flex", gap: T.sp1,
+    padding: `${T.sp1}px ${T.sp3}px`,
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    flexShrink: 0,
+    overflowX: "auto" as const,
+  },
+  legalBody: {
+    flex: 1, overflowY: "auto",
+    padding: `${T.sp4}px ${T.sp3}px ${T.sp8}px`,
   },
 };
 
-// ─── Dynamic Style Functions ──────────────────────────────────────
+// ─── Dynamic styles ───────────────────────────────────────────────
 const D = {
   inputRow: (valid: boolean, active: boolean): CSSProperties => ({
     display: "flex", alignItems: "center",
     background: C.surface,
-    border: `1.5px solid ${valid ? C.borderValid : active ? C.borderActive : C.border}`,
-    borderRadius: 18, overflow: "hidden",
-    transition: "border-color 0.25s, box-shadow 0.25s",
+    border: `1.5px solid ${valid ? C.green : active ? C.red : C.border}`,
+    borderRadius: T.sp2 + 2,
+    overflow: "hidden",
+    transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
-      ? "0 0 0 3px rgba(34,197,94,0.12), 0 2px 12px rgba(0,0,0,0.3)"
+      ? "0 0 0 3px rgba(34,197,94,0.10), 0 2px 12px rgba(0,0,0,0.3)"
       : active
-      ? "0 0 0 3px rgba(226,31,39,0.12), 0 2px 12px rgba(0,0,0,0.3)"
+      ? "0 0 0 3px rgba(226,31,39,0.10), 0 2px 12px rgba(0,0,0,0.3)"
       : "0 2px 8px rgba(0,0,0,0.2)",
   }),
-  sendBtn: (active: boolean): CSSProperties => ({
-    width: "100%", padding: "16px",
-    borderRadius: 18, border: "none",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
-    fontSize: 14, fontWeight: 600,
+  primaryBtn: (active: boolean, mt = T.sp3): CSSProperties => ({
+    width: "100%", padding: `${T.sp2}px`,
+    borderRadius: T.sp2 + 2, border: "none",
+    fontFamily: C.mono, fontSize: 12, fontWeight: 700,
+    letterSpacing: "0.12em", textTransform: "uppercase",
     cursor: active ? "pointer" : "not-allowed",
     background: active ? C.red : C.surfaceHigh,
-    color: active ? C.white : "rgba(255,255,255,0.2)",
-    letterSpacing: "0.04em",
-    transition: "all 0.25s",
-    marginTop: 20,
+    color: active ? C.white : "rgba(255,255,255,0.18)",
+    transition: "all 0.2s",
+    marginTop: mt,
   }),
-  verifyBtn: (active: boolean): CSSProperties => ({
-    width: "100%", padding: "16px",
-    borderRadius: 18, border: "none",
-    fontFamily: "var(--font-jetbrains-mono), monospace",
-    fontSize: 14, fontWeight: 600,
-    cursor: active ? "pointer" : "not-allowed",
-    background: active ? C.red : "#2a2a2a",
-    color: active ? C.white : "rgba(255,255,255,0.2)",
-    letterSpacing: "0.04em",
-    marginBottom: 20,
+  legalTab: (active: boolean): CSSProperties => ({
+    padding: `${T.sp1}px ${T.sp2}px`,
+    borderRadius: T.sp1,
+    border: "none", cursor: "pointer",
+    fontFamily: C.mono, fontSize: 10, fontWeight: 700,
+    letterSpacing: "0.1em", textTransform: "uppercase",
+    background: active ? C.red : "transparent",
+    color: active ? C.white : C.muted,
+    whiteSpace: "nowrap",
+    transition: "all 0.18s",
   }),
 };
-
 
 // ─── Component ────────────────────────────────────────────────────
 export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: PhoneLoginScreenProps) {
   const rawPrefilled = prefilledPhone?.replace(/^\+?91/, "") || "";
-  const [phone, setPhone] = useState(rawPrefilled);
+  const [rawPhone, setRawPhone] = useState(rawPrefilled);
   const [focused, setFocused] = useState(false);
-  const [showSheet, setShowSheet] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [showLegal, setShowLegal] = useState(false);
+  const [legalTab, setLegalTab] = useState<LegalTab>("terms");
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [sendLoading, setSendLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -194,27 +287,27 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [canResend, setCanResend] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const isValid = phone.length === 10;
+  const isValid = rawPhone.length === 10;
   const isFromWA = !!rawPrefilled;
-  const greeting = displayName ? `Hey ${displayName.split(" ")[0]}.` : "Hey there.";
+  const firstName = displayName?.split(" ")[0] || "";
 
   // Resend countdown
   useEffect(() => {
-    if (!showSheet) return;
+    if (!showOtp) return;
     let t = 30; setResendTimer(30); setCanResend(false);
     const iv = setInterval(() => {
       t--; setResendTimer(t);
       if (t <= 0) { clearInterval(iv); setCanResend(true); }
     }, 1000);
     return () => clearInterval(iv);
-  }, [showSheet]);
+  }, [showOtp]);
 
   const handleSend = async () => {
     if (!isValid) return;
     setSendLoading(true);
     await new Promise(r => setTimeout(r, 900));
     setSendLoading(false);
-    setShowSheet(true);
+    setShowOtp(true);
     setTimeout(() => otpRefs.current[0]?.focus(), 350);
   };
 
@@ -223,71 +316,75 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setOtpError(false);
     const n = [...otp]; n[i] = val.slice(-1); setOtp(n);
     if (val && i < 3) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
-    if (n.every(d => d) && n.join("").length === 4) handleVerify(n.join(""));
+    if (n.every(d => d)) handleVerify(n.join(""));
   };
 
   const handleVerify = async (code: string) => {
     setVerifyLoading(true);
     await new Promise(r => setTimeout(r, 900));
     setVerifyLoading(false);
-    if (code.length === 4) onVerified(`+91${phone}`);
+    if (code.length === 4) onVerified(`+91${rawPhone}`);
     else { setOtpError(true); setOtp(["", "", "", ""]); otpRefs.current[0]?.focus(); }
   };
 
+  // ─── Render ─────────────────────────────────────────────────────
   return (
     <div style={S.root}>
       <div style={S.glow} />
       <div style={S.inner}>
 
         {/* Logo */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div style={S.logoWrap}>
-            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={56} height={56} style={{ objectFit: "contain", width: "100%", height: "100%" }} />
+            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={80} height={80}
+              style={{ objectFit: "contain", width: "100%", height: "100%" }} />
           </div>
         </motion.div>
 
         {/* Greeting */}
-        <motion.h1 style={S.h1} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.45 }}>
-          {greeting}
+        <motion.h1 style={S.greeting} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.4 }}>
+          {firstName
+            ? <>HEY, <span style={S.greetingAccent}>{firstName.toUpperCase()}.</span></>
+            : <>HEY, <span style={S.greetingAccent}>FOODIE.</span></>
+          }
         </motion.h1>
-        <motion.p style={S.sub} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.45 }}>
-          Login with your phone number
+        <motion.p style={S.subtitle} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.4 }}>
+          login with your phone number
         </motion.p>
 
-        {/* Input */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.45 }}>
-          <label style={S.label}>Enter your mobile number</label>
+        {/* Phone Input */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22, duration: 0.4 }}>
+          <label style={S.label}>enter your mobile number</label>
 
           <div style={D.inputRow(isValid, focused && !isValid)}>
-            {/* +91 */}
-            <button type="button" style={S.countryBtn} tabIndex={-1}>
-              <span style={S.countryText}>+91</span>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
+            {/* 🇮🇳 +91 */}
+            <div style={S.countryChip}>
+              <span style={S.flagText}>🇮🇳</span>
+              <span style={S.codeText}>+91</span>
+            </div>
+            <div style={S.vDivider} />
 
-            <div style={S.divider} />
-
+            {/* Number field — shows formatted X X X X X  X X X X X */}
             <input
-              type="tel" inputMode="numeric" maxLength={10}
-              value={phone}
+              type="tel" inputMode="numeric" maxLength={11}
+              value={formatDisplay(rawPhone)}
               placeholder="98765 43210"
-              onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
+              onChange={e => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setRawPhone(digits);
+              }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               style={{ ...S.phoneInput, caretColor: C.red }}
             />
 
+            {/* Green tick */}
             <AnimatePresence>
               {isValid && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.4 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                <motion.div initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.4 }}
                   transition={{ type: "spring", stiffness: 320, damping: 22 }}
-                  style={{ paddingRight: 14 }}
-                >
+                  style={{ paddingRight: T.sp2 }}>
                   <div style={S.greenTick}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 13l4 4L19 7" />
@@ -301,50 +398,66 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           <AnimatePresence>
             {isFromWA && isValid && (
               <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={S.hint}>
-                Recognised from your WhatsApp
+                recognised from your whatsapp
               </motion.p>
             )}
           </AnimatePresence>
         </motion.div>
 
-        {/* Button */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36, duration: 0.45 }}>
+        {/* Send OTP Button */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.30, duration: 0.4 }}>
           <motion.button
-            style={D.sendBtn(isValid && !sendLoading)}
+            style={D.primaryBtn(isValid && !sendLoading)}
             onClick={handleSend}
             disabled={!isValid || sendLoading}
             whileTap={{ scale: 0.97 }}
           >
-            {sendLoading ? "Sending OTP..." : "Send OTP"}
+            {sendLoading ? "SENDING OTP..." : "SEND OTP"}
           </motion.button>
         </motion.div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={S.terms}>
-          By continuing, you agree to our{" "}
-          <span style={{ color: "rgba(226,31,39,0.55)" }}>Terms & Conditions</span>{" "}
-          and{" "}
-          <span style={{ color: "rgba(226,31,39,0.55)" }}>Privacy Policy</span>
-        </motion.p>
+        {/* Push terms to bottom */}
+        <div style={S.spacer} />
+
+        {/* Terms — at bottom */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={S.termsLink}>
+          <p style={S.termsText}>
+            by continuing, you agree to our{" "}
+            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
+              terms of service
+            </button>
+            {" "}and{" "}
+            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("privacy"); setShowLegal(true); }}>
+              privacy policy
+            </button>
+          </p>
+        </motion.div>
       </div>
 
-      {/* ── OTP BOTTOM SHEET ── */}
+      {/* ── OTP BOTTOM SHEET ─────────────────────────────────────── */}
       <AnimatePresence>
-        {showSheet && (
+        {showOtp && (
           <>
-            <motion.div key="bd" style={S.backdrop} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSheet(false)} />
-            <motion.div key="sheet" style={S.sheet} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 34 }}>
+            <motion.div key="otp-bd" style={S.backdrop} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowOtp(false)} />
+            <motion.div key="otp-sheet" style={S.otpSheet}
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 34 }}>
               <div style={S.handle} />
 
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-                <p style={S.sheetTitle}>Enter OTP</p>
-                <p style={S.sheetSub}>Sent to <span style={{ color: "rgba(255,255,255,0.7)" }}>+91 {phone.replace(/(\d{5})(\d{5})/, "$1 $2")}</span></p>
+                <p style={S.sheetTitle}>ENTER OTP</p>
+                <p style={S.sheetSub}>
+                  sent to{" "}
+                  <span style={{ color: "rgba(255,255,255,0.75)" }}>
+                    +91 {formatDisplay(rawPhone)}
+                  </span>
+                </p>
               </motion.div>
 
-              {/* 4 boxes */}
+              {/* 4 OTP boxes */}
               <div style={S.otpRow}>
                 {otp.map((digit, i) => (
-                  <motion.input
-                    key={i}
+                  <motion.input key={i}
                     ref={el => { otpRefs.current[i] = el; }}
                     type="tel" inputMode="numeric" maxLength={1}
                     value={digit}
@@ -354,16 +467,15 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 + i * 0.06 }}
                     style={{
-                      width: 64, height: 64,
-                      textAlign: "center", fontSize: 22, fontWeight: 700,
-                      color: C.white,
-                      background: "#1e1e1e",
-                      border: `1.5px solid ${otpError ? "rgba(226,31,39,0.4)" : digit ? C.red : "rgba(255,255,255,0.09)"}`,
-                      borderRadius: 16, outline: "none",
+                      width: 68, height: 68,
+                      textAlign: "center", fontSize: 24, fontWeight: 800,
+                      color: C.white, background: C.surfaceHigh,
+                      border: `1.5px solid ${otpError ? "rgba(226,31,39,0.4)" : digit ? C.red : C.border}`,
+                      borderRadius: T.sp2, outline: "none",
                       caretColor: C.red,
-                      boxShadow: digit && !otpError ? "0 0 0 3px rgba(226,31,39,0.12)" : "none",
-                      transition: "border-color 0.2s, box-shadow 0.2s",
-                      fontFamily: "var(--font-jetbrains-mono), monospace",
+                      boxShadow: digit && !otpError ? "0 0 0 3px rgba(226,31,39,0.10)" : "none",
+                      transition: "border-color 0.18s, box-shadow 0.18s",
+                      fontFamily: C.mono,
                     }}
                   />
                 ))}
@@ -372,34 +484,102 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <AnimatePresence>
                 {otpError && (
                   <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ color: C.red, fontSize: 12, textAlign: "center", marginBottom: 12, fontFamily: "inherit" }}>
-                    Incorrect OTP. Try again.
+                    style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono, textTransform: "lowercase" }}>
+                    incorrect otp. please try again.
                   </motion.p>
                 )}
               </AnimatePresence>
 
-              <button
-                style={D.verifyBtn(otp.every(d => d) && !verifyLoading)}
+              <button style={D.primaryBtn(otp.every(d => d) && !verifyLoading, 0)}
                 onClick={() => handleVerify(otp.join(""))}
-                disabled={otp.some(d => !d) || verifyLoading}
-              >
-                {verifyLoading ? "Verifying..." : "Verify OTP"}
+                disabled={otp.some(d => !d) || verifyLoading}>
+                {verifyLoading ? "VERIFYING..." : "VERIFY OTP"}
               </button>
 
-              <div style={{ textAlign: "center" }}>
-                {canResend ? (
-                  <button onClick={() => { setOtp(["","","",""]); setOtpError(false); }}
-                    style={{ color: C.red, fontSize: 13, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                    Resend OTP
-                  </button>
-                ) : (
-                  <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontFamily: "inherit" }}>
-                    Resend in <span style={{ color: "rgba(255,255,255,0.5)" }}>{resendTimer}s</span>
-                  </p>
-                )}
+              <div style={{ textAlign: "center", marginTop: T.sp3 }}>
+                {canResend
+                  ? <button onClick={() => { setOtp(["", "", "", ""]); setOtpError(false); }}
+                      style={{ color: C.red, fontSize: 11, background: "none", border: "none", cursor: "pointer", fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      RESEND OTP
+                    </button>
+                  : <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 11, fontFamily: C.mono }}>
+                      resend in{" "}
+                      <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                        style={{ color: "rgba(255,255,255,0.55)" }}>
+                        {resendTimer}s
+                      </motion.span>
+                    </p>
+                }
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ── LEGAL FULLSCREEN SHEET ───────────────────────────────── */}
+      <AnimatePresence>
+        {showLegal && (
+          <motion.div key="legal" style={S.legalSheet}
+            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 280, damping: 32 }}>
+
+            {/* Header */}
+            <div style={S.legalHeader}>
+              <button onClick={() => setShowLegal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: C.muted, fontFamily: C.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 19l-7-7 7-7" />
+                </svg>
+                CLOSE
+              </button>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: C.mono }}>
+                legal hub
+              </span>
+            </div>
+
+            {/* Tabs */}
+            <div style={S.legalTabBar}>
+              {(["terms", "privacy", "refund"] as LegalTab[]).map(tab => (
+                <button key={tab} style={D.legalTab(legalTab === tab)} onClick={() => setLegalTab(tab)}>
+                  {tab === "terms" ? "TERMS" : tab === "privacy" ? "PRIVACY" : "REFUND"}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <AnimatePresence mode="wait">
+              <motion.div key={legalTab} style={S.legalBody}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "0.02em", marginBottom: T.sp3, textTransform: "uppercase" }}>
+                  {legalContent[legalTab].title}
+                </h1>
+                <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: T.sp6 }}>
+                  last updated: march 23, 2026
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: T.sp6 }}>
+                  {legalContent[legalTab].sections.map((sec, i) => (
+                    <section key={i}>
+                      <h2 style={{ fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: T.sp2 }}>
+                        {sec.heading}
+                      </h2>
+                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.9, letterSpacing: "0.02em" }}>
+                        {sec.text}
+                      </p>
+                    </section>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div style={{ marginTop: T.sp8, paddingTop: T.sp4, borderTop: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
+                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                    © 2026 vidya&apos;s kitchen. all rights reserved.
+                  </p>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
