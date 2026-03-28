@@ -146,8 +146,8 @@ const S: Record<string, CSSProperties> = {
     width: 28, height: 28, borderRadius: "50%",
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, marginRight: T.sp2,
-    boxShadow: "0 0 14px rgba(34,197,94,0.45)",
+    flexShrink: 0,
+    boxShadow: "0 0 16px rgba(34,197,94,0.55)",
   },
   hint: {
     fontSize: 10, color: C.muted, marginTop: T.sp1, paddingLeft: 2,
@@ -239,7 +239,6 @@ const D = {
     background: C.surface,
     border: `1.5px solid ${valid ? C.green : active ? C.red : C.border}`,
     borderRadius: T.sp2 + 2,
-    overflow: "hidden",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
       ? "0 0 0 3px rgba(34,197,94,0.10), 0 2px 12px rgba(0,0,0,0.3)"
@@ -383,9 +382,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 <motion.div initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.4 }}
                   transition={{ type: "spring", stiffness: 320, damping: 22 }}
-                  style={{ paddingRight: T.sp3 }}>
-                  <div style={{ ...S.greenTick, width: 30, height: 30 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  style={{ marginRight: T.sp2, display: "flex", alignItems: "center" }}>
+                  <div style={S.greenTick}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
