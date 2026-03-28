@@ -144,27 +144,37 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mb-3"
         >
+          <p className="text-white/50 text-[13px] mb-3 tracking-wide">Enter your mobile number</p>
+
           <div
-            className="flex items-center rounded-2xl border transition-all duration-300 overflow-hidden"
+            className="flex items-center rounded-2xl border transition-all duration-300"
             style={{
-              background: "#141414",
+              background: "#181818",
               borderColor: isValidPhone
                 ? "#22c55e"
                 : phone.length > 0
                 ? "#E21F27"
-                : "rgba(255,255,255,0.08)",
+                : "rgba(255,255,255,0.10)",
               boxShadow: isValidPhone
-                ? "0 0 0 3px rgba(34,197,94,0.12)"
+                ? "0 0 0 3px rgba(34,197,94,0.10)"
                 : phone.length > 0
-                ? "0 0 0 3px rgba(226,31,39,0.12)"
+                ? "0 0 0 3px rgba(226,31,39,0.10)"
                 : "none",
             }}
           >
-            {/* Country code */}
-            <div className="flex items-center gap-2 pl-4 pr-3 py-4 border-r border-white/[0.06] shrink-0">
-              <span className="text-xl leading-none">🇮🇳</span>
-              <span className="text-white/70 text-sm font-medium">+91</span>
-            </div>
+            {/* Country code — dropdown style */}
+            <button
+              type="button"
+              className="flex items-center gap-1.5 pl-4 pr-3 py-4 shrink-0 select-none"
+            >
+              <span className="text-white/80 text-sm font-semibold tracking-wide">+91</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            {/* Divider */}
+            <div className="w-px h-5 bg-white/10 shrink-0" />
 
             {/* Number field */}
             <input
@@ -173,22 +183,22 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               maxLength={10}
               value={phone}
               onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
-              placeholder="98765 43210"
-              className="flex-1 bg-transparent text-white text-base px-4 py-4 outline-none placeholder:text-white/20 tracking-widest"
+              placeholder="1712345678"
+              className="flex-1 bg-transparent text-white text-[15px] px-4 py-4 outline-none placeholder:text-white/20 tracking-wider"
             />
 
             {/* Green tick */}
             <AnimatePresence>
               {isValidPhone && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.5, x: 8 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.5 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="pr-4"
+                  className="pr-4 shrink-0"
                 >
-                  <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_12px_rgba(34,197,94,0.4)]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -197,6 +207,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             </AnimatePresence>
           </div>
         </motion.div>
+
 
         {/* WhatsApp pre-fill hint */}
         <AnimatePresence>
