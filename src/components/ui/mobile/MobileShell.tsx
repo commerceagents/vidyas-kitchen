@@ -67,7 +67,7 @@ export function MobileShell({ prefilledPhone }: MobileShellProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a]">
+    <div className="fixed inset-0 bg-[#0a0a0a] mobile-shell">
       <AnimatePresence mode="wait">
         {step === "login" && (
           <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>

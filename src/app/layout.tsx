@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Caveat } from "next/font/google";
+import { JetBrains_Mono, Caveat, Outfit } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "@/components/layout/ClientLayout";
 
@@ -11,6 +11,12 @@ const jetBrainsMono = JetBrains_Mono({
 const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
+});
+
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <body
-        className={`${jetBrainsMono.variable} ${caveat.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden bg-black`}
+        className={`${jetBrainsMono.variable} ${caveat.variable} ${outfit.variable} antialiased selection:bg-primary selection:text-black overflow-x-hidden bg-black`}
       >
         <ClientLayout>{children}</ClientLayout>
       </body>

@@ -17,7 +17,6 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  font-family: var(--font-jetbrains-mono), monospace !important;
 }
 
 html,
@@ -38,18 +37,24 @@ body {
   background-attachment: fixed;
 }
 
+/* Desktop uses the mono terminal aesthetic */
+.desktop-shell, .desktop-shell * {
+  font-family: var(--font-jetbrains-mono), monospace;
+}
+
+/* Mobile PWA uses Outfit — modern, clean, native-feel */
+.mobile-shell, .mobile-shell * {
+  font-family: var(--font-outfit), 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
 @layer base {
   :root {
-    --font-sans: var(--font-jetbrains-mono);
-  }
-  
-  * {
-    font-family: var(--font-jetbrains-mono), monospace !important;
+    --font-sans: var(--font-outfit);
   }
   body {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    font-family: var(--font-jetbrains-mono), monospace;
+    font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #000000;
+    color: #ffffff;
   }
 }
 
