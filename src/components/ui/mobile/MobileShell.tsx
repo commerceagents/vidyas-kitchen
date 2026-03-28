@@ -17,11 +17,13 @@ interface LocationData {
 
 interface MobileShellProps {
   prefilledPhone?: string;
+  prefilledName?: string;
 }
 
-export function MobileShell({ prefilledPhone }: MobileShellProps) {
+export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps) {
   const [step, setStep] = useState<MobileStep>("login");
   const [phone, setPhone] = useState(prefilledPhone || "");
+  const [name, setName] = useState(prefilledName || "");
   const [location, setLocation] = useState<LocationData | null>(null);
 
   // Restore session from localStorage
@@ -71,7 +73,7 @@ export function MobileShell({ prefilledPhone }: MobileShellProps) {
       <AnimatePresence mode="wait">
         {step === "login" && (
           <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <PhoneLoginScreen onVerified={handleVerified} prefilledPhone={prefilledPhone} />
+            <PhoneLoginScreen onVerified={handleVerified} prefilledPhone={prefilledPhone} displayName={name} />
           </motion.div>
         )}
 

@@ -7,192 +7,302 @@ import Image from "next/image";
 interface PhoneLoginScreenProps {
   onVerified: (phone: string) => void;
   prefilledPhone?: string;
+  displayName?: string;
 }
 
-export function PhoneLoginScreen({ onVerified, prefilledPhone }: PhoneLoginScreenProps) {
-  const [step, setStep] = useState<"phone" | "otp">(prefilledPhone ? "otp" : "phone");
-  const [phone, setPhone] = useState(prefilledPhone || "");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: PhoneLoginScreenProps) {
+  const rawPrefilled = prefilledPhone?.replace(/^\+?91/, "") || "";
+  const [phone, setPhone] = useState(rawPrefilled);
+  const [showOtpSheet, setShowOtpSheet] = useState(false);
+  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [otpError, setOtpError] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const isValidPhone = phone.length === 10;
+  const isFromWhatsApp = !!rawPrefilled;
+
+  // Greeting name
+  const greeting = displayName
+    ? `Hey ${displayName.split(" ")[0]}.`
+    : "Hey there.";
+
+  // Resend countdown
   useEffect(() => {
-    if (step === "otp") {
-      let t = 30;
-      setResendTimer(30);
-      setCanResend(false);
-      const interval = setInterval(() => {
-        t--;
-        setResendTimer(t);
-        if (t <= 0) {
-          clearInterval(interval);
-          setCanResend(true);
-        }
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [step]);
+    if (!showOtpSheet) return;
+    let t = 30;
+    setResendTimer(30);
+    setCanResend(false);
+    const iv = setInterval(() => {
+      t--;
+      setResendTimer(t);
+      if (t <= 0) { clearInterval(iv); setCanResend(true); }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [showOtpSheet]);
 
   const handleSendOtp = async () => {
-    if (phone.length < 10) { setError("Please enter a valid 10-digit number"); return; }
-    setError("");
-    setLoading(true);
-    // UI-only: simulate sending OTP
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    setStep("otp");
-    setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    if (!isValidPhone) return;
+    setSendLoading(true);
+    await new Promise(r => setTimeout(r, 900));
+    setSendLoading(false);
+    setShowOtpSheet(true);
+    setTimeout(() => otpRefs.current[0]?.focus(), 350);
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
-    setOtp(newOtp);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
-    if (newOtp.every(d => d !== "") && newOtp.join("").length === 6) {
-      handleVerifyOtp(newOtp.join(""));
+  const handleOtpChange = (i: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    setOtpError(false);
+    const next = [...otp];
+    next[i] = val.slice(-1);
+    setOtp(next);
+    if (val && i < 3) {
+      setTimeout(() => otpRefs.current[i + 1]?.focus(), 50);
+    }
+    if (next.every(d => d) && next.join("").length === 4) {
+      handleVerify(next.join(""));
     }
   };
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
+  const handleOtpKeyDown = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0) {
+      otpRefs.current[i - 1]?.focus();
     }
   };
 
-  const handleVerifyOtp = async (code: string) => {
-    setError("");
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    // UI-only: accept any 6-digit OTP for now
-    if (code.length === 6) {
+  const handleVerify = async (code: string) => {
+    setOtpLoading(true);
+    await new Promise(r => setTimeout(r, 900));
+    setOtpLoading(false);
+    if (code.length === 4) {
       onVerified(`+91${phone}`);
     } else {
-      setError("Invalid OTP. Please try again.");
+      setOtpError(true);
+      setOtp(["", "", "", ""]);
+      otpRefs.current[0]?.focus();
     }
+  };
+
+  const handleResend = () => {
+    setOtp(["", "", "", ""]);
+    setOtpError(false);
+    let t = 30;
+    setResendTimer(30);
+    setCanResend(false);
+    const iv = setInterval(() => {
+      t--;
+      setResendTimer(t);
+      if (t <= 0) { clearInterval(iv); setCanResend(true); }
+    }, 1000);
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col overflow-y-auto overscroll-contain">
-      {/* Background gradient */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-[#E21F27] opacity-[0.06] blur-[100px] rounded-full" />
+    <div className="fixed inset-0 bg-[#0a0a0a] overflow-y-auto overscroll-contain">
+
+      {/* Top ambient glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[320px] h-[280px] bg-[#E21F27] opacity-[0.07] blur-[90px] rounded-full pointer-events-none" />
+
+      <div className="relative z-10 min-h-full flex flex-col px-6 pt-16 pb-10">
+
+        {/* Logo */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-10"
+        >
+          <div className="w-14 h-14 relative overflow-hidden rounded-2xl mb-6">
+            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={56} height={56} className="object-contain w-full h-full" />
+          </div>
+
+          {/* Greeting — staggered */}
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-white text-[32px] font-bold tracking-tight leading-tight mb-2"
+          >
+            {greeting}
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-white/40 text-[13px] tracking-wide uppercase"
+          >
+            Login with your phone number
+          </motion.p>
+        </motion.div>
+
+        {/* Phone Input */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mb-3"
+        >
+          <div
+            className="flex items-center rounded-2xl border transition-all duration-300 overflow-hidden"
+            style={{
+              background: "#141414",
+              borderColor: isValidPhone
+                ? "#22c55e"
+                : phone.length > 0
+                ? "#E21F27"
+                : "rgba(255,255,255,0.08)",
+              boxShadow: isValidPhone
+                ? "0 0 0 3px rgba(34,197,94,0.12)"
+                : phone.length > 0
+                ? "0 0 0 3px rgba(226,31,39,0.12)"
+                : "none",
+            }}
+          >
+            {/* Country code */}
+            <div className="flex items-center gap-2 pl-4 pr-3 py-4 border-r border-white/[0.06] shrink-0">
+              <span className="text-xl leading-none">🇮🇳</span>
+              <span className="text-white/70 text-sm font-medium">+91</span>
+            </div>
+
+            {/* Number field */}
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={phone}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
+              placeholder="98765 43210"
+              className="flex-1 bg-transparent text-white text-base px-4 py-4 outline-none placeholder:text-white/20 tracking-widest"
+            />
+
+            {/* Green tick */}
+            <AnimatePresence>
+              {isValidPhone && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5, x: 8 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  className="pr-4"
+                >
+                  <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* WhatsApp pre-fill hint */}
+        <AnimatePresence>
+          {isFromWhatsApp && isValidPhone && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-white/30 text-xs mb-5 ml-1"
+            >
+              Recognised from your WhatsApp
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        {/* Send OTP Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-4"
+        >
+          <motion.button
+            onClick={handleSendOtp}
+            disabled={!isValidPhone || sendLoading}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-4 rounded-2xl font-semibold text-base transition-all relative overflow-hidden"
+            style={{
+              background: isValidPhone ? "#E21F27" : "#1e1e1e",
+              color: isValidPhone ? "white" : "rgba(255,255,255,0.2)",
+              cursor: isValidPhone ? "pointer" : "not-allowed",
+            }}
+          >
+            {sendLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Spinner /> Sending OTP...
+              </span>
+            ) : (
+              <span>Send OTP</span>
+            )}
+          </motion.button>
+        </motion.div>
+
+        {/* Terms */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-white/20 text-[11px] text-center mt-6 leading-relaxed"
+        >
+          By continuing, you agree to our{" "}
+          <span className="text-[#E21F27]/50">Terms &amp; Conditions</span>{" "}
+          and{" "}
+          <span className="text-[#E21F27]/50">Privacy Policy</span>
+        </motion.p>
       </div>
 
-      {/* Logo area */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col items-center pt-16 pb-8 px-6"
-      >
-        <div className="w-20 h-20 mb-5 relative overflow-hidden rounded-full">
-          <Image
-            src="/VK_Logo.webp"
-            alt="Vidya's Kitchen"
-            width={80}
-            height={80}
-            className="object-contain w-full h-full"
-          />
-        </div>
-        <h1 className="text-white text-2xl font-bold tracking-tight">Vidya's Kitchen</h1>
-        <p className="text-white/40 text-sm mt-1">Gourmet home cooking, Sivakasi</p>
-      </motion.div>
+      {/* ── OTP BOTTOM SHEET ── */}
+      <AnimatePresence>
+        {showOtpSheet && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowOtpSheet(false)}
+            />
 
-      {/* Card */}
-      <motion.div
-        className="flex-1 mx-4 bg-[#141414] rounded-3xl border border-white/[0.06] overflow-hidden"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <div className="p-7">
-          <AnimatePresence mode="wait">
-            {step === "phone" ? (
+            {/* Sheet */}
+            <motion.div
+              key="sheet"
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-[#141414] border-t border-white/[0.06] px-6 pt-5 pb-10"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 35 }}
+            >
+              {/* Handle bar */}
+              <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-6" />
+
+              {/* Header */}
               <motion.div
-                key="phone"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
               >
-                <h2 className="text-white text-xl font-semibold mb-1">Welcome back!</h2>
-                <p className="text-white/40 text-sm mb-8">Enter your WhatsApp number to continue</p>
-
-                {/* Phone input */}
-                <div className="mb-5">
-                  <label className="text-white/50 text-xs mb-2 block tracking-wide uppercase">Mobile Number</label>
-                  <div className="flex items-center bg-[#1e1e1e] rounded-2xl border border-white/[0.08] overflow-hidden focus-within:border-[#E21F27]/60 transition-colors">
-                    <span className="text-white/60 text-base pl-4 pr-2 font-medium select-none">+91</span>
-                    <div className="w-px h-5 bg-white/10" />
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      maxLength={10}
-                      value={phone}
-                      onChange={e => { setPhone(e.target.value.replace(/\D/g, "")); setError(""); }}
-                      placeholder="98765 43210"
-                      className="flex-1 bg-transparent text-white text-base px-3 py-4 outline-none placeholder:text-white/20"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <p className="text-[#E21F27] text-xs mb-4">{error}</p>
-                )}
-
-                <motion.button
-                  onClick={handleSendOtp}
-                  disabled={loading || phone.length < 10}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full bg-[#E21F27] text-white font-semibold text-base py-4 rounded-2xl disabled:opacity-40 transition-all relative overflow-hidden"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <SpinnerIcon />
-                      Sending OTP...
-                    </span>
-                  ) : "Send OTP"}
-                </motion.button>
-
-                <p className="text-white/25 text-xs text-center mt-5 leading-relaxed">
-                  By continuing, you agree to our{" "}
-                  <span className="text-[#E21F27]/60">Terms & Conditions</span>
+                <h2 className="text-white text-xl font-bold mb-1">Enter OTP</h2>
+                <p className="text-white/40 text-[13px] mb-7">
+                  Sent to{" "}
+                  <span className="text-white/70">+91 {phone.replace(/(\d{5})(\d{5})/, "$1 $2")}</span>
                 </p>
               </motion.div>
-            ) : (
-              <motion.div
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <button
-                  onClick={() => { setStep("phone"); setOtp(["","","","","",""]); }}
-                  className="flex items-center gap-1 text-white/40 text-sm mb-6 -ml-1"
-                >
-                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Change number
-                </button>
 
-                <h2 className="text-white text-xl font-semibold mb-1">Enter OTP</h2>
-                <p className="text-white/40 text-sm mb-8">
-                  Sent to <span className="text-white/70">+91 {phone}</span>
-                </p>
-
-                {/* OTP boxes */}
-                <div className="flex gap-3 mb-6 justify-between">
-                  {otp.map((digit, i) => (
+              {/* 4-digit OTP boxes */}
+              <div className="flex gap-3 justify-center mb-7">
+                {otp.map((digit, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.12 + i * 0.06 }}
+                  >
                     <input
-                      key={i}
                       ref={el => { otpRefs.current[i] = el; }}
                       type="tel"
                       inputMode="numeric"
@@ -200,52 +310,90 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone }: PhoneLoginScree
                       value={digit}
                       onChange={e => handleOtpChange(i, e.target.value)}
                       onKeyDown={e => handleOtpKeyDown(i, e)}
-                      className="w-12 h-14 text-center text-white text-xl font-bold bg-[#1e1e1e] border border-white/[0.08] rounded-2xl outline-none focus:border-[#E21F27]/60 transition-colors caret-[#E21F27]"
+                      className="w-16 h-16 text-center text-white text-2xl font-bold rounded-2xl outline-none transition-all duration-200 caret-[#E21F27]"
+                      style={{
+                        background: "#1e1e1e",
+                        border: otpError
+                          ? "1.5px solid rgba(226,31,39,0.4)"
+                          : digit
+                          ? "1.5px solid #E21F27"
+                          : "1.5px solid rgba(255,255,255,0.08)",
+                        boxShadow: digit && !otpError
+                          ? "0 0 0 3px rgba(226,31,39,0.12)"
+                          : "none",
+                      }}
                     />
-                  ))}
-                </div>
+                  </motion.div>
+                ))}
+              </div>
 
-                {error && <p className="text-[#E21F27] text-xs mb-4">{error}</p>}
+              {/* Error */}
+              <AnimatePresence>
+                {otpError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-[#E21F27] text-xs text-center mb-4"
+                  >
+                    Incorrect OTP. Please try again.
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
-                <motion.button
-                  onClick={() => handleVerifyOtp(otp.join(""))}
-                  disabled={loading || otp.some(d => !d)}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full bg-[#E21F27] text-white font-semibold text-base py-4 rounded-2xl disabled:opacity-40 transition-all mb-5"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2"><SpinnerIcon />Verifying...</span>
-                  ) : "Verify & Continue"}
-                </motion.button>
+              {/* Verify button */}
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                onClick={() => handleVerify(otp.join(""))}
+                disabled={otp.some(d => !d) || otpLoading}
+                whileTap={{ scale: 0.97 }}
+                className="w-full py-4 rounded-2xl font-semibold text-base mb-5 transition-all"
+                style={{
+                  background: otp.every(d => d) ? "#E21F27" : "#2a2a2a",
+                  color: otp.every(d => d) ? "white" : "rgba(255,255,255,0.2)",
+                }}
+              >
+                {otpLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Spinner /> Verifying...
+                  </span>
+                ) : "Verify OTP"}
+              </motion.button>
 
-                <div className="text-center">
-                  {canResend ? (
-                    <button
-                      onClick={() => { setOtp(["","","","","",""]); setStep("phone"); }}
-                      className="text-[#E21F27] text-sm font-medium"
+              {/* Resend */}
+              <div className="text-center">
+                {canResend ? (
+                  <button
+                    onClick={handleResend}
+                    className="text-[#E21F27] text-sm font-medium"
+                  >
+                    Resend OTP
+                  </button>
+                ) : (
+                  <p className="text-white/30 text-[13px]">
+                    Resend OTP in{" "}
+                    <motion.span
+                      key={resendTimer}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-white/50 tabular-nums"
                     >
-                      Resend OTP
-                    </button>
-                  ) : (
-                    <p className="text-white/30 text-sm">
-                      Resend in <span className="text-white/50">{resendTimer}s</span>
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
-
-      <p className="text-white/20 text-xs text-center py-6">
-        Powered by Vidya's Kitchen © {new Date().getFullYear()}
-      </p>
+                      {resendTimer}s
+                    </motion.span>
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function SpinnerIcon() {
+function Spinner() {
   return (
     <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

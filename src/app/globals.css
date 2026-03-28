@@ -37,22 +37,17 @@ body {
   background-attachment: fixed;
 }
 
-/* Desktop uses the mono terminal aesthetic */
-.desktop-shell, .desktop-shell * {
+/* Desktop & Mobile both use JetBrains Mono — the Vidya's Kitchen typeface */
+* {
   font-family: var(--font-jetbrains-mono), monospace;
-}
-
-/* Mobile PWA uses Outfit — modern, clean, native-feel */
-.mobile-shell, .mobile-shell * {
-  font-family: var(--font-outfit), 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 @layer base {
   :root {
-    --font-sans: var(--font-outfit);
+    --font-sans: var(--font-jetbrains-mono);
   }
   body {
-    font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-jetbrains-mono), monospace;
     background-color: #000000;
     color: #ffffff;
   }

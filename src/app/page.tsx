@@ -11,6 +11,7 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [prefilledPhone, setPrefilledPhone] = useState<string | undefined>();
+  const [prefilledName, setPrefilledName] = useState<string | undefined>();
 
   useEffect(() => {
     setMounted(true);
@@ -18,7 +19,9 @@ export default function Home() {
     // Extract ?phone= param from WhatsApp bot link
     const params = new URLSearchParams(window.location.search);
     const phoneParam = params.get("phone");
+    const nameParam = params.get("name");
     if (phoneParam) setPrefilledPhone(phoneParam);
+    if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
 
     // Check if we should skip splash (e.g., coming back from Legal Hub)
     const shouldSkip = localStorage.getItem("skip_splash") === "true";
@@ -51,7 +54,7 @@ export default function Home() {
             {isDesktop ? (
               <DesktopLanding />
             ) : (
-              <MobileShell prefilledPhone={prefilledPhone} />
+              <MobileShell prefilledPhone={prefilledPhone} prefilledName={prefilledName} />
             )}
           </motion.div>
         )}

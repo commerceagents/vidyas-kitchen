@@ -37,6 +37,7 @@ export async function POST(req: Request) {
 
       if (message) {
         const from = message.from;
+        const profileName = value?.contacts?.[0]?.profile?.name || "";
         let text = "";
 
         // Handle normal text messages
@@ -79,7 +80,9 @@ export async function POST(req: Request) {
 
           // Special case: user tapped "Launch Gourmet App"
           if (shouldSendPwaLink) {
-            await sendWhatsAppMessage(from, "Excellent taste! 😉 Open the link below in your browser. You'll get an option to *Install the App* or *Continue in Browser*:\n\nhttps://vidyaskitchenhome.com\n\nInstalling the PWA gives you the full gourmet experience — faster ordering, order history, and more!");
+            const customerName = encodeURIComponent(profileName || "Friend");
+            const pwaUrl = `https://vidyaskitchenhome.com?phone=${from}&name=${customerName}`;
+            await sendWhatsAppMessage(from, `Excellent taste! Open the link below — tap *Install* for the full gourmet experience or *Continue in Browser*:\n\n${pwaUrl}\n\nYou'll get faster ordering, order history, and your personal subscription dashboard!`);
             await sendRestartReply(from);
             return NextResponse.json({ status: "success" });
           }
