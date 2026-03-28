@@ -26,8 +26,8 @@ const C = {
   red: "#E21F27",
   green: "#22c55e",
   white: "#ffffff",
-  muted: "rgba(255,255,255,0.6)",
-  faint: "rgba(255,255,255,0.35)",
+  muted: "#A0A0A0",
+  faint: "#A0A0A0",
   mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
 };
 
@@ -344,8 +344,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         {/* Greeting */}
         <motion.h1 style={{ ...S.greeting, fontSize: 36, marginBottom: T.sp6 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.4 }}>
           {firstName
-            ? <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -4 }}>{firstName.toUpperCase()}.</span></>
-            : <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -4 }}>FOODIE.</span></>
+            ? <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -8 }}>{firstName.toUpperCase()}.</span></>
+            : <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -8 }}>FOODIE.</span></>
           }
         </motion.h1>
 
@@ -420,7 +420,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
         {/* Terms — at bottom */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ ...S.termsLink, paddingBottom: T.sp6 }}>
-          <p style={{ ...S.termsText, fontSize: 12, opacity: 0.5 }}>
+          <p style={{ ...S.termsText, fontSize: 12 }}>
             by continuing, you agree to our{" "}
             <button style={{ ...S.termsText, ...S.termsAccent, fontSize: 12 }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
               terms of service
