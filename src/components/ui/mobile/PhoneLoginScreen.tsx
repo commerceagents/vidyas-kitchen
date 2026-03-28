@@ -26,8 +26,8 @@ const C = {
   red: "#E21F27",
   green: "#22c55e",
   white: "#ffffff",
-  muted: "rgba(255,255,255,0.45)",
-  faint: "rgba(255,255,255,0.20)",
+  muted: "rgba(255,255,255,0.6)",
+  faint: "rgba(255,255,255,0.35)",
   mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
 };
 
@@ -107,8 +107,8 @@ const S: Record<string, CSSProperties> = {
     color: C.red,
     letterSpacing: "0.12em",
     textTransform: "uppercase",
+    margin: 0,
     marginBottom: T.sp5,
-    margin: 0, marginBottom: T.sp5,
   },
   label: {
     display: "block", fontSize: 11,
@@ -344,8 +344,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         {/* Greeting */}
         <motion.h1 style={{ ...S.greeting, fontSize: 36, marginBottom: T.sp6 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.4 }}>
           {firstName
-            ? <>HEY, <span style={S.greetingAccent}>{firstName.toUpperCase()}.</span></>
-            : <>HEY, <span style={S.greetingAccent}>FOODIE.</span></>
+            ? <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -4 }}>{firstName.toUpperCase()}.</span></>
+            : <>HEY, <span style={{ ...S.greetingAccent, marginLeft: -4 }}>FOODIE.</span></>
           }
         </motion.h1>
 
