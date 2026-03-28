@@ -335,36 +335,35 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <div style={S.logoWrap}>
-            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={80} height={80}
+          <div style={{ ...S.logoWrap, width: 90, height: 90, marginBottom: T.sp6 }}>
+            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={90} height={90}
               style={{ objectFit: "contain", width: "100%", height: "100%" }} />
           </div>
         </motion.div>
 
         {/* Greeting */}
-        <motion.h1 style={S.greeting} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.4 }}>
+        <motion.h1 style={{ ...S.greeting, fontSize: 36, marginBottom: T.sp6 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.4 }}>
           {firstName
             ? <>HEY, <span style={S.greetingAccent}>{firstName.toUpperCase()}.</span></>
             : <>HEY, <span style={S.greetingAccent}>FOODIE.</span></>
           }
         </motion.h1>
-        <motion.p style={S.subtitle} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.4 }}>
-          login with your phone number
-        </motion.p>
 
-        {/* Phone Input */}
+        {/* Phone Input Area */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22, duration: 0.4 }}>
-          <label style={S.label}>enter your mobile number</label>
+          <label style={{ ...S.label, marginBottom: T.sp2 }}>enter your mobile number</label>
 
-          <div style={D.inputRow(isValid, focused && !isValid)}>
-            {/* 🇮🇳 +91 */}
-            <div style={S.countryChip}>
-              <span style={S.flagText}>🇮🇳</span>
+          <div style={{ ...D.inputRow(isValid, focused && !isValid), height: 60 }}>
+            {/* 🇮🇳 +91 - Now with rounded SVG flag */}
+            <div style={{ ...S.countryChip, gap: 10, paddingLeft: T.sp3 }}>
+              <div style={{ width: 22, height: 16, borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <img src="https://flagcdn.com/in.svg" alt="IN" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
               <span style={S.codeText}>+91</span>
             </div>
             <div style={S.vDivider} />
 
-            {/* Number field — shows formatted X X X X X  X X X X X */}
+            {/* Number field */}
             <input
               type="tel" inputMode="numeric" maxLength={11}
               value={formatDisplay(rawPhone)}
@@ -375,7 +374,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              style={{ ...S.phoneInput, caretColor: C.red }}
+              style={{ ...S.phoneInput, height: "100%", fontSize: 16 }}
             />
 
             {/* Green tick */}
@@ -384,9 +383,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 <motion.div initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.4 }}
                   transition={{ type: "spring", stiffness: 320, damping: 22 }}
-                  style={{ paddingRight: T.sp2 }}>
-                  <div style={S.greenTick}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  style={{ paddingRight: T.sp3 }}>
+                  <div style={{ ...S.greenTick, width: 30, height: 30 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -397,7 +396,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
           <AnimatePresence>
             {isFromWA && isValid && (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={S.hint}>
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ ...S.hint, marginTop: 12 }}>
                 recognised from your whatsapp
               </motion.p>
             )}
@@ -405,9 +404,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         </motion.div>
 
         {/* Send OTP Button */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.30, duration: 0.4 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.30, duration: 0.4 }} style={{ marginTop: T.sp5 }}>
           <motion.button
-            style={D.primaryBtn(isValid && !sendLoading)}
+            style={{ ...D.primaryBtn(isValid && !sendLoading, 0), height: 56, fontSize: 13 }}
             onClick={handleSend}
             disabled={!isValid || sendLoading}
             whileTap={{ scale: 0.97 }}
@@ -420,14 +419,14 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         <div style={S.spacer} />
 
         {/* Terms — at bottom */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={S.termsLink}>
-          <p style={S.termsText}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ ...S.termsLink, paddingBottom: T.sp6 }}>
+          <p style={{ ...S.termsText, fontSize: 12, opacity: 0.5 }}>
             by continuing, you agree to our{" "}
-            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
+            <button style={{ ...S.termsText, ...S.termsAccent, fontSize: 12 }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
               terms of service
             </button>
             {" "}and{" "}
-            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("privacy"); setShowLegal(true); }}>
+            <button style={{ ...S.termsText, ...S.termsAccent, fontSize: 12 }} onClick={() => { setLegalTab("privacy"); setShowLegal(true); }}>
               privacy policy
             </button>
           </p>
@@ -530,7 +529,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M15 19l-7-7 7-7" />
                 </svg>
-                CLOSE
+                BACK
               </button>
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: C.mono }}>
                 legal hub
