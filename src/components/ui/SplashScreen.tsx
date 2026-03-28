@@ -9,16 +9,19 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
 
   const [showPulse, setShowPulse] = useState(false);
+  const [showBurst, setShowBurst] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Trigger pulse at 3.5s (when circle completes)
+    // Pulse circle completion at 3.5s
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
-    // Faster loading duration: 4.5 seconds total to allow for pulse reveal
+    // Sudden logo burst at 3.9s
+    const burstTimer = setTimeout(() => setShowBurst(true), 3900);
+    // Final exit at 5.2s
     const timer = setTimeout(() => {
       setIsVisible(false);
       if (onComplete) setTimeout(onComplete, 800); 
-    }, 4500);
+    }, 5200);
     return () => {
       clearTimeout(pulseTimer);
       clearTimeout(timer);
@@ -152,11 +155,47 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               />
             </svg>
 
-            {/* Logo Wrapper - Black Border / Silver Polish */}
+            {/* Logo Burst Swarm */}
+            <AnimatePresence>
+              {showBurst && (
+                <div style={{ position: 'absolute', zIndex: 30 }}>
+                  {[...Array(60)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
+                      animate={{ 
+                        x: (Math.random() - 0.5) * 600,
+                        y: (Math.random() - 0.5) * 600,
+                        opacity: 0,
+                        scale: 0
+                      }}
+                      transition={{ 
+                        duration: 1.2, 
+                        ease: [0.16, 1, 0.3, 1],
+                        delay: Math.random() * 0.1
+                      }}
+                      style={{
+                        position: 'absolute',
+                        width: Math.random() * 4 + 2 + 'px',
+                        height: Math.random() * 4 + 2 + 'px',
+                        borderRadius: '50%',
+                        backgroundColor: '#E21F27',
+                        boxShadow: '0 0 10px rgba(226, 31, 39, 0.9)',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* Logo Wrapper - Fades and bursts out */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
+              animate={{ 
+                opacity: showBurst ? 0 : 1,
+                scale: showBurst ? 1.4 : 1,
+                filter: showBurst ? 'blur(10px)' : 'blur(0px)'
+              }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
               style={{
                 position: 'relative',
                 width: '120px', // Reduced size
@@ -206,7 +245,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             </motion.div>
           </div>
 
-          {/* Loading Text - Silver Shimmering Effect */}
+          {/* Loading Text - Fades out with burst */}
           <div style={{
             position: 'absolute',
             bottom: '80px',
@@ -217,10 +256,9 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             zIndex: 100
           }}>
             <motion.span 
-              initial={{ opacity: 0 }}
               animate={{ 
-                opacity: 1,
-                backgroundPosition: ['200% center', '-200% center']
+                opacity: showBurst ? 0 : 1,
+                y: showBurst ? 10 : 0
               }}
               transition={{
                 opacity: { delay: 0.5, duration: 1 },

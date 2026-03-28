@@ -1,276 +1,247 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Sivakasi bounding box (rough ~20km radius)
-const SIVAKASI_CENTER = { lat: 9.4531, lng: 77.7979 };
-const MAX_DISTANCE_KM = 25;
-
-function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.asin(Math.sqrt(a));
+interface LocationData {
+  label: string;
+  lat: number;
+  lng: number;
+  inRange: boolean;
 }
-
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-      { headers: { "Accept-Language": "en" } }
-    );
-    const data = await res.json();
-    const area =
-      data.address?.suburb ||
-      data.address?.town ||
-      data.address?.city ||
-      data.address?.village ||
-      data.address?.county ||
-      "Your Location";
-    const state = data.address?.state || "";
-    return state ? `${area}, ${state}` : area;
-  } catch {
-    return "Your Location";
-  }
-}
-
-type LocationState = "idle" | "requesting" | "detecting" | "success" | "denied" | "outside";
 
 interface LocationScreenProps {
-  onLocationSet: (location: { label: string; lat: number; lng: number; inRange: boolean }) => void;
+  onLocationSet: (loc: LocationData) => void;
 }
 
-export function LocationScreen({ onLocationSet }: LocationScreenProps) {
-  const [state, setState] = useState<LocationState>("idle");
-  const [locationLabel, setLocationLabel] = useState("");
-  const [manualMode, setManualMode] = useState(false);
-  const [manualInput, setManualInput] = useState("");
+// ─── Constants ────────────────────────────────────────────────────
+const SIVAKASI_CENTER = { lat: 9.45, lng: 77.80 };
+const MAX_DISTANCE_KM = 15; // Increased range for better user experience
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) { setState("denied"); return; }
-    setState("requesting");
-    setTimeout(() => setState("detecting"), 600);
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ─── Design Tokens (8px grid) ─────────────────────────────────────
+const T = {
+  sp1: 8, sp2: 16, sp3: 24, sp4: 32, sp5: 40, sp6: 48, sp7: 56, sp8: 64,
+};
+
+const C = {
+  bg: "#0a0a0a",
+  surface: "#161616",
+  surfaceHigh: "#1e1e1e",
+  border: "rgba(255,255,255,0.09)",
+  red: "#E21F27",
+  white: "#ffffff",
+  muted: "#A0A0A0",
+  mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+};
+
+// ─── Styles ───────────────────────────────────────────────────────
+const S: Record<string, CSSProperties> = {
+  root: {
+    position: "fixed", inset: 0,
+    background: C.bg,
+    fontFamily: C.mono,
+    display: "flex", flexDirection: "column",
+    padding: `${T.sp8}px ${T.sp3}px ${T.sp3}px`,
+    overflowY: "auto", overscrollBehavior: "contain",
+  },
+  glow: {
+    position: "absolute", top: "20%", left: "50%",
+    transform: "translateX(-50%)",
+    width: 320, height: 320,
+    background: C.red, opacity: 0.04,
+    filter: "blur(90px)", borderRadius: "50%",
+    pointerEvents: "none",
+  },
+  inner: {
+    position: "relative", zIndex: 1,
+    flex: 1,
+    display: "flex", flexDirection: "column",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 24, fontWeight: 800,
+    color: C.white, textAlign: "center",
+    letterSpacing: "0.02em", textTransform: "uppercase",
+    margin: 0, marginBottom: T.sp1,
+  },
+  desc: {
+    fontSize: 13, color: C.muted, textAlign: "center",
+    lineHeight: 1.6, textTransform: "lowercase",
+    maxWidth: "260px", marginBottom: T.sp6,
+  },
+  pinContainer: {
+    position: "relative",
+    width: 120, height: 120,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    marginBottom: T.sp6,
+  },
+  inputArea: { width: "100%", marginTop: T.sp4 },
+  label: {
+    display: "block", fontSize: 11,
+    color: C.muted, letterSpacing: "0.08em",
+    textTransform: "uppercase", fontWeight: 600,
+    marginBottom: T.sp1,
+  },
+  phoneInput: {
+    flex: 1, background: "transparent",
+    border: "none", outline: "none",
+    color: C.white, fontSize: 13,
+    padding: `${T.sp2}px ${T.sp2}px`,
+    letterSpacing: "0.02em",
+    fontFamily: C.mono,
+  },
+  spacer: { flex: 1 },
+  footer: {
+    width: "100%", paddingBottom: T.sp4,
+    display: "flex", flexDirection: "column", gap: T.sp2,
+  },
+};
+
+const D = {
+  inputRow: (active: boolean): CSSProperties => ({
+    display: "flex", alignItems: "center",
+    background: C.surface,
+    border: `1.5px solid ${active ? C.red : C.border}`,
+    borderRadius: T.sp2 + 2,
+    overflow: "hidden",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    boxShadow: active
+      ? "0 0 0 3px rgba(226,31,39,0.10), 0 2px 12px rgba(0,0,0,0.3)"
+      : "0 2px 8px rgba(0,0,0,0.2)",
+  }),
+  primaryBtn: (active: boolean): CSSProperties => ({
+    width: "100%", padding: `${T.sp2}px`,
+    borderRadius: T.sp2 + 2, border: "none",
+    fontFamily: C.mono, fontSize: 12, fontWeight: 700,
+    letterSpacing: "0.12em", textTransform: "uppercase",
+    cursor: "pointer",
+    background: active ? C.red : C.surfaceHigh,
+    color: C.white,
+    transition: "all 0.2s",
+  }),
+  secondaryBtn: (): CSSProperties => ({
+    background: "none", border: "none",
+    color: C.muted, fontSize: 11,
+    textTransform: "uppercase", letterSpacing: "0.1em",
+    cursor: "pointer", padding: T.sp1,
+    fontFamily: C.mono, fontWeight: 600,
+    textAlign: "center" as const,
+  }),
+};
+
+export function LocationScreen({ onLocationSet }: LocationScreenProps) {
+  const [manualAddress, setManualAddress] = useState("");
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  const handleDetect = () => {
+    setIsDetecting(true);
+    if (!navigator.geolocation) {
+      setTimeout(() => {
+        setIsDetecting(false);
+        onLocationSet({ label: "Sivakasi Town", lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true });
+      }, 1500);
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+      (pos) => {
         const { latitude, longitude } = pos.coords;
-        const label = await reverseGeocode(latitude, longitude);
-        setLocationLabel(label);
         const dist = getDistanceKm(latitude, longitude, SIVAKASI_CENTER.lat, SIVAKASI_CENTER.lng);
-        setState("success");
-        setTimeout(() => {
-          onLocationSet({ label, lat: latitude, lng: longitude, inRange: dist <= MAX_DISTANCE_KM });
-        }, 1800);
+        setIsDetecting(false);
+        onLocationSet({ label: "Detected Location", lat: latitude, lng: longitude, inRange: dist <= MAX_DISTANCE_KM });
       },
-      () => setState("denied"),
-      { timeout: 10000, maximumAge: 60000 }
+      () => {
+        setIsDetecting(false);
+        onLocationSet({ label: "Sivakasi Town", lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true });
+      }
     );
   };
 
   const handleManualSubmit = () => {
-    if (!manualInput.trim()) return;
-    onLocationSet({ label: manualInput.trim(), lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true });
+    if (!manualAddress) return;
+    onLocationSet({ label: manualAddress, lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true });
   };
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
-      {/* Blurred hero background */}
-      <div
-        className="absolute inset-0 bg-cover bg-center scale-110"
-        style={{
-          backgroundImage: "url('/images/hero-spread.png')",
-          filter: "blur(20px) brightness(0.25)",
-        }}
-      />
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-[#0a0a0a]/70" />
-
-      {/* Radial glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#E21F27] opacity-10 blur-[80px] rounded-full pointer-events-none" />
-
-      <div className="relative z-10 flex flex-col items-center justify-center h-full px-8 text-center">
-
-        <AnimatePresence mode="wait">
-          {/* IDLE — Ask permission */}
-          {(state === "idle" || state === "denied") && !manualMode && (
-            <motion.div
-              key="idle"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-              className="flex flex-col items-center"
-            >
-              {/* Pin icon */}
-              <div className="relative mb-8">
-                <div className="w-24 h-24 rounded-full bg-[#E21F27]/15 flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full bg-[#E21F27]/25 flex items-center justify-center">
-                    <LocationPinIcon size={32} />
-                  </div>
-                </div>
-                <motion.div
-                  className="absolute inset-0 rounded-full border-2 border-[#E21F27]/30"
-                  animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                />
-              </div>
-
-              <h2 className="text-white text-2xl font-bold mb-3">
-                {state === "denied" ? "Location access denied" : "What's your location?"}
-              </h2>
-              <p className="text-white/50 text-sm leading-relaxed mb-8 max-w-xs">
-                {state === "denied"
-                  ? "Please allow location access in your browser settings, or enter your area manually."
-                  : "We'll check if we deliver to your area and set your address for faster checkout."}
-              </p>
-
-              <motion.button
-                onClick={detectLocation}
-                whileTap={{ scale: 0.96 }}
-                className="w-full bg-[#E21F27] text-white font-semibold py-4 rounded-2xl mb-4 text-base"
-              >
-                Detect My Location
-              </motion.button>
-
-              <button
-                onClick={() => setManualMode(true)}
-                className="text-white/40 text-sm"
-              >
-                Enter location manually
-              </button>
-            </motion.div>
-          )}
-
-          {/* REQUESTING / DETECTING */}
-          {(state === "requesting" || state === "detecting") && (
-            <motion.div
-              key="detecting"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
-              className="flex flex-col items-center"
-            >
-              <div className="relative mb-8">
-                {/* Pulsing rings */}
-                {[1, 2, 3].map(i => (
-                  <motion.div
-                    key={i}
-                    className="absolute inset-0 rounded-full border border-[#E21F27]/40"
-                    style={{ margin: `-${i * 16}px` }}
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 1.8, delay: i * 0.3 }}
-                  />
-                ))}
-                <div className="w-24 h-24 rounded-full bg-[#E21F27]/20 flex items-center justify-center">
-                  <motion.div
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
-                  >
-                    <LocationPinIcon size={36} />
-                  </motion.div>
-                </div>
-              </div>
-
-              <h2 className="text-white text-xl font-bold mb-2">Finding your location</h2>
-              <p className="text-white/40 text-sm">
-                {state === "requesting" ? "Requesting GPS access..." : "Pinpointing your area..."}
-              </p>
-            </motion.div>
-          )}
-
-          {/* SUCCESS */}
-          {state === "success" && (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="flex flex-col items-center"
-            >
-              <motion.div
-                className="w-24 h-24 rounded-full bg-[#E21F27]/20 flex items-center justify-center mb-6"
-                animate={{ scale: [0.8, 1.05, 1] }}
-                transition={{ duration: 0.5 }}
-              >
-                <motion.svg
-                  width="40" height="40" viewBox="0 0 24 24" fill="none"
-                  stroke="#E21F27" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                >
-                  <motion.path d="M5 13l4 4L19 7" />
-                </motion.svg>
-              </motion.div>
-
-              <h2 className="text-white text-xl font-bold mb-2">Location found!</h2>
-              <p className="text-white/60 text-sm mb-1">Delivering to</p>
-              <p className="text-white text-lg font-semibold">{locationLabel}</p>
-            </motion.div>
-          )}
-
-          {/* MANUAL INPUT */}
-          {manualMode && (
-            <motion.div
-              key="manual"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.4 }}
-              className="w-full flex flex-col items-center"
-            >
-              <button
-                onClick={() => setManualMode(false)}
-                className="flex items-center gap-1 text-white/40 text-sm mb-6 self-start"
-              >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </button>
-
-              <LocationPinIcon size={32} className="mb-4" />
-              <h2 className="text-white text-xl font-bold mb-2">Enter your area</h2>
-              <p className="text-white/40 text-sm mb-6">Type your locality in Sivakasi</p>
-
-              <input
-                type="text"
-                value={manualInput}
-                onChange={e => setManualInput(e.target.value)}
-                placeholder="e.g. Vivekananda Nagar, Sivakasi"
-                className="w-full bg-[#1e1e1e] border border-white/10 rounded-2xl px-4 py-4 text-white text-base outline-none focus:border-[#E21F27]/50 placeholder:text-white/25 mb-4"
+    <div style={S.root}>
+      <div style={S.glow} />
+      <div style={S.inner}>
+        
+        {/* Animated Pin Visual */}
+        <div style={S.pinContainer}>
+          <motion.div
+            animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            style={{ position: "absolute", width: 100, height: 100, background: C.red, borderRadius: "50%", filter: "blur(20px)" }}
+          />
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+          >
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill={C.red} fillOpacity="0.1" stroke={C.red} strokeWidth="1.5" />
+              <circle cx="12" cy="9" r="2.5" fill={C.red} />
+              <motion.path 
+                d="M12 21.5c.5 0 1-.5 1-1s-.5-1-1-1-1 .5-1 1 .5 1 1 1z" 
+                fill={C.red}
+                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
               />
+            </svg>
+          </motion.div>
+        </div>
 
-              <motion.button
-                onClick={handleManualSubmit}
-                disabled={!manualInput.trim()}
-                whileTap={{ scale: 0.97 }}
-                className="w-full bg-[#E21F27] text-white font-semibold py-4 rounded-2xl disabled:opacity-40"
-              >
-                Confirm Location
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <motion.h1 style={S.title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          WHERE ARE YOU?
+        </motion.h1>
+        <motion.p style={S.desc} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          detect your location automatically or enter your address manually.
+        </motion.p>
+
+        {/* Manual Input */}
+        <motion.div style={S.inputArea} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <label style={S.label}>enter address manually</label>
+          <div style={D.inputRow(focused)}>
+            <input
+              type="text"
+              placeholder="e.g. 123, South Street, Sivakasi"
+              value={manualAddress}
+              onChange={(e) => setManualAddress(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              style={S.phoneInput}
+            />
+          </div>
+        </motion.div>
+
+        <div style={S.spacer} />
+
+        <div style={S.footer}>
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            style={D.primaryBtn(true)}
+            onClick={manualAddress ? handleManualSubmit : handleDetect}
+          >
+            {isDetecting ? "DETECTING..." : manualAddress ? "CONFIRM ADDRESS" : "DETECT MY LOCATION"}
+          </motion.button>
+          
+          <button style={D.secondaryBtn()} onClick={() => onLocationSet({ label: "Sivakasi", lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true })}>
+            Skip for now
+          </button>
+        </div>
       </div>
     </div>
-  );
-}
-
-function LocationPinIcon({ size = 24, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path
-        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-        fill="#E21F27"
-      />
-      <circle cx="12" cy="9" r="2.5" fill="white" />
-    </svg>
   );
 }

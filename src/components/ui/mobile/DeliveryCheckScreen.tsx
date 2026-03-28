@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, CSSProperties } from "react";
 import { motion } from "framer-motion";
 
 interface DeliveryCheckScreenProps {
@@ -10,128 +10,187 @@ interface DeliveryCheckScreenProps {
   phone: string;
 }
 
+// ─── Design Tokens (8px grid) ─────────────────────────────────────
+const T = {
+  sp1: 8, sp2: 16, sp3: 24, sp4: 32, sp5: 40, sp6: 48, sp7: 56, sp8: 64,
+};
+
+const C = {
+  bg: "#0a0a0a",
+  surface: "#161616",
+  surfaceHigh: "#1e1e1e",
+  border: "rgba(255,255,255,0.09)",
+  red: "#E21F27",
+  white: "#ffffff",
+  muted: "#A0A0A0",
+  mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+};
+
+// ─── Styles ───────────────────────────────────────────────────────
+const S: Record<string, CSSProperties> = {
+  root: {
+    position: "fixed", inset: 0,
+    background: C.bg,
+    fontFamily: C.mono,
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    padding: T.sp4,
+    textAlign: "center" as const,
+  },
+  glow: {
+    position: "absolute", top: "40%", left: "50%",
+    transform: "translateX(-50%)",
+    width: 320, height: 320,
+    background: C.red, opacity: 0.06,
+    filter: "blur(90px)", borderRadius: "50%",
+    pointerEvents: "none",
+  },
+  inner: {
+    position: "relative", zIndex: 1,
+    width: "100%", maxWidth: "320px",
+    display: "flex", flexDirection: "column",
+    alignItems: "center",
+  },
+  iconBox: {
+    width: 100, height: 100,
+    borderRadius: "50%",
+    background: "rgba(226,31,39,0.08)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    marginBottom: T.sp5,
+  },
+  title: {
+    fontSize: 22, fontWeight: 800,
+    color: C.white, letterSpacing: "0.02em",
+    textTransform: "uppercase", margin: 0,
+    marginBottom: T.sp1,
+  },
+  subtitle: {
+    fontSize: 13, color: C.muted,
+    textTransform: "lowercase", lineHeight: 1.6,
+    marginBottom: T.sp6,
+  },
+  locChip: {
+    background: "rgba(226,31,39,0.12)",
+    border: "1px solid rgba(226,31,39,0.2)",
+    padding: `${T.sp1}px ${T.sp3}px`,
+    borderRadius: 100,
+    color: C.red, fontSize: 13, fontWeight: 700,
+    marginBottom: T.sp8,
+    display: "inline-flex", alignItems: "center", gap: 8,
+  },
+  loader: {
+    position: "absolute", bottom: T.sp6, left: T.sp6, right: T.sp6,
+    height: 1, background: "rgba(255,255,255,0.06)", borderRadius: 10,
+    overflow: "hidden",
+  },
+};
+
+const D = {
+  primaryBtn: (): CSSProperties => ({
+    width: "100%", padding: `${T.sp2}px`,
+    borderRadius: T.sp2 + 2, border: "none",
+    fontFamily: C.mono, fontSize: 12, fontWeight: 700,
+    letterSpacing: "0.12em", textTransform: "uppercase",
+    cursor: "pointer",
+    background: C.red,
+    color: C.white,
+    transition: "all 0.2s",
+  }),
+  secondaryBtn: (): CSSProperties => ({
+    background: "none", border: "none",
+    color: C.muted, fontSize: 11,
+    textTransform: "uppercase", letterSpacing: "0.1em",
+    cursor: "pointer", padding: T.sp1,
+    fontFamily: C.mono, fontWeight: 600,
+    marginTop: T.sp2,
+  }),
+};
+
 export function DeliveryCheckScreen({ locationLabel, inRange, onProceed, phone }: DeliveryCheckScreenProps) {
-  // Auto-proceed if in range after short delay
+  // Auto-proceed if in range after pulse animation
   useEffect(() => {
     if (inRange) {
-      const t = setTimeout(onProceed, 2200);
+      const t = setTimeout(onProceed, 2800);
       return () => clearTimeout(t);
     }
   }, [inRange, onProceed]);
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col items-center justify-center px-8 text-center overflow-hidden">
-      {/* Background glow */}
-      <div
-        className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] blur-[90px] rounded-full pointer-events-none transition-all duration-700 ${
-          inRange ? "bg-[#E21F27] opacity-10" : "bg-[#ff9900] opacity-8"
-        }`}
-      />
-
-      {inRange ? (
-        // IN RANGE — Green tick, auto-proceed
-        <motion.div
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Animated check circle */}
-          <motion.div
-            className="w-28 h-28 rounded-full bg-[#E21F27]/15 flex items-center justify-center mb-7"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-          >
-            <motion.svg
-              width="52" height="52" viewBox="0 0 24 24" fill="none"
-              stroke="#E21F27" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <motion.path
-                d="M5 13l4 4L19 7"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              />
-            </motion.svg>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <p className="text-white/50 text-sm mb-1">Delivering to</p>
-            <h2 className="text-white text-xl font-bold mb-3">{locationLabel}</h2>
-            <div className="inline-flex items-center gap-2 bg-[#E21F27]/10 border border-[#E21F27]/20 rounded-full px-4 py-1.5 mb-8">
-              <div className="w-2 h-2 rounded-full bg-[#E21F27] animate-pulse" />
-              <span className="text-[#E21F27] text-sm font-medium">Delivery Available</span>
+    <div style={S.root}>
+      <div style={S.glow} />
+      <div style={S.inner}>
+        
+        {inRange ? (
+          /* SUCCESS STATE */
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+            <div style={S.iconBox}>
+              <motion.svg 
+                width="48" height="48" viewBox="0 0 24 24" fill="none" 
+                stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <motion.path 
+                  d="M20 6L9 17L4 12" 
+                  initial={{ pathLength: 0 }} 
+                  animate={{ pathLength: 1 }} 
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                />
+              </motion.svg>
             </div>
-            <p className="text-white/30 text-xs">Taking you to the menu...</p>
+
+            <h1 style={S.title}>DELIVERY AVAILABLE</h1>
+            <p style={S.subtitle}>we are ready to serve you at</p>
+
+            <div style={S.locChip}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.red, animation: "pulse 1.5s infinite" }} />
+              {locationLabel}
+            </div>
+
+            <p style={{ ...S.subtitle, color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: T.sp4 }}>
+              entering the kitchen...
+            </p>
+
+            {/* Loading Bar */}
+            <div style={S.loader}>
+              <motion.div 
+                initial={{ width: 0 }} animate={{ width: "100%" }} 
+                transition={{ duration: 2.5, ease: "linear" }}
+                style={{ height: "100%", background: C.red }}
+              />
+            </div>
           </motion.div>
+        ) : (
+          /* OUT OF RANGE STATE */
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div style={S.iconBox}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
 
-          {/* Loading bar */}
-          <motion.div
-            className="absolute bottom-16 left-8 right-8 h-0.5 bg-white/5 rounded-full overflow-hidden"
-          >
-            <motion.div
-              className="h-full bg-[#E21F27] rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 2 }}
-            />
+            <h1 style={S.title}>NOT IN RANGE</h1>
+            <p style={S.subtitle}>
+              unfortunately, <span style={{ color: C.white }}>{locationLabel}</span> is outside our current delivery zone in sivakasi.
+            </p>
+
+            <button style={D.primaryBtn()} onClick={() => alert(`We'll notify ${phone} when we expand!`)}>
+              NOTIFY ME ON EXPANSION
+            </button>
+            <button style={D.secondaryBtn()} onClick={onProceed}>
+              Browse Menu Anyway
+            </button>
           </motion.div>
-        </motion.div>
-      ) : (
-        // OUT OF RANGE
-        <motion.div
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Sad pin */}
-          <motion.div
-            className="w-28 h-28 rounded-full bg-white/5 flex items-center justify-center mb-7"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15 }}
-          >
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white" fillOpacity="0.15" stroke="white" strokeOpacity="0.3" strokeWidth="1.5" />
-              <circle cx="12" cy="9" r="2.5" fill="white" fillOpacity="0.4" />
-              <path d="M9 21h6" stroke="white" strokeOpacity="0.2" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </motion.div>
+        )}
 
-          <h2 className="text-white text-2xl font-bold mb-3">Not in your area yet</h2>
-          <p className="text-white/40 text-sm leading-relaxed mb-2 max-w-xs">
-            <span className="text-white/60 font-medium">{locationLabel}</span> is outside our current delivery zone.
-          </p>
-          <p className="text-white/30 text-sm mb-8 max-w-xs">
-            We currently deliver exclusively within <span className="text-white/50">Sivakasi, Tamil Nadu</span>.
-            Expanding soon!
-          </p>
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-white/5 border border-white/10 text-white font-semibold py-4 rounded-2xl mb-3 text-base"
-            onClick={() => {
-              // Save notify interest — UI only for now
-              alert(`We'll notify ${phone} when we expand to your area!`);
-            }}
-          >
-            Notify Me When We Expand
-          </motion.button>
-
-          <button
-            onClick={onProceed}
-            className="text-white/30 text-sm"
-          >
-            Browse menu anyway →
-          </button>
-        </motion.div>
-      )}
+        <style>{`
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
