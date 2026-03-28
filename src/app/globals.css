@@ -1,4 +1,7 @@
+@import "tailwindcss";
+
 :root {
+
   --primary: #E21F27; 
   --primary-glow: rgba(226, 31, 39, 0.4);
   --bg-dark: #000000;
