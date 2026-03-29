@@ -13,9 +13,9 @@ import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 function GlowingBlobsBackground() {
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#0d0d0d', zIndex: 0 }}>
-      {/* Corner Atmospheric Glows (Primary Red) */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.12) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.08) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
+      {/* Corner Atmospheric Glows (More Saturated for Bloom) */}
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.25) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', top: '10%', right: '5%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
       {/* DIAGONAL STUDIO SPOTLIGHT BEAM */}
@@ -30,11 +30,11 @@ function GlowingBlobsBackground() {
         zIndex: 5
       }} />
 
-      {/* Pulsing Red Blob (Center-ish) */}
+      {/* Pulsing Red Blob (Center-ish) - SATURATED CRIMSON */}
       <motion.div
         animate={{
           scale: [1, 1.2, 1],
-          opacity: [0.3, 0.5, 0.3],
+          opacity: [0.4, 0.6, 0.4],
         }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         style={{
@@ -43,7 +43,7 @@ function GlowingBlobsBackground() {
           left: '25%',
           width: '600px',
           height: '600px',
-          background: 'radial-gradient(circle, rgba(189,35,32,0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.3) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
         }}
@@ -309,7 +309,7 @@ export function DesktopLanding() {
           left: '-10%',
           width: '70%',
           height: '60%',
-          background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
           zIndex: 1
