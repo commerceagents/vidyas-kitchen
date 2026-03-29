@@ -263,35 +263,80 @@ export function DesktopLanding() {
           zIndex: 10
         }} />
 
-        {/* Red Top-Center Glow (Animated) */}
+        {/* SILVER SPOTLIGHT SWEEP (Halfway Rim) - Sync 15s Cycle */}
+        <motion.div
+          animate={{
+            maskPosition: ['0% -200%', '0% 200%'],
+            WebkitMaskPosition: ['0% -200%', '0% 200%'],
+          } as any}
+          transition={{
+            duration: 3, // 3s sweep
+            repeat: Infinity,
+            ease: [0.4, 0, 0.2, 1],
+            repeatDelay: 12 // 12s pause = 15s Cycle
+          }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            padding: '2px', // Slightly thicker sweep
+            borderRadius: 'inherit',
+            background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            maskComposite: 'exclude',
+            WebkitMaskImage: 'linear-gradient(to bottom, #fff 0%, #fff 40%, transparent 80%)', // Halfway clipping
+            maskImage: 'linear-gradient(to bottom, #fff 0%, #fff 40%, transparent 80%)',
+            pointerEvents: 'none',
+            zIndex: 11
+          }}
+        />
 
-        {/* Red Top-Center Glow (Animated) */}
+        {/* Red Top-Center Glow (High-Intensity Synchronized Pulse) */}
         <motion.div 
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ 
+            opacity: [0.2, 1, 1, 0.2],
+            scale: [0.8, 1.4, 1.4, 0.8] 
+          }}
+          transition={{ 
+            duration: 3, // Matches Silver Sweep
+            times: [0, 0.5, 0.6, 1], // Hits peak at midway of sweep
+            repeat: Infinity, 
+            ease: "easeInOut",
+            repeatDelay: 12 // Matches Silver Sweep
+          }}
           style={{
             position: 'absolute',
             top: '0',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '120px',
+            width: '160px',
             height: '1px',
             background: 'linear-gradient(90deg, transparent, #E21F27 50%, transparent)',
             zIndex: 20
           }} 
         />
         <motion.div 
-          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.2, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ 
+            opacity: [0.3, 0.9, 0.9, 0.3], 
+            scale: [1, 1.4, 1.4, 1],
+            filter: ['blur(40px)', 'blur(60px)', 'blur(60px)', 'blur(40px)']
+          }}
+          transition={{ 
+            duration: 3, // Matches Silver Sweep
+            times: [0, 0.5, 0.6, 1], // Hits peak at midway of sweep
+            repeat: Infinity, 
+            ease: "easeInOut",
+            repeatDelay: 12 // Matches Silver Sweep
+          }}
           style={{
             position: 'absolute',
             top: '0',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '120px',
-            height: '60px',
-            background: 'radial-gradient(circle at top, rgba(226,31,39,0.4) 0%, transparent 70%)',
-            filter: 'blur(40px)',
+            width: '180px', // Wider glow
+            height: '80px', // Deeper glow
+            background: 'radial-gradient(circle at top, rgba(226,31,39,0.7) 0%, transparent 70%)',
             zIndex: 15
           }} 
         />
