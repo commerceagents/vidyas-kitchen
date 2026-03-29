@@ -346,19 +346,20 @@ export function DesktopLanding() {
         {/* LIQUID AMBIENT GLOWS (Inside the card but behind content) - WANDERING */}
         <motion.div 
           animate={{
-            x: [0, 80, 0, -60, 0],
-            y: [0, 50, 80, 20, 0],
-            scale: [1, 1.2, 0.9, 1.1, 1]
+            x: [0, 320, 100, 280, 0], // Full horizontal sweep
+            y: [0, 400, 150, 450, 0], // Full vertical sweep
+            scale: [1, 1.4, 0.8, 1.2, 1],
+            rotate: [0, 180, 360]
           }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 35, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '-15%',
+            top: '-10%',
             left: '-10%',
-            width: '70%',
-            height: '60%',
-            background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
-            filter: 'blur(60px)',
+            width: '60%',
+            height: '40%',
+            background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.35) 0%, transparent 70%)',
+            filter: 'blur(70px)',
             pointerEvents: 'none',
             zIndex: 1,
             willChange: 'transform, opacity, filter',
