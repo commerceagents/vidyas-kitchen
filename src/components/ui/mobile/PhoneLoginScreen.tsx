@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect, CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+ 
+// ─── Constants ────────────────────────────────────────────────────
+const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
 
 // ─── Types ────────────────────────────────────────────────────────
 interface PhoneLoginScreenProps {
@@ -92,7 +95,11 @@ const S: Record<string, CSSProperties> = {
   logoWrap: {
     width: 80, height: 80,
     marginBottom: T.sp4,
-    borderRadius: 20, overflow: "hidden",
+    maskImage: SQUIRCLE_MASK,
+    WebkitMaskImage: SQUIRCLE_MASK,
+    maskSize: "100% 100%",
+    WebkitMaskSize: "100% 100%",
+    overflow: "hidden",
     flexShrink: 0,
   },
   greeting: {
@@ -238,7 +245,10 @@ const D = {
     display: "flex", alignItems: "center",
     background: C.surface,
     border: `1.5px solid ${valid ? C.green : active ? C.red : C.border}`,
-    borderRadius: T.sp2 + 2,
+    maskImage: SQUIRCLE_MASK,
+    WebkitMaskImage: SQUIRCLE_MASK,
+    maskSize: "100% 100%",
+    WebkitMaskSize: "100% 100%",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
       ? "0 0 0 3px rgba(34,197,94,0.10), 0 2px 12px rgba(0,0,0,0.3)"
@@ -248,7 +258,11 @@ const D = {
   }),
   primaryBtn: (active: boolean, mt = T.sp3): CSSProperties => ({
     width: "100%", padding: `${T.sp2}px`,
-    borderRadius: T.sp2 + 2, border: "none",
+    border: "none",
+    maskImage: SQUIRCLE_MASK,
+    WebkitMaskImage: SQUIRCLE_MASK,
+    maskSize: "100% 100%",
+    WebkitMaskSize: "100% 100%",
     fontFamily: C.mono, fontSize: 12, fontWeight: 700,
     letterSpacing: "0.12em", textTransform: "uppercase",
     cursor: active ? "pointer" : "not-allowed",
@@ -469,7 +483,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                       textAlign: "center", fontSize: 24, fontWeight: 800,
                       color: C.white, background: C.surfaceHigh,
                       border: `1.5px solid ${otpError ? "rgba(226,31,39,0.4)" : digit ? C.red : C.border}`,
-                      borderRadius: T.sp2, outline: "none",
+                      maskImage: SQUIRCLE_MASK,
+                      WebkitMaskImage: SQUIRCLE_MASK,
+                      maskSize: "100% 100%",
+                      WebkitMaskSize: "100% 100%",
+                      outline: "none",
                       caretColor: C.red,
                       boxShadow: digit && !otpError ? "0 0 0 3px rgba(226,31,39,0.10)" : "none",
                       transition: "border-color 0.18s, box-shadow 0.18s",

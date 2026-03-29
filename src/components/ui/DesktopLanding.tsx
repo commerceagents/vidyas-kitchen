@@ -231,7 +231,11 @@ export function DesktopLanding() {
           background: 'rgba(255, 255, 255, 0.03)', // Translucent Glass
           backdropFilter: 'blur(40px)', // Deep Glass Blur
           WebkitBackdropFilter: 'blur(40px)',
-          borderRadius: '48px', // Increased for that super-smooth liquid look
+          // "TRUE SQUIRCLE" (Superellipse) Mask 
+          maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
+          WebkitMaskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
+          maskSize: '100% 100%',
+          WebkitMaskSize: '100% 100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -241,7 +245,7 @@ export function DesktopLanding() {
             0 40px 100px rgba(0,0,0,0.8), 
             0 0 0 1px rgba(255,255,255,0.05) inset, 
             0 0 80px rgba(226,31,39,0.06)
-          `, // Removed outer border to use the CSS trick for top-only rim
+          `,
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
@@ -253,10 +257,11 @@ export function DesktopLanding() {
           position: 'absolute',
           inset: 0,
           padding: '1.5px', // Border thickness
-          borderRadius: 'inherit',
+          // SQUIRCLE BORDER MASK
+          maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
+          WebkitMaskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
+          WebkitMaskSize: '100% 100%',
           background: 'linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 80%)',
-          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           maskComposite: 'exclude',
           WebkitMaskComposite: 'xor',
           pointerEvents: 'none',
