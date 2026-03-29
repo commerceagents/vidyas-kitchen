@@ -230,6 +230,48 @@ export function DesktopLanding() {
         </motion.div>
       </div>
 
+      {/* NEON RED ATMOSPHERIC BLOBS (Behind the card - Liquid Feel) */}
+      <motion.div
+        animate={{ 
+          x: [0, 40, -40, 0], 
+          y: [0, -30, 30, 0],
+          scale: [1, 1.2, 0.9, 1],
+          opacity: [0.3, 0.5, 0.3]
+        }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: 'absolute',
+          top: '40%',
+          left: '40%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 75%)',
+          filter: 'blur(100px)',
+          zIndex: 55,
+          pointerEvents: 'none'
+        }}
+      />
+      <motion.div
+        animate={{ 
+          x: [0, -60, 60, 0], 
+          y: [0, 40, -40, 0],
+          scale: [0.9, 1.1, 0.8, 0.9],
+          opacity: [0.2, 0.4, 0.2]
+        }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        style={{
+          position: 'absolute',
+          top: '30%',
+          right: '35%',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.08) 0%, transparent 75%)',
+          filter: 'blur(120px)',
+          zIndex: 56,
+          pointerEvents: 'none'
+        }}
+      />
+
       {/* Main REFINED Card - Glassmorphism Style */}
       <motion.div
         initial={{ scale: 0.8, filter: 'blur(20px)', opacity: 0, y: 80 }}
@@ -283,6 +325,31 @@ export function DesktopLanding() {
           pointerEvents: 'none',
           zIndex: 1
         }} />
+
+        {/* PERIODIC 25s SILVER SHIMMER STREAK */}
+        <motion.div
+          animate={{ 
+            rotate: [0, 360] 
+          }}
+          transition={{ 
+            duration: 3, 
+            repeat: Infinity, 
+            ease: "easeInOut",
+            repeatDelay: 22 // Total 25s Cycle
+          }}
+          style={{
+            position: 'absolute',
+            inset: '-100%', // Giant spin to catch edges
+            background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.6) 5%, transparent 10%)',
+            pointerEvents: 'none',
+            zIndex: 11,
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            maskComposite: 'exclude',
+            padding: '1px' // Only the 1px rim
+          }}
+        />
 
         {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (6s SLOW) */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
