@@ -275,14 +275,13 @@ export function DesktopLanding() {
           zIndex: 10
         }} />
 
-        {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (SLOW) */}
+        {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (6s SLOW) */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
-          {/* Animated White Shine Grid (Wave) - ONE TIME ONLY (6s SLOW) */}
           <motion.div 
             initial={{ maskPosition: '0% -100%', WebkitMaskPosition: '0% -100%' } as any}
             animate={{ maskPosition: '0% 200%', WebkitMaskPosition: '0% 200%' } as any}
             transition={{ 
-              duration: 6, // SLOW Sweep
+              duration: 6, // Slower Sweep
               ease: "easeInOut",
               delay: 0.5
             }}
@@ -300,54 +299,6 @@ export function DesktopLanding() {
               maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
               WebkitMaskSize: '100% 200px',
               maskSize: '100% 200px',
-              WebkitMaskRepeat: 'no-repeat',
-              maskRepeat: 'no-repeat'
-            }}
-          />
-        </div>
-
-        {/* Vertical Wave 'Shining' Grid */}
-        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
-          {/* Base Gray Grid */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
-            `,
-            backgroundSize: '10px 10px',
-            pointerEvents: 'none',
-            zIndex: 1,
-            maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
-          }} />
-          
-          {/* Animated White Shine Grid (Wave) - Every 25 Seconds */}
-          <motion.div 
-            animate={{ 
-              maskPosition: ['0% -100%', '0% 200%'],
-              WebkitMaskPosition: ['0% -100%', '0% 200%']
-            } as any}
-            transition={{ 
-              duration: 10, 
-              repeat: Infinity, 
-              ease: "linear",
-              repeatDelay: 15 // Total 25s cycle
-            }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)
-              `,
-              backgroundSize: '10px 10px',
-              pointerEvents: 'none',
-              zIndex: 2,
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
-              maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
-              WebkitMaskSize: '100% 150px',
-              maskSize: '100% 150px',
               WebkitMaskRepeat: 'no-repeat',
               maskRepeat: 'no-repeat'
             }}
