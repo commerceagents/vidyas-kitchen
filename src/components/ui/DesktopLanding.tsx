@@ -13,10 +13,25 @@ import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 function GlowingBlobsBackground() {
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#0d0d0d', zIndex: 0 }}>
-      {/* Corner Atmospheric Glows (More Saturated for Bloom) */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.25) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: '10%', right: '5%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+      {/* Corner Atmospheric Glows - ABSTRACT BREATHING */}
+      <motion.div 
+        animate={{ 
+          opacity: [0.15, 0.4, 0.15],
+          scale: [1, 1.2, 0.9, 1],
+          x: [0, 30, -30, 0]
+        }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.35) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} 
+      />
+      <motion.div 
+        animate={{ 
+          opacity: [0.1, 0.35, 0.1],
+          scale: [0.9, 1.15, 0.85, 0.9],
+          x: [0, -40, 40, 0]
+        }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} 
+      />
 
       {/* DIAGONAL STUDIO SPOTLIGHT BEAM */}
       <div style={{
@@ -33,17 +48,17 @@ function GlowingBlobsBackground() {
       {/* Pulsing Red Blob (Center-ish) - SATURATED CRIMSON */}
       <motion.div
         animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.4, 0.6, 0.4],
+          scale: [1, 1.3, 1],
+          opacity: [0.3, 0.6, 0.3],
         }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
         style={{
           position: 'absolute',
           top: '20%',
           left: '25%',
           width: '600px',
           height: '600px',
-          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.3) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
         }}
