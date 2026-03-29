@@ -21,7 +21,14 @@ function GlowingBlobsBackground() {
           x: [0, 30, -30, 0]
         }}
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.35) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} 
+        style={{ 
+          position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', 
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.35) 0%, transparent 70%)', 
+          filter: 'blur(80px)', pointerEvents: 'none',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
+        }} 
       />
       <motion.div 
         animate={{ 
@@ -30,7 +37,14 @@ function GlowingBlobsBackground() {
           x: [0, -40, 40, 0]
         }}
         transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} 
+        style={{ 
+          position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', 
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 70%)', 
+          filter: 'blur(100px)', pointerEvents: 'none',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
+        }} 
       />
 
       {/* DIAGONAL STUDIO SPOTLIGHT BEAM */}
@@ -61,6 +75,9 @@ function GlowingBlobsBackground() {
           background: 'radial-gradient(circle, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
         }}
       />
     </div>
@@ -251,7 +268,7 @@ export function DesktopLanding() {
           x: [0, 60, -60, 0], 
           y: [0, -40, 40, 0],
           scale: [1, 1.3, 0.8, 1],
-          opacity: [0.4, 0.7, 0.4] // Significantly Brighter
+          opacity: [0.5, 0.8, 0.5] // Max Bloom
         }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
         style={{
@@ -260,10 +277,13 @@ export function DesktopLanding() {
           left: '35%',
           width: '550px',
           height: '550px',
-          background: 'radial-gradient(circle, rgba(189,35,32,0.2) 0%, transparent 75%)',
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 75%)',
           filter: 'blur(90px)',
           zIndex: 55,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
         }}
       />
       <motion.div
@@ -271,7 +291,7 @@ export function DesktopLanding() {
           x: [0, -80, 80, 0], 
           y: [0, 50, -50, 0],
           scale: [0.8, 1.2, 0.7, 0.8],
-          opacity: [0.3, 0.6, 0.3] // Significantly Brighter
+          opacity: [0.4, 0.7, 0.4] // Max Bloom
         }}
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         style={{
@@ -280,10 +300,13 @@ export function DesktopLanding() {
           right: '30%',
           width: '450px',
           height: '450px',
-          background: 'radial-gradient(circle, rgba(189,35,32,0.15) 0%, transparent 75%)',
+          background: 'radial-gradient(circle, rgba(189, 35, 32, 0.35) 0%, transparent 75%)',
           filter: 'blur(110px)',
           zIndex: 56,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
         }}
       />
 
@@ -314,21 +337,35 @@ export function DesktopLanding() {
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
-          scrollbarWidth: 'none'
+          scrollbarWidth: 'none',
+          willChange: 'transform, opacity, filter',
+          WebkitBackfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)'
         }}
       >
-        {/* LIQUID AMBIENT GLOWS (Inside the card but behind content) */}
-        <div style={{
-          position: 'absolute',
-          top: '-15%',
-          left: '-10%',
-          width: '70%',
-          height: '60%',
-          background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
-          filter: 'blur(60px)',
-          pointerEvents: 'none',
-          zIndex: 1
-        }} />
+        {/* LIQUID AMBIENT GLOWS (Inside the card but behind content) - WANDERING */}
+        <motion.div 
+          animate={{
+            x: [0, 80, 0, -60, 0],
+            y: [0, 50, 80, 20, 0],
+            scale: [1, 1.2, 0.9, 1.1, 1]
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: 'absolute',
+            top: '-15%',
+            left: '-10%',
+            width: '70%',
+            height: '60%',
+            background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+            pointerEvents: 'none',
+            zIndex: 1,
+            willChange: 'transform, opacity, filter',
+            WebkitBackfaceVisibility: 'hidden',
+            WebkitTransform: 'translate3d(0,0,0)'
+          }} 
+        />
 
         {/* PERIODIC BREATHING SILVER SHIMMER - Slow Lap with Fade In/Out */}
         <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', padding: '1.5px', pointerEvents: 'none', zIndex: 12 }}>
@@ -353,7 +390,10 @@ export function DesktopLanding() {
               offsetPath: 'inset(0 round 38px)',
               offsetRotate: 'auto',
               boxShadow: '0 0 20px rgba(255,255,255,0.6)',
-              zIndex: 12
+              zIndex: 12,
+              willChange: 'transform, opacity, filter',
+              WebkitBackfaceVisibility: 'hidden',
+              WebkitTransform: 'translate3d(0,0,0)'
             }}
           />
         </div>
