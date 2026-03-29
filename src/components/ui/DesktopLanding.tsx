@@ -12,42 +12,27 @@ import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 
 function GlowingBlobsBackground() {
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000000', zIndex: 0 }}>
-      {/* Blob 1 - Red Glow (Increased Visibility) */}
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#0d0d0d', zIndex: 0 }}>
+      {/* Corner Atmospheric Glows (Primary Red) */}
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.12) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.08) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '10%', right: '5%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+
+      {/* Pulsing Red Blob (Center-ish) */}
       <motion.div
         animate={{
-          scale: [1, 1.3, 1],
-          x: ['-5%', '5%', '-5%'],
-          y: ['-5%', '5%', '-5%'],
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.5, 0.3],
         }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         style={{
           position: 'absolute',
-          top: '15%',
-          left: '15%',
-          width: '700px', // Bigger
-          height: '700px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.18) 0%, transparent 70%)',
+          top: '20%',
+          left: '25%',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.15) 0%, transparent 70%)',
           filter: 'blur(100px)',
-          borderRadius: '50%',
-        }}
-      />
-      {/* Blob 2 - Dark Deep Blue Glow (Increased Visibility) */}
-      <motion.div
-        animate={{
-          scale: [1.3, 1, 1.3],
-          x: ['5%', '-5%', '5%'],
-          y: ['5%', '-5%', '5%'],
-        }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: 'absolute',
-          bottom: '5%',
-          right: '10%',
-          width: '800px', // Bigger
-          height: '800px',
-          background: 'radial-gradient(circle, rgba(30,58,138,0.15) 0%, transparent 70%)',
-          filter: 'blur(120px)',
           borderRadius: '50%',
         }}
       />
@@ -76,7 +61,7 @@ export function DesktopLanding() {
       position: 'fixed',
       inset: 0,
       zIndex: 50,
-      backgroundColor: '#000000',
+      backgroundColor: '#0d0d0d',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -233,7 +218,7 @@ export function DesktopLanding() {
         </motion.div>
       </div>
 
-      {/* Main REFINED Card */}
+      {/* Main REFINED Card - Glassmorphism Style */}
       <motion.div
         initial={{ scale: 0.8, filter: 'blur(20px)', opacity: 0, y: 80 }}
         animate={{ scale: 1, filter: 'blur(0px)', opacity: 1, y: 60 }}
@@ -242,16 +227,18 @@ export function DesktopLanding() {
           position: 'relative',
           zIndex: 60,
           width: '440px',
-          padding: '24px 40px', // Further reduced padding
-          background: '#0D0D0F',
+          padding: '24px 40px',
+          background: 'rgba(255, 255, 255, 0.03)', // Translucent Glass
+          backdropFilter: 'blur(40px)', // Deep Glass Blur
+          WebkitBackdropFilter: 'blur(40px)',
           borderRadius: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.12)', // Light-catching translucent border
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           flexShrink: 0,
           textAlign: 'center',
-          boxShadow: '0 40px 100px rgba(0,0,0,0.8)',
+          boxShadow: '0 40px 100px rgba(0,0,0,0.8), 0 0 80px rgba(226,31,39,0.04)', // Red under-glow
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
