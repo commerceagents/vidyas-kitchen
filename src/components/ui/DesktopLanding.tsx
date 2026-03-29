@@ -233,40 +233,40 @@ export function DesktopLanding() {
       {/* NEON RED ATMOSPHERIC BLOBS (Behind the card - Liquid Feel) */}
       <motion.div
         animate={{ 
-          x: [0, 40, -40, 0], 
-          y: [0, -30, 30, 0],
-          scale: [1, 1.2, 0.9, 1],
-          opacity: [0.3, 0.5, 0.3]
+          x: [0, 60, -60, 0], 
+          y: [0, -40, 40, 0],
+          scale: [1, 1.3, 0.8, 1],
+          opacity: [0.4, 0.7, 0.4] // Significantly Brighter
         }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
         style={{
           position: 'absolute',
-          top: '40%',
-          left: '40%',
-          width: '500px',
-          height: '500px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.1) 0%, transparent 75%)',
-          filter: 'blur(100px)',
+          top: '30%',
+          left: '35%',
+          width: '550px',
+          height: '550px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.2) 0%, transparent 75%)',
+          filter: 'blur(90px)',
           zIndex: 55,
           pointerEvents: 'none'
         }}
       />
       <motion.div
         animate={{ 
-          x: [0, -60, 60, 0], 
-          y: [0, 40, -40, 0],
-          scale: [0.9, 1.1, 0.8, 0.9],
-          opacity: [0.2, 0.4, 0.2]
+          x: [0, -80, 80, 0], 
+          y: [0, 50, -50, 0],
+          scale: [0.8, 1.2, 0.7, 0.8],
+          opacity: [0.3, 0.6, 0.3] // Significantly Brighter
         }}
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         style={{
           position: 'absolute',
-          top: '30%',
-          right: '35%',
-          width: '400px',
-          height: '400px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.08) 0%, transparent 75%)',
-          filter: 'blur(120px)',
+          top: '20%',
+          right: '30%',
+          width: '450px',
+          height: '450px',
+          background: 'radial-gradient(circle, rgba(226,31,39,0.15) 0%, transparent 75%)',
+          filter: 'blur(110px)',
           zIndex: 56,
           pointerEvents: 'none'
         }}
@@ -309,47 +309,38 @@ export function DesktopLanding() {
           left: '-10%',
           width: '70%',
           height: '60%',
-          background: 'radial-gradient(circle at center, rgba(226, 31, 39, 0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle at center, rgba(226, 31, 39, 0.15) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
           zIndex: 1
         }} />
-        <div style={{
-          position: 'absolute',
-          top: '-10%',
-          right: '-5%',
-          width: '50%',
-          height: '40%',
-          background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0%, transparent 60%)',
-          filter: 'blur(50px)',
-          pointerEvents: 'none',
-          zIndex: 1
-        }} />
 
-        {/* PERIODIC 25s SILVER SHIMMER STREAK */}
-        <motion.div
-          animate={{ 
-            rotate: [0, 360] 
-          }}
-          transition={{ 
-            duration: 3, 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            repeatDelay: 22 // Total 25s Cycle
-          }}
-          style={{
-            position: 'absolute',
-            inset: '-100%', // Giant spin to catch edges
-            background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.6) 5%, transparent 10%)',
-            pointerEvents: 'none',
-            zIndex: 11,
-            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            WebkitMaskComposite: 'xor',
-            maskComposite: 'exclude',
-            padding: '1px' // Only the 1px rim
-          }}
-        />
+        {/* PERIODIC 25s SILVER SHIMMER STREAK - High-Intensity */}
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', padding: '1.5px', pointerEvents: 'none', zIndex: 12 }}>
+          <motion.div
+            animate={{ 
+              offsetDistance: ["0%", "100%"]
+            } as any}
+            transition={{ 
+              duration: 3, 
+              repeat: Infinity, 
+              ease: "easeInOut",
+              repeatDelay: 22 // Total 25s Cycle
+            }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '120px',
+              height: '1.5px',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)',
+              offsetPath: 'inset(0 round 38px)',
+              offsetRotate: 'auto',
+              boxShadow: '0 0 10px rgba(255,255,255,0.4)',
+              zIndex: 12
+            }}
+          />
+        </div>
 
         {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (6s SLOW) */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
@@ -365,8 +356,8 @@ export function DesktopLanding() {
               position: 'absolute',
               inset: 0,
               backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
+                linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
               `,
               backgroundSize: '15px 15px', 
               pointerEvents: 'none',
