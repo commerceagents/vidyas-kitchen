@@ -228,9 +228,9 @@ export function DesktopLanding() {
           zIndex: 60,
           width: '440px',
           padding: '24px 40px',
-          background: 'rgba(255, 255, 255, 0.03)', // Translucent Glass
-          backdropFilter: 'blur(40px)', // Deep Glass Blur
-          WebkitBackdropFilter: 'blur(40px)',
+          background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%)', // Deep Matte Physical Look
+          backdropFilter: 'blur(60px)', // Even deeper blur for premium density
+          WebkitBackdropFilter: 'blur(60px)',
           borderRadius: '38px', // Refined, sophisticated curve
           display: 'flex',
           flexDirection: 'column',
@@ -239,8 +239,8 @@ export function DesktopLanding() {
           textAlign: 'center',
           boxShadow: `
             0 40px 100px rgba(0,0,0,0.8), 
-            0 0 0 1px rgba(255,255,255,0.05) inset, 
-            0 0 80px rgba(226,31,39,0.08)
+            0 0 0 1px rgba(255,255,255,0.03) inset, 
+            0 0 80px rgba(226,31,39,0.06)
           `, // Soft shadows restored
           maxHeight: '85vh',
           overflowY: 'auto',
