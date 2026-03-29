@@ -50,8 +50,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
           }}
         >
           {/* Atmospheric Lighting - Corner Glows */}
-          <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.06) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.06) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: '20%', right: '0%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
           {/* Main Visual Group */}
@@ -70,7 +70,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                       width: '120px',
                       height: '120px',
                       borderRadius: '50%',
-                      background: 'radial-gradient(circle, rgba(226, 31, 39, 0.8) 0%, rgba(226, 31, 39, 0) 80%)',
+                      background: 'radial-gradient(circle, rgba(189, 35, 32, 0.8) 0%, rgba(189, 35, 32, 0) 80%)',
                       filter: 'blur(15px)',
                       zIndex: 10
                     }}
@@ -97,8 +97,8 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                         width: Math.random() * 3 + 1 + 'px',
                         height: Math.random() * 3 + 1 + 'px',
                         borderRadius: '50%',
-                        backgroundColor: '#E21F27',
-                        boxShadow: '0 0 10px rgba(226, 31, 39, 0.9)',
+                        backgroundColor: '#BD2320',
+                        boxShadow: '0 0 10px rgba(189, 35, 32, 0.9)',
                         zIndex: 15
                       }}
                     />
@@ -117,7 +117,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 cy="100"
                 r="75"
                 fill="transparent"
-                stroke="#E21F27"
+                stroke="#BD2320"
                 strokeWidth="3"
                 strokeDasharray="471.24"
                 initial={{ strokeDashoffset: 471.24 }}

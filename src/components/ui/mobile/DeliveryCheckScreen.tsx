@@ -20,7 +20,7 @@ const C = {
   surface: "#161616",
   surfaceHigh: "#1e1e1e",
   border: "rgba(255,255,255,0.09)",
-  red: "#E21F27",
+  red: "#BD2320",
   white: "#ffffff",
   muted: "#A0A0A0",
   mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
@@ -54,7 +54,7 @@ const S: Record<string, CSSProperties> = {
   iconBox: {
     width: 100, height: 100,
     borderRadius: "50%",
-    background: "rgba(226,31,39,0.08)",
+    background: "rgba(189,35,32,0.08)",
     display: "flex", alignItems: "center", justifyContent: "center",
     marginBottom: T.sp5,
   },
@@ -70,8 +70,8 @@ const S: Record<string, CSSProperties> = {
     marginBottom: T.sp6,
   },
   locChip: {
-    background: "rgba(226,31,39,0.12)",
-    border: "1px solid rgba(226,31,39,0.2)",
+    background: "rgba(189,35,32,0.12)",
+    border: "1px solid rgba(189,35,32,0.2)",
     padding: `${T.sp1}px ${T.sp3}px`,
     borderRadius: 100,
     color: C.red, fontSize: 13, fontWeight: 700,

@@ -14,8 +14,8 @@ function GlowingBlobsBackground() {
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#0d0d0d', zIndex: 0 }}>
       {/* Corner Atmospheric Glows (Primary Red) */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.12) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.08) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.12) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.08) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', top: '10%', right: '5%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
       {/* DIAGONAL STUDIO SPOTLIGHT BEAM */}
@@ -43,7 +43,7 @@ function GlowingBlobsBackground() {
           left: '25%',
           width: '600px',
           height: '600px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(189,35,32,0.15) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
         }}
@@ -245,7 +245,7 @@ export function DesktopLanding() {
           left: '35%',
           width: '550px',
           height: '550px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.2) 0%, transparent 75%)',
+          background: 'radial-gradient(circle, rgba(189,35,32,0.2) 0%, transparent 75%)',
           filter: 'blur(90px)',
           zIndex: 55,
           pointerEvents: 'none'
@@ -265,7 +265,7 @@ export function DesktopLanding() {
           right: '30%',
           width: '450px',
           height: '450px',
-          background: 'radial-gradient(circle, rgba(226,31,39,0.15) 0%, transparent 75%)',
+          background: 'radial-gradient(circle, rgba(189,35,32,0.15) 0%, transparent 75%)',
           filter: 'blur(110px)',
           zIndex: 56,
           pointerEvents: 'none'
@@ -294,7 +294,7 @@ export function DesktopLanding() {
           boxShadow: `
             0 40px 100px rgba(0,0,0,1), 
             0 0 0 1px rgba(255,255,255,0.02) inset,
-            0 0 80px rgba(226,31,39,0.12)
+            0 0 80px rgba(189,35,32,0.12)
           `, // DEEP RED UNDER-GLOW
           maxHeight: '85vh',
           overflowY: 'auto',
@@ -309,7 +309,7 @@ export function DesktopLanding() {
           left: '-10%',
           width: '70%',
           height: '60%',
-          background: 'radial-gradient(circle at center, rgba(226, 31, 39, 0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle at center, rgba(189, 35, 32, 0.15) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
           zIndex: 1
@@ -421,7 +421,7 @@ export function DesktopLanding() {
               display: 'block', 
               marginBottom: '2px' // Reduced from 8px
             }}>Welcome to</span>
-            <span style={{ color: '#E21F27' }}>Vidya&apos;s Kitchen</span>
+            <span style={{ color: '#BD2320' }}>Vidya&apos;s Kitchen</span>
           </h2>
         </div>
 
@@ -457,8 +457,8 @@ export function DesktopLanding() {
             <div style={{
               width: '100%',
               height: '2px', // Thicker line
-              background: 'linear-gradient(90deg, transparent 0%, #E21F27 50%, transparent 100%)',
-              boxShadow: '0 0 30px rgba(226,31,39,1)', // More intense spread
+              background: 'linear-gradient(90deg, transparent 0%, #BD2320 50%, transparent 100%)',
+              boxShadow: '0 0 30px rgba(189,35,32,1)', // More intense spread
             }} />
           </motion.div>
 

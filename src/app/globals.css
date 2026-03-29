@@ -2,8 +2,8 @@
 
 :root {
 
-  --primary: #E21F27; 
-  --primary-glow: rgba(226, 31, 39, 0.4);
+  --primary: #BD2320; 
+  --primary-glow: rgba(189, 35, 32, 0.4);
   --bg-dark: #000000;
   --surface: #0D0D0F;
   --surface-hover: #161618;

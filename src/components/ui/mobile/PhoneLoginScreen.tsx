@@ -26,7 +26,7 @@ const C = {
   surface: "#161616",
   surfaceHigh: "#1e1e1e",
   border: "rgba(255,255,255,0.09)",
-  red: "#E21F27",
+  red: "#BD2320",
   green: "#22c55e",
   white: "#ffffff",
   muted: "#A0A0A0",
@@ -173,7 +173,7 @@ const S: Record<string, CSSProperties> = {
     background: "none", border: "none",
     fontWeight: 400,
   },
-  termsAccent: { color: "rgba(226,31,39,0.55)", cursor: "pointer" },
+  termsAccent: { color: "rgba(189,35,32,0.55)", cursor: "pointer" },
   backdrop: {
     position: "fixed", inset: 0,
     background: "rgba(0,0,0,0.7)",
@@ -253,7 +253,7 @@ const D = {
     boxShadow: valid
       ? "0 0 0 3px rgba(34,197,94,0.10), 0 2px 12px rgba(0,0,0,0.3)"
       : active
-      ? "0 0 0 3px rgba(226,31,39,0.10), 0 2px 12px rgba(0,0,0,0.3)"
+      ? "0 0 0 3px rgba(189,35,32,0.10), 0 2px 12px rgba(0,0,0,0.3)"
       : "0 2px 8px rgba(0,0,0,0.2)",
   }),
   primaryBtn: (active: boolean, mt = T.sp3): CSSProperties => ({
@@ -482,14 +482,14 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                       width: 68, height: 68,
                       textAlign: "center", fontSize: 24, fontWeight: 800,
                       color: C.white, background: C.surfaceHigh,
-                      border: `1.5px solid ${otpError ? "rgba(226,31,39,0.4)" : digit ? C.red : C.border}`,
+                      border: `1.5px solid ${otpError ? "rgba(189,35,32,0.4)" : digit ? C.red : C.border}`,
                       maskImage: SQUIRCLE_MASK,
                       WebkitMaskImage: SQUIRCLE_MASK,
                       maskSize: "100% 100%",
                       WebkitMaskSize: "100% 100%",
                       outline: "none",
                       caretColor: C.red,
-                      boxShadow: digit && !otpError ? "0 0 0 3px rgba(226,31,39,0.10)" : "none",
+                      boxShadow: digit && !otpError ? "0 0 0 3px rgba(189,35,32,0.10)" : "none",
                       transition: "border-color 0.18s, box-shadow 0.18s",
                       fontFamily: C.mono,
                     }}

@@ -38,7 +38,7 @@ const C = {
   surface: "#161616",
   surfaceHigh: "#1e1e1e",
   border: "rgba(255,255,255,0.09)",
-  red: "#E21F27",
+  red: "#BD2320",
   white: "#ffffff",
   muted: "#A0A0A0",
   mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
@@ -116,7 +116,7 @@ const D = {
     overflow: "hidden",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: active
-      ? "0 0 0 3px rgba(226,31,39,0.10), 0 2px 12px rgba(0,0,0,0.3)"
+      ? "0 0 0 3px rgba(189,35,32,0.10), 0 2px 12px rgba(0,0,0,0.3)"
       : "0 2px 8px rgba(0,0,0,0.2)",
   }),
   primaryBtn: (active: boolean): CSSProperties => ({
