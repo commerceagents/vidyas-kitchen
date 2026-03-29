@@ -232,13 +232,18 @@ export function DesktopLanding() {
           backdropFilter: 'blur(40px)', // Deep Glass Blur
           WebkitBackdropFilter: 'blur(40px)',
           borderRadius: '32px',
-          border: '1px solid rgba(255, 255, 255, 0.12)', // Light-catching translucent border
+          border: '1.5px solid rgba(255, 255, 255, 0.25)', // Much thicker, visible rim
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           flexShrink: 0,
           textAlign: 'center',
-          boxShadow: '0 40px 100px rgba(0,0,0,0.8), 0 0 80px rgba(226,31,39,0.04)', // Red under-glow
+          boxShadow: `
+            0 40px 100px rgba(0,0,0,0.8), 
+            0 0 0 1px rgba(255,255,255,0.1) inset, 
+            0 0 20px rgba(255,255,255,0.05),
+            0 0 80px rgba(226,31,39,0.06)
+          `, // Layered rim-light and under-glow
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
@@ -269,9 +274,9 @@ export function DesktopLanding() {
             left: '50%',
             transform: 'translateX(-50%)',
             width: '120px',
-            height: '60px', // More vertical spread
-            background: 'radial-gradient(circle at top, rgba(226,31,39,0.4) 0%, transparent 70%)', // Increased opacity
-            filter: 'blur(40px)', // Increased blur for spotlight effect
+            height: '60px',
+            background: 'radial-gradient(circle at top, rgba(226,31,39,0.4) 0%, transparent 70%)',
+            filter: 'blur(40px)',
             zIndex: 15
           }} 
         />
@@ -292,17 +297,17 @@ export function DesktopLanding() {
             maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
           }} />
           
-          {/* Animated White Shine Grid (Wave) */}
+          {/* Animated White Shine Grid (Wave) - Every 25 Seconds */}
           <motion.div 
             animate={{ 
               maskPosition: ['0% -100%', '0% 200%'],
               WebkitMaskPosition: ['0% -100%', '0% 200%']
             } as any}
             transition={{ 
-              duration: 7, // Slowed down
+              duration: 10, 
               repeat: Infinity, 
               ease: "linear",
-              repeatDelay: 2 // Added interval
+              repeatDelay: 15 // Total 25s cycle
             }}
             style={{
               position: 'absolute',
