@@ -315,28 +315,29 @@ export function DesktopLanding() {
           zIndex: 1
         }} />
 
-        {/* PERIODIC 25s SILVER SHIMMER STREAK - High-Intensity */}
+        {/* PERIODIC BREATHING SILVER SHIMMER - Slow Lap with Fade In/Out */}
         <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', padding: '1.5px', pointerEvents: 'none', zIndex: 12 }}>
           <motion.div
             animate={{ 
-              offsetDistance: ["0%", "100%"]
+              offsetDistance: ["0%", "100%"],
+              opacity: [0, 1, 1, 0] // Fades in, stays, fades out
             } as any}
             transition={{ 
-              duration: 3, 
+              duration: 12, // Very Slow graceful lap 
               repeat: Infinity, 
               ease: "easeInOut",
-              repeatDelay: 22 // Total 25s Cycle
+              times: [0, 0.1, 0.9, 1] // Quick fade in/out at ends
             }}
             style={{
               position: 'absolute',
               top: 0,
               left: 0,
-              width: '120px',
-              height: '1.5px',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)',
+              width: '180px', // Bigger streak
+              height: '3px',  // Thicker streak
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,1), transparent)',
               offsetPath: 'inset(0 round 38px)',
               offsetRotate: 'auto',
-              boxShadow: '0 0 10px rgba(255,255,255,0.4)',
+              boxShadow: '0 0 20px rgba(255,255,255,0.6)',
               zIndex: 12
             }}
           />
@@ -356,10 +357,10 @@ export function DesktopLanding() {
               position: 'absolute',
               inset: 0,
               backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
+                linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
               `,
-              backgroundSize: '15px 15px', 
+              backgroundSize: '8px 8px', // Denser grid
               pointerEvents: 'none',
               zIndex: 2,
               WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
