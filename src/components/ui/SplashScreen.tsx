@@ -39,17 +39,21 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             position: 'fixed',
             inset: 0,
             zIndex: 100000,
-            backgroundColor: '#0a0a0a',
+            backgroundColor: '#0d0d0d', // Deep Matte Charcoal
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             width: '100vw',
             height: '100dvh',
-            margin: 0,
             padding: 0,
             overflow: 'hidden'
           }}
         >
+          {/* Atmospheric Lighting - Corner Glows */}
+          <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.06) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '20%', right: '0%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+
           {/* Main Visual Group */}
           <div style={{ position: 'relative', width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             
@@ -59,24 +63,21 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 <>
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ 
-                      scale: [1, 1.5], 
-                      opacity: [0, 1, 0] 
-                    }}
+                    animate={{ scale: [1, 1.5], opacity: [0, 1, 0] }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
                     style={{
                       position: 'absolute',
                       width: '120px',
                       height: '120px',
                       borderRadius: '50%',
-                      background: 'radial-gradient(circle, rgba(226, 31, 39, 1) 0%, rgba(226, 31, 39, 0) 80%)',
+                      background: 'radial-gradient(circle, rgba(226, 31, 39, 0.8) 0%, rgba(226, 31, 39, 0) 80%)',
                       filter: 'blur(15px)',
                       zIndex: 10
                     }}
                   />
                   
                   {/* Glitter Particles Effect - Shimmering burst BEHIND logo */}
-                  {[...Array(50)].map((_, i) => (
+                  {[...Array(60)].map((_, i) => (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
@@ -126,7 +127,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               />
             </svg>
 
-            {/* Logo Wrapper - Stays solid */}
+            {/* Logo Wrapper - Physical Object Style */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -135,14 +136,15 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 position: 'relative',
                 width: '120px',
                 height: '120px',
-                backgroundColor: 'black',
+                backgroundColor: '#111111', // Slightly off-black for depth
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 50px rgba(0,0,0,1)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.8), inset 0 0 1px 1px rgba(255,255,255,0.05)', // Outer and Internal rim-light
                 overflow: 'hidden',
-                zIndex: 20
+                zIndex: 20,
+                border: '1px solid rgba(255,255,255,0.03)'
               }}
             >
               {/* Shine Overlay Effect */}
