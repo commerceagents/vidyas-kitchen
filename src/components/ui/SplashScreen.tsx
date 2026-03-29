@@ -9,19 +9,16 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
 
   const [showPulse, setShowPulse] = useState(false);
-  const [showBurst, setShowBurst] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     // Pulse circle completion at 3.5s
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
-    // Sudden logo burst at 3.9s
-    const burstTimer = setTimeout(() => setShowBurst(true), 3900);
-    // Final exit at 5.2s
+    // Final exit at 4.8s
     const timer = setTimeout(() => {
       setIsVisible(false);
       if (onComplete) setTimeout(onComplete, 800); 
-    }, 5200);
+    }, 4800);
     return () => {
       clearTimeout(pulseTimer);
       clearTimeout(timer);
@@ -34,7 +31,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
     <AnimatePresence mode="wait">
       {isVisible && (
         <motion.div
-          key="refined-splash-v2"
+          key="refined-splash-v4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.8 } }}
@@ -53,8 +50,9 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             overflow: 'hidden'
           }}
         >
-          {/* Main Visual Group - Reduced container size for smaller gap */}
+          {/* Main Visual Group */}
           <div style={{ position: 'relative', width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            
             {/* Outer Pulsing Glow (Behind Logo) */}
             <AnimatePresence>
               {showPulse && (
@@ -77,24 +75,19 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                     }}
                   />
                   
-                  {/* Glitter Particles Effect - Shimmering burst */}
-                  {[...Array(35)].map((_, i) => (
+                  {/* Glitter Particles Effect - Shimmering burst BEHIND logo */}
+                  {[...Array(50)].map((_, i) => (
                     <motion.div
                       key={i}
-                      initial={{ 
-                        opacity: 0, 
-                        scale: 0,
-                        x: 0,
-                        y: 0
-                      }}
+                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
                       animate={{ 
                         opacity: [0, 1, 0.8, 1, 0],
                         scale: [0, 1.2, 0.8, 1.1, 0],
-                        x: (Math.random() - 0.5) * 350,
-                        y: (Math.random() - 0.5) * 350,
+                        x: (Math.random() - 0.5) * 450,
+                        y: (Math.random() - 0.5) * 450,
                       }}
                       transition={{ 
-                        duration: 1.5, 
+                        duration: 1.6, 
                         ease: [0.16, 1, 0.3, 1],
                         delay: Math.random() * 0.2
                       }}
@@ -113,29 +106,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               )}
             </AnimatePresence>
 
-            {/* Completion Ripple Wave */}
-            <AnimatePresence>
-              {showPulse && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ 
-                    scale: 1.3, 
-                    opacity: 0 
-                  }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  style={{
-                    position: 'absolute',
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '50%',
-                    border: '1px solid rgba(139, 31, 39, 0.6)',
-                    zIndex: 10
-                  }}
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Circular Progress Ring - Reduced radius to 75 for boutique look */}
+            {/* Circular Progress Ring */}
             <svg 
               style={{ position: 'absolute', top: 0, left: 0, width: '200px', height: '200px', transform: 'rotate(-90deg)' }} 
               viewBox="0 0 200 200"
@@ -147,7 +118,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 fill="transparent"
                 stroke="#E21F27"
                 strokeWidth="3"
-                strokeDasharray="471.24" /* 2 * PI * 75 */
+                strokeDasharray="471.24"
                 initial={{ strokeDashoffset: 471.24 }}
                 animate={{ strokeDashoffset: 0 }}
                 transition={{ duration: 3.5, ease: "easeInOut" }}
@@ -155,52 +126,16 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               />
             </svg>
 
-            {/* Logo Burst Swarm */}
-            <AnimatePresence>
-              {showBurst && (
-                <div style={{ position: 'absolute', zIndex: 30 }}>
-                  {[...Array(60)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
-                      animate={{ 
-                        x: (Math.random() - 0.5) * 600,
-                        y: (Math.random() - 0.5) * 600,
-                        opacity: 0,
-                        scale: 0
-                      }}
-                      transition={{ 
-                        duration: 1.2, 
-                        ease: [0.16, 1, 0.3, 1],
-                        delay: Math.random() * 0.1
-                      }}
-                      style={{
-                        position: 'absolute',
-                        width: Math.random() * 4 + 2 + 'px',
-                        height: Math.random() * 4 + 2 + 'px',
-                        borderRadius: '50%',
-                        backgroundColor: '#E21F27',
-                        boxShadow: '0 0 10px rgba(226, 31, 39, 0.9)',
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
-
-            {/* Logo Wrapper - Fades and bursts out */}
+            {/* Logo Wrapper - Stays solid */}
             <motion.div
-              animate={{ 
-                opacity: showBurst ? 0 : 1,
-                scale: showBurst ? 1.4 : 1,
-                filter: showBurst ? 'blur(10px)' : 'blur(0px)'
-              }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
               style={{
                 position: 'relative',
-                width: '120px', // Reduced size
+                width: '120px',
                 height: '120px',
-                backgroundColor: 'black', // Black background
+                backgroundColor: 'black',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
@@ -212,40 +147,26 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             >
               {/* Shine Overlay Effect */}
               <motion.div
-                animate={{
-                  x: ['-200%', '200%'],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "linear",
-                  delay: 0.5
-                }}
+                animate={{ x: ['-200%', '200%'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear", delay: 0.5 }}
                 style={{
                   position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
+                  top: 0, left: 0, width: '100%', height: '100%',
                   background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)',
-                  zIndex: 25,
-                  pointerEvents: 'none'
+                  zIndex: 25, pointerEvents: 'none'
                 }}
               />
 
               <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
                 <Image 
-                  src="/VK_Logo.webp" 
-                  alt="Vidya's Kitchen" 
-                  fill
-                  style={{ objectFit: 'contain' }}
-                  priority
+                  src="/VK_Logo.webp" alt="Vidya's Kitchen" fill
+                  style={{ objectFit: 'contain' }} priority
                 />
               </div>
             </motion.div>
           </div>
 
-          {/* Loading Text - Fades out with burst */}
+          {/* Loading Text - Restored Silver Shimmering Effect */}
           <div style={{
             position: 'absolute',
             bottom: '80px',
@@ -256,25 +177,27 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             zIndex: 100
           }}>
             <motion.span 
+              initial={{ opacity: 0 }}
               animate={{ 
-                opacity: showBurst ? 0 : 1,
-                y: showBurst ? 10 : 0
+                opacity: 1,
+                backgroundPosition: ['200% center', '-200% center']
               }}
               transition={{
                 opacity: { delay: 0.5, duration: 1 },
                 backgroundPosition: { duration: 4, repeat: Infinity, ease: "linear" }
               }}
               style={{
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: '900',
                 letterSpacing: '0.8em',
                 textTransform: 'uppercase',
-                background: 'linear-gradient(90deg, #333333 0%, #ffffff 50%, #333333 100%)', // Silver shimmer
+                background: 'linear-gradient(90deg, #333333 0%, #ffffff 50%, #333333 100%)',
                 backgroundSize: '200% auto',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 display: 'inline-block',
-                textAlign: 'center'
+                textAlign: 'center',
+                fontFamily: 'var(--font-jetbrains-mono)'
               }}
             >
               LOADING
