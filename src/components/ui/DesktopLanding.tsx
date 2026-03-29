@@ -260,19 +260,28 @@ export function DesktopLanding() {
           scrollbarWidth: 'none'
         }}
       >
-        {/* TOP & SIDE RED LIGHT-CATCH RIM */}
+        {/* LIQUID AMBIENT GLOWS (Inside the card but behind content) */}
         <div style={{
           position: 'absolute',
-          inset: 0,
-          padding: '1px',
-          borderRadius: 'inherit',
-          background: 'linear-gradient(to right, rgba(226,31,39,0.4) 0%, transparent 40%, transparent 60%, rgba(226,31,39,0.4) 100%), linear-gradient(to bottom, rgba(226,31,39,0.3) 0%, transparent 80%)',
-          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          WebkitMaskComposite: 'xor',
-          maskComposite: 'exclude',
+          top: '-15%',
+          left: '-10%',
+          width: '70%',
+          height: '60%',
+          background: 'radial-gradient(circle at center, rgba(226, 31, 39, 0.1) 0%, transparent 70%)',
+          filter: 'blur(60px)',
           pointerEvents: 'none',
-          zIndex: 10
+          zIndex: 1
+        }} />
+        <div style={{
+          position: 'absolute',
+          top: '-10%',
+          right: '-5%',
+          width: '50%',
+          height: '40%',
+          background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0%, transparent 60%)',
+          filter: 'blur(50px)',
+          pointerEvents: 'none',
+          zIndex: 1
         }} />
 
         {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (6s SLOW) */}
