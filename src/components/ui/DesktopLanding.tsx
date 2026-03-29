@@ -252,7 +252,7 @@ export function DesktopLanding() {
           boxShadow: `
             0 40px 100px rgba(0,0,0,1), 
             0 0 0 1px rgba(255,255,255,0.02) inset,
-            0 0 60px rgba(226,31,39,0.12)
+            0 0 80px rgba(226,31,39,0.12)
           `, // DEEP RED UNDER-GLOW
           maxHeight: '85vh',
           overflowY: 'auto',
@@ -266,7 +266,6 @@ export function DesktopLanding() {
           inset: 0,
           padding: '1px',
           borderRadius: 'inherit',
-          // Combined Top & Side Streaks
           background: 'linear-gradient(to right, rgba(226,31,39,0.4) 0%, transparent 40%, transparent 60%, rgba(226,31,39,0.4) 100%), linear-gradient(to bottom, rgba(226,31,39,0.3) 0%, transparent 80%)',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
@@ -294,7 +293,7 @@ export function DesktopLanding() {
                 linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
               `,
-              backgroundSize: '15px 15px', // Slightly larger grid for cleaner look
+              backgroundSize: '15px 15px', 
               pointerEvents: 'none',
               zIndex: 2,
               WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
