@@ -248,13 +248,13 @@ export function DesktopLanding() {
           scrollbarWidth: 'none'
         }}
       >
-        {/* THE "HALFWAY" RIM LIGHT (Top & Sides only) */}
+        {/* THE "PURE GLASS" RIM LIGHT */}
         <div style={{
           position: 'absolute',
           inset: 0,
-          padding: '1.5px', // Border thickness
+          padding: '1px',
           borderRadius: 'inherit',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 80%)',
+          background: 'rgba(255, 255, 255, 0.15)', // Clean white glass rim
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
@@ -263,83 +263,67 @@ export function DesktopLanding() {
           zIndex: 10
         }} />
 
-        {/* SILVER SPOTLIGHT SWEEP (Halfway Rim) - Sync 15s Cycle */}
-        <motion.div
-          animate={{
-            maskPosition: ['0% -200%', '0% 200%'],
-            WebkitMaskPosition: ['0% -200%', '0% 200%'],
-          } as any}
-          transition={{
-            duration: 3, // 3s sweep
-            repeat: Infinity,
-            ease: [0.4, 0, 0.2, 1],
-            repeatDelay: 12 // 12s pause = 15s Cycle
-          }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            padding: '2px', // Slightly thicker sweep
-            borderRadius: 'inherit',
-            background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)',
-            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            WebkitMaskComposite: 'xor',
-            maskComposite: 'exclude',
-            WebkitMaskImage: 'linear-gradient(to bottom, #fff 0%, #fff 40%, transparent 80%)', // Halfway clipping
-            maskImage: 'linear-gradient(to bottom, #fff 0%, #fff 40%, transparent 80%)',
-            pointerEvents: 'none',
-            zIndex: 11
-          }}
-        />
+        {/* Static Red Accent (Subtle) */}
+        <div style={{
+          position: 'absolute',
+          top: '0',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '120px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(226,31,39,0.4) 50%, transparent)',
+          zIndex: 20
+        }} />
 
-        {/* Red Top-Center Glow (High-Intensity Synchronized Pulse) */}
-        <motion.div 
-          animate={{ 
-            opacity: [0.2, 1, 1, 0.2],
-            scale: [0.8, 1.4, 1.4, 0.8] 
-          }}
-          transition={{ 
-            duration: 3, // Matches Silver Sweep
-            times: [0, 0.5, 0.6, 1], // Hits peak at midway of sweep
-            repeat: Infinity, 
-            ease: "easeInOut",
-            repeatDelay: 12 // Matches Silver Sweep
-          }}
-          style={{
-            position: 'absolute',
-            top: '0',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '160px',
-            height: '1px',
-            background: 'linear-gradient(90deg, transparent, #E21F27 50%, transparent)',
-            zIndex: 20
-          }} 
-        />
-        <motion.div 
-          animate={{ 
-            opacity: [0.3, 0.9, 0.9, 0.3], 
-            scale: [1, 1.4, 1.4, 1],
-            filter: ['blur(40px)', 'blur(60px)', 'blur(60px)', 'blur(40px)']
-          }}
-          transition={{ 
-            duration: 3, // Matches Silver Sweep
-            times: [0, 0.5, 0.6, 1], // Hits peak at midway of sweep
-            repeat: Infinity, 
-            ease: "easeInOut",
-            repeatDelay: 12 // Matches Silver Sweep
-          }}
-          style={{
-            position: 'absolute',
-            top: '0',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '180px', // Wider glow
-            height: '80px', // Deeper glow
-            background: 'radial-gradient(circle at top, rgba(226,31,39,0.7) 0%, transparent 70%)',
-            zIndex: 15
-          }} 
-        />
+        {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD */}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
+          {/* Base Gray Grid - Fades out after 5s */}
+          <motion.div 
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ delay: 5, duration: 1 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `
+                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
+              `,
+              backgroundSize: '10px 10px',
+              pointerEvents: 'none',
+              zIndex: 1,
+              maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
+            }} 
+          />
+          
+          {/* Animated White Shine Grid (Wave) - ONE TIME ONLY */}
+          <motion.div 
+            initial={{ maskPosition: '0% -100%', WebkitMaskPosition: '0% -100%' } as any}
+            animate={{ maskPosition: '0% 200%', WebkitMaskPosition: '0% 200%' } as any}
+            transition={{ 
+              duration: 4, 
+              ease: "easeInOut",
+              delay: 1
+            }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `
+                linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
+              `,
+              backgroundSize: '10px 10px',
+              pointerEvents: 'none',
+              zIndex: 2,
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
+              maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
+              WebkitMaskSize: '100% 150px',
+              maskSize: '100% 150px',
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat'
+            }}
+          />
+        </div>
 
         {/* Vertical Wave 'Shining' Grid */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
