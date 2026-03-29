@@ -240,7 +240,7 @@ export function DesktopLanding() {
           zIndex: 60,
           width: '440px',
           padding: '24px 40px',
-          background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)', // Industrial Matte
+          background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)', // Obsidian Matte
           backdropFilter: 'blur(60px)', 
           WebkitBackdropFilter: 'blur(60px)',
           borderRadius: '38px', 
@@ -252,32 +252,22 @@ export function DesktopLanding() {
           boxShadow: `
             0 40px 100px rgba(0,0,0,1), 
             0 0 0 1px rgba(255,255,255,0.02) inset,
-            0 0 80px rgba(226,31,39,0.04)
-          `, // Physical depth
+            0 0 60px rgba(226,31,39,0.12)
+          `, // DEEP RED UNDER-GLOW
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none'
         }}
       >
-        {/* PERSISTENT INDUSTRIAL DOT-GRID Texture */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: 0.08, // Very subtle desaturated dots
-          backgroundImage: 'radial-gradient(rgba(255,255,255,0.5) 0.5px, transparent 0)',
-          backgroundSize: '8px 8px',
-          pointerEvents: 'none',
-          zIndex: 1
-        }} />
-
-        {/* TOP RED LIGHT-CATCH RIM */}
+        {/* TOP & SIDE RED LIGHT-CATCH RIM */}
         <div style={{
           position: 'absolute',
           inset: 0,
           padding: '1px',
           borderRadius: 'inherit',
-          background: 'linear-gradient(to inner-right, rgba(226,31,39,0.4) 0%, transparent 60%)', // RED light-catch
+          // Combined Top & Side Streaks
+          background: 'linear-gradient(to right, rgba(226,31,39,0.4) 0%, transparent 40%, transparent 60%, rgba(226,31,39,0.4) 100%), linear-gradient(to bottom, rgba(226,31,39,0.3) 0%, transparent 80%)',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
@@ -286,62 +276,31 @@ export function DesktopLanding() {
           zIndex: 10
         }} />
 
-        {/* Static Red Accent (Subtle) */}
-        <div style={{
-          position: 'absolute',
-          top: '0',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '120px',
-          height: '1px',
-          background: 'linear-gradient(90deg, transparent, rgba(226,31,39,0.4) 50%, transparent)',
-          zIndex: 20
-        }} />
-
-        {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD */}
+        {/* Vertical Wave 'Shining' Grid - PLAYS ONLY ONCE ON LOAD (SLOW) */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', padding: 'inherit', borderRadius: 'inherit' }}>
-          {/* Base Gray Grid - Fades out after 5s */}
-          <motion.div 
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ delay: 5, duration: 1 }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
-              `,
-              backgroundSize: '10px 10px',
-              pointerEvents: 'none',
-              zIndex: 1,
-              maskImage: 'radial-gradient(circle at center, black, transparent 95%)'
-            }} 
-          />
-          
-          {/* Animated White Shine Grid (Wave) - ONE TIME ONLY */}
+          {/* Animated White Shine Grid (Wave) - ONE TIME ONLY (6s SLOW) */}
           <motion.div 
             initial={{ maskPosition: '0% -100%', WebkitMaskPosition: '0% -100%' } as any}
             animate={{ maskPosition: '0% 200%', WebkitMaskPosition: '0% 200%' } as any}
             transition={{ 
-              duration: 4, 
+              duration: 6, // SLOW Sweep
               ease: "easeInOut",
-              delay: 1
+              delay: 0.5
             }}
             style={{
               position: 'absolute',
               inset: 0,
               backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
+                linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
               `,
-              backgroundSize: '10px 10px',
+              backgroundSize: '15px 15px', // Slightly larger grid for cleaner look
               pointerEvents: 'none',
               zIndex: 2,
               WebkitMaskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
               maskImage: 'linear-gradient(to bottom, transparent, black, transparent)',
-              WebkitMaskSize: '100% 150px',
-              maskSize: '100% 150px',
+              WebkitMaskSize: '100% 200px',
+              maskSize: '100% 200px',
               WebkitMaskRepeat: 'no-repeat',
               maskRepeat: 'no-repeat'
             }}
