@@ -231,11 +231,7 @@ export function DesktopLanding() {
           background: 'rgba(255, 255, 255, 0.03)', // Translucent Glass
           backdropFilter: 'blur(40px)', // Deep Glass Blur
           WebkitBackdropFilter: 'blur(40px)',
-          // "TRUE SQUIRCLE" (Superellipse) Mask 
-          maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
-          WebkitMaskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
-          maskSize: '100% 100%',
-          WebkitMaskSize: '100% 100%',
+          borderRadius: '38px', // Refined, sophisticated curve
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -244,8 +240,8 @@ export function DesktopLanding() {
           boxShadow: `
             0 40px 100px rgba(0,0,0,0.8), 
             0 0 0 1px rgba(255,255,255,0.05) inset, 
-            0 0 80px rgba(226,31,39,0.06)
-          `,
+            0 0 80px rgba(226,31,39,0.08)
+          `, // Soft shadows restored
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
@@ -257,16 +253,17 @@ export function DesktopLanding() {
           position: 'absolute',
           inset: 0,
           padding: '1.5px', // Border thickness
-          // SQUIRCLE BORDER MASK
-          maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
-          WebkitMaskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='600' viewBox='0 0 440 600'%3E%3Cpath d='M0 110C0 24.2 24.2 0 110 0h220c85.8 0 110 24.2 110 110v380c0 85.8-24.2 110-110 110H110c-85.8 0-110-24.2-110-110V110z' /%3E%3C/svg%3E")`,
-          WebkitMaskSize: '100% 100%',
+          borderRadius: 'inherit',
           background: 'linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 80%)',
-          maskComposite: 'exclude',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
           pointerEvents: 'none',
           zIndex: 10
         }} />
+
+        {/* Red Top-Center Glow (Animated) */}
 
         {/* Red Top-Center Glow (Animated) */}
         <motion.div 
