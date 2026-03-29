@@ -18,6 +18,18 @@ function GlowingBlobsBackground() {
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(circle, rgba(226, 31, 39, 0.08) 0%, transparent 70%)', filter: 'blur(100px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', top: '10%', right: '5%', width: '30%', height: '30%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
+      {/* DIAGONAL STUDIO SPOTLIGHT BEAM */}
+      <div style={{
+        position: 'absolute',
+        top: '-20%',
+        left: '-10%',
+        width: '120%',
+        height: '140%',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 20%, transparent 40%)',
+        pointerEvents: 'none',
+        zIndex: 5
+      }} />
+
       {/* Pulsing Red Blob (Center-ish) */}
       <motion.div
         animate={{
@@ -228,33 +240,44 @@ export function DesktopLanding() {
           zIndex: 60,
           width: '440px',
           padding: '24px 40px',
-          background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%)', // Deep Matte Physical Look
-          backdropFilter: 'blur(60px)', // Even deeper blur for premium density
+          background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)', // Industrial Matte
+          backdropFilter: 'blur(60px)', 
           WebkitBackdropFilter: 'blur(60px)',
-          borderRadius: '38px', // Refined, sophisticated curve
+          borderRadius: '38px', 
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           flexShrink: 0,
           textAlign: 'center',
           boxShadow: `
-            0 40px 100px rgba(0,0,0,0.8), 
-            0 0 0 1px rgba(255,255,255,0.03) inset, 
-            0 0 80px rgba(226,31,39,0.06)
-          `, // Soft shadows restored
+            0 40px 100px rgba(0,0,0,1), 
+            0 0 0 1px rgba(255,255,255,0.02) inset,
+            0 0 80px rgba(226,31,39,0.04)
+          `, // Physical depth
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none'
         }}
       >
-        {/* THE "PURE GLASS" RIM LIGHT */}
+        {/* PERSISTENT INDUSTRIAL DOT-GRID Texture */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.08, // Very subtle desaturated dots
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.5) 0.5px, transparent 0)',
+          backgroundSize: '8px 8px',
+          pointerEvents: 'none',
+          zIndex: 1
+        }} />
+
+        {/* TOP RED LIGHT-CATCH RIM */}
         <div style={{
           position: 'absolute',
           inset: 0,
           padding: '1px',
           borderRadius: 'inherit',
-          background: 'rgba(255, 255, 255, 0.15)', // Clean white glass rim
+          background: 'linear-gradient(to inner-right, rgba(226,31,39,0.4) 0%, transparent 60%)', // RED light-catch
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
