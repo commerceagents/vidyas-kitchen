@@ -231,8 +231,7 @@ export function DesktopLanding() {
           background: 'rgba(255, 255, 255, 0.03)', // Translucent Glass
           backdropFilter: 'blur(40px)', // Deep Glass Blur
           WebkitBackdropFilter: 'blur(40px)',
-          borderRadius: '32px',
-          border: '1.5px solid rgba(255, 255, 255, 0.25)', // Much thicker, visible rim
+          borderRadius: '48px', // Increased for that super-smooth liquid look
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -240,16 +239,30 @@ export function DesktopLanding() {
           textAlign: 'center',
           boxShadow: `
             0 40px 100px rgba(0,0,0,0.8), 
-            0 0 0 1px rgba(255,255,255,0.1) inset, 
-            0 0 20px rgba(255,255,255,0.05),
+            0 0 0 1px rgba(255,255,255,0.05) inset, 
             0 0 80px rgba(226,31,39,0.06)
-          `, // Layered rim-light and under-glow
+          `, // Removed outer border to use the CSS trick for top-only rim
           maxHeight: '85vh',
           overflowY: 'auto',
           msOverflowStyle: 'none',
           scrollbarWidth: 'none'
         }}
       >
+        {/* THE "HALFWAY" RIM LIGHT (Top & Sides only) */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          padding: '1.5px', // Border thickness
+          borderRadius: 'inherit',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 80%)',
+          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          maskComposite: 'exclude',
+          WebkitMaskComposite: 'xor',
+          pointerEvents: 'none',
+          zIndex: 10
+        }} />
+
         {/* Red Top-Center Glow (Animated) */}
         <motion.div 
           animate={{ opacity: [0.4, 1, 0.4] }}
