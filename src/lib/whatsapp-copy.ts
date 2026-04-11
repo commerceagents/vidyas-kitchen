@@ -9,9 +9,9 @@ import { publicSiteOrigin } from "./site-url";
 export const ORDER_CUTOFF_REMINDER =
   "_Kitchen rule: we need at least one full day's notice before your meal date so we can buy fresh chicken & mutton and cook without rush._";
 
-/** Full logo URL for Meta image headers (must be HTTPS + publicly reachable). */
+/** Full logo URL for Meta image headers (must be HTTPS, under 5MB; `v` busts CDN cache after resize). */
 export function welcomeLogoImageUrl(): string {
-  return `${publicSiteOrigin()}/vk_logo_full.png`;
+  return `${publicSiteOrigin()}/vk_logo_full.png?v=2`;
 }
 
 /** Short reply when user taps *Contact us* or asks for help — no “message this number” (same chat as bot). */
