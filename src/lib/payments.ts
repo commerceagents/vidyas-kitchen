@@ -1,4 +1,5 @@
 import Razorpay from "razorpay";
+import { publicSiteOrigin } from "./site-url";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder",
@@ -27,7 +28,7 @@ export async function createPaymentLink(amount: number, orderId: string, custome
       notes: {
         order_id: orderId,
       },
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/callback`,
+      callback_url: `${publicSiteOrigin()}/api/payments/callback`,
       callback_method: "get",
     });
 

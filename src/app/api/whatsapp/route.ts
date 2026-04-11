@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { VidyaAgent, MenuItem, Message } from "@/lib/ai/agent";
 import { ORDER_CUTOFF_REMINDER } from "@/lib/whatsapp-copy";
+import { publicSiteOrigin } from "@/lib/site-url";
 
 /**
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
             else if (reply.id === 'bestsellers') text = "What are your bestsellers?";
             else if (reply.id === 'check_location') text = "Check my delivery area";
             else if (reply.id === 'view_app') text = "open app";
+            else if (reply.id === 'contact_us') text = "contact us";
             else if (reply.id === 'quick_reorder') text = "Quick Reorder";
             else if (reply.id === 'restart') text = "hi";
             else text = reply.title; 
@@ -74,13 +76,18 @@ export async function POST(req: Request) {
           const result = await agent.processMessage(text, [] as Message[], from, profileName);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendPwaLink } = result;
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendAppCta } = result;
 
-          // Special case: user tapped "Launch Gourmet App"
-          if (shouldSendPwaLink) {
+          // Open app — one-tap CTA URL (no long paste-your-link message)
+          if (shouldSendAppCta) {
             const customerName = encodeURIComponent(profileName || "Friend");
-            const pwaUrl = `https://vidyaskitchenhome.com?phone=${from}&name=${customerName}`;
-            await sendWhatsAppMessage(from, `Excellent taste! Open the link below — tap *Install* for the full experience or *Continue in Browser*:\n\n${pwaUrl}\n\nYou'll get faster ordering and your order history.`);
+            const appUrl = `${publicSiteOrigin()}?phone=${from}&name=${customerName}`;
+            await sendWhatsAppCtaUrl(
+              from,
+              "Tap the button to open Vidya's Kitchen in your browser — full menu & checkout.",
+              appUrl,
+              "Open app"
+            );
             await sendRestartReply(from);
             return NextResponse.json({ status: "success" });
           }
@@ -89,15 +96,20 @@ export async function POST(req: Request) {
             console.log(`[WHATSAPP] Sending buttons...`);
             await sendWhatsAppButtons(from, reply, buttons, headerImage);
           } else {
-            console.log(`[WHATSAPP] Sending text message...`);
-            await sendWhatsAppMessage(from, reply);
-            // Send persistent restart reply after every plain text message
-            await sendRestartReply(from);
+            if (reply) {
+              console.log(`[WHATSAPP] Sending text message...`);
+              await sendWhatsAppMessage(from, reply);
+            }
+            // Don't send "Start Over" before a list — it blocks the follow-up list on some clients
+            if (!(shouldShowMenu && menuItems && menuItems.length > 0)) {
+              await sendRestartReply(from);
+            }
           }
 
           if (shouldShowMenu && menuItems && menuItems.length > 0) {
-            console.log(`[WHATSAPP] Sending list/carousel...`);
+            console.log(`[WHATSAPP] Sending list...`);
             await sendWhatsAppList(from, menuItems);
+            await sendRestartReply(from);
           }
         }
       }
@@ -111,45 +123,93 @@ export async function POST(req: Request) {
 }
 
 /**
- * Sends a Button message to WhatsApp.
+ * Single CTA button that opens a URL (best UX for "Open app").
  */
-async function sendWhatsAppButtons(to: string, bodyText: string, buttons: { id: string, title: string }[], _headerUrl?: string) {
+async function sendWhatsAppCtaUrl(
+  to: string,
+  bodyText: string,
+  url: string,
+  displayText: string
+) {
+  const graphUrl = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "cta_url",
+      body: { text: bodyText },
+      action: {
+        name: "cta_url",
+        parameters: {
+          display_text: displayText.slice(0, 20),
+          url,
+        },
+      },
+    },
+  };
+
+  try {
+    const response = await fetch(graphUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const d = await response.json();
+    console.log("CTA URL Response:", JSON.stringify(d));
+  } catch (err) {
+    console.error("Meta CTA URL Error:", err);
+  }
+}
+
+/**
+ * Sends a Button message to WhatsApp (optional image header for welcome).
+ */
+async function sendWhatsAppButtons(
+  to: string,
+  bodyText: string,
+  buttons: { id: string; title: string }[],
+  headerImageUrl?: string
+) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-  // Using text header to avoid image 404 errors from Meta API
+  const header = headerImageUrl
+    ? { type: "image" as const, image: { link: headerImageUrl } }
+    : { type: "text" as const, text: "Vidya's Kitchen" };
+
   const payload = {
     messaging_product: "whatsapp",
     to,
     type: "interactive",
     interactive: {
       type: "button",
-      header: {
-        type: "text",
-        text: "Vidya's Kitchen"
-      },
+      header,
       body: { text: bodyText },
       action: {
-        buttons: buttons.map(b => ({
+        buttons: buttons.map((b) => ({
           type: "reply",
-          reply: { id: b.id, title: b.title }
-        }))
-      }
-    }
+          reply: { id: b.id, title: b.title },
+        })),
+      },
+    },
   };
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
     const d = await response.json();
-    console.log('Button Response:', JSON.stringify(d));
+    console.log("Button Response:", JSON.stringify(d));
   } catch (err) {
-    console.error('Meta Button Error:', err);
+    console.error("Meta Button Error:", err);
   }
 }
 
@@ -238,21 +298,50 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     egg: "Egg",
   };
 
+  const rowId = (id: string) =>
+    String(id).replace(/-/g, "").slice(0, 200);
+
   const byCat = (cat: string) =>
     items
       .filter((item) => item.category === cat)
       .map((item) => ({
-        id: item.id.substring(0, 24),
+        id: rowId(item.id),
         title: item.name.substring(0, 24),
         description: `₹${item.price} — Tap to order`.substring(0, 72),
       }));
 
-  const sections = ["chicken", "mutton", "egg"]
+  let sections = ["chicken", "mutton", "egg"]
     .map((cat) => ({
       title: sectionTitle[cat] || cat,
       rows: byCat(cat),
     }))
     .filter((s) => s.rows.length > 0);
+
+  if (sections.length === 0) {
+    const flatRows = items.map((item) => ({
+      id: rowId(item.id),
+      title: item.name.substring(0, 24),
+      description: `₹${item.price} — Tap`.substring(0, 72),
+    }));
+    sections = [];
+    for (let i = 0; i < flatRows.length; i += 10) {
+      sections.push({
+        title: i === 0 ? "Menu" : "More dishes",
+        rows: flatRows.slice(i, i + 10),
+      });
+    }
+  }
+
+  sections = sections.map((sec) => ({
+    ...sec,
+    rows: sec.rows.slice(0, 10),
+  }));
+
+  const listBody =
+    `Against-order menu — chicken, mutton & egg. Tap a row to start.\n\n${ORDER_CUTOFF_REMINDER}`.slice(
+      0,
+      1024
+    );
 
   const payload = {
     messaging_product: "whatsapp",
@@ -263,9 +352,9 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
       type: "list",
       header: { type: "text", text: "Vidya's Kitchen" },
       body: {
-        text: `Against-order menu — chicken, mutton & egg. Tap a row to tell us what you'd like.\n\n${ORDER_CUTOFF_REMINDER}`,
+        text: listBody,
       },
-      footer: { text: "Sivakasi • Type HELP for support" },
+      footer: { text: "Sivakasi • HELP for support" },
       action: {
         button: "View menu",
         sections,
@@ -283,9 +372,12 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
       body: JSON.stringify(payload),
     });
     const d = await response.json();
-    console.log('List Response:', JSON.stringify(d));
+    console.log("List Response:", JSON.stringify(d));
+    if (d.error) {
+      console.error("[WHATSAPP] List message error:", d.error);
+    }
   } catch (_err) {
-    console.error('Meta List Error:', _err);
+    console.error("Meta List Error:", _err);
   }
 }
 

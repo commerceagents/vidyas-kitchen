@@ -7,9 +7,9 @@ import {
 } from "../menu/against-order";
 import {
   buildWelcomeMessage,
-  getSupportContactBlock,
+  contactUsReply,
   menuContextFooter,
-  ORDER_CUTOFF_REMINDER,
+  welcomeLogoImageUrl,
 } from "../whatsapp-copy";
 
 /**
@@ -67,6 +67,39 @@ export class VidyaAgent {
     }
   }
 
+  /** True if this WhatsApp number already has at least one order row (for hiding "Order again"). */
+  private async hasPriorOrders(phoneNumber: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("phone_number", phoneNumber)
+        .limit(1);
+      if (error) return false;
+      return (data?.length ?? 0) > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /** WhatsApp allows max 3 reply buttons. First-time users get *Contact us* instead of *Order again*. */
+  private async getMainActionButtons(phoneNumber?: string) {
+    const returning =
+      phoneNumber && (await this.hasPriorOrders(phoneNumber));
+    if (returning) {
+      return [
+        { id: "view_menu", title: "Browse menu" },
+        { id: "quick_reorder", title: "Order again" },
+        { id: "view_app", title: "Open app" },
+      ];
+    }
+    return [
+      { id: "view_menu", title: "Browse menu" },
+      { id: "view_app", title: "Open app" },
+      { id: "contact_us", title: "Contact us" },
+    ];
+  }
+
   async createOrder(phoneNumber: string, _items: OrderItemInput[], total: number, deliverySlot?: string) {
     try {
       // 🛡️ ENFORCE 24-HOUR LEAD TIME
@@ -104,12 +137,6 @@ export class VidyaAgent {
   }
 
   private async buildTrackOrderReply(phoneNumber: string, menu: MenuItem[]) {
-    const mainButtons = [
-      { id: "view_menu", title: "Browse menu" },
-      { id: "quick_reorder", title: "Order again" },
-      { id: "view_app", title: "Open app" },
-    ];
-
     try {
       const { data: orders, error } = await supabase
         .from("orders")
@@ -120,6 +147,8 @@ export class VidyaAgent {
 
       if (error) throw error;
 
+      const buttons = await this.getMainActionButtons(phoneNumber);
+
       if (!orders?.length) {
         return {
           reply:
@@ -127,8 +156,8 @@ export class VidyaAgent {
             menuContextFooter(),
           shouldShowMenu: true,
           shouldShowButtons: true,
-          shouldSendPwaLink: false,
-          buttons: mainButtons,
+          shouldSendAppCta: false,
+          buttons,
           menuItems: menu.slice(0, 6),
           headerImage: undefined,
         };
@@ -143,19 +172,20 @@ export class VidyaAgent {
           `*Your recent orders*\n\n${lines.join("\n")}\n\n_We'll update status as the kitchen progresses._`,
         shouldShowMenu: false,
         shouldShowButtons: true,
-        shouldSendPwaLink: false,
-        buttons: mainButtons,
+        shouldSendAppCta: false,
+        buttons,
         menuItems: [] as MenuItem[],
         headerImage: undefined,
       };
     } catch (_e) {
+      const buttons = await this.getMainActionButtons(phoneNumber);
       return {
         reply:
-          `${getSupportContactBlock()}\n\n_I couldn't load your orders right now — try again in a moment._`,
+          `${contactUsReply()}\n\n_I couldn't load your orders right now — try again in a moment._`,
         shouldShowMenu: false,
         shouldShowButtons: true,
-        shouldSendPwaLink: false,
-        buttons: mainButtons,
+        shouldSendAppCta: false,
+        buttons,
         menuItems: [] as MenuItem[],
         headerImage: undefined,
       };
@@ -177,27 +207,35 @@ export class VidyaAgent {
 
       const menu = await this.getAgainstOrderMenu();
 
-      const mainButtons = [
-        { id: "view_menu", title: "Browse menu" },
-        { id: "quick_reorder", title: "Order again" },
-        { id: "view_app", title: "Open app" },
-      ] as const;
-
       // Track order
       if (phoneNumber && /\b(track|tracking|order status|where is my order|my order)\b/i.test(message)) {
         return this.buildTrackOrderReply(phoneNumber, menu);
       }
 
-      // Customer care / human
-      if (
-        /\b(help|human|support|agent|customer care|talk to someone|call me|care)\b/i.test(lowerMessage)
-      ) {
+      // Contact us (button or text)
+      if (lowerMessage === "contact us") {
         return {
-          reply: `${getSupportContactBlock()}\n\n${ORDER_CUTOFF_REMINDER}`,
+          reply: contactUsReply(),
           shouldShowMenu: false,
           shouldShowButtons: true,
-          shouldSendPwaLink: false,
-          buttons: [...mainButtons],
+          shouldSendAppCta: false,
+          buttons: await this.getMainActionButtons(phoneNumber),
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+
+      // Customer care / human (typed keywords)
+      if (
+        /\b(help|human|support|agent|customer care|talk to someone|call me)\b/i.test(lowerMessage) ||
+        /\bcare\b/i.test(lowerMessage)
+      ) {
+        return {
+          reply: contactUsReply(),
+          shouldShowMenu: false,
+          shouldShowButtons: true,
+          shouldSendAppCta: false,
+          buttons: await this.getMainActionButtons(phoneNumber),
           menuItems: [] as MenuItem[],
           headerImage: undefined,
         };
@@ -210,10 +248,10 @@ export class VidyaAgent {
           reply: buildWelcomeMessage(first),
           shouldShowMenu: false,
           shouldShowButtons: true,
-          shouldSendPwaLink: false,
-          buttons: [...mainButtons],
+          shouldSendAppCta: false,
+          buttons: await this.getMainActionButtons(phoneNumber),
           menuItems: menu.slice(0, 5),
-          headerImage: undefined,
+          headerImage: welcomeLogoImageUrl(),
         };
       }
 
@@ -223,7 +261,7 @@ export class VidyaAgent {
           reply: "",
           shouldShowMenu: false,
           shouldShowButtons: false,
-          shouldSendPwaLink: true,
+          shouldSendAppCta: true,
           buttons: [],
           menuItems: [],
           headerImage: undefined
@@ -250,7 +288,7 @@ export class VidyaAgent {
               menuContextFooter(),
             shouldShowMenu: true,
             shouldShowButtons: false,
-            shouldSendPwaLink: false,
+            shouldSendAppCta: false,
             buttons: [],
             menuItems: uniqueItems as MenuItem[],
             headerImage: undefined
@@ -262,7 +300,7 @@ export class VidyaAgent {
             menuContextFooter(),
           shouldShowMenu: true,
           shouldShowButtons: false,
-          shouldSendPwaLink: false,
+          shouldSendAppCta: false,
           buttons: [],
           menuItems: menu.slice(0, 5),
           headerImage: undefined
@@ -277,7 +315,7 @@ export class VidyaAgent {
             menuContextFooter(),
           shouldShowMenu: true,
           shouldShowButtons: false,
-          shouldSendPwaLink: false,
+          shouldSendAppCta: false,
           buttons: [],
           menuItems: menu,
           headerImage: undefined
@@ -351,19 +389,15 @@ export class VidyaAgent {
         reply, 
         shouldShowMenu: lowerMessage.includes("menu") || lowerMessage.includes("specials"),
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
-        shouldSendPwaLink: false,
-        buttons: isGreeting ? [
-          { id: 'view_menu', title: 'Browse menu' },
-          { id: 'quick_reorder', title: 'Order again' },
-          { id: 'view_app', title: 'Open app' },
-        ] : [],
+        shouldSendAppCta: false,
+        buttons: isGreeting ? await this.getMainActionButtons(phoneNumber) : [],
         menuItems: menu.slice(0, 5),
-        headerImage: undefined,
+        headerImage: isGreeting ? welcomeLogoImageUrl() : undefined,
         paymentLink
       };
     } catch (err) {
       console.error("AI Agent Error:", err);
-      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, shouldShowButtons: false, shouldSendPwaLink: false, menuItems: [], buttons: [], headerImage: undefined };
+      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, shouldShowButtons: false, shouldSendAppCta: false, menuItems: [], buttons: [], headerImage: undefined };
     }
   }
 
