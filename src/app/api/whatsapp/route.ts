@@ -58,10 +58,7 @@ export async function POST(req: Request) {
             else text = reply.title; 
           } else if (interactive.type === "list_reply") {
             const listReply = interactive.list_reply;
-            // Subscription plan IDs get routed directly
-            if (listReply.id === 'sub_veg_weekly') text = "weekly veg plan";
-            else if (listReply.id === 'sub_nonveg_weekly') text = "weekly non-veg plan";
-            else text = `I would like to order ${listReply.title}`;
+            text = `I would like to order ${listReply.title}`;
           }
         }
 
@@ -82,7 +79,7 @@ export async function POST(req: Request) {
           if (shouldSendPwaLink) {
             const customerName = encodeURIComponent(profileName || "Friend");
             const pwaUrl = `https://vidyaskitchenhome.com?phone=${from}&name=${customerName}`;
-            await sendWhatsAppMessage(from, `Excellent taste! Open the link below — tap *Install* for the full gourmet experience or *Continue in Browser*:\n\n${pwaUrl}\n\nYou'll get faster ordering, order history, and your personal subscription dashboard!`);
+            await sendWhatsAppMessage(from, `Excellent taste! Open the link below — tap *Install* for the full experience or *Continue in Browser*:\n\n${pwaUrl}\n\nYou'll get faster ordering and your order history.`);
             await sendRestartReply(from);
             return NextResponse.json({ status: "success" });
           }
@@ -229,21 +226,32 @@ async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?
 }
 
 /**
- * Sends a List Message with Specials + Subscription Plans sections.
+ * Sends a List Message with Chicken / Mutton / Egg sections (against-order only).
  */
 async function sendWhatsAppList(to: string, items: MenuItem[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-  const subscriptionPlans = [
-    { id: 'sub_veg_weekly', title: 'Weekly Veg Plan', description: '5 days of home-cooked veg meals. Pay online & relax. ₹650' },
-    { id: 'sub_nonveg_weekly', title: 'Weekly Non-Veg Plan', description: '5 days of rich non-veg gourmet meals. ₹950' },
-  ];
+  const sectionTitle: Record<string, string> = {
+    chicken: "Chicken",
+    mutton: "Mutton",
+    egg: "Egg",
+  };
 
-  const specialRows = items.slice(0, 8).map(item => ({
-    id: item.id.substring(0, 24),
-    title: item.name.substring(0, 24),
-    description: `₹${item.price} per ${item.unit || 'unit'} — Tap to order`.substring(0, 72)
-  }));
+  const byCat = (cat: string) =>
+    items
+      .filter((item) => item.category === cat)
+      .map((item) => ({
+        id: item.id.substring(0, 24),
+        title: item.name.substring(0, 24),
+        description: `₹${item.price} — Tap to order`.substring(0, 72),
+      }));
+
+  const sections = ["chicken", "mutton", "egg"]
+    .map((cat) => ({
+      title: sectionTitle[cat] || cat,
+      rows: byCat(cat),
+    }))
+    .filter((s) => s.rows.length > 0);
 
   const payload = {
     messaging_product: "whatsapp",
@@ -253,22 +261,15 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     interactive: {
       type: "list",
       header: { type: "text", text: "Vidya's Kitchen" },
-      body: { text: "Here's what's cooking tomorrow. Pick a dish or subscribe to a weekly plan and we'll handle the rest!" },
-      footer: { text: "24-hour advance booking required" },
+      body: {
+        text: "Against-order menu — pick a dish. 24-hour advance booking applies.",
+      },
+      footer: { text: "Sivakasi delivery" },
       action: {
-        button: "View All Items",
-        sections: [
-          {
-            title: "Today's Specials",
-            rows: specialRows
-          },
-          {
-            title: "Subscription Plans",
-            rows: subscriptionPlans
-          }
-        ]
-      }
-    }
+        button: "View menu",
+        sections,
+      },
+    },
   };
 
   try {

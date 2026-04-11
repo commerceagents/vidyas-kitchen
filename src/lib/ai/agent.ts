@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { supabase } from "../supabase";
 import { createPaymentLink } from "../payments";
+import {
+  AGAINST_ORDER_CATEGORIES,
+  AGAINST_ORDER_FALLBACK,
+} from "../menu/against-order";
 
 /**
  * AI Agent "Brain" for Vidya's Kitchen
@@ -37,40 +41,23 @@ export class VidyaAgent {
     });
   }
 
-  getActiveCategory(): string {
-    // 🥗 Removed Breakfast/Combo timing. Default to 'special_chicken' for general browsing.
-    return 'special_chicken';
-  }
-
-  async getMenuByCategory(category: string) {
-    const fallbackMenu: Record<string, MenuItem[]> = {
-      combo: [
-        { id: 'c1', name: 'Weekly Veg Combo', price: 650, unit: '5 days', category: 'combo', image_url: '/images/veg-combo.png' },
-        { id: 'c3', name: 'Weekly Non-Veg Combo', price: 950, unit: '5 days', category: 'combo', image_url: '/images/veg-combo.png' },
-      ],
-      special_chicken: [
-        { id: 'sc1', name: 'Pepper Chicken', price: 750, unit: '1kg', category: 'special_chicken', image_url: '/images/pepper-chicken.png' },
-        { id: 'sc2', name: 'Chicken Gravy', price: 750, unit: '1kg', category: 'special_chicken', image_url: '/images/pepper-chicken.png' },
-      ],
-      special_mutton: [
-        { id: 'sm1', name: 'Mutton Chukka', price: 1600, unit: '1kg', category: 'special_mutton', image_url: '/images/pepper-chicken.png' },
-      ],
-      special_egg: [
-        { id: 'se1', name: 'Egg Chalna', price: 300, unit: '6 eggs', category: 'special_egg', image_url: '/images/veg-combo.png' },
-      ]
-    };
-
+  /**
+   * Full against-order menu: chicken, mutton, egg. Matches `menu_items` in Supabase.
+   */
+  async getAgainstOrderMenu(): Promise<MenuItem[]> {
     try {
       const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('category', category)
-        .eq('is_available', true);
-      
-      if (error || !data || data.length === 0) return Object.values(fallbackMenu).flat();
+        .from("menu_items")
+        .select("*")
+        .in("category", [...AGAINST_ORDER_CATEGORIES])
+        .eq("is_available", true);
+
+      if (error || !data?.length) {
+        return AGAINST_ORDER_FALLBACK as MenuItem[];
+      }
       return data as MenuItem[];
     } catch (_err) {
-      return Object.values(fallbackMenu).flat();
+      return AGAINST_ORDER_FALLBACK as MenuItem[];
     }
   }
 
@@ -114,8 +101,7 @@ export class VidyaAgent {
     try {
       const lowerMessage = message.toLowerCase();
       const isGreeting = ["hi", "hello", "hey"].some(v => lowerMessage.includes(v));
-      const category = this.getActiveCategory();
-      const menu = await this.getMenuByCategory(category);
+      const menu = await this.getAgainstOrderMenu();
 
       // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
       if (isGreeting && history.length === 0) {
@@ -147,42 +133,7 @@ export class VidyaAgent {
         };
       }
 
-      // 🧠 SMART PATH for Subscription Plans
-      const subscriptionPrices: Record<string, { name: string; price: number }> = {
-        "weekly veg plan": { name: "Weekly Veg Plan (5 days)", price: 650 },
-        "weekly non-veg plan": { name: "Weekly Non-Veg Plan (5 days)", price: 950 },
-      };
-
-      const matchedPlan = Object.entries(subscriptionPrices).find(([key]) =>
-        lowerMessage.includes(key)
-      );
-
-      if (matchedPlan && phoneNumber) {
-        const [, plan] = matchedPlan;
-        try {
-          const { short_url } = await createPaymentLink(plan.price, `sub_${Date.now()}`, "Subscriber", phoneNumber);
-          const reply = `Excellent choice! The *${plan.name}* subscription is ₹${plan.price} for 5 days of slow-cooked home meals.\n\nPay securely here to confirm your slot:\n${short_url}\n\nOnce paid, I'll have everything ready for you. Patience is a gourmet virtue! 😉`;
-          return {
-            reply,
-            shouldShowMenu: false,
-            shouldShowButtons: false,
-            shouldSendPwaLink: false,
-            buttons: [],
-            menuItems: [],
-            headerImage: undefined
-          };
-        } catch (_err) {
-          return {
-            reply: `The *${plan.name}* costs ₹${plan.price} for 5 days. To book your slot, please call or message Vidya directly and she'll get your payment link sorted!`,
-            shouldShowMenu: false,
-            shouldShowButtons: false,
-            shouldSendPwaLink: false,
-            buttons: [],
-            menuItems: [],
-            headerImage: undefined
-          };
-        }
-      }
+      // Subscription / weekly plans: not offered for now (against-order only). Re-enable when product returns.
 
       // 🧠 SMART PATH for Quick Reorder
       if (lowerMessage === "quick reorder" && phoneNumber) {
