@@ -278,60 +278,44 @@ async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?
 }
 
 /**
- * Sends a List Message with Chicken / Mutton / Egg sections (against-order only).
- * `bodyText` — optional full body from the agent (preferred so we send one message, not text + list).
+ * Sends a List Message (against-order menu).
+ * WhatsApp Cloud API: **max 10 rows total** across all sections — more than that returns 131009.
+ * `bodyText` — optional full body from the agent (single message, no prior text).
  */
 async function sendWhatsAppList(to: string, items: MenuItem[], bodyText?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-  const sectionTitle: Record<string, string> = {
-    chicken: "Chicken",
-    mutton: "Mutton",
-    egg: "Egg",
+  const MAX_ROWS = 10;
+
+  const sanitizeTitle = (s: string, max: number) =>
+    s.replace(/\s+/g, " ").trim().slice(0, max);
+
+  /** Row ids must be unique across the whole list; only [a-zA-Z0-9_-] per Meta. */
+  const rowId = (itemId: string, index: number) => {
+    const base = String(itemId).replace(/[^a-zA-Z0-9]/g, "");
+    return `r${index}_${base}`.slice(0, 200);
   };
 
-  const rowId = (id: string) =>
-    String(id).replace(/-/g, "").slice(0, 200);
+  const total = items.length;
+  const picked = items.slice(0, MAX_ROWS);
 
-  const byCat = (cat: string) =>
-    items
-      .filter((item) => item.category === cat)
-      .map((item) => ({
-        id: rowId(item.id),
-        title: item.name.substring(0, 24),
-        description: `₹${item.price} — Tap to order`.substring(0, 72),
-      }));
-
-  let sections = ["chicken", "mutton", "egg"]
-    .map((cat) => ({
-      title: sectionTitle[cat] || cat,
-      rows: byCat(cat),
-    }))
-    .filter((s) => s.rows.length > 0);
-
-  if (sections.length === 0) {
-    const flatRows = items.map((item) => ({
-      id: rowId(item.id),
-      title: item.name.substring(0, 24),
-      description: `₹${item.price} — Tap`.substring(0, 72),
-    }));
-    sections = [];
-    for (let i = 0; i < flatRows.length; i += 10) {
-      sections.push({
-        title: i === 0 ? "Menu" : "More dishes",
-        rows: flatRows.slice(i, i + 10),
-      });
-    }
-  }
-
-  sections = sections.map((sec) => ({
-    ...sec,
-    rows: sec.rows.slice(0, 10),
+  const rows = picked.map((item, idx) => ({
+    id: rowId(item.id, idx),
+    title: sanitizeTitle(item.name, 24) || "Dish",
+    description: sanitizeTitle(`Rs ${item.price} - tap to order`, 72),
   }));
+
+  const sections = [{ title: "Menu", rows }];
 
   const defaultBody =
     `Against-order menu — chicken, mutton & egg. Tap a row to start.\n\n${ORDER_CUTOFF_REMINDER}`;
-  const listBody = (bodyText?.trim() ? bodyText.trim() : defaultBody).slice(0, 1024);
+  let listBody = (bodyText?.trim() ? bodyText.trim() : defaultBody).slice(0, 1024);
+  if (total > MAX_ROWS) {
+    listBody = `${listBody}\n\n_Showing ${MAX_ROWS} of ${total} — open the app for the full list._`.slice(
+      0,
+      1024
+    );
+  }
 
   const payload = {
     messaging_product: "whatsapp",
@@ -344,7 +328,7 @@ async function sendWhatsAppList(to: string, items: MenuItem[], bodyText?: string
       body: {
         text: listBody,
       },
-      footer: { text: "Sivakasi • HELP for support" },
+      footer: { text: "Sivakasi - HELP for support" },
       action: {
         button: "View menu",
         sections,
