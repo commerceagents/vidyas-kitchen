@@ -153,12 +153,13 @@ export class VidyaAgent {
         return {
           reply:
             "*Track order*\n\nI don't see an order on this number yet. After you pay, your status will show here.\n\n" +
-            menuContextFooter(),
-          shouldShowMenu: true,
+            menuContextFooter() +
+            "\n\nTap *Browse menu* below when you're ready to order.",
+          shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
           buttons,
-          menuItems: menu.slice(0, 6),
+          menuItems: [] as MenuItem[],
           headerImage: undefined,
         };
       }

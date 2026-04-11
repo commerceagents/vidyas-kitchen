@@ -88,28 +88,19 @@ export async function POST(req: Request) {
               appUrl,
               "Open app"
             );
-            await sendRestartReply(from);
             return NextResponse.json({ status: "success" });
           }
 
-          if (shouldShowButtons && buttons && buttons.length > 0) {
+          // Menu list: send ONLY the list (no separate text first). Text + list back-to-back often drops the list on WhatsApp.
+          if (shouldShowMenu && menuItems && menuItems.length > 0) {
+            console.log(`[WHATSAPP] Sending list only...`);
+            await sendWhatsAppList(from, menuItems, reply || undefined);
+          } else if (shouldShowButtons && buttons && buttons.length > 0) {
             console.log(`[WHATSAPP] Sending buttons...`);
             await sendWhatsAppButtons(from, reply, buttons, headerImage);
-          } else {
-            if (reply) {
-              console.log(`[WHATSAPP] Sending text message...`);
-              await sendWhatsAppMessage(from, reply);
-            }
-            // Don't send "Start Over" before a list — it blocks the follow-up list on some clients
-            if (!(shouldShowMenu && menuItems && menuItems.length > 0)) {
-              await sendRestartReply(from);
-            }
-          }
-
-          if (shouldShowMenu && menuItems && menuItems.length > 0) {
-            console.log(`[WHATSAPP] Sending list...`);
-            await sendWhatsAppList(from, menuItems);
-            await sendRestartReply(from);
+          } else if (reply) {
+            console.log(`[WHATSAPP] Sending text message...`);
+            await sendWhatsAppMessage(from, reply);
           }
         }
       }
@@ -288,8 +279,9 @@ async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?
 
 /**
  * Sends a List Message with Chicken / Mutton / Egg sections (against-order only).
+ * `bodyText` — optional full body from the agent (preferred so we send one message, not text + list).
  */
-async function sendWhatsAppList(to: string, items: MenuItem[]) {
+async function sendWhatsAppList(to: string, items: MenuItem[], bodyText?: string) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
   const sectionTitle: Record<string, string> = {
@@ -337,11 +329,9 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     rows: sec.rows.slice(0, 10),
   }));
 
-  const listBody =
-    `Against-order menu — chicken, mutton & egg. Tap a row to start.\n\n${ORDER_CUTOFF_REMINDER}`.slice(
-      0,
-      1024
-    );
+  const defaultBody =
+    `Against-order menu — chicken, mutton & egg. Tap a row to start.\n\n${ORDER_CUTOFF_REMINDER}`;
+  const listBody = (bodyText?.trim() ? bodyText.trim() : defaultBody).slice(0, 1024);
 
   const payload = {
     messaging_product: "whatsapp",
@@ -373,46 +363,11 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
     });
     const d = await response.json();
     console.log("List Response:", JSON.stringify(d));
-    if (d.error) {
-      console.error("[WHATSAPP] List message error:", d.error);
+    if (!response.ok || d.error) {
+      console.error("[WHATSAPP] List message failed:", response.status, d);
     }
   } catch (_err) {
     console.error("Meta List Error:", _err);
-  }
-}
-
-/**
- * Sends a persistent "Restart Conversation" quick reply button.
- */
-async function sendRestartReply(to: string) {
-  const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  const payload = {
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "button",
-      body: { text: "Something else? Tap Start Over — or type HELP for customer care." },
-      action: {
-        buttons: [
-          { type: "reply", reply: { id: "restart", title: "Start Over" } }
-        ]
-      }
-    }
-  };
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const d = await response.json();
-    console.log('Restart Reply Response:', JSON.stringify(d));
-  } catch (_err) {
-    console.error('Meta Restart Reply Error:', _err);
   }
 }
 
