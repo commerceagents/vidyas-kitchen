@@ -1,6 +1,6 @@
 # Vidya's Kitchen — project blackbox
 
-Living log of scope, progress, gaps, and decisions. Last updated: **2026-04-12** (schema recorded).
+Living log of scope, progress, gaps, and decisions. Last updated: **2026-04-12** (WhatsApp UX decisions recorded).
 
 ---
 
@@ -103,6 +103,48 @@ Next.js app + Meta WhatsApp bot + Razorpay: **order home food in Sivakasi**, wit
 - **Categories in DB / app:** `chicken`, `mutton`, `egg` (egg dishes are on the second sheet — kept as their own category for clarity).
 - **Source of truth:** `src/lib/menu/against-order.ts` (fallback + stable slugs) and `supabase/schema.sql` / `supabase/seed-against-order.sql` inserts.
 - Display names use corrected spelling (**PEPPER**, not “peppar” from the PDF scan).
+- **Dish images:** client will supply assets; store URLs in `menu_items.image_url` (host on site/CDN Meta can fetch).
+
+---
+
+## WhatsApp bot — UX & rules (decisions)
+
+### Browse menu
+- Show **image + name + price** per dish (carousel or list cards where API allows).
+- **Multi-select / cart:** WhatsApp does **not** have a native “tick many items” screen like a shopping app. Options we can combine:
+  - **App-first cart** (best for multi-select): “Build order in app” + deep link; bot confirms slot & pay.
+  - **Bot cart:** user adds items step-by-step (“Add another?” / quantities) or uses **WhatsApp Flows** (form-style, more setup in Meta).
+- Until images are ready, bot can use **placeholder** or text-only lists.
+
+### Cut-off (“one day before”)
+- **Not** a fixed 7:30 PM rule in code — that was only an example.
+- **Product rule:** orders are accepted for a delivery day only if placed **at least one full calendar day before** that service (kitchen needs time to source prep — lunch/dinner especially). Exact **cut-off clock time** (e.g. end of previous day 9 PM) should be one configurable rule after client confirms.
+- **UX:** whenever user starts **ordering**, always show a **short line** (WhatsApp: footer text, italic line, or tiny follow-up message — there is no real “tooltip” inside chat).
+
+### Meal slots
+- **Primary:** lunch + dinner. **Sometimes:** breakfast. (Model as slot types + `inventory_slots` or order metadata.)
+
+### After payment
+- **Track order** must appear/work after **successful payment** (link or in-chat status from Supabase).
+
+### Customer care
+- **Talk to a human** required on **both** app and WhatsApp (button → `tel:` / WhatsApp chat to care number / handoff message).
+
+### Carousels
+- Goal: **carousel** for **recent orders** + **Order again** CTA. Implementation retries carousel API; **list fallback** if Meta rejects.
+- Rich formats depend on **Meta Business / WhatsApp Business Platform** setup and sometimes **business verification**.
+
+### Meta / WhatsApp Business — setup checklist (high level)
+
+1. **Meta Business Account** — [business.facebook.com](https://business.facebook.com): create or use a business, complete business details.
+2. **WhatsApp** in Meta Business Suite — add **WhatsApp Business Platform** (Cloud API), not only the small-business phone app (the API is what talks to your webhook).
+3. **Phone number** — register a number for WhatsApp Business API; verify via SMS/voice; this number is the bot users chat with.
+4. **Meta for Developers** — [developers.facebook.com](https://developers.facebook.com): create an **App** → add **WhatsApp** product → copy **Phone number ID**, **WhatsApp Business Account ID**, generate a **Permanent access token** (with correct permissions) for the server `.env`.
+5. **Webhook** — in the app dashboard set **Callback URL** to your live `https://YOUR_DOMAIN/api/whatsapp` and **Verify token** = same as `WHATSAPP_VERIFY_TOKEN` in `.env`; subscribe to `messages` fields.
+6. **Templates** (optional) — for **reminders** when the user hasn’t messaged in 24h, create **message templates** in WhatsApp Manager and get them **approved** (category utility/marketing per Meta rules).
+7. **Business verification** — if Meta limits features, complete **Business verification** in Business Settings (documents).
+
+*Detailed screens change often; use Meta’s current “Get started with WhatsApp Cloud API” doc as the source of truth.*
 
 ---
 
@@ -186,6 +228,7 @@ Copy the result and add it to `supabase-schema-notes.md`.
 - **This file created** as single readable blackbox for milestones, done vs pending, and questions.
 - **User decisions captured:** same mobile URL app behavior confirmed; strategy set to WhatsApp-first; Supabase schema fetch guide added; OTP/driver/menu source still pending decisions.
 - **Schema:** user-provided SQL captured in `supabase/schema.sql`; blackbox “code vs schema” table added for alignment work after Supabase restore.
+- **WhatsApp product:** menu with images + multi-select via app/bot hybrid; cut-off line always on order; track after pay; human support app+WA; lunch/dinner primary; one-day-before lead time (flexible clock TBD); carousel + Meta setup notes added above.
 
 ---
 
@@ -197,5 +240,6 @@ Copy the result and add it to `supabase-schema-notes.md`.
 - `NEXT_PUBLIC_APP_URL` (origin for payment callback)
 - `KITCHEN_UPI_ID` (UPI fallback)
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`
+- `SUPPORT_WHATSAPP` (optional) — digits only with country code, no `+`, e.g. `919876543210` for `wa.me` link in bot “customer care” messages
 
 Add a committed **`.env.example`** when values are finalized (no secrets).

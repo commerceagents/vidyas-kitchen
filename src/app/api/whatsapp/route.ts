@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { VidyaAgent, MenuItem, Message } from "@/lib/ai/agent";
+import { ORDER_CUTOFF_REMINDER } from "@/lib/whatsapp-copy";
 
 /**
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
             if (reply.id === 'view_menu') text = "Show me the menu";
             else if (reply.id === 'bestsellers') text = "What are your bestsellers?";
             else if (reply.id === 'check_location') text = "Check my delivery area";
-            else if (reply.id === 'view_app') text = "Launch Gourmet App";
+            else if (reply.id === 'view_app') text = "open app";
             else if (reply.id === 'quick_reorder') text = "Quick Reorder";
             else if (reply.id === 'restart') text = "hi";
             else text = reply.title; 
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
           agent.upsertCustomer(from).catch(e => console.error("[SUPABASE] Upsert failed:", e));
           
           console.log(`[AI] Processing message...`);
-          const result = await agent.processMessage(text, [] as Message[], from);
+          const result = await agent.processMessage(text, [] as Message[], from, profileName);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
           const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendPwaLink } = result;
@@ -262,9 +263,9 @@ async function sendWhatsAppList(to: string, items: MenuItem[]) {
       type: "list",
       header: { type: "text", text: "Vidya's Kitchen" },
       body: {
-        text: "Against-order menu — pick a dish. 24-hour advance booking applies.",
+        text: `Against-order menu — chicken, mutton & egg. Tap a row to tell us what you'd like.\n\n${ORDER_CUTOFF_REMINDER}`,
       },
-      footer: { text: "Sivakasi delivery" },
+      footer: { text: "Sivakasi • Type HELP for support" },
       action: {
         button: "View menu",
         sections,
@@ -299,7 +300,7 @@ async function sendRestartReply(to: string) {
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: "Need something else? I'm always here." },
+      body: { text: "Something else? Tap Start Over — or type HELP for customer care." },
       action: {
         buttons: [
           { type: "reply", reply: { id: "restart", title: "Start Over" } }

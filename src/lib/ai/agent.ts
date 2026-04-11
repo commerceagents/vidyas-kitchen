@@ -5,6 +5,12 @@ import {
   AGAINST_ORDER_CATEGORIES,
   AGAINST_ORDER_FALLBACK,
 } from "../menu/against-order";
+import {
+  buildWelcomeMessage,
+  getSupportContactBlock,
+  menuContextFooter,
+  ORDER_CUTOFF_REMINDER,
+} from "../whatsapp-copy";
 
 /**
  * AI Agent "Brain" for Vidya's Kitchen
@@ -97,31 +103,122 @@ export class VidyaAgent {
     }
   }
 
-  async processMessage(message: string, history: Message[] = [], phoneNumber?: string) {
+  private async buildTrackOrderReply(phoneNumber: string, menu: MenuItem[]) {
+    const mainButtons = [
+      { id: "view_menu", title: "Browse menu" },
+      { id: "quick_reorder", title: "Order again" },
+      { id: "view_app", title: "Open app" },
+    ];
+
     try {
-      const lowerMessage = message.toLowerCase();
-      const isGreeting = ["hi", "hello", "hey"].some(v => lowerMessage.includes(v));
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("id, status, created_at, total_amount")
+        .eq("phone_number", phoneNumber)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      if (!orders?.length) {
+        return {
+          reply:
+            "*Track order*\n\nI don't see an order on this number yet. After you pay, your status will show here.\n\n" +
+            menuContextFooter(),
+          shouldShowMenu: true,
+          shouldShowButtons: true,
+          shouldSendPwaLink: false,
+          buttons: mainButtons,
+          menuItems: menu.slice(0, 6),
+          headerImage: undefined,
+        };
+      }
+
+      const lines = orders.map(
+        (o, i) =>
+          `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+      );
+      return {
+        reply:
+          `*Your recent orders*\n\n${lines.join("\n")}\n\n_We'll update status as the kitchen progresses._`,
+        shouldShowMenu: false,
+        shouldShowButtons: true,
+        shouldSendPwaLink: false,
+        buttons: mainButtons,
+        menuItems: [] as MenuItem[],
+        headerImage: undefined,
+      };
+    } catch (_e) {
+      return {
+        reply:
+          `${getSupportContactBlock()}\n\n_I couldn't load your orders right now — try again in a moment._`,
+        shouldShowMenu: false,
+        shouldShowButtons: true,
+        shouldSendPwaLink: false,
+        buttons: mainButtons,
+        menuItems: [] as MenuItem[],
+        headerImage: undefined,
+      };
+    }
+  }
+
+  /** Main WhatsApp / chat replies. `displayName` = WhatsApp profile first name when available. */
+  async processMessage(
+    message: string,
+    history: Message[] = [],
+    phoneNumber?: string,
+    displayName?: string
+  ) {
+    try {
+      const lowerMessage = message.toLowerCase().trim();
+      const isGreeting =
+        history.length === 0 &&
+        /\b(hi|hello|hey|namaste|vanakkam)\b/i.test(message);
+
       const menu = await this.getAgainstOrderMenu();
 
-      // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
-      if (isGreeting && history.length === 0) {
-        return { 
-          reply: "Vidya here! My spices are currently marinating in a top-secret Sivakasi location. For the full five-star buffet, our app is where the magic happens. For a quick 'repeat performance' of your favorites, I'm right here! 😉", 
+      const mainButtons = [
+        { id: "view_menu", title: "Browse menu" },
+        { id: "quick_reorder", title: "Order again" },
+        { id: "view_app", title: "Open app" },
+      ] as const;
+
+      // Track order
+      if (phoneNumber && /\b(track|tracking|order status|where is my order|my order)\b/i.test(message)) {
+        return this.buildTrackOrderReply(phoneNumber, menu);
+      }
+
+      // Customer care / human
+      if (
+        /\b(help|human|support|agent|customer care|talk to someone|call me|care)\b/i.test(lowerMessage)
+      ) {
+        return {
+          reply: `${getSupportContactBlock()}\n\n${ORDER_CUTOFF_REMINDER}`,
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendPwaLink: false,
-          buttons: [
-            { id: 'view_app', title: 'Launch Gourmet App' },
-            { id: 'quick_reorder', title: 'Quick Reorder' },
-            { id: 'view_menu', title: 'Todays Specials' }
-          ],
+          buttons: [...mainButtons],
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+
+      // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
+      if (isGreeting && history.length === 0) {
+        const first = displayName?.trim().split(/\s+/)[0];
+        return {
+          reply: buildWelcomeMessage(first),
+          shouldShowMenu: false,
+          shouldShowButtons: true,
+          shouldSendPwaLink: false,
+          buttons: [...mainButtons],
           menuItems: menu.slice(0, 5),
-          headerImage: undefined
+          headerImage: undefined,
         };
       }
 
       // 🧠 FAST PATH for Launch App
-      if (lowerMessage === "launch gourmet app") {
+      if (lowerMessage === "launch gourmet app" || lowerMessage === "open app") {
         return {
           reply: "",
           shouldShowMenu: false,
@@ -148,7 +245,9 @@ export class VidyaAgent {
           const items = pastOrders.flatMap(o => (o.order_items as any[]).map(oi => oi.menu_items)).filter(Boolean);
           const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values()).slice(0, 10);
           return {
-            reply: "Welcome back! Here are your recent favorites. Just tap to repeat an order! 😉",
+            reply:
+              "Welcome back! Here are dishes from your recent orders — tap to order again." +
+              menuContextFooter(),
             shouldShowMenu: true,
             shouldShowButtons: false,
             shouldSendPwaLink: false,
@@ -158,7 +257,9 @@ export class VidyaAgent {
           };
         }
         return {
-          reply: "It looks like you haven't ordered yet! Why not try one of my today's specials? They're quite famous in Sivakasi. 😉",
+          reply:
+            "No past orders on this number yet — here's a taste of our menu." +
+            menuContextFooter(),
           shouldShowMenu: true,
           shouldShowButtons: false,
           shouldSendPwaLink: false,
@@ -171,7 +272,9 @@ export class VidyaAgent {
       // 🧠 SMART PATH for Specials/Menu
       if (lowerMessage === "show me the menu" || lowerMessage === "todays specials") {
         return {
-          reply: "My gourmet kitchen is humming with activity! Here's what's slow-cooking for tomorrow. Take your pick!",
+          reply:
+            "Here's our against-order menu — chicken, mutton & egg. Pick a row to start." +
+            menuContextFooter(),
           shouldShowMenu: true,
           shouldShowButtons: false,
           shouldSendPwaLink: false,
@@ -205,9 +308,9 @@ export class VidyaAgent {
 
           OPERATIONAL RULES (STRICT):
           - AREA: We ONLY deliver within Sivakasi.
-          - LEAD TIME: All orders MUST be placed at least 24 hours in advance. No exceptions.
-          - STYLE: "Patience is a gourmet virtue! My slow-cooked masterpieces need a 24-hour head start to reach perfection."
-          - CONVERSATION: If they show interest in a dish, encourage the PWA app for the best experience.
+          - LEAD TIME: Orders need at least one full calendar day before the meal date so the kitchen can source fresh meat and cook calmly (not same-day rush).
+          - STYLE: Be warm; mention planning ahead when discussing timing.
+          - CONVERSATION: If they want many items or a cart, encourage the app for the best experience.
 
           CURRENT LOGICAL STATE:
           - TIME (IST): ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
@@ -250,9 +353,9 @@ export class VidyaAgent {
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
         shouldSendPwaLink: false,
         buttons: isGreeting ? [
-          { id: 'view_app', title: 'Launch Gourmet App' },
-          { id: 'quick_reorder', title: 'Quick Reorder' },
-          { id: 'view_menu', title: 'Todays Specials' }
+          { id: 'view_menu', title: 'Browse menu' },
+          { id: 'quick_reorder', title: 'Order again' },
+          { id: 'view_app', title: 'Open app' },
         ] : [],
         menuItems: menu.slice(0, 5),
         headerImage: undefined,
