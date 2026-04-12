@@ -7,12 +7,18 @@ import { publicSiteOrigin } from "@/lib/site-url";
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
  */
 
-/** Meta Graph OAuth 190 / subcode 463 = expired or revoked access token (not an app bug). */
+/** Decode common Meta Graph errors so Vercel logs point to the right fix (not code bugs). */
 function logWhatsAppGraphResponse(label: string, data: unknown) {
   const err = (data as { error?: { code?: number; message?: string } })?.error;
+  const msg = err?.message ?? "";
   if (err?.code === 190) {
     console.error(
       "[WHATSAPP] OAuth 190: WHATSAPP_ACCESS_TOKEN expired or invalid. In Meta: WhatsApp product → API setup (or System User token), generate a new token, set it in Vercel → Environment Variables, then redeploy or wait for the next cold start."
+    );
+  }
+  if (msg.includes("API access deactivated") || msg.includes("complete developer registration")) {
+    console.error(
+      "[WHATSAPP] Meta deactivated API access for this app until developer registration is finished. Open https://developers.facebook.com → your app → complete any pending Developer Registration / identity / business verification steps. Sending messages will fail until Meta re-enables the app."
     );
   }
   console.log(`${label}:`, JSON.stringify(data));
