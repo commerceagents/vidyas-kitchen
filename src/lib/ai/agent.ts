@@ -279,10 +279,12 @@ export class VidyaAgent {
       if (isGreeting && history.length === 0) {
         const first = displayName?.trim().split(/\s+/)[0];
         return {
-          reply: buildWelcomeMessage(first, phoneNumber, displayName),
+          reply: buildWelcomeMessage(first),
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
+          /** Route sends `cta_url` immediately after the welcome buttons — native “Open app” chip; no extra user tap on a reply button. */
+          shouldSendWelcomeAppCta: true,
           buttons: await this.getMainActionButtons(phoneNumber),
           menuItems: [] as MenuItem[],
           headerImage: welcomeLogoImageUrl(),

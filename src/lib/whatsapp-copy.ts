@@ -22,30 +22,15 @@ export function helpAndSupportReply(): string {
   );
 }
 
-/**
- * Welcome body. Optional `phoneForAppLink` adds a tap-to-open HTTPS URL (same pattern as CTA in route).
- * Meta allows URLs in interactive body text; they are not the same as the separate `cta_url` interactive type.
- */
-export function buildWelcomeMessage(
-  firstName?: string,
-  phoneForAppLink?: string,
-  displayNameForAppLink?: string
-): string {
+/** Welcome body (reply-button card). The native *Open app* link button is sent as a separate `cta_url` message right after — Meta cannot combine both in one interactive. */
+export function buildWelcomeMessage(firstName?: string): string {
   const greet = firstName ? `Hi *${firstName}*!` : "Hi there!";
-  let body =
+  return (
     `${greet} Welcome to *Vidya's Kitchen* — honest, home-style gourmet food from Sivakasi.\n\n` +
     `We're glad you're here. Take your time browsing our against-order specials. 🙂\n\n` +
     `${ORDER_CUTOFF_REMINDER}\n\n` +
-    `_Please choose an option below to get started._`;
-
-  if (phoneForAppLink?.trim()) {
-    // Same query shape as `sendWhatsAppCtaUrl` in the WhatsApp route
-    const name = encodeURIComponent(displayNameForAppLink?.trim() || "Friend");
-    const url = `${publicSiteOrigin()}?phone=${phoneForAppLink.trim()}&name=${name}`;
-    body += `\n\n_Open the full menu in your browser:_\n${url}`;
-  }
-
-  return body;
+    `_Please choose an option below to get started._`
+  );
 }
 
 /** Short line to append when showing menu / cart flows */

@@ -105,7 +105,11 @@ export async function POST(req: Request) {
           const result = await agent.processMessage(text, [] as Message[], from, profileName);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendAppCta } = result;
+          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendAppCta } =
+            result;
+          const shouldSendWelcomeAppCta = Boolean(
+            (result as { shouldSendWelcomeAppCta?: boolean }).shouldSendWelcomeAppCta
+          );
 
           // Open app — one-tap CTA URL (no long paste-your-link message)
           if (shouldSendAppCta) {
@@ -127,6 +131,16 @@ export async function POST(req: Request) {
           } else if (shouldShowButtons && buttons && buttons.length > 0) {
             console.log(`[WHATSAPP] Sending buttons...`);
             await sendWhatsAppButtons(from, reply, buttons, headerImage);
+            if (shouldSendWelcomeAppCta) {
+              const customerName = encodeURIComponent(profileName || "Friend");
+              const appUrl = `${publicSiteOrigin()}?phone=${from}&name=${customerName}`;
+              await sendWhatsAppCtaUrl(
+                from,
+                "Tap the button to open our gourmet app in your browser.",
+                appUrl,
+                "Open app"
+              );
+            }
           } else if (reply) {
             console.log(`[WHATSAPP] Sending text message...`);
             await sendWhatsAppMessage(from, reply);
