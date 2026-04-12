@@ -28,7 +28,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("[META RAW]:", JSON.stringify(body, null, 2));
+    // Full payload is verbose; enable only when debugging webhook shape (Vercel → WHATSAPP_LOG_RAW_PAYLOAD=true).
+    if (process.env.WHATSAPP_LOG_RAW_PAYLOAD === "true") {
+      console.log("[META RAW]:", JSON.stringify(body, null, 2));
+    } else {
+      const v = body.entry?.[0]?.changes?.[0]?.value;
+      const inbound = v?.messages?.[0];
+      if (inbound) {
+        console.log(`[WHATSAPP] Webhook: type=${inbound.type} from=${inbound.from}`);
+      }
+    }
 
     // Check if it's a message event
     if (body.object === "whatsapp_business_account") {
