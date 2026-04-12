@@ -7,6 +7,7 @@ import {
 } from "../menu/against-order";
 import {
   buildWelcomeMessage,
+  callUsDialReply,
   helpAndSupportReply,
   menuContextFooter,
   welcomeLogoImageUrl,
@@ -228,7 +229,7 @@ export class VidyaAgent {
       // Help & Support sub-menu: Call us
       if (lowerMessage === "call us" || lowerMessage === "call_us") {
         return {
-          reply: "To speak with our team, please tap the number below:\n\n📞 *+91 98432 28179*",
+          reply: callUsDialReply(),
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
