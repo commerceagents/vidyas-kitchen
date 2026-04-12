@@ -251,7 +251,7 @@ export class VidyaAgent {
           shouldShowButtons: true,
           shouldSendAppCta: false,
           buttons: await this.getMainActionButtons(phoneNumber),
-          menuItems: menu.slice(0, 5),
+          menuItems: [] as MenuItem[],
           headerImage: welcomeLogoImageUrl(),
         };
       }
@@ -392,7 +392,7 @@ export class VidyaAgent {
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
         shouldSendAppCta: false,
         buttons: isGreeting ? await this.getMainActionButtons(phoneNumber) : [],
-        menuItems: menu.slice(0, 5),
+        menuItems: menu.slice(0, 10),
         headerImage: isGreeting ? welcomeLogoImageUrl() : undefined,
         paymentLink
       };

@@ -78,9 +78,9 @@ export async function POST(req: Request) {
           console.log(`[WHATSAPP] Incoming msg from ${from}: "${text}"`);
 
           const agent = new VidyaAgent();
-          // 🚀 Non-blocking upsert to save time
-          agent.upsertCustomer(from).catch(e => console.error("[SUPABASE] Upsert failed:", e));
-          
+          // Await upsert: fire-and-forget often aborts on serverless when the handler returns (Supabase never completes).
+          await agent.upsertCustomer(from, profileName?.trim() || "WhatsApp User");
+
           console.log(`[AI] Processing message...`);
           const result = await agent.processMessage(text, [] as Message[], from, profileName);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
@@ -134,6 +134,7 @@ async function sendWhatsAppCtaUrl(
   const graphUrl = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   const payload = {
     messaging_product: "whatsapp",
+    recipient_type: "individual",
     to,
     type: "interactive",
     interactive: {
@@ -182,6 +183,7 @@ async function sendWhatsAppButtons(
 
   const payload = {
     messaging_product: "whatsapp",
+    recipient_type: "individual",
     to,
     type: "interactive",
     interactive: {
@@ -210,79 +212,6 @@ async function sendWhatsAppButtons(
     console.log("Button Response:", JSON.stringify(d));
   } catch (err) {
     console.error("Meta Button Error:", err);
-  }
-}
-
-/**
- * Sends an Interactive Carousel message to WhatsApp.
- */
-async function sendWhatsAppCarousel(to: string, items: MenuItem[], _fullMenuUrl?: string) {
-  const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  
-  // Carousel messages are "templates" or "interactive"
-  // NOTE: True carousels often require pre-approved templates.
-  // We'll use a "List Message" as a fallback if the carousel isn't enabled for the number.
-  // But for now, let's try the "Interactive Carousel" structure.
-  
-  const payload = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "carousel",
-      body: {
-        text: "Check out our delicious menu! 🍱"
-      },
-      action: {
-        cards: items.slice(0, 10).map((item, index) => ({
-          header: {
-            type: "image",
-            image: {
-              // Use production domain for images
-              link: item.image_url ? `https://vidyaskitchenhome.com${item.image_url}` : "https://vidyaskitchenhome.com/hero-spread.png"
-            }
-          },
-          body: {
-            text: `${item.name}\n${item.description || ""}\nPrice: ₹${item.price}`
-          },
-          action: {
-            buttons: [
-              {
-                type: "reply",
-                reply: {
-                  id: item.id.substring(0, 20),
-                  title: "Order Now"
-                }
-              }
-            ]
-          }
-        }))
-      }
-    }
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    console.log('Carousel Response:', JSON.stringify(data, null, 2));
-
-    // If carousel fails (common in sandbox), fallback to a List Message
-    if (data.error && data.error.code === 100) {
-      console.log('[WHATSAPP] Carousel failed/unsupported. Falling back to List Message...');
-      await sendWhatsAppList(to, items);
-    }
-  } catch (_error) {
-    console.error('Meta Carousel Error:', _error);
-    await sendWhatsAppList(to, items);
   }
 }
 
@@ -378,6 +307,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
     },
     body: JSON.stringify({
       messaging_product: "whatsapp",
+      recipient_type: "individual",
       to,
       type: "text",
       text: { body: text },
