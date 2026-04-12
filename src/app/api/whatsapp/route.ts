@@ -7,6 +7,17 @@ import { publicSiteOrigin } from "@/lib/site-url";
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
  */
 
+/** Meta Graph OAuth 190 / subcode 463 = expired or revoked access token (not an app bug). */
+function logWhatsAppGraphResponse(label: string, data: unknown) {
+  const err = (data as { error?: { code?: number; message?: string } })?.error;
+  if (err?.code === 190) {
+    console.error(
+      "[WHATSAPP] OAuth 190: WHATSAPP_ACCESS_TOKEN expired or invalid. In Meta: WhatsApp product → API setup (or System User token), generate a new token, set it in Vercel → Environment Variables, then redeploy or wait for the next cold start."
+    );
+  }
+  console.log(`${label}:`, JSON.stringify(data));
+}
+
 // 1. Verification Handler (Required by Meta to verify your URL)
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -160,7 +171,7 @@ async function sendWhatsAppCtaUrl(
       body: JSON.stringify(payload),
     });
     const d = await response.json();
-    console.log("CTA URL Response:", JSON.stringify(d));
+    logWhatsAppGraphResponse("CTA URL Response", d);
   } catch (err) {
     console.error("Meta CTA URL Error:", err);
   }
@@ -209,7 +220,7 @@ async function sendWhatsAppButtons(
       body: JSON.stringify(payload),
     });
     const d = await response.json();
-    console.log("Button Response:", JSON.stringify(d));
+    logWhatsAppGraphResponse("Button Response", d);
   } catch (err) {
     console.error("Meta Button Error:", err);
   }
@@ -284,7 +295,7 @@ async function sendWhatsAppList(to: string, items: MenuItem[], bodyText?: string
       body: JSON.stringify(payload),
     });
     const d = await response.json();
-    console.log("List Response:", JSON.stringify(d));
+    logWhatsAppGraphResponse("List Response", d);
     if (!response.ok || d.error) {
       console.error("[WHATSAPP] List message failed:", response.status, d);
     }
@@ -315,5 +326,5 @@ async function sendWhatsAppMessage(to: string, text: string) {
   });
 
   const resData = await response.json();
-  console.log("Meta API Response:", JSON.stringify(resData));
+  logWhatsAppGraphResponse("Meta API Response", resData);
 }
