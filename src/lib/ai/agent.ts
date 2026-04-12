@@ -95,6 +95,7 @@ export class VidyaAgent {
     }
     return [
       { id: "view_menu", title: "Browse menu" },
+      { id: "view_app", title: "Open app" },
       { id: "help_support", title: "Help & Support" },
     ];
   }
@@ -283,8 +284,6 @@ export class VidyaAgent {
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
-          /** Route sends `cta_url` immediately after the welcome buttons — native “Open app” chip; no extra user tap on a reply button. */
-          shouldSendWelcomeAppCta: true,
           buttons: await this.getMainActionButtons(phoneNumber),
           menuItems: [] as MenuItem[],
           headerImage: welcomeLogoImageUrl(),
