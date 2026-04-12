@@ -7,7 +7,7 @@ import { publicSiteOrigin } from "./site-url";
 
 /** Shown whenever the user is ordering or browsing menu — “tooltip” style in chat. */
 export const ORDER_CUTOFF_REMINDER =
-  "_Kitchen rule: we need at least one full day's notice before your meal date so we can buy fresh chicken & mutton and cook without rush._";
+  "_Chef's Note: Since we source fresh meat and ingredients only after your order, please book at least 24 hours in advance. This helps us cook your meal with love and without rush._";
 
 /** Full logo URL for Meta image headers (must be HTTPS, under 5MB; `v` busts CDN cache after resize). */
 export function welcomeLogoImageUrl(): string {
@@ -15,22 +15,20 @@ export function welcomeLogoImageUrl(): string {
 }
 
 /** Short reply when user taps *Contact us* or asks for help — no “message this number” (same chat as bot). */
-export function contactUsReply(): string {
+export function helpAndSupportReply(): string {
   return (
-    "You're already chatting with *Vidya's Kitchen* on this number — just type your question here and we'll help.\n\n" +
-    ORDER_CUTOFF_REMINDER
+    "I'm Vidya, your AI host! 👩‍🍳 I'm here to help you browse the menu, track orders, or answer questions about our kitchen.\n\n" +
+    "If you need to speak with a human or have a special request, choose an option below."
   );
 }
 
 export function buildWelcomeMessage(firstName?: string): string {
-  const greet = firstName
-    ? `Hi *${firstName}*!`
-    : "Hi there!";
+  const greet = firstName ? `Hi *${firstName}*!` : "Hi there!";
   return (
-    `${greet} Welcome to *Vidya's Kitchen* — honest, home-style food from Sivakasi.\n\n` +
-    `We're glad you're here. Take your time browsing — we're not going anywhere. 🙂\n\n` +
+    `${greet} Welcome to *Vidya's Kitchen* — honest, home-style gourmet food from Sivakasi.\n\n` +
+    `We're glad you're here. Take your time browsing our against-order specials. 🙂\n\n` +
     `${ORDER_CUTOFF_REMINDER}\n\n` +
-    `_Choose an option below — or type what you'd like._`
+    `_Please choose an option below to get started._`
   );
 }
 

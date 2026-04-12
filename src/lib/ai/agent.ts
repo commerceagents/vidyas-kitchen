@@ -7,7 +7,7 @@ import {
 } from "../menu/against-order";
 import {
   buildWelcomeMessage,
-  contactUsReply,
+  helpAndSupportReply,
   menuContextFooter,
   welcomeLogoImageUrl,
 } from "../whatsapp-copy";
@@ -82,7 +82,7 @@ export class VidyaAgent {
     }
   }
 
-  /** WhatsApp allows max 3 reply buttons. First-time users get *Contact us* instead of *Order again*. */
+  /** WhatsApp allows max 3 reply buttons. First-time users get *Help & Support* instead of *Order again*. */
   private async getMainActionButtons(phoneNumber?: string) {
     const returning =
       phoneNumber && (await this.hasPriorOrders(phoneNumber));
@@ -90,13 +90,13 @@ export class VidyaAgent {
       return [
         { id: "view_menu", title: "Browse menu" },
         { id: "quick_reorder", title: "Order again" },
-        { id: "view_app", title: "Open app" },
+        { id: "help_support", title: "Help & Support" },
       ];
     }
     return [
       { id: "view_menu", title: "Browse menu" },
       { id: "view_app", title: "Open app" },
-      { id: "contact_us", title: "Contact us" },
+      { id: "help_support", title: "Help & Support" },
     ];
   }
 
@@ -208,15 +208,27 @@ export class VidyaAgent {
 
       const menu = await this.getAgainstOrderMenu();
 
-      // Track order
-      if (phoneNumber && /\b(track|tracking|order status|where is my order|my order)\b/i.test(message)) {
-        return this.buildTrackOrderReply(phoneNumber, menu);
+      // Help & Support (button or text)
+      if (lowerMessage === "help & support" || lowerMessage === "help_support") {
+        return {
+          reply: helpAndSupportReply(),
+          shouldShowMenu: false,
+          shouldShowButtons: true,
+          shouldSendAppCta: false,
+          buttons: [
+            { id: "track_order", title: "Track order" },
+            { id: "chat_with_us", title: "Chat with us" },
+            { id: "call_us", title: "Call us" },
+          ],
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
       }
 
-      // Contact us (button or text)
-      if (lowerMessage === "contact us") {
+      // Help & Support sub-menu: Call us
+      if (lowerMessage === "call us" || lowerMessage === "call_us") {
         return {
-          reply: contactUsReply(),
+          reply: "To speak with our team, please tap the number below:\n\n📞 *+91 98432 28179*",
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
@@ -226,17 +238,39 @@ export class VidyaAgent {
         };
       }
 
-      // Customer care / human (typed keywords)
+      // Help & Support sub-menu: Chat with us
+      if (lowerMessage === "chat with us" || lowerMessage === "chat_with_us") {
+        return {
+          reply: "I'm Vidya, your AI kitchen host! 👩‍🍳 You can type any question here about our menu, delivery, or ingredients—I'm ready to help.\n\nIf you need to reach our owner directly, please use the *Call us* option.",
+          shouldShowMenu: false,
+          shouldShowButtons: true,
+          shouldSendAppCta: false,
+          buttons: await this.getMainActionButtons(phoneNumber),
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+
+      // Help & Support sub-menu: Track order
+      if (lowerMessage === "track order" || lowerMessage === "track_order" || (phoneNumber && /\b(track|tracking|order status|where is my order|my order)\b/i.test(message))) {
+        return this.buildTrackOrderReply(phoneNumber!, menu);
+      }
+
+      // General help/care keywords
       if (
         /\b(help|human|support|agent|customer care|talk to someone|call me)\b/i.test(lowerMessage) ||
         /\bcare\b/i.test(lowerMessage)
       ) {
         return {
-          reply: contactUsReply(),
+          reply: helpAndSupportReply(),
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: await this.getMainActionButtons(phoneNumber),
+          buttons: [
+            { id: "track_order", title: "Track order" },
+            { id: "chat_with_us", title: "Chat with us" },
+            { id: "call_us", title: "Call us" },
+          ],
           menuItems: [] as MenuItem[],
           headerImage: undefined,
         };

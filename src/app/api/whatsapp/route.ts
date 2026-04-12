@@ -81,7 +81,10 @@ export async function POST(req: Request) {
             else if (reply.id === 'bestsellers') text = "What are your bestsellers?";
             else if (reply.id === 'check_location') text = "Check my delivery area";
             else if (reply.id === 'view_app') text = "open app";
-            else if (reply.id === 'contact_us') text = "contact us";
+            else if (reply.id === 'help_support') text = "Help & Support";
+            else if (reply.id === 'track_order') text = "track order";
+            else if (reply.id === 'chat_with_us') text = "chat with us";
+            else if (reply.id === 'call_us') text = "call us";
             else if (reply.id === 'quick_reorder') text = "Quick Reorder";
             else if (reply.id === 'restart') text = "hi";
             else text = reply.title; 
@@ -110,7 +113,7 @@ export async function POST(req: Request) {
             const appUrl = `${publicSiteOrigin()}?phone=${from}&name=${customerName}`;
             await sendWhatsAppCtaUrl(
               from,
-              "Tap the button to open Vidya's Kitchen in your browser — full menu & checkout.",
+              "Tap the button to open our gourmet app in your browser.",
               appUrl,
               "Open app"
             );
