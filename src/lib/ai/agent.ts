@@ -95,7 +95,6 @@ export class VidyaAgent {
     }
     return [
       { id: "view_menu", title: "Browse menu" },
-      { id: "view_app", title: "Open app" },
       { id: "help_support", title: "Help & Support" },
     ];
   }
@@ -182,7 +181,7 @@ export class VidyaAgent {
       const buttons = await this.getMainActionButtons(phoneNumber);
       return {
         reply:
-          `${contactUsReply()}\n\n_I couldn't load your orders right now — try again in a moment._`,
+          `${helpAndSupportReply()}\n\n_I couldn't load your orders right now — try again in a moment._`,
         shouldShowMenu: false,
         shouldShowButtons: true,
         shouldSendAppCta: false,
@@ -280,7 +279,7 @@ export class VidyaAgent {
       if (isGreeting && history.length === 0) {
         const first = displayName?.trim().split(/\s+/)[0];
         return {
-          reply: buildWelcomeMessage(first),
+          reply: buildWelcomeMessage(first, phoneNumber, displayName),
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
