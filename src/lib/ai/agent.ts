@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { supabase } from "../supabase";
 import { createPaymentLink } from "../payments";
+import { publicSiteOrigin } from "../site-url";
 import {
   AGAINST_ORDER_CATEGORIES,
   AGAINST_ORDER_FALLBACK,
@@ -37,6 +38,13 @@ export interface OrderItemInput {
   menu_item_id: string;
   quantity: number;
   price: number;
+}
+
+/** Rows for Help & Support list message (not menu items). */
+export interface HelpListRow {
+  id: string;
+  title: string;
+  description: string;
 }
 
 export class VidyaAgent {
@@ -81,6 +89,236 @@ export class VidyaAgent {
     } catch {
       return false;
     }
+  }
+
+  private async isNewUser(phoneNumber: string): Promise<boolean> {
+    return !(await this.hasPriorOrders(phoneNumber));
+  }
+
+  /** Order still in pipeline (not completed / cancelled). */
+  private async hasActiveUpcomingOrder(phoneNumber: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, status")
+        .eq("phone_number", phoneNumber)
+        .limit(40);
+      if (error || !data?.length) return false;
+      return data.some((o) => !["delivered", "cancelled"].includes(String(o.status)));
+    } catch {
+      return false;
+    }
+  }
+
+  private async getPendingAction(phoneNumber: string): Promise<string | null> {
+    const { data } = await supabase
+      .from("users")
+      .select("whatsapp_pending_action")
+      .eq("phone_number", phoneNumber)
+      .maybeSingle();
+    return (data as { whatsapp_pending_action?: string | null } | null)?.whatsapp_pending_action ?? null;
+  }
+
+  private async setPendingAction(phoneNumber: string, action: string | null) {
+    await supabase.from("users").update({ whatsapp_pending_action: action }).eq("phone_number", phoneNumber);
+  }
+
+  private async saveComplaint(phoneNumber: string, body: string) {
+    await supabase.from("customer_complaints").insert({ phone_number: phoneNumber, body });
+  }
+
+  private backSupportButton() {
+    return [{ id: "back_to_support", title: "Back to support" }];
+  }
+
+  private async buildHelpSupportRows(phoneNumber?: string): Promise<HelpListRow[]> {
+    const rows: HelpListRow[] = [];
+    if (phoneNumber && (await this.hasActiveUpcomingOrder(phoneNumber))) {
+      rows.push({
+        id: "hs_track",
+        title: "Track order",
+        description: "Status of active orders",
+      });
+    }
+    rows.push(
+      { id: "hs_your_orders", title: "Your orders", description: "Recent order history" },
+      { id: "hs_call", title: "Call us", description: "Call the chef" },
+      { id: "hs_complaint", title: "Raise complaint", description: "Tell us what went wrong" },
+      { id: "hs_payments", title: "Payments", description: "Paid and pending" }
+    );
+    return rows;
+  }
+
+  private async openHelpSupportList(phoneNumber?: string) {
+    const rows = await this.buildHelpSupportRows(phoneNumber);
+    return {
+      reply: "How can we help you today? Tap an option below.",
+      shouldShowMenu: false,
+      shouldShowHelpList: true,
+      helpListRows: rows,
+      shouldShowButtons: false,
+      shouldSendAppCta: false,
+      buttons: [] as { id: string; title: string }[],
+      menuItems: [] as MenuItem[],
+      headerImage: undefined,
+    };
+  }
+
+  private async buildActiveOrdersReply(phoneNumber: string) {
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("id, status, created_at, total_amount, delivery_slot")
+      .eq("phone_number", phoneNumber)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    const active = (orders || []).filter((o) => !["delivered", "cancelled"].includes(String(o.status)));
+    if (!active.length) {
+      return {
+        reply:
+          "*Track order*\n\nYou don’t have an active order right now. When you place and pay for an order, its status will show here.",
+        shouldShowButtons: true,
+        shouldShowHelpList: false,
+        helpListRows: [] as HelpListRow[],
+        buttons: this.backSupportButton(),
+      };
+    }
+    const lines = active.map(
+      (o, i) =>
+        `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+    );
+    return {
+      reply: `*Active orders*\n\n${lines.join("\n")}\n\n_We’ll update status as your meal progresses._`,
+      shouldShowButtons: true,
+      shouldShowHelpList: false,
+      helpListRows: [] as HelpListRow[],
+      buttons: this.backSupportButton(),
+    };
+  }
+
+  private async buildYourOrdersHistoryReply(phoneNumber: string) {
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("id, status, created_at, total_amount")
+      .eq("phone_number", phoneNumber)
+      .order("created_at", { ascending: false })
+      .limit(8);
+    if (error) throw error;
+    if (!orders?.length) {
+      return {
+        reply: "*Your orders*\n\nNo orders on this number yet. Browse the menu to place your first order.",
+        shouldShowButtons: true,
+        shouldShowHelpList: false,
+        helpListRows: [] as HelpListRow[],
+        buttons: this.backSupportButton(),
+      };
+    }
+    const lines = orders.map(
+      (o, i) =>
+        `${i + 1}. ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+    );
+    return {
+      reply: `*Your orders*\n\n${lines.join("\n")}`,
+      shouldShowButtons: true,
+      shouldShowHelpList: false,
+      helpListRows: [] as HelpListRow[],
+      buttons: this.backSupportButton(),
+    };
+  }
+
+  private async buildPaymentsSummaryReply(phoneNumber: string) {
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("id, status, total_amount, created_at, payment_link_id")
+      .eq("phone_number", phoneNumber)
+      .order("created_at", { ascending: false })
+      .limit(15);
+    if (error) throw error;
+    if (!orders?.length) {
+      return {
+        reply: "*Payments*\n\nNo payment activity on this number yet.",
+        shouldShowButtons: true,
+        shouldShowHelpList: false,
+        helpListRows: [] as HelpListRow[],
+        buttons: this.backSupportButton(),
+      };
+    }
+
+    // For pending_payment orders, generate / re-issue a fresh payment link so they can pay right here.
+    const pendingLinks: string[] = [];
+    const lines: string[] = [];
+
+    for (const o of orders) {
+      const shortId = String(o.id).slice(0, 8);
+      const amount = o.total_amount ?? "—";
+      const date = new Date(o.created_at).toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+      });
+
+      if (o.status === "paid") {
+        lines.push(`✅ ${shortId}… — ₹${amount} — _paid_ (${date})`);
+      } else if (o.status === "pending_payment") {
+        // Create a fresh Razorpay / UPI link so they can complete payment immediately.
+        const { short_url } = await createPaymentLink(
+          Number(o.total_amount ?? 0),
+          o.id,
+          "WhatsApp Customer",
+          phoneNumber
+        );
+        pendingLinks.push(`🔗 Pay ₹${amount} for order ${shortId}…:\n${short_url}`);
+        lines.push(`⏳ ${shortId}… — ₹${amount} — _awaiting payment_ (${date})`);
+      } else {
+        lines.push(`• ${shortId}… — ₹${amount} — _${o.status}_ (${date})`);
+      }
+    }
+
+    let body = `*Payments (recent)*\n\n${lines.join("\n")}`;
+    if (pendingLinks.length) {
+      body += `\n\n*Complete your pending payment:*\n${pendingLinks.join("\n\n")}`;
+    }
+    body = body.slice(0, 4000);
+
+    return {
+      reply: body,
+      shouldShowButtons: true,
+      shouldShowHelpList: false,
+      helpListRows: [] as HelpListRow[],
+      buttons: this.backSupportButton(),
+    };
+  }
+
+  /** Welcome row: max 3 buttons. Active order → Track replaces Open app / Order again; app link is added in the body. */
+  private async getWelcomeButtonsForGreeting(phoneNumber?: string) {
+    if (!phoneNumber) {
+      return [
+        { id: "view_menu", title: "Browse menu" },
+        { id: "view_app", title: "Open app" },
+        { id: "help_support", title: "Help & Support" },
+      ];
+    }
+    const returning = await this.hasPriorOrders(phoneNumber);
+    const active = await this.hasActiveUpcomingOrder(phoneNumber);
+    if (active) {
+      return [
+        { id: "view_menu", title: "Browse menu" },
+        { id: "welcome_track", title: "Track order" },
+        { id: "help_support", title: "Help & Support" },
+      ];
+    }
+    if (returning) {
+      return [
+        { id: "view_menu", title: "Browse menu" },
+        { id: "quick_reorder", title: "Order again" },
+        { id: "help_support", title: "Help & Support" },
+      ];
+    }
+    return [
+      { id: "view_menu", title: "Browse menu" },
+      { id: "view_app", title: "Open app" },
+      { id: "help_support", title: "Help & Support" },
+    ];
   }
 
   /** WhatsApp allows max 3 reply buttons. First-time users get *Help & Support* instead of *Order again*. */
@@ -209,83 +447,181 @@ export class VidyaAgent {
 
       const menu = await this.getAgainstOrderMenu();
 
-      // Help & Support (button or text)
-      if (lowerMessage === "help & support" || lowerMessage === "help_support") {
+      // Complaint flow: user chose "Raise complaint" and must send free-text next
+      if (phoneNumber && (await this.getPendingAction(phoneNumber)) === "complaint") {
+        if (message === "__HELP_OPEN__") {
+          await this.setPendingAction(phoneNumber, null);
+          return {
+            ...(await this.openHelpSupportList(phoneNumber)),
+            shouldShowMenu: false,
+            shouldSendAppCta: false,
+            menuItems: [] as MenuItem[],
+          };
+        }
+        const lower = lowerMessage;
+        const exitsComplaint =
+          message.startsWith("I would like to order ") ||
+          lower === "show me the menu" ||
+          lower === "todays specials" ||
+          lower === "help & support" ||
+          lower === "help_support" ||
+          lower === "open app" ||
+          lower === "launch gourmet app" ||
+          lower === "quick reorder" ||
+          /\b(help|human|support|agent|customer care|talk to someone|call me)\b/i.test(lower) ||
+          /\b(track|tracking|order status|where is my order|my order)\b/i.test(message);
+        if (!exitsComplaint) {
+          await this.saveComplaint(phoneNumber, message);
+          await this.setPendingAction(phoneNumber, null);
+          return {
+            reply: "Thank you — we’ve received your message and will look into it. We’ll get back to you within 24 hours.",
+            shouldShowMenu: false,
+            shouldShowButtons: true,
+            shouldSendAppCta: false,
+            shouldShowHelpList: false,
+            helpListRows: [] as HelpListRow[],
+            buttons: this.backSupportButton(),
+            menuItems: [] as MenuItem[],
+            headerImage: undefined,
+          };
+        }
+        await this.setPendingAction(phoneNumber, null);
+        // Continue: user navigated away or picked a dish — handle below.
+      }
+
+      if (message === "__HELP_OPEN__" && phoneNumber) {
+        await this.setPendingAction(phoneNumber, null);
         return {
-          reply: helpAndSupportReply(),
+          ...(await this.openHelpSupportList(phoneNumber)),
           shouldShowMenu: false,
-          shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: [
-            { id: "track_order", title: "Track order" },
-            { id: "chat_with_us", title: "Chat with us" },
-            { id: "call_us", title: "Call us" },
-          ],
+          menuItems: [] as MenuItem[],
+        };
+      }
+
+      if (message === "__HELP_TRACK__" && phoneNumber) {
+        const r = await this.buildActiveOrdersReply(phoneNumber);
+        return {
+          ...r,
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
           menuItems: [] as MenuItem[],
           headerImage: undefined,
         };
       }
-
-      // Help & Support sub-menu: Call us
-      if (lowerMessage === "call us" || lowerMessage === "call_us") {
+      if (message === "__HELP_YOUR_ORDERS__" && phoneNumber) {
+        const r = await this.buildYourOrdersHistoryReply(phoneNumber);
+        return {
+          ...r,
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+      if (message === "__HELP_CALL__") {
         return {
           reply: callUsDialReply(),
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: await this.getMainActionButtons(phoneNumber),
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
+          buttons: this.backSupportButton(),
           menuItems: [] as MenuItem[],
           headerImage: undefined,
         };
       }
-
-      // Help & Support sub-menu: Chat with us
-      if (lowerMessage === "chat with us" || lowerMessage === "chat_with_us") {
+      if (message === "__HELP_COMPLAINT__" && phoneNumber) {
+        await this.setPendingAction(phoneNumber, "complaint");
         return {
-          reply: "I'm Vidya, your AI kitchen host! 👩‍🍳 You can type any question here about our menu, delivery, or ingredients—I'm ready to help.\n\nIf you need to reach our chef directly, please use the *Call us* option.",
+          reply:
+            "Please type your complaint in your next message. We will review it and get back to you.",
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: await this.getMainActionButtons(phoneNumber),
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
+          buttons: this.backSupportButton(),
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+      if (message === "__HELP_PAYMENTS__" && phoneNumber) {
+        const r = await this.buildPaymentsSummaryReply(phoneNumber);
+        return {
+          ...r,
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
           menuItems: [] as MenuItem[],
           headerImage: undefined,
         };
       }
 
-      // Help & Support sub-menu: Track order
-      if (lowerMessage === "track order" || lowerMessage === "track_order" || (phoneNumber && /\b(track|tracking|order status|where is my order|my order)\b/i.test(message))) {
-        return this.buildTrackOrderReply(phoneNumber!, menu);
+      if (message === "__WELCOME_TRACK__" && phoneNumber) {
+        const r = await this.buildActiveOrdersReply(phoneNumber);
+        return {
+          ...r,
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
       }
 
-      // General help/care keywords
+      if (lowerMessage === "help & support" || lowerMessage === "help_support") {
+        if (phoneNumber) await this.setPendingAction(phoneNumber, null);
+        return {
+          ...(await this.openHelpSupportList(phoneNumber)),
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
+          menuItems: [] as MenuItem[],
+        };
+      }
+
+      if (
+        phoneNumber &&
+        /\b(track|tracking|order status|where is my order|my order)\b/i.test(message)
+      ) {
+        const r = await this.buildActiveOrdersReply(phoneNumber);
+        return {
+          ...r,
+          shouldShowMenu: false,
+          shouldSendAppCta: false,
+          menuItems: [] as MenuItem[],
+          headerImage: undefined,
+        };
+      }
+
       if (
         /\b(help|human|support|agent|customer care|talk to someone|call me)\b/i.test(lowerMessage) ||
         /\bcare\b/i.test(lowerMessage)
       ) {
+        if (phoneNumber) await this.setPendingAction(phoneNumber, null);
         return {
-          reply: helpAndSupportReply(),
+          ...(await this.openHelpSupportList(phoneNumber)),
           shouldShowMenu: false,
-          shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: [
-            { id: "track_order", title: "Track order" },
-            { id: "chat_with_us", title: "Chat with us" },
-            { id: "call_us", title: "Call us" },
-          ],
           menuItems: [] as MenuItem[],
-          headerImage: undefined,
         };
       }
 
       // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
       if (isGreeting && history.length === 0) {
         const first = displayName?.trim().split(/\s+/)[0];
+        let replyBody = buildWelcomeMessage(first);
+        if (phoneNumber && (await this.hasActiveUpcomingOrder(phoneNumber))) {
+          const name = encodeURIComponent(displayName?.trim() || "Friend");
+          replyBody += `\n\n_Open the full menu in your browser:_\n${publicSiteOrigin()}?phone=${phoneNumber}&name=${name}`;
+        }
         return {
-          reply: buildWelcomeMessage(first),
+          reply: replyBody,
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
-          buttons: await this.getMainActionButtons(phoneNumber),
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
+          buttons: await this.getWelcomeButtonsForGreeting(phoneNumber),
           menuItems: [] as MenuItem[],
           headerImage: welcomeLogoImageUrl(),
         };
@@ -298,9 +634,11 @@ export class VidyaAgent {
           shouldShowMenu: false,
           shouldShowButtons: false,
           shouldSendAppCta: true,
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
           buttons: [],
           menuItems: [],
-          headerImage: undefined
+          headerImage: undefined,
         };
       }
 
@@ -325,6 +663,8 @@ export class VidyaAgent {
             shouldShowMenu: true,
             shouldShowButtons: false,
             shouldSendAppCta: false,
+            shouldShowHelpList: false,
+            helpListRows: [] as HelpListRow[],
             buttons: [],
             menuItems: uniqueItems as MenuItem[],
             headerImage: undefined
@@ -337,6 +677,8 @@ export class VidyaAgent {
           shouldShowMenu: true,
           shouldShowButtons: false,
           shouldSendAppCta: false,
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
           buttons: [],
           menuItems: menu.slice(0, 5),
           headerImage: undefined
@@ -352,6 +694,8 @@ export class VidyaAgent {
           shouldShowMenu: true,
           shouldShowButtons: false,
           shouldSendAppCta: false,
+          shouldShowHelpList: false,
+          helpListRows: [] as HelpListRow[],
           buttons: [],
           menuItems: menu,
           headerImage: undefined
@@ -426,6 +770,8 @@ export class VidyaAgent {
         shouldShowMenu: lowerMessage.includes("menu") || lowerMessage.includes("specials"),
         shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
         shouldSendAppCta: false,
+        shouldShowHelpList: false,
+        helpListRows: [] as HelpListRow[],
         buttons: isGreeting ? await this.getMainActionButtons(phoneNumber) : [],
         menuItems: menu.slice(0, 10),
         headerImage: isGreeting ? welcomeLogoImageUrl() : undefined,
@@ -433,7 +779,17 @@ export class VidyaAgent {
       };
     } catch (err) {
       console.error("AI Agent Error:", err);
-      return { reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉", shouldShowMenu: false, shouldShowButtons: false, shouldSendAppCta: false, menuItems: [], buttons: [], headerImage: undefined };
+      return {
+        reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉",
+        shouldShowMenu: false,
+        shouldShowButtons: false,
+        shouldSendAppCta: false,
+        shouldShowHelpList: false,
+        helpListRows: [] as HelpListRow[],
+        menuItems: [],
+        buttons: [],
+        headerImage: undefined,
+      };
     }
   }
 

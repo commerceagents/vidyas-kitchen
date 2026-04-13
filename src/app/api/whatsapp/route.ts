@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { VidyaAgent, MenuItem, Message } from "@/lib/ai/agent";
+import { VidyaAgent, HelpListRow, MenuItem, Message } from "@/lib/ai/agent";
 import { ORDER_CUTOFF_REMINDER } from "@/lib/whatsapp-copy";
 import { publicSiteOrigin } from "@/lib/site-url";
 
@@ -77,20 +77,28 @@ export async function POST(req: Request) {
           const interactive = message.interactive;
           if (interactive.type === "button_reply") {
             const reply = interactive.button_reply;
-            if (reply.id === 'view_menu') text = "Show me the menu";
-            else if (reply.id === 'bestsellers') text = "What are your bestsellers?";
-            else if (reply.id === 'check_location') text = "Check my delivery area";
-            else if (reply.id === 'view_app') text = "open app";
-            else if (reply.id === 'help_support') text = "Help & Support";
-            else if (reply.id === 'track_order') text = "track order";
-            else if (reply.id === 'chat_with_us') text = "chat with us";
-            else if (reply.id === 'call_us') text = "call us";
-            else if (reply.id === 'quick_reorder') text = "Quick Reorder";
-            else if (reply.id === 'restart') text = "hi";
-            else text = reply.title; 
+            if (reply.id === "view_menu") text = "Show me the menu";
+            else if (reply.id === "bestsellers") text = "What are your bestsellers?";
+            else if (reply.id === "check_location") text = "Check my delivery area";
+            else if (reply.id === "view_app") text = "open app";
+            else if (reply.id === "help_support") text = "Help & Support";
+            else if (reply.id === "welcome_track") text = "__WELCOME_TRACK__";
+            else if (reply.id === "back_to_support") text = "__HELP_OPEN__";
+            else if (reply.id === "track_order") text = "track order";
+            else if (reply.id === "chat_with_us") text = "chat with us";
+            else if (reply.id === "call_us") text = "call us";
+            else if (reply.id === "quick_reorder") text = "Quick Reorder";
+            else if (reply.id === "restart") text = "hi";
+            else text = reply.title;
           } else if (interactive.type === "list_reply") {
             const listReply = interactive.list_reply;
-            text = `I would like to order ${listReply.title}`;
+            const rowId = listReply.id;
+            if (rowId === "hs_track") text = "__HELP_TRACK__";
+            else if (rowId === "hs_your_orders") text = "__HELP_YOUR_ORDERS__";
+            else if (rowId === "hs_call") text = "__HELP_CALL__";
+            else if (rowId === "hs_complaint") text = "__HELP_COMPLAINT__";
+            else if (rowId === "hs_payments") text = "__HELP_PAYMENTS__";
+            else text = `I would like to order ${listReply.title}`;
           }
         }
 
@@ -105,8 +113,17 @@ export async function POST(req: Request) {
           const result = await agent.processMessage(text, [] as Message[], from, profileName);
           console.log(`[AI] Result:`, JSON.stringify(result, null, 2));
           
-          const { reply, shouldShowMenu, shouldShowButtons, buttons, menuItems, headerImage, shouldSendAppCta } =
-            result;
+          const {
+            reply,
+            shouldShowMenu,
+            shouldShowButtons,
+            buttons,
+            menuItems,
+            headerImage,
+            shouldSendAppCta,
+            shouldShowHelpList,
+            helpListRows,
+          } = result;
 
           // Open app — one-tap CTA URL (no long paste-your-link message)
           if (shouldSendAppCta) {
@@ -117,6 +134,16 @@ export async function POST(req: Request) {
               "Tap the button to open our gourmet app in your browser.",
               appUrl,
               "Open app"
+            );
+            return NextResponse.json({ status: "success" });
+          }
+
+          // Help & Support — list message (5 options; reply buttons max 3)
+          if (shouldShowHelpList && helpListRows && helpListRows.length > 0) {
+            await sendWhatsAppSupportList(
+              from,
+              helpListRows as HelpListRow[],
+              reply?.trim() || "How can we help you today? Tap an option below."
             );
             return NextResponse.json({ status: "success" });
           }
@@ -311,6 +338,61 @@ async function sendWhatsAppList(to: string, items: MenuItem[], bodyText?: string
     }
   } catch (_err) {
     console.error("Meta List Error:", _err);
+  }
+}
+
+/**
+ * Help & Support list (not menu items). Meta: max 10 rows per message; row id [a-zA-Z0-9_-].
+ */
+async function sendWhatsAppSupportList(to: string, rows: HelpListRow[], bodyText: string) {
+  const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+  const sanitizeTitle = (s: string, max: number) =>
+    s.replace(/\s+/g, " ").trim().slice(0, max);
+  const sanitizeDesc = (s: string, max: number) =>
+    s.replace(/\s+/g, " ").trim().slice(0, max);
+
+  const listRows = rows.map((r) => ({
+    id: r.id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 200) || "hs_row",
+    title: sanitizeTitle(r.title, 24) || "Option",
+    description: sanitizeDesc(r.description, 72),
+  }));
+
+  const sections = [{ title: "Support", rows: listRows }];
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      header: { type: "text", text: "Help & Support" },
+      body: { text: bodyText.slice(0, 1024) },
+      footer: { text: "Vidya's Kitchen · Sivakasi" },
+      action: {
+        button: "Get help",
+        sections,
+      },
+    },
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const d = await response.json();
+    logWhatsAppGraphResponse("Support list Response", d);
+    if (!response.ok || d.error) {
+      console.error("[WHATSAPP] Support list failed:", response.status, d);
+    }
+  } catch (_err) {
+    console.error("Meta Support List Error:", _err);
   }
 }
 
