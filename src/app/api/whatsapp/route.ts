@@ -325,58 +325,8 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     product_items: rows.map((i) => ({ product_retailer_id: getRetailerId(i) })),
   });
 
-  const sections = [
-    ...(egg.length     ? [toSection("🥚 Egg",     egg)]     : []),
-    ...(chicken.length ? [toSection("🍗 Chicken", chicken)] : []),
-    ...(mutton.length  ? [toSection("🐑 Mutton",  mutton)]  : []),
-  ];
-
-  if (!sections.length) return;
-
-  // product_list: full control over order and sections — try first.
-  const productListPayload = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "product_list",
-      header: {
-        type: "image",
-        image: { link: "https://vidyaskitchenhome.com/vk-logo.png" },
-      },
-      body: {
-        text: "Fresh against-order meals. Browse, add to cart and send your order. We need at least 24 hours notice.",
-      },
-      footer: { text: "📍 Sivakasi delivery only" },
-      action: {
-        catalog_id: CATALOG_ID,
-        sections,
-      },
-    },
-  };
-
-  console.log("[WHATSAPP] Trying product_list. catalog_id:", CATALOG_ID);
-  console.log("[WHATSAPP] sections:", JSON.stringify(sections, null, 2));
-
-  const plRes = await fetch(`https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(productListPayload),
-  });
-  const plData = await plRes.json();
-
-  if (plRes.ok && !plData.error) {
-    logWhatsAppGraphResponse("product_list Response (success)", plData);
-    return; // product_list worked — done
-  }
-
-  // product_list failed — fall back to catalog_message (no ordering control but still shows catalog)
-  console.warn("[WHATSAPP] product_list failed, falling back to catalog_message:", JSON.stringify(plData));
-
+  // catalog_message: product_list (type with sections) is blocked for India WABAs without
+  // Meta Commerce capability. catalog_message opens the full connected catalog directly.
   const catalogPayload = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -406,7 +356,7 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     const cmData = await cmRes.json();
     logWhatsAppGraphResponse("catalog_message Response", cmData);
     if (!cmRes.ok || cmData.error) {
-      console.error("[WHATSAPP] catalog_message also failed:", JSON.stringify(cmData));
+      console.error("[WHATSAPP] catalog_message failed:", JSON.stringify(cmData));
       await sendWhatsAppList(to, items);
     }
   } catch (_err) {
