@@ -68,10 +68,41 @@ export async function POST(req: Request) {
         const profileName = value?.contacts?.[0]?.profile?.name || "";
         let text = "";
 
+        // Handle native WhatsApp catalog order (customer taps "Send order" in cart)
+        if (message.type === "order") {
+          const order = message.order;
+          const catalogId = order?.catalog_id;
+          const items: { product_retailer_id: string; quantity: number; item_price: number; currency: string }[] =
+            order?.product_items ?? [];
+          console.log(`[WHATSAPP] Order received from ${from}:`, JSON.stringify(items));
+
+          if (items.length > 0) {
+            const agent = new VidyaAgent();
+            await agent.upsertCustomer(from, profileName?.trim() || "WhatsApp User");
+            const total = items.reduce((sum, i) => sum + i.item_price * i.quantity, 0);
+            const deliverySlot = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString();
+            const orderData = await agent.createOrder(from, [], total, deliverySlot);
+            if (orderData && orderData.paymentLink) {
+              const lines = items.map(
+                (i) => `• ${i.product_retailer_id} × ${i.quantity} — ₹${i.item_price * i.quantity}`
+              );
+              const body =
+                `Your order has been received!\n\n${lines.join("\n")}\n\n*Total: ₹${total}*\n\nPlease complete payment to confirm:\n${orderData.paymentLink}`;
+              await sendWhatsAppMessage(from, body);
+            } else {
+              await sendWhatsAppMessage(
+                from,
+                "We received your order but couldn't create a payment link right now. Please type *help* and we'll sort it out."
+              );
+            }
+          }
+          return NextResponse.json({ status: "success" });
+        }
+
         // Handle normal text messages
         if (message.type === "text") {
           text = message.text?.body;
-        } 
+        }
         // Handle button clicks from interactive buttons
         else if (message.type === "interactive") {
           const interactive = message.interactive;
@@ -148,10 +179,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: "success" });
           }
 
-          // Menu list: send ONLY the list (no separate text first). Text + list back-to-back often drops the list on WhatsApp.
+          // Menu: send native WhatsApp product_list (catalog) — images, prices, cart built-in.
           if (shouldShowMenu && menuItems && menuItems.length > 0) {
-            console.log(`[WHATSAPP] Sending list only...`);
-            await sendWhatsAppList(from, menuItems, reply || undefined);
+            console.log(`[WHATSAPP] Sending product list (catalog)...`);
+            await sendWhatsAppProductList(from, menuItems);
           } else if (shouldShowButtons && buttons && buttons.length > 0) {
             console.log(`[WHATSAPP] Sending buttons...`);
             await sendWhatsAppButtons(from, reply, buttons, headerImage);
@@ -260,6 +291,74 @@ async function sendWhatsAppButtons(
     logWhatsAppGraphResponse("Button Response", d);
   } catch (err) {
     console.error("Meta Button Error:", err);
+  }
+}
+
+/**
+ * Sends a native WhatsApp product_list (catalog) message.
+ * Requires the catalog connected to the WhatsApp Business number in Meta settings.
+ * Catalog ID: 1277190140484607
+ */
+async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
+  const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const CATALOG_ID = "1277190140484607";
+
+  // Split into sections by category — max 10 items per section, 30 total across all sections.
+  const chicken = items.filter((i) => i.category === "chicken").slice(0, 10);
+  const mutton  = items.filter((i) => i.category === "mutton").slice(0, 10);
+  const egg     = items.filter((i) => i.category === "egg").slice(0, 10);
+
+  const toSection = (title: string, rows: MenuItem[]) => ({
+    title,
+    product_items: rows.map((i) => ({ product_retailer_id: i.id })),
+  });
+
+  const sections = [
+    ...(chicken.length ? [toSection("Chicken", chicken)] : []),
+    ...(mutton.length  ? [toSection("Mutton",  mutton)]  : []),
+    ...(egg.length     ? [toSection("Egg",     egg)]     : []),
+  ];
+
+  if (!sections.length) return;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "product_list",
+      header: { type: "text", text: "Vidya's Kitchen Menu" },
+      body: {
+        text: "Fresh against-order meals — chicken, mutton & egg. Add to cart and send your order. We need at least 24 hours notice.",
+      },
+      footer: { text: "Sivakasi delivery only" },
+      action: {
+        catalog_id: CATALOG_ID,
+        sections,
+      },
+    },
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const d = await response.json();
+    logWhatsAppGraphResponse("Product list Response", d);
+    if (!response.ok || d.error) {
+      console.error("[WHATSAPP] Product list failed — falling back to text list:", d);
+      // Fallback: send plain text list if catalog not yet connected
+      await sendWhatsAppList(to, items);
+    }
+  } catch (_err) {
+    console.error("Meta Product List Error:", _err);
+    await sendWhatsAppList(to, items);
   }
 }
 
