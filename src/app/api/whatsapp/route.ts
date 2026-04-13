@@ -327,7 +327,8 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
 
   // Get the first available retailer_id to use as the catalog thumbnail
   const allItems = [...chicken, ...mutton, ...egg];
-  const thumbnailId = allItems.length ? getRetailerId(allItems[0]) : "chk-pepper-gravy";
+  // Fixed thumbnail — Chicken Gravy Sister's Recipe
+  const thumbnailId = "chk-sis-gravy";
 
   // catalog_message: opens the full catalog with a "View catalog" button.
   // Simpler than product_list — no per-product section validation, works without extra approvals.
