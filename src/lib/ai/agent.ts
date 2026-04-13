@@ -66,7 +66,8 @@ export class VidyaAgent {
         .from("menu_items")
         .select("*")
         .in("category", [...AGAINST_ORDER_CATEGORIES])
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .order("price", { ascending: true });
 
       if (error || !data?.length) {
         return AGAINST_ORDER_FALLBACK as MenuItem[];

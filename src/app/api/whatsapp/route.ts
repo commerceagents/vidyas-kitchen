@@ -341,7 +341,10 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     type: "interactive",
     interactive: {
       type: "product_list",
-      header: { type: "text", text: "Vidya's Kitchen Menu" },
+      header: {
+        type: "image",
+        image: { link: "https://vidyaskitchenhome.com/vk-logo.png" },
+      },
       body: {
         text: "Fresh against-order meals. Browse, add to cart and send your order. We need at least 24 hours notice.",
       },
