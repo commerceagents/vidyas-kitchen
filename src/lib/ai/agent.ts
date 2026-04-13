@@ -242,7 +242,7 @@ export class VidyaAgent {
       // Help & Support sub-menu: Chat with us
       if (lowerMessage === "chat with us" || lowerMessage === "chat_with_us") {
         return {
-          reply: "I'm Vidya, your AI kitchen host! 👩‍🍳 You can type any question here about our menu, delivery, or ingredients—I'm ready to help.\n\nIf you need to reach our owner directly, please use the *Call us* option.",
+          reply: "I'm Vidya, your AI kitchen host! 👩‍🍳 You can type any question here about our menu, delivery, or ingredients—I'm ready to help.\n\nIf you need to reach our chef directly, please use the *Call us* option.",
           shouldShowMenu: false,
           shouldShowButtons: true,
           shouldSendAppCta: false,
