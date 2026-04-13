@@ -301,16 +301,28 @@ async function sendWhatsAppButtons(
  */
 async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
   const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  const CATALOG_ID = "1277190140484607";
+  // Commerce Manager catalog ID: 1277190140484607
+  // WhatsApp Manager asset ID: 947371001300997 (try this if product_list fails)
+  const CATALOG_ID = process.env.WHATSAPP_CATALOG_ID || "1277190140484607";
 
   // Split into sections by category — max 10 items per section, 30 total across all sections.
   const chicken = items.filter((i) => i.category === "chicken").slice(0, 10);
   const mutton  = items.filter((i) => i.category === "mutton").slice(0, 10);
   const egg     = items.filter((i) => i.category === "egg").slice(0, 10);
 
+  // Use retailer_id (catalog Content ID) — fall back to extracting from image_url, then id
+  const getRetailerId = (i: MenuItem): string => {
+    if (i.retailer_id) return i.retailer_id;
+    if (i.image_url) {
+      const m = i.image_url.match(/menu-images\/([^/.]+)/);
+      if (m) return m[1];
+    }
+    return i.id;
+  };
+
   const toSection = (title: string, rows: MenuItem[]) => ({
     title,
-    product_items: rows.map((i) => ({ product_retailer_id: i.id })),
+    product_items: rows.map((i) => ({ product_retailer_id: getRetailerId(i) })),
   });
 
   const sections = [

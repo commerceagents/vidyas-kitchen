@@ -26,6 +26,7 @@ export interface Message {
 
 export interface MenuItem {
   id: string;
+  retailer_id?: string; // Meta catalog Content ID (e.g. chk-pepper-gravy)
   name: string;
   price: number;
   unit?: string;
