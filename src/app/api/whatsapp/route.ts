@@ -325,14 +325,56 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     product_items: rows.map((i) => ({ product_retailer_id: getRetailerId(i) })),
   });
 
-  // Get the first available retailer_id to use as the catalog thumbnail
-  const allItems = [...chicken, ...mutton, ...egg];
-  // Fixed thumbnail — Chicken Gravy Sister's Recipe
-  const thumbnailId = "chk-sis-gravy";
+  const sections = [
+    ...(egg.length     ? [toSection("🥚 Egg",     egg)]     : []),
+    ...(chicken.length ? [toSection("🍗 Chicken", chicken)] : []),
+    ...(mutton.length  ? [toSection("🐑 Mutton",  mutton)]  : []),
+  ];
 
-  // catalog_message: opens the full catalog with a "View catalog" button.
-  // Simpler than product_list — no per-product section validation, works without extra approvals.
-  const payload = {
+  if (!sections.length) return;
+
+  // product_list: full control over order and sections — try first.
+  const productListPayload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "product_list",
+      header: { type: "text", text: "Vidya's Kitchen Menu" },
+      body: {
+        text: "Fresh against-order meals. Browse, add to cart and send your order. We need at least 24 hours notice.",
+      },
+      footer: { text: "📍 Sivakasi delivery only" },
+      action: {
+        catalog_id: CATALOG_ID,
+        sections,
+      },
+    },
+  };
+
+  console.log("[WHATSAPP] Trying product_list. catalog_id:", CATALOG_ID);
+  console.log("[WHATSAPP] sections:", JSON.stringify(sections, null, 2));
+
+  const plRes = await fetch(`https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(productListPayload),
+  });
+  const plData = await plRes.json();
+
+  if (plRes.ok && !plData.error) {
+    logWhatsAppGraphResponse("product_list Response (success)", plData);
+    return; // product_list worked — done
+  }
+
+  // product_list failed — fall back to catalog_message (no ordering control but still shows catalog)
+  console.warn("[WHATSAPP] product_list failed, falling back to catalog_message:", JSON.stringify(plData));
+
+  const catalogPayload = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
@@ -344,33 +386,28 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
       },
       action: {
         name: "catalog_message",
-        parameters: {
-          thumbnail_product_retailer_id: thumbnailId,
-        },
+        parameters: { thumbnail_product_retailer_id: "chk-sis-gravy" },
       },
     },
   };
 
-  console.log("[WHATSAPP] catalog_message payload:", JSON.stringify(payload, null, 2));
-
   try {
-    const response = await fetch(url, {
+    const cmRes = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(catalogPayload),
     });
-    const d = await response.json();
-    logWhatsAppGraphResponse("Catalog message Response", d);
-    if (!response.ok || d.error) {
-      console.error("[WHATSAPP] catalog_message failed:", JSON.stringify(d, null, 2));
-      // Fallback: send plain text list
+    const cmData = await cmRes.json();
+    logWhatsAppGraphResponse("catalog_message Response", cmData);
+    if (!cmRes.ok || cmData.error) {
+      console.error("[WHATSAPP] catalog_message also failed:", JSON.stringify(cmData));
       await sendWhatsAppList(to, items);
     }
   } catch (_err) {
-    console.error("Meta Catalog Message Error:", _err);
+    console.error("Meta Catalog Error:", _err);
     await sendWhatsAppList(to, items);
   }
 }
