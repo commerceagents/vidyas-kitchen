@@ -123,12 +123,18 @@ const S: Record<string, CSSProperties> = {
   },
   greeting: {
     fontSize: 36, fontWeight: 800,
-    lineHeight: 1.05, letterSpacing: "-0.5px",
+    lineHeight: 1.1,
+    letterSpacing: "-0.5px",
     color: C.white,
     margin: 0, marginBottom: T.sp1,
     textAlign: "center",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 4,
   },
-  greetingAccent: { color: C.red },
+  greetingAccent: { color: C.red, fontWeight: 800 },
   subtitle: {
     fontSize: 15, fontWeight: 600,
     color: "rgba(255,255,255,0.55)",
@@ -386,15 +392,18 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   };
 
   const handleVerify = async (code: string) => {
-    setVerifyLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    setVerifyLoading(false);
-    if (code.length === 4) {
-      const finalName = displayNameInput.trim() || "Guest";
-      localStorage.setItem(LS_DISPLAY_NAME, finalName);
-      onVerified(`+91${rawPhone}`, finalName);
+    if (code.length !== 4) {
+      setOtpError(true);
+      setOtp(["", "", "", ""]);
+      otpRefs.current[0]?.focus();
+      return;
     }
-    else { setOtpError(true); setOtp(["", "", "", ""]); otpRefs.current[0]?.focus(); }
+    setVerifyLoading(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const finalName = displayNameInput.trim() || "Guest";
+    localStorage.setItem(LS_DISPLAY_NAME, finalName);
+    onVerified(`+91${rawPhone}`, finalName);
+    // Stay in loading state until unmount — avoids button flashing “active” before navigation
   };
 
   // ─── Render ─────────────────────────────────────────────────────
@@ -441,7 +450,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           </div>
         </motion.div>
 
-        {/* Greeting */}
+        {/* Greeting — flex + tight gap so monospace doesn’t add a huge space after “Hey,” */}
         <motion.h1
           style={S.greeting}
           initial={{ opacity: 0, y: 12 }}
@@ -449,9 +458,12 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.08 }}
         >
           {greetingFirst ? (
-            <>Hey, <span style={S.greetingAccent}>{greetingFirst}</span>.</>
+            <>
+              <span style={{ color: C.white }}>Hey,</span>
+              <span style={S.greetingAccent}>{greetingFirst}.</span>
+            </>
           ) : (
-            <>Hey there.</>
+            <span>Hey there.</span>
           )}
         </motion.h1>
 
@@ -661,10 +673,37 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 )}
               </AnimatePresence>
 
-              <button style={D.primaryBtn(otp.every(d => d) && !verifyLoading, 0)}
+              <button
+                type="button"
+                aria-busy={verifyLoading}
+                aria-label={verifyLoading ? "Verifying" : "Verify and continue"}
+                style={{
+                  ...D.primaryBtn(otp.every((d) => d) || verifyLoading, 0),
+                  minHeight: 52,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
                 onClick={() => handleVerify(otp.join(""))}
-                disabled={otp.some(d => !d) || verifyLoading}>
-                {verifyLoading ? "Verifying…" : "Verify & continue"}
+                disabled={otp.some((d) => !d) || verifyLoading}
+              >
+                {verifyLoading ? (
+                  <motion.span
+                    aria-hidden
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
+                    style={{
+                      display: "block",
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      border: "2.5px solid rgba(255,255,255,0.25)",
+                      borderTopColor: "#ffffff",
+                    }}
+                  />
+                ) : (
+                  "Verify & continue"
+                )}
               </button>
 
               <div style={{ textAlign: "center", marginTop: T.sp3 }}>
