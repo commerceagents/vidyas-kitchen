@@ -44,6 +44,9 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
     const savedPhone = localStorage.getItem("vk_phone");
     const savedLocation = localStorage.getItem("vk_location");
     const savedName = localStorage.getItem(LS_NAME);
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    const isReload = nav?.type === "reload";
+
     if (prefilledName?.trim()) {
       setName(prefilledName.trim());
       localStorage.setItem(LS_NAME, prefilledName.trim());
@@ -57,7 +60,12 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
         try {
           const loc = JSON.parse(savedLocation) as LocationData;
           setLocation(loc);
-          setStep("home"); // returning user → skip straight to home
+          // Full tab reload: show map/location again instead of jumping to placeholder home
+          if (isReload) {
+            setStep("location");
+          } else {
+            setStep("home");
+          }
         } catch {
           setStep("location");
         }
