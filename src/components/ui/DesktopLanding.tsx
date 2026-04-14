@@ -90,6 +90,8 @@ export function DesktopLanding() {
 
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [chickenLoaded, setChickenLoaded] = useState(false);
+  const [muttonLoaded, setMuttonLoaded] = useState(false);
 
   useEffect(() => {
     const checkScreen = () => setIsLargeScreen(window.innerWidth > 1024);
@@ -121,11 +123,16 @@ export function DesktopLanding() {
       <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: 400, opacity: 0 }}
-          animate={{ x: 0, opacity: 0.5 }}
+          initial={{ x: 400, opacity: 0, rotate: 180 }}
+          animate={{ 
+            x: chickenLoaded ? 0 : 400, 
+            opacity: chickenLoaded ? 0.5 : 0,
+            rotate: chickenLoaded ? 0 : 180
+          }}
           transition={{ 
             x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 1.5, ease: "easeOut" }
+            opacity: { duration: 1.5, ease: "easeOut" },
+            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] }
           }}
           style={{
             width: '100%',
@@ -154,6 +161,7 @@ export function DesktopLanding() {
               alt="Authentic Chicken Curry"
               fill
               style={{ objectFit: 'cover' }}
+              onLoad={() => setChickenLoaded(true)}
             />
           </motion.div>
         </motion.div>
@@ -193,11 +201,16 @@ export function DesktopLanding() {
       <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: -400, opacity: 0 }}
-          animate={{ x: 0, opacity: 0.5 }}
+          initial={{ x: -400, opacity: 0, rotate: -180 }}
+          animate={{ 
+            x: muttonLoaded ? 0 : -400, 
+            opacity: muttonLoaded ? 0.5 : 0,
+            rotate: muttonLoaded ? 0 : -180
+          }}
           transition={{ 
             x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 1.5, ease: "easeOut" }
+            opacity: { duration: 1.5, ease: "easeOut" },
+            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] }
           }}
           style={{
             width: '100%',
@@ -226,6 +239,7 @@ export function DesktopLanding() {
               alt="Authentic Mutton Curry"
               fill
               style={{ objectFit: 'cover' }}
+              onLoad={() => setMuttonLoaded(true)}
             />
           </motion.div>
         </motion.div>
