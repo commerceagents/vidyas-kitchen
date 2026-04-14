@@ -593,11 +593,16 @@ export function DesktopLanding() {
             rel="noopener noreferrer"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            initial={false}
             animate={{
               backgroundColor: isHovered ? '#25D366' : '#FFFFFF',
-              color: isHovered ? '#FFFFFF' : '#000000'
+              color: isHovered ? '#FFFFFF' : '#000000',
+              scale: isHovered ? 1.02 : 1
             }}
-            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+            transition={{ 
+              duration: 0.3,
+              ease: "easeInOut"
+            }}
             style={{
               width: '100%',
               display: 'flex',
@@ -613,7 +618,13 @@ export function DesktopLanding() {
               textDecoration: 'none'
             }}
           >
-            <WhatsappLogo size={24} weight="fill" color={isHovered ? "#FFFFFF" : "#25D366"} />
+            <motion.div
+              animate={{ color: isHovered ? "#FFFFFF" : "#25D366" }}
+              transition={{ duration: 0.3 }}
+              style={{ display: 'flex', alignItems: 'center' }}
+            >
+              <WhatsappLogo size={24} weight="fill" />
+            </motion.div>
             Order with Vidya Bot
           </motion.a>
           

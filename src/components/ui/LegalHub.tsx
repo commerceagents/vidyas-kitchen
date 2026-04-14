@@ -414,7 +414,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             width: '100%'
           }}>
             <Image 
-              src="/VK_Logo.png" 
+              src="/VK_Logo.webp" 
               alt="Vidya's Kitchen" 
               width={64} 
               height={64} 
