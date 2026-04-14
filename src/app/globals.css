@@ -71,6 +71,15 @@ body {
   border-color: rgba(227, 30, 36, 0.2);
 }
 
+/* Mobile login — readable placeholders on dark glass inputs */
+.vk-login-input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+  opacity: 1;
+}
+.vk-login-input::-webkit-input-placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
 .btn-primary {
   background: var(--primary);
   color: white;

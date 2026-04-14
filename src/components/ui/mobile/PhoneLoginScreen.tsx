@@ -4,14 +4,22 @@ import { useState, useRef, useEffect, CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
  
-// ─── Constants ────────────────────────────────────────────────────
+// ─── Constants (squircle mask for OTP / legacy) ───────────────────
 const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
 
 // ─── Types ────────────────────────────────────────────────────────
 interface PhoneLoginScreenProps {
-  onVerified: (phone: string) => void;
+  onVerified: (phone: string, displayName: string) => void;
   prefilledPhone?: string;
   displayName?: string;
+}
+
+const LS_DISPLAY_NAME = "vk_display_name";
+
+function formatFirstName(raw: string) {
+  const s = raw.trim().split(/\s+/)[0];
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
 type LegalTab = "terms" | "privacy" | "refund";
@@ -105,14 +113,13 @@ const S: Record<string, CSSProperties> = {
   },
   logoWrap: {
     width: 96, height: 96,
-    marginBottom: T.sp4,
-    maskImage: SQUIRCLE_MASK,
-    WebkitMaskImage: SQUIRCLE_MASK,
-    maskSize: "100% 100%",
-    WebkitMaskSize: "100% 100%",
+    borderRadius: "50%",
     overflow: "hidden",
     flexShrink: 0,
     boxShadow: "0 8px 32px rgba(189,35,32,0.25)",
+    border: "2px solid rgba(189,35,32,0.35)",
+    position: "relative" as const,
+    zIndex: 2,
   },
   greeting: {
     fontSize: 36, fontWeight: 800,
@@ -123,17 +130,16 @@ const S: Record<string, CSSProperties> = {
   },
   greetingAccent: { color: C.red },
   subtitle: {
-    fontSize: 11, fontWeight: 600,
-    color: "rgba(255,255,255,0.35)",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
+    fontSize: 15, fontWeight: 600,
+    color: "rgba(255,255,255,0.55)",
+    letterSpacing: "0.02em",
     margin: 0, marginBottom: T.sp5,
     textAlign: "center",
   },
   label: {
-    display: "block", fontSize: 10,
-    color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em",
-    textTransform: "uppercase", fontWeight: 700,
+    display: "block", fontSize: 12,
+    color: "rgba(255,255,255,0.45)",
+    fontWeight: 600,
     marginBottom: 10,
     alignSelf: "flex-start",
   },
@@ -168,7 +174,7 @@ const S: Record<string, CSSProperties> = {
     width: 30, height: 30, borderRadius: "50%",
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, marginRight: 14,
+    flexShrink: 0, marginRight: 6, marginLeft: -4,
     boxShadow: "0 0 16px rgba(34,197,94,0.5)",
   },
   hint: {
@@ -220,8 +226,7 @@ const S: Record<string, CSSProperties> = {
     fontSize: 20, fontWeight: 800,
     color: C.white, margin: 0,
     marginBottom: 6,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.04em",
+    letterSpacing: "0.02em",
   },
   sheetSub: {
     fontSize: 12, color: "rgba(255,255,255,0.4)",
@@ -261,6 +266,21 @@ const S: Record<string, CSSProperties> = {
 
 // ─── Dynamic styles ───────────────────────────────────────────────
 const D = {
+  nameRow: (valid: boolean, active: boolean): CSSProperties => ({
+    display: "flex", alignItems: "center",
+    background: "rgba(255,255,255,0.05)",
+    border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
+    borderRadius: 16,
+    height: 56,
+    paddingLeft: 14,
+    paddingRight: 10,
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    boxShadow: valid
+      ? "0 0 0 3px rgba(34,197,94,0.08)"
+      : active
+      ? "0 0 0 3px rgba(189,35,32,0.08)"
+      : "none",
+  }),
   inputRow: (valid: boolean, active: boolean): CSSProperties => ({
     display: "flex", alignItems: "center",
     background: "rgba(255,255,255,0.05)",
@@ -277,8 +297,8 @@ const D = {
   primaryBtn: (active: boolean, mt = T.sp3): CSSProperties => ({
     width: "100%", padding: `18px`,
     border: "none", borderRadius: 16,
-    fontFamily: C.mono, fontSize: 13, fontWeight: 800,
-    letterSpacing: "0.1em", textTransform: "uppercase",
+    fontFamily: C.mono, fontSize: 15, fontWeight: 700,
+    letterSpacing: "0.02em",
     cursor: active ? "pointer" : "not-allowed",
     background: active
       ? "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)"
@@ -305,7 +325,9 @@ const D = {
 export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: PhoneLoginScreenProps) {
   const rawPrefilled = prefilledPhone?.replace(/^\+?91/, "") || "";
   const [rawPhone, setRawPhone] = useState(rawPrefilled);
+  const [displayNameInput, setDisplayNameInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalTab>("terms");
@@ -317,9 +339,21 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [canResend, setCanResend] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const isValid = rawPhone.length === 10;
+  useEffect(() => {
+    if (displayName?.trim()) {
+      setDisplayNameInput(displayName.trim());
+      return;
+    }
+    const fromLs = typeof window !== "undefined" ? localStorage.getItem(LS_DISPLAY_NAME) : null;
+    if (fromLs) setDisplayNameInput(fromLs);
+  }, [displayName]);
+
+  const nameTrim = displayNameInput.trim();
+  const isNameValid = nameTrim.length >= 2;
+  const isValid = rawPhone.length === 10 && isNameValid;
   const isFromWA = !!rawPrefilled;
-  const firstName = displayName?.split(" ")[0] || "";
+
+  const greetingFirst = formatFirstName(nameTrim.split(/\s+/)[0] || "");
 
   // Resend countdown
   useEffect(() => {
@@ -353,7 +387,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setVerifyLoading(true);
     await new Promise(r => setTimeout(r, 900));
     setVerifyLoading(false);
-    if (code.length === 4) onVerified(`+91${rawPhone}`);
+    if (code.length === 4) {
+      const finalName = displayNameInput.trim() || "Guest";
+      localStorage.setItem(LS_DISPLAY_NAME, finalName);
+      onVerified(`+91${rawPhone}`, finalName);
+    }
     else { setOtpError(true); setOtp(["", "", "", ""]); otpRefs.current[0]?.focus(); }
   };
 
@@ -364,23 +402,40 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       <div style={S.glowBottom} />
       <div style={S.inner}>
 
-        {/* Logo with ring */}
+        {/* Logo — circle + slow pulsing red rings */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 340, damping: 26 }}
-          style={{ marginBottom: T.sp4, position: "relative" }}
+          style={{ marginBottom: T.sp5, position: "relative", width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          {/* Outer glow ring */}
-          <div style={{
-            position: "absolute", inset: -6,
-            borderRadius: 28,
-            background: "rgba(189,35,32,0.12)",
-            border: "1px solid rgba(189,35,32,0.2)",
-          }} />
-          <div style={{ ...S.logoWrap, width: 96, height: 96, position: "relative" }}>
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              aria-hidden
+              style={{
+                position: "absolute",
+                width: 96 + i * 18,
+                height: 96 + i * 18,
+                borderRadius: "50%",
+                border: "1px solid rgba(189,35,32,0.35)",
+                pointerEvents: "none",
+              }}
+              animate={{
+                scale: [1, 1.12, 1],
+                opacity: [0.45 - i * 0.1, 0.08, 0.45 - i * 0.1],
+              }}
+              transition={{
+                duration: 5 + i * 0.7,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.6,
+              }}
+            />
+          ))}
+          <div style={{ ...S.logoWrap, width: 96, height: 96 }}>
             <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={96} height={96}
-              style={{ objectFit: "contain", width: "100%", height: "100%" }} />
+              style={{ objectFit: "cover", width: "100%", height: "100%" }} />
           </div>
         </motion.div>
 
@@ -391,31 +446,74 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.08 }}
         >
-          {firstName
-            ? <>HEY, <span style={S.greetingAccent}>{firstName.toUpperCase()}.</span></>
-            : <>HEY, <span style={S.greetingAccent}>FOODIE.</span></>
-          }
+          {greetingFirst ? (
+            <>Hey, <span style={S.greetingAccent}>{greetingFirst}</span>.</>
+          ) : (
+            <>Hey there.</>
+          )}
         </motion.h1>
 
-        {/* Subtitle */}
+        {/* Brand subtitle */}
         <motion.p
           style={S.subtitle}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.14 }}
+          transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.12 }}
         >
-          Enter your number to continue
+          Welcome to Vidya&apos;s Kitchen
         </motion.p>
+
+        {/* Name (always — URL, returning user via LS, or new visitor) */}
+        <motion.div
+          style={{ width: "100%" }}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.16 }}
+        >
+          <label style={S.label}>What should we call you?</label>
+          <div style={D.nameRow(isNameValid, nameFocused && !isNameValid)}>
+            <input
+              type="text"
+              autoComplete="name"
+              className="vk-login-input"
+              placeholder="Your name"
+              value={displayNameInput}
+              onChange={(e) => setDisplayNameInput(e.target.value)}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                color: C.white, fontSize: 16, fontWeight: 600, fontFamily: C.mono,
+              }}
+            />
+            <AnimatePresence>
+              {isNameValid && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.4 }}
+                  transition={{ type: "spring" as const, stiffness: 320, damping: 22 }}
+                  style={{ display: "flex", alignItems: "center" }}
+                >
+                  <div style={S.greenTick}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
         {/* Phone Input Area */}
         <motion.div
-          style={{ width: "100%" }}
+          style={{ width: "100%", marginTop: T.sp3 }}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.2 }}
         >
-          <label style={S.label}>Mobile Number</label>
-          <div style={D.inputRow(isValid, focused && !isValid)}>
+          <label style={S.label}>Enter your mobile number</label>
+          <div style={D.inputRow(rawPhone.length === 10, focused && rawPhone.length !== 10)}>
             {/* 🇮🇳 +91 */}
             <div style={S.countryChip}>
               <div style={{ width: 24, height: 17, borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
@@ -426,6 +524,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             <div style={S.vDivider} />
             <input
               type="tel" inputMode="numeric" maxLength={11}
+              className="vk-login-input"
               value={formatDisplay(rawPhone)}
               placeholder="98765 43210"
               onChange={e => {
@@ -437,7 +536,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               style={S.phoneInput}
             />
             <AnimatePresence>
-              {isValid && (
+              {rawPhone.length === 10 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.4 }}
@@ -455,9 +554,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           </div>
 
           <AnimatePresence>
-            {isFromWA && isValid && (
+            {isFromWA && rawPhone.length === 10 && (
               <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={S.hint}>
-                ✓ recognised from your whatsapp
+                Recognised from your WhatsApp link
               </motion.p>
             )}
           </AnimatePresence>
@@ -476,7 +575,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             disabled={!isValid || sendLoading}
             whileTap={{ scale: 0.97 }}
           >
-            {sendLoading ? "SENDING OTP..." : "SEND OTP →"}
+            {sendLoading ? "Sending…" : "Send OTP"}
           </motion.button>
         </motion.div>
 
@@ -490,7 +589,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           style={S.termsLink}
         >
           <p style={S.termsText}>
-            by continuing, you agree to our{" "}
+            By continuing, you agree to our{" "}
             <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
               terms of service
             </button>
@@ -513,9 +612,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <div style={S.handle} />
 
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-                <p style={S.sheetTitle}>ENTER OTP</p>
+                <p style={S.sheetTitle}>Enter the code</p>
                 <p style={S.sheetSub}>
-                  sent to{" "}
+                  Sent to{" "}
                   <span style={{ color: "rgba(255,255,255,0.75)" }}>
                     +91 {formatDisplay(rawPhone)}
                   </span>
@@ -554,8 +653,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <AnimatePresence>
                 {otpError && (
                   <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono, textTransform: "lowercase" }}>
-                    incorrect otp. please try again.
+                    style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
+                    That code didn&apos;t work. Try again.
                   </motion.p>
                 )}
               </AnimatePresence>
@@ -563,17 +662,17 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <button style={D.primaryBtn(otp.every(d => d) && !verifyLoading, 0)}
                 onClick={() => handleVerify(otp.join(""))}
                 disabled={otp.some(d => !d) || verifyLoading}>
-                {verifyLoading ? "VERIFYING..." : "VERIFY OTP"}
+                {verifyLoading ? "Verifying…" : "Verify & continue"}
               </button>
 
               <div style={{ textAlign: "center", marginTop: T.sp3 }}>
                 {canResend
                   ? <button onClick={() => { setOtp(["", "", "", ""]); setOtpError(false); }}
-                      style={{ color: C.red, fontSize: 11, background: "none", border: "none", cursor: "pointer", fontFamily: C.mono, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      RESEND OTP
+                      style={{ color: C.red, fontSize: 12, background: "none", border: "none", cursor: "pointer", fontFamily: C.mono, fontWeight: 600, letterSpacing: "0.02em" }}>
+                      Resend code
                     </button>
                   : <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 11, fontFamily: C.mono }}>
-                      resend in{" "}
+                      Resend in{" "}
                       <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
                         style={{ color: "rgba(255,255,255,0.55)" }}>
                         {resendTimer}s

@@ -20,6 +20,8 @@ interface MobileShellProps {
   prefilledName?: string;
 }
 
+const LS_NAME = "vk_display_name";
+
 export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps) {
   const [step, setStep] = useState<MobileStep>("login");
   const [phone, setPhone] = useState(prefilledPhone || "");
@@ -33,6 +35,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
     if (params.get("reset") === "true") {
       localStorage.removeItem("vk_phone");
       localStorage.removeItem("vk_location");
+      localStorage.removeItem(LS_NAME);
       window.history.replaceState({}, "", "/");
       setStep("login");
       return;
@@ -40,6 +43,13 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
 
     const savedPhone = localStorage.getItem("vk_phone");
     const savedLocation = localStorage.getItem("vk_location");
+    const savedName = localStorage.getItem(LS_NAME);
+    if (prefilledName?.trim()) {
+      setName(prefilledName.trim());
+      localStorage.setItem(LS_NAME, prefilledName.trim());
+    } else if (savedName) {
+      setName(savedName);
+    }
 
     if (savedPhone) {
       setPhone(savedPhone);
@@ -58,13 +68,19 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
       // Came from WhatsApp with phone in URL param
       setPhone(prefilledPhone);
       localStorage.setItem("vk_phone", prefilledPhone);
+      if (prefilledName) {
+        setName(prefilledName);
+        localStorage.setItem(LS_NAME, prefilledName);
+      }
       setStep("location");
     }
-  }, [prefilledPhone]);
+  }, [prefilledPhone, prefilledName]);
 
-  const handleVerified = (verifiedPhone: string) => {
+  const handleVerified = (verifiedPhone: string, displayName: string) => {
     setPhone(verifiedPhone);
+    setName(displayName);
     localStorage.setItem("vk_phone", verifiedPhone);
+    localStorage.setItem(LS_NAME, displayName);
     setStep("location");
   };
 
@@ -83,7 +99,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
       <AnimatePresence mode="wait">
         {step === "login" && (
           <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <PhoneLoginScreen onVerified={handleVerified} prefilledPhone={prefilledPhone} displayName={name} />
+            <PhoneLoginScreen onVerified={handleVerified} prefilledPhone={prefilledPhone} displayName={prefilledName?.trim() || name} />
           </motion.div>
         )}
 
