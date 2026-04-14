@@ -135,7 +135,6 @@ export function DesktopLanding() {
             backfaceVisibility: 'hidden'
           }}
         >
-          {/* Inner Motion Div for Infinite Rotation */}
           <motion.div
             animate={{ rotate: -360 }}
             transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
@@ -151,8 +150,8 @@ export function DesktopLanding() {
             }}
           >
             <Image
-              src="/chicken_curry_generated.webp"
-              alt="Special Chicken Curry"
+              src="/chicken_curry.png"
+              alt="Authentic Chicken Curry"
               fill
               style={{ objectFit: 'cover' }}
             />
@@ -208,7 +207,6 @@ export function DesktopLanding() {
             backfaceVisibility: 'hidden'
           }}
         >
-          {/* Inner Motion Div for Infinite Rotation */}
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
@@ -224,8 +222,8 @@ export function DesktopLanding() {
             }}
           >
             <Image
-              src="/fish_curry_generated.webp"
-              alt="Homemade Fish Curry"
+              src="/mutton_curry.png"
+              alt="Authentic Mutton Curry"
               fill
               style={{ objectFit: 'cover' }}
             />
