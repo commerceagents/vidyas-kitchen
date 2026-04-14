@@ -7,12 +7,12 @@ import { motion, AnimatePresence } from "framer-motion";
 export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
-
   const [showPulse, setShowPulse] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Pulse circle completion at 3.5s
+    // ... rest of the timers ...
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
     // Final exit at 4.8s
     const timer = setTimeout(() => {
@@ -130,8 +130,15 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             {/* Logo Wrapper - Physical Object Style */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
+              animate={{ 
+                opacity: imageLoaded ? 1 : 0, 
+                scale: imageLoaded ? 1 : 0.95 
+              }}
+              transition={{ 
+                duration: 1.5, 
+                ease: [0.16, 1, 0.3, 1], // Premium easeOut
+                delay: 0.1 
+              }}
               style={{
                 position: 'relative',
                 width: '120px',
@@ -161,8 +168,12 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
 
               <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
                 <Image 
-                  src="/VK_Logo.webp" alt="Vidya's Kitchen" fill
-                  style={{ objectFit: 'contain' }} priority
+                  src="/VK_Logo.webp" 
+                  alt="Vidya's Kitchen" 
+                  fill
+                  style={{ objectFit: 'contain' }} 
+                  priority
+                  onLoad={() => setImageLoaded(true)}
                 />
               </div>
             </motion.div>
