@@ -120,12 +120,20 @@ export function DesktopLanding() {
       <GlowingBlobsBackground />
 
       {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
-      <div style={{ position: 'absolute', top: '50%', right: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+      <div style={{ 
+        position: 'absolute', 
+        top: '50%', 
+        left: 'calc(50% + 220px)', // Positioned exactly at the edge of the 440px card
+        width: 'min(650px, 45vw)', 
+        height: 'min(650px, 45vw)', 
+        transform: 'translateY(-50%)', 
+        zIndex: 4 
+      }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: 400, opacity: 0, rotate: 180 }}
+          initial={{ x: 100, opacity: 0, rotate: 180 }}
           animate={{ 
-            x: chickenLoaded ? 0 : 400, 
+            x: chickenLoaded ? 20 : 100, // Small 20px gap from card
             opacity: chickenLoaded ? 0.5 : 0,
             rotate: chickenLoaded ? 0 : 180
           }}
@@ -175,12 +183,14 @@ export function DesktopLanding() {
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '80px',
-            right: '480px', // Dramatically moved to completely clear the rim
-            width: '180px', // Further reduced size for boutique look
+            top: '15%',
+            left: '-120px', // Positioned relative to plate, floating towards center
+            width: '180px',
             height: '160px',
             zIndex: 3,
             pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center'
           }}
         >
@@ -197,13 +207,21 @@ export function DesktopLanding() {
         </motion.div>
       </div>
 
-      {/* Rotating Background Asset (Fish Curry - LEFT CENTER) */}
-      <div style={{ position: 'absolute', top: '50%', left: '-250px', width: '500px', height: '500px', transform: 'translateY(-50%)', zIndex: 4 }}>
+      {/* Rotating Background Asset (Mutton Curry - LEFT CENTER) */}
+      <div style={{ 
+        position: 'absolute', 
+        top: '50%', 
+        right: 'calc(50% + 220px)', // Positioned exactly at the edge of the 440px card
+        width: 'min(650px, 45vw)', 
+        height: 'min(650px, 45vw)', 
+        transform: 'translateY(-50%)', 
+        zIndex: 4 
+      }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: -400, opacity: 0, rotate: -180 }}
+          initial={{ x: -100, opacity: 0, rotate: -180 }}
           animate={{ 
-            x: muttonLoaded ? 0 : -400, 
+            x: muttonLoaded ? -20 : -100, // Small 20px gap from card
             opacity: muttonLoaded ? 0.5 : 0,
             rotate: muttonLoaded ? 0 : -180
           }}
@@ -244,7 +262,7 @@ export function DesktopLanding() {
           </motion.div>
         </motion.div>
 
-        {/* User-provided Vector: Chef's Special (Beside Fish Curry) */}
+        {/* User-provided Vector: Chef's Special (Beside Mutton Curry) */}
         <motion.div
           animate={{ 
             x: [0, 8, 0],
@@ -253,12 +271,15 @@ export function DesktopLanding() {
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '60px',
-            left: '480px', // Dramatically moved to the right to completely clear the rim
-            width: '180px', // Further reduced size for boutique look
+            top: '12%',
+            right: '-120px', // Positioned relative to plate, floating towards center
+            width: '180px',
             height: '160px',
             zIndex: 3,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
           <motion.div 
