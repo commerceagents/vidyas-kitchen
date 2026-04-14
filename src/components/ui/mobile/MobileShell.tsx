@@ -28,6 +28,16 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
 
   // Restore session from localStorage
   useEffect(() => {
+    // ?reset=true clears all cached session data (useful for testing)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "true") {
+      localStorage.removeItem("vk_phone");
+      localStorage.removeItem("vk_location");
+      window.history.replaceState({}, "", "/");
+      setStep("login");
+      return;
+    }
+
     const savedPhone = localStorage.getItem("vk_phone");
     const savedLocation = localStorage.getItem("vk_location");
 
