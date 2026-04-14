@@ -341,7 +341,7 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     type: "interactive",
     interactive: {
       type: "product_list",
-      header: { type: "text", text: "🍳" }, // Minimal header
+      header: { type: "text", text: "Menu" }, // Minimal text header
       body: {
         text: "Fresh against-order meals. Browse, add to cart and send your order. We need at least 24 hours notice.",
       },
