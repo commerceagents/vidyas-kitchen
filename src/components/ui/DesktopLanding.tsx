@@ -659,10 +659,10 @@ export function DesktopLanding() {
             display: 'flex',
             gap: '32px'
           }}>
-          {['Terms', 'Privacy', 'Refund Policy'].map((item) => (
+          {['Terms', 'Privacy', 'Refund'].map((item) => (
             <a
               key={item}
-              href={`/${item.toLowerCase().replace(' ', '-')}`}
+              href={`/${item.toLowerCase() === 'refund' ? 'refund-policy' : item.toLowerCase()}`}
               style={{
                 fontSize: '12px',
                 color: 'rgba(255,255,255,0.2)',
