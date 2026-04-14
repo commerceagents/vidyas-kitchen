@@ -325,39 +325,73 @@ async function sendWhatsAppProductList(to: string, items: MenuItem[]) {
     product_items: rows.map((i) => ({ product_retailer_id: getRetailerId(i) })),
   });
 
-  // catalog_message: product_list (type with sections) is blocked for India WABAs without
-  // Meta Commerce capability. catalog_message opens the full connected catalog directly.
-  const catalogPayload = {
+  const sections = [
+    ...(egg.length     ? [toSection("🥚 Egg Dishes",     egg)]     : []),
+    ...(chicken.length ? [toSection("🍗 Chicken Dishes", chicken)] : []),
+    ...(mutton.length  ? [toSection("🐑 Mutton Dishes",  mutton)]  : []),
+  ];
+
+  if (!sections.length) return;
+
+  // product_list: Full English control over order and sections.
+  const payload = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
     type: "interactive",
     interactive: {
-      type: "catalog_message",
+      type: "product_list",
+      header: { type: "text", text: "Vidya's Kitchen Menu" },
       body: {
-        text: "Fresh against-order meals — chicken, mutton & egg.\n\nBrowse our full menu, add items to cart and send us your order. We need at least 24 hours notice.\n\n📍 Sivakasi delivery only",
+        text: "Fresh against-order meals. Browse, add to cart and send your order. We need at least 24 hours notice.",
       },
+      footer: { text: "📍 Sivakasi delivery only" },
       action: {
-        name: "catalog_message",
-        parameters: { thumbnail_product_retailer_id: "chk-sis-gravy" },
+        catalog_id: CATALOG_ID,
+        sections,
       },
     },
   };
 
+  console.log("[WHATSAPP] Sending product_list. catalog_id:", CATALOG_ID);
+
   try {
-    const cmRes = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(catalogPayload),
+      body: JSON.stringify(payload),
     });
-    const cmData = await cmRes.json();
-    logWhatsAppGraphResponse("catalog_message Response", cmData);
-    if (!cmRes.ok || cmData.error) {
-      console.error("[WHATSAPP] catalog_message failed:", JSON.stringify(cmData));
-      await sendWhatsAppList(to, items);
+    const d = await response.json();
+    logWhatsAppGraphResponse("Product list Response", d);
+    
+    if (!response.ok || d.error) {
+      console.error("[WHATSAPP] product_list failed, falling back to catalog_message:", JSON.stringify(d));
+      // Fallback to catalog_message if product_list is still blocked
+      const catalogPayload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "interactive",
+        interactive: {
+          type: "catalog_message",
+          body: { text: "Browse our full menu and add items to cart." },
+          action: {
+            name: "catalog_message",
+            parameters: { thumbnail_product_retailer_id: "chk-sis-gravy" },
+          },
+        },
+      };
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(catalogPayload),
+      });
     }
   } catch (_err) {
     console.error("Meta Catalog Error:", _err);
