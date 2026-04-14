@@ -184,9 +184,9 @@ export function DesktopLanding() {
           style={{
             position: 'absolute',
             top: '25%',
-            left: 'calc(3vw - 150px)', // right edge aligns with inner circle tangent at top:25%
-            width: '150px',
-            height: '130px',
+            left: 'calc(3vw - 190px)', // right edge aligns with inner circle tangent at top:25%
+            width: '190px',
+            height: '165px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -272,9 +272,9 @@ export function DesktopLanding() {
           style={{
             position: 'absolute',
             top: '25%',
-            right: 'calc(3vw - 150px)', // left edge aligns with inner circle tangent at top:25%
-            width: '150px',
-            height: '130px',
+            right: 'calc(3vw - 190px)', // left edge aligns with inner circle tangent at top:25%
+            width: '190px',
+            height: '165px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
