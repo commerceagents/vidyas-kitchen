@@ -150,7 +150,7 @@ export function DesktopLanding() {
             }}
           >
             <Image
-              src="/chicken_curry.png"
+              src="/chicken_curry.webp"
               alt="Authentic Chicken Curry"
               fill
               style={{ objectFit: 'cover' }}
@@ -222,7 +222,7 @@ export function DesktopLanding() {
             }}
           >
             <Image
-              src="/mutton_curry.png"
+              src="/mutton_curry.webp"
               alt="Authentic Mutton Curry"
               fill
               style={{ objectFit: 'cover' }}
