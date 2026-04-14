@@ -163,9 +163,9 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
   }, [activeTab]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "terms", label: "Terms" },
-    { id: "privacy", label: "Privacy" },
-    { id: "refund", label: "Refund" },
+    { id: "terms", label: "Terms of Service" },
+    { id: "privacy", label: "Privacy Policy" },
+    { id: "refund", label: "Refund Policy" },
   ];
 
   return (
