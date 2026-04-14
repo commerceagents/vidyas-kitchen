@@ -171,10 +171,10 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 600,
   },
   greenTick: {
-    width: 30, height: 30, borderRadius: "50%",
+    width: 28, height: 28, borderRadius: "50%",
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, marginRight: 6, marginLeft: -4,
+    flexShrink: 0,
     boxShadow: "0 0 16px rgba(34,197,94,0.5)",
   },
   hint: {
@@ -287,6 +287,8 @@ const D = {
     border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
     borderRadius: 16,
     height: 62,
+    paddingRight: 12,
+    boxSizing: "border-box",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
       ? "0 0 0 3px rgba(34,197,94,0.08)"
