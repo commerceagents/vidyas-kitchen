@@ -119,28 +119,28 @@ export function DesktopLanding() {
       {/* Glowing Blobs Background */}
       <GlowingBlobsBackground />
 
-      {/* Rotating Background Asset (Chicken Curry - RIGHT CENTER) */}
+      {/* Rotating Background Asset (Chicken Curry - RIGHT) */}
       <div style={{ 
         position: 'absolute', 
         top: '50%', 
-        left: 'calc(50% + 220px)', // Positioned exactly at the edge of the 440px card
-        width: 'min(650px, 45vw)', 
-        height: 'min(650px, 45vw)', 
+        right: '-22.5vw',   // always 50% off screen regardless of monitor size
+        width: '45vw', 
+        height: '45vw', 
         transform: 'translateY(-50%)', 
         zIndex: 4 
       }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: 100, opacity: 0, rotate: 180 }}
+          initial={{ x: 150, opacity: 0, rotate: 120 }}
           animate={{ 
-            x: chickenLoaded ? 20 : 100, // Small 20px gap from card
-            opacity: chickenLoaded ? 0.5 : 0,
-            rotate: chickenLoaded ? 0 : 180
+            x: chickenLoaded ? 0 : 150, 
+            opacity: chickenLoaded ? 0.55 : 0,
+            rotate: chickenLoaded ? 0 : 120
           }}
           transition={{ 
-            x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 1.5, ease: "easeOut" },
-            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] }
+            x: { duration: 2.2, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 1.8, ease: "easeOut" },
+            rotate: { duration: 2.2, ease: [0.16, 1, 0.3, 1] }
           }}
           style={{
             width: '100%',
@@ -152,14 +152,14 @@ export function DesktopLanding() {
         >
           <motion.div
             animate={{ rotate: -360 }}
-            transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
             style={{
               width: '100%',
               height: '100%',
               borderRadius: '50%',
               overflow: 'hidden',
               position: 'relative',
-              boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+              boxShadow: '0 0 80px rgba(0,0,0,0.9)',
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)'
             }}
@@ -177,16 +177,16 @@ export function DesktopLanding() {
         {/* User-provided Vector: Homemade Spices (Beside Chicken Curry) */}
         <motion.div
           animate={{ 
-            y: [0, -10, 0],
-            rotate: [-2, 2, -2]
+            y: [0, -15, 0],
+            rotate: [-3, 3, -3]
           }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '15%',
-            left: '-120px', // Positioned relative to plate, floating towards center
-            width: '180px',
-            height: '160px',
+            top: '10%',
+            left: '20px', 
+            width: '200px',
+            height: '180px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -197,38 +197,38 @@ export function DesktopLanding() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.5, duration: 1.5 }}
+            transition={{ delay: 2, duration: 1.5 }}
             style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <HomemadeSpicesVector 
-              style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
+              style={{ width: '100%', height: '100%', opacity: 0.5, mixBlendMode: 'screen' }} 
             />
           </motion.div>
         </motion.div>
       </div>
 
-      {/* Rotating Background Asset (Mutton Curry - LEFT CENTER) */}
+      {/* Rotating Background Asset (Mutton Curry - LEFT) */}
       <div style={{ 
         position: 'absolute', 
         top: '50%', 
-        right: 'calc(50% + 220px)', // Positioned exactly at the edge of the 440px card
-        width: 'min(650px, 45vw)', 
-        height: 'min(650px, 45vw)', 
+        left: '-22.5vw',    // always 50% off screen regardless of monitor size
+        width: '45vw', 
+        height: '45vw', 
         transform: 'translateY(-50%)', 
         zIndex: 4 
       }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
-          initial={{ x: -100, opacity: 0, rotate: -180 }}
+          initial={{ x: -150, opacity: 0, rotate: -120 }}
           animate={{ 
-            x: muttonLoaded ? -20 : -100, // Small 20px gap from card
-            opacity: muttonLoaded ? 0.5 : 0,
-            rotate: muttonLoaded ? 0 : -180
+            x: muttonLoaded ? 0 : -150, 
+            opacity: muttonLoaded ? 0.55 : 0,
+            rotate: muttonLoaded ? 0 : -120
           }}
           transition={{ 
-            x: { duration: 2, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 1.5, ease: "easeOut" },
-            rotate: { duration: 2, ease: [0.16, 1, 0.3, 1] }
+            x: { duration: 2.2, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 1.8, ease: "easeOut" },
+            rotate: { duration: 2.2, ease: [0.16, 1, 0.3, 1] }
           }}
           style={{
             width: '100%',
@@ -240,14 +240,14 @@ export function DesktopLanding() {
         >
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 90, repeat: Infinity, ease: "linear" }}
             style={{
               width: '100%',
               height: '100%',
               borderRadius: '50%',
               overflow: 'hidden',
               position: 'relative',
-              boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+              boxShadow: '0 0 80px rgba(0,0,0,0.9)',
               WebkitTransform: 'translateZ(0)',
               transform: 'translateZ(0)'
             }}
@@ -265,16 +265,16 @@ export function DesktopLanding() {
         {/* User-provided Vector: Chef's Special (Beside Mutton Curry) */}
         <motion.div
           animate={{ 
-            x: [0, 8, 0],
-            rotate: [2, -2, 2]
+            y: [0, 15, 0],
+            rotate: [3, -3, 3]
           }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '12%',
-            right: '-120px', // Positioned relative to plate, floating towards center
-            width: '180px',
-            height: '160px',
+            top: '8%',
+            right: '20px', 
+            width: '200px',
+            height: '180px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -285,11 +285,11 @@ export function DesktopLanding() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.5, duration: 1.5 }}
+            transition={{ delay: 2, duration: 1.5 }}
             style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <ChefSpecialVector 
-              style={{ width: '100%', height: '100%', opacity: 0.6, mixBlendMode: 'screen' }} 
+              style={{ width: '100%', height: '100%', opacity: 0.5, mixBlendMode: 'screen' }} 
             />
           </motion.div>
         </motion.div>
