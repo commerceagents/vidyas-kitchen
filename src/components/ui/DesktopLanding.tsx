@@ -174,19 +174,19 @@ export function DesktopLanding() {
           </motion.div>
         </motion.div>
 
-        {/* User-provided Vector: Homemade Spices (Beside Chicken Curry) */}
+        {/* User-provided Vector: Homemade Spices (touching inner bowl edge, right side) */}
         <motion.div
           animate={{ 
-            y: [0, -15, 0],
+            y: [0, -12, 0],
             rotate: [-3, 3, -3]
           }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '10%',
-            left: '20px', 
-            width: '200px',
-            height: '180px',
+            top: '25%',
+            left: 'calc(3vw - 150px)', // right edge aligns with inner circle tangent at top:25%
+            width: '150px',
+            height: '130px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
@@ -262,19 +262,19 @@ export function DesktopLanding() {
           </motion.div>
         </motion.div>
 
-        {/* User-provided Vector: Chef's Special (Beside Mutton Curry) */}
+        {/* User-provided Vector: Chef's Special (touching inner bowl edge, left side) */}
         <motion.div
           animate={{ 
-            y: [0, 15, 0],
+            y: [0, 14, 0],
             rotate: [3, -3, 3]
           }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           style={{
             position: 'absolute',
-            top: '8%',
-            right: '20px', 
-            width: '200px',
-            height: '180px',
+            top: '25%',
+            right: 'calc(3vw - 150px)', // left edge aligns with inner circle tangent at top:25%
+            width: '150px',
+            height: '130px',
             zIndex: 3,
             pointerEvents: 'none',
             display: 'flex',
