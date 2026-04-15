@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
+import { House, Briefcase } from "@phosphor-icons/react";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -252,6 +253,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     longitude: SIVAKASI_CENTER.lng,
     latitude: SIVAKASI_CENTER.lat,
     zoom: 13,
+    pitch: 58,
+    bearing: -18,
   });
   const [pinCoords, setPinCoords] = useState(SIVAKASI_CENTER);
   const [searchText, setSearchText] = useState("");
@@ -403,11 +406,14 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           mapStyle={MAP_STYLE}
           mapboxAccessToken={MAPBOX_TOKEN}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          maxPitch={75}
+          minPitch={20}
           onClick={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
           onLoad={(e) => {
             try {
               // Set Standard style to night mode
               e.target.setConfigProperty("basemap", "lightPreset", "night");
+              e.target.setConfigProperty("basemap", "show3dObjects", true);
             } catch {}
           }}
           attributionControl={false}
@@ -555,7 +561,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               }}
             >
               <span style={{ color: "#BD2320", fontSize: 14 }}>
-                {addingPlace.label === "Home" ? "🏠" : "💼"}
+                {addingPlace.label === "Home" ? (
+                  <House size={16} weight="duotone" />
+                ) : (
+                  <Briefcase size={16} weight="duotone" />
+                )}
               </span>
               <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>
                 Search or use GPS to set your <span style={{ color: "#BD2320" }}>{addingPlace.label}</span> address
