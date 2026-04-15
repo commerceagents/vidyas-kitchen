@@ -557,42 +557,43 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           >
             {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
             {floatingTip.text}
-            
-            {/* Burst particles – fire outward on exit */}
-            <AnimatePresence>
-              {[0,1,2,3,4,5,6,7].map((i) => {
-                const angle = (i / 8) * 2 * Math.PI;
-                const dist = 30 + (i % 3) * 12;
-                return (
-                  <motion.span
-                    key={`dot-${floatingTip.id}-${i}`}
-                    initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-                    exit={{
-                      opacity: 0,
-                      scale: 0.2,
-                      x: Math.cos(angle) * dist,
-                      y: Math.sin(angle) * dist,
-                    }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: "50%",
-                      width: i % 2 === 0 ? 5 : 3,
-                      height: i % 2 === 0 ? 5 : 3,
-                      borderRadius: "50%",
-                      background:
-                        floatingTip.tone === "warn"
-                          ? "rgba(189,35,32,0.95)"
-                          : floatingTip.tone === "success"
-                          ? "rgba(34,197,94,0.95)"
-                          : "rgba(255,255,255,0.85)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                );
-              })}
-            </AnimatePresence>
+
+            {/* Burst particles – animate outward on mount (reliable, not exit-dependent) */}
+            {[0,1,2,3,4,5,6,7,8,9,11].map((i) => {
+              const angle = (i / 11) * 2 * Math.PI;
+              const dist = 26 + (i % 4) * 10;
+              const color =
+                floatingTip.tone === "warn"
+                  ? "rgba(189,35,32,0.9)"
+                  : floatingTip.tone === "success"
+                  ? "rgba(34,197,94,0.9)"
+                  : "rgba(255,255,255,0.8)";
+              return (
+                <motion.span
+                  key={`dot-${floatingTip.id}-${i}`}
+                  initial={{ opacity: 0.9, scale: 1, x: 0, y: 0 }}
+                  animate={{
+                    opacity: [0.9, 0.7, 0],
+                    scale: [1.2, 0.6, 0.1],
+                    x: [0, Math.cos(angle) * dist * 0.5, Math.cos(angle) * dist],
+                    y: [0, Math.sin(angle) * dist * 0.5, Math.sin(angle) * dist],
+                  }}
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 + (i % 3) * 0.04 }}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    width: i % 3 === 0 ? 5 : i % 3 === 1 ? 4 : 3,
+                    height: i % 3 === 0 ? 5 : i % 3 === 1 ? 4 : 3,
+                    borderRadius: "50%",
+                    background: color,
+                    pointerEvents: "none",
+                    marginLeft: "-2px",
+                    marginTop: "-2px",
+                  }}
+                />
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
