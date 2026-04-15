@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, CSSProperties } from "react";
+import { useState, useRef, useEffect, CSSProperties, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
+import { auth, isFirebaseConfigured } from "@/lib/firebase";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
 const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
@@ -178,13 +178,6 @@ const S: Record<string, CSSProperties> = {
     fontFamily: C.mono,
     fontWeight: 600,
   },
-  greenTick: {
-    width: 26, height: 26, borderRadius: "50%",
-    background: C.green,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
-    boxShadow: "0 0 12px rgba(34,197,94,0.4)",
-  },
   hint: {
     fontSize: 10, color: "rgba(189,35,32,0.7)", marginTop: 8, paddingLeft: 2,
     letterSpacing: "0.04em", textTransform: "lowercase", alignSelf: "flex-start",
@@ -241,7 +234,8 @@ const S: Record<string, CSSProperties> = {
     marginBottom: T.sp4, letterSpacing: "0.02em",
   },
   otpRow: {
-    display: "flex", gap: 12,
+    display: "flex", flexWrap: "wrap" as const,
+    gap: 8,
     justifyContent: "center",
     marginBottom: T.sp3,
   },
@@ -341,16 +335,44 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [showOtp, setShowOtp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalTab>("terms");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const OTP_LEN = 6;
+  const [otp, setOtp] = useState<string[]>(() => Array(6).fill(""));
   const [sendLoading, setSendLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [otpError, setOtpError] = useState(false);
-  const [otpErrorMsg, setOtpErrorMsg] = useState("Incorrect code. Try again.");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [resendEpoch, setResendEpoch] = useState(0);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+
+  const clearRecaptcha = useCallback(() => {
+    try {
+      recaptchaVerifierRef.current?.clear();
+    } catch {
+      /* ignore */
+    }
+    recaptchaVerifierRef.current = null;
+  }, []);
+
+  const getOrCreateRecaptcha = useCallback(() => {
+    if (!auth) throw new Error("Firebase Auth not available");
+    if (recaptchaVerifierRef.current) return recaptchaVerifierRef.current;
+    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, "vk-recaptcha", {
+      size: "invisible",
+      callback: () => {},
+    });
+    return recaptchaVerifierRef.current;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      confirmationRef.current = null;
+      clearRecaptcha();
+    };
+  }, [clearRecaptcha]);
 
   useEffect(() => {
     if (displayName?.trim()) {
@@ -368,70 +390,99 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
   const greetingFirst = formatFirstName(nameTrim.split(/\s+/)[0] || "");
 
-  // Resend countdown
+  // Resend countdown (restarts when sheet opens or user taps Resend)
   useEffect(() => {
     if (!showOtp) return;
-    let t = 30; setResendTimer(30); setCanResend(false);
+    let t = 30;
+    setResendTimer(30);
+    setCanResend(false);
     const iv = setInterval(() => {
-      t--; setResendTimer(t);
-      if (t <= 0) { clearInterval(iv); setCanResend(true); }
+      t--;
+      setResendTimer(t);
+      if (t <= 0) {
+        clearInterval(iv);
+        setCanResend(true);
+      }
     }, 1000);
     return () => clearInterval(iv);
-  }, [showOtp]);
+  }, [showOtp, resendEpoch]);
+
+  const firebaseErrorMessage = (err: unknown): string => {
+    const code = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
+    if (code === "auth/invalid-phone-number") return "Invalid phone number.";
+    if (code === "auth/too-many-requests") return "Too many attempts. Try again later.";
+    if (code === "auth/quota-exceeded") return "SMS quota exceeded. Try again tomorrow.";
+    if (code === "auth/captcha-check-failed") return "Security check failed. Try again.";
+    if (code === "auth/network-request-failed") return "Network error. Check your connection.";
+    return "Could not send code. Try again.";
+  };
+
+  const sendFirebaseOtp = async () => {
+    if (!isFirebaseConfigured || !auth) {
+      throw new Error("Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* env vars.");
+    }
+    const phoneE164 = `+91${rawPhone}`;
+    const verifier = getOrCreateRecaptcha();
+    const confirmation = await signInWithPhoneNumber(auth, phoneE164, verifier);
+    confirmationRef.current = confirmation;
+  };
 
   const handleSend = async () => {
     if (!isValid) return;
+    setSendError(null);
+    if (!isFirebaseConfigured) {
+      setSendError("Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* in your environment.");
+      return;
+    }
     setSendLoading(true);
     try {
-      // Set up invisible reCAPTCHA once, attached to the send button
-      if (!recaptchaRef.current) {
-        recaptchaRef.current = new RecaptchaVerifier(auth, "send-otp-btn", {
-          size: "invisible",
-        });
-      }
-      const result = await signInWithPhoneNumber(auth, `+91${rawPhone}`, recaptchaRef.current);
-      confirmationRef.current = result;
-      setSendLoading(false);
+      await sendFirebaseOtp();
       setShowOtp(true);
       setTimeout(() => otpRefs.current[0]?.focus(), 350);
-    } catch (err: unknown) {
+    } catch (e) {
+      clearRecaptcha();
+      setSendError(firebaseErrorMessage(e));
+    } finally {
       setSendLoading(false);
-      // Reset reCAPTCHA so user can retry
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
-      const code = (err as { code?: string })?.code;
-      if (code === "auth/too-many-requests") {
-        setOtpErrorMsg("Too many attempts. Try again later.");
-      } else if (code === "auth/invalid-phone-number") {
-        setOtpErrorMsg("Invalid phone number.");
-      } else {
-        setOtpErrorMsg("Failed to send OTP. Check your number.");
-      }
-      setOtpError(true);
-      setShowOtp(true); // show sheet to display the error
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError(false);
+    setSendError(null);
+    setOtp(Array(OTP_LEN).fill(""));
+    confirmationRef.current = null;
+    clearRecaptcha();
+    setSendLoading(true);
+    try {
+      await sendFirebaseOtp();
+      setResendEpoch((e) => e + 1);
+    } catch (e) {
+      setSendError(firebaseErrorMessage(e));
+    } finally {
+      setSendLoading(false);
     }
   };
 
   const handleOtpChange = (i: number, val: string) => {
     if (!/^\d*$/.test(val)) return;
     setOtpError(false);
-    setOtpErrorMsg("Incorrect code. Try again.");
-    const n = [...otp]; n[i] = val.slice(-1); setOtp(n);
-    if (val && i < 5) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
-    if (n.every(d => d)) handleVerify(n.join(""));
+    const n = [...otp];
+    n[i] = val.slice(-1);
+    setOtp(n);
+    if (val && i < OTP_LEN - 1) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
+    if (n.every((d) => d)) handleVerify(n.join(""));
   };
 
   const handleVerify = async (code: string) => {
-    if (code.length !== 6) {
+    if (code.length !== OTP_LEN) {
       setOtpError(true);
-      setOtpErrorMsg("Enter the full 6-digit code.");
-      setOtp(["", "", "", "", "", ""]);
+      setOtp(Array(OTP_LEN).fill(""));
       otpRefs.current[0]?.focus();
       return;
     }
     if (!confirmationRef.current) {
       setOtpError(true);
-      setOtpErrorMsg("Session expired. Tap Resend.");
       return;
     }
     setVerifyLoading(true);
@@ -440,15 +491,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       const finalName = displayNameInput.trim() || "Guest";
       localStorage.setItem(LS_DISPLAY_NAME, finalName);
       onVerified(`+91${rawPhone}`, finalName);
-    } catch (err: unknown) {
-      setVerifyLoading(false);
+    } catch {
       setOtpError(true);
-      const errCode = (err as { code?: string })?.code;
-      setOtpErrorMsg(
-        errCode === "auth/code-expired" ? "Code expired. Tap Resend." : "Incorrect code. Try again."
-      );
-      setOtp(["", "", "", "", "", ""]);
-      setTimeout(() => otpRefs.current[0]?.focus(), 80);
+      setOtp(Array(OTP_LEN).fill(""));
+      otpRefs.current[0]?.focus();
+      setVerifyLoading(false);
     }
   };
 
@@ -598,7 +645,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.28 }}
         >
           <motion.button
-            id="send-otp-btn"
             style={{ ...D.primaryBtn(isValid && !sendLoading, 0) }}
             onClick={handleSend}
             disabled={!isValid || sendLoading}
@@ -606,6 +652,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           >
             {sendLoading ? "Sending…" : "Send OTP"}
           </motion.button>
+          {sendError && (
+            <p style={{ color: C.red, fontSize: 11, textAlign: "center", marginTop: T.sp2, fontFamily: C.mono, lineHeight: 1.5 }}>
+              {sendError}
+            </p>
+          )}
         </motion.div>
 
         <div style={S.spacer} />
@@ -634,7 +685,20 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       <AnimatePresence>
         {showOtp && (
           <>
-            <motion.div key="otp-bd" style={S.backdrop} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowOtp(false)} />
+            <motion.div
+              key="otp-bd"
+              style={S.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowOtp(false);
+                confirmationRef.current = null;
+                clearRecaptcha();
+                setOtp(Array(OTP_LEN).fill(""));
+                setOtpError(false);
+              }}
+            />
             <motion.div key="otp-sheet" style={S.otpSheet}
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 34 }}>
@@ -650,7 +714,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 </p>
               </motion.div>
 
-              {/* 4 OTP boxes */}
+              {/* 6-digit OTP (Firebase SMS) */}
               <div style={S.otpRow}>
                 {otp.map((digit, i) => (
                   <motion.input key={i}
@@ -661,9 +725,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                     onKeyDown={e => { if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus(); }}
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + i * 0.06 }}
+                    transition={{ delay: 0.08 + i * 0.04 }}
                     style={{
-                      width: 68, height: 68,
+                      width: 46, height: 56,
                       textAlign: "center", fontSize: 26, fontWeight: 800,
                       color: C.white,
                       background: "rgba(255,255,255,0.05)",
@@ -683,7 +747,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 {otpError && (
                   <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
-                    {otpErrorMsg}
+                    That code didn&apos;t work. Try again.
                   </motion.p>
                 )}
               </AnimatePresence>
@@ -723,9 +787,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
               <div style={{ textAlign: "center", marginTop: T.sp3 }}>
                 {canResend
-                  ? <button onClick={() => { setOtp(["", "", "", "", "", ""]); setOtpError(false); setShowOtp(false); setTimeout(() => handleSend(), 200); }}
-                      style={{ color: C.red, fontSize: 12, background: "none", border: "none", cursor: "pointer", fontFamily: C.mono, fontWeight: 600, letterSpacing: "0.02em" }}>
-                      Resend code
+                  ? <button type="button" disabled={sendLoading} onClick={() => void handleResendOtp()}
+                      style={{ color: C.red, fontSize: 12, background: "none", border: "none", cursor: sendLoading ? "wait" : "pointer", fontFamily: C.mono, fontWeight: 600, letterSpacing: "0.02em", opacity: sendLoading ? 0.5 : 1 }}>
+                      {sendLoading ? "Sending…" : "Resend code"}
                     </button>
                   : <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 11, fontFamily: C.mono }}>
                       Resend in{" "}
@@ -807,6 +871,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web */}
+      <div id="vk-recaptcha" style={{ position: "fixed", left: 0, bottom: 0, width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)" }} aria-hidden />
     </div>
   );
 }
