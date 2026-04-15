@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
 const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
@@ -503,8 +504,21 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     try {
       await confirmationRef.current.confirm(code);
       const finalName = displayNameInput.trim() || "Guest";
+      
+      // Save/Update user in Supabase
+      const phoneE164 = `+91${rawPhone}`;
+      try {
+        await supabase.from("users").upsert(
+          { phone_number: phoneE164, full_name: finalName, role: "customer" },
+          { onConflict: "phone_number" }
+        );
+      } catch (dbErr) {
+        console.error("Supabase Sync Error:", dbErr);
+        // We don't block the user if DB sync fails, they are already authed via Firebase
+      }
+
       localStorage.setItem(LS_DISPLAY_NAME, finalName);
-      onVerified(`+91${rawPhone}`, finalName);
+      onVerified(phoneE164, finalName);
     } catch {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
