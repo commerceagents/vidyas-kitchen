@@ -419,12 +419,15 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
   const firebaseErrorMessage = (err: unknown): string => {
     const code = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
+    const message = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "";
+    
     if (code === "auth/invalid-phone-number") return "Invalid phone number.";
     if (code === "auth/too-many-requests") return "Too many attempts. Try again later.";
     if (code === "auth/quota-exceeded") return "SMS quota exceeded. Try again tomorrow.";
     if (code === "auth/captcha-check-failed") return "Security check failed. Try again.";
     if (code === "auth/network-request-failed") return "Network error. Check your connection.";
-    return "Could not send code. Try again.";
+    
+    return message || "Could not send code. Try again.";
   };
 
   const sendFirebaseOtp = async () => {
