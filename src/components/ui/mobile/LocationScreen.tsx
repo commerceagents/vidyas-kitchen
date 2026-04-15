@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
+import { House, Briefcase, MapPin as MapPinIcon } from "@phosphor-icons/react";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ function OtherIcon() {
 
 function DeleteIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
       <path d="M3 6h18M8 6V4h8v2M9 10v7M15 10v7M6 6l1 14h10l1-14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -297,13 +298,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSavedPlaces(loadSavedPlaces());
   }, []);
 
-  const showTip = useCallback((text: string, tone: TipTone = "info") => {
-    const id = Date.now();
-    setFloatingTip({ text, tone, id });
-    if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
-    tipTimerRef.current = setTimeout(() => setFloatingTip(null), 1800);
-  }, []);
-
   // Keep recenter button just above the drawer edge.
   useEffect(() => {
     const measure = () => {
@@ -317,6 +311,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
+  }, []);
+
+  const showTip = useCallback((text: string, tone: TipTone = "info") => {
+    const id = Date.now();
+    setFloatingTip({ text, tone, id });
+    if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
+    tipTimerRef.current = setTimeout(() => setFloatingTip(null), 1800);
   }, []);
 
   // Geocoding search with debounce
@@ -339,7 +340,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     const shortName = feature.place_name.split(",")[0];
     setSearchText(shortName);
     setSuggestions([]);
-    setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: 15 }));
+    setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: 17 }));
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
     setAddingPlace(null);
@@ -351,7 +352,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        setViewState((v) => ({ ...v, longitude, latitude, zoom: 15 }));
+        setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
         setPinCoords({ lat: latitude, lng: longitude });
         setIsDetecting(false);
         setSelectedSaved(null);
@@ -366,7 +367,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       ...v,
       longitude: pinCoords.lng,
       latitude: pinCoords.lat,
-      zoom: 15,
+      zoom: 17,
     }));
   }, [pinCoords]);
 
@@ -411,7 +412,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     }
     setSelectedSaved(place.id);
     setAddingPlace(null);
-    setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: Math.max(v.zoom, 16) }));
+    setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 17 }));
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
   };
@@ -495,7 +496,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
             style={{
               position: "absolute",
-              top: 84,
+              bottom: sheetHeight + 80,
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 35,
@@ -744,7 +745,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           border: "1px solid rgba(255,255,255,0.07)",
           borderBottom: "none",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
-          padding: "20px 20px 36px",
+          padding: "20px 0 36px",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {/* Drag handle */}
@@ -752,246 +755,251 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           width: 36, height: 4, borderRadius: 2,
           background: "rgba(255,255,255,0.12)",
           margin: "0 auto 20px",
+          flexShrink: 0,
         }} />
 
-        {/* Search bar + suggestions */}
-        <motion.div
-          custom={0}
-          variants={springReveal}
-          initial="hidden"
-          animate="show"
-          style={{ marginBottom: 16, position: "relative" }}
-        >
-          <div
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              background: "rgba(255,255,255,0.05)",
-              border: `1.5px solid ${searchFocused ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.08)"}`,
-              borderRadius: suggestions.length > 0 ? "16px 16px 0 0" : 16,
-              padding: "12px 14px",
-              transition: "border-color 0.2s",
-              boxShadow: searchFocused ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
-            }}
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", scrollbarWidth: "none" }}>
+          {/* Search bar + suggestions */}
+          <motion.div
+            custom={0}
+            variants={springReveal}
+            initial="hidden"
+            animate="show"
+            style={{ marginBottom: 16, position: "relative" }}
           >
-            <span style={{ color: "rgba(255,255,255,0.3)", display: "flex", flexShrink: 0 }}>
-              <SearchIcon />
-            </span>
-            <input
-              type="text"
-              placeholder="Search area, street, landmark..."
-              value={searchText}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 180)}
+            <div
               style={{
-                flex: 1, background: "transparent", border: "none", outline: "none",
-                color: "#fff", fontSize: 14, fontWeight: 500,
-                letterSpacing: "0.01em",
+                display: "flex", alignItems: "center", gap: 10,
+                background: "rgba(255,255,255,0.05)",
+                border: `1.5px solid ${searchFocused ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: suggestions.length > 0 ? "16px 16px 0 0" : 16,
+                padding: "12px 14px",
+                transition: "border-color 0.2s",
+                boxShadow: searchFocused ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
               }}
-            />
-            <AnimatePresence>
-              {searchText.length > 0 && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.7 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.7 }}
-                  onClick={() => { setSearchText(""); setSuggestions([]); }}
-                  style={{
-                    background: "rgba(255,255,255,0.08)", border: "none",
-                    borderRadius: 8, width: 22, height: 22,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 14,
-                    flexShrink: 0,
-                  }}
-                >
-                  ×
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Geocoding suggestions dropdown */}
-          <AnimatePresence>
-            {suggestions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+            >
+              <span style={{ color: "rgba(255,255,255,0.3)", display: "flex", flexShrink: 0 }}>
+                <SearchIcon />
+              </span>
+              <input
+                type="text"
+                placeholder="Search area, street, landmark..."
+                value={searchText}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 180)}
                 style={{
-                  background: "rgba(18,18,18,0.98)",
-                  border: "1.5px solid rgba(189,35,32,0.25)",
-                  borderTop: "none",
-                  borderRadius: "0 0 16px 16px",
-                  overflow: "hidden",
+                  flex: 1, background: "transparent", border: "none", outline: "none",
+                  color: "#fff", fontSize: 14, fontWeight: 500,
+                  letterSpacing: "0.01em",
                 }}
-              >
-                {suggestions.map((f, i) => (
-                  <button
-                    key={i}
-                    onMouseDown={() => handleSuggestionSelect(f)}
+              />
+              <AnimatePresence>
+                {searchText.length > 0 && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    onClick={() => { setSearchText(""); setSuggestions([]); }}
                     style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      width: "100%", background: "none", border: "none",
-                      borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                      padding: "11px 14px",
-                      cursor: "pointer",
-                      textAlign: "left",
+                      background: "rgba(255,255,255,0.08)", border: "none",
+                      borderRadius: 10, width: 26, height: 26,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 18,
+                      flexShrink: 0,
                     }}
                   >
-                    <span style={{ color: "rgba(189,35,32,0.6)", flexShrink: 0, display: "flex" }}>
-                      <PinIcon color="#BD2320" />
-                    </span>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 600 }}>
-                        {f.place_name.split(",")[0]}
-                      </p>
-                      <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {f.place_name.split(",").slice(1).join(",").trim()}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+                    ×
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
 
-        {/* Saved places row */}
-        <motion.div
-          custom={1}
-          variants={springReveal}
-          initial="hidden"
-          animate="show"
-          style={{ marginBottom: 20 }}
-        >
-          <p style={{
-            margin: "0 0 10px", fontSize: 10,
-            color: "rgba(255,255,255,0.35)",
-            letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700,
-          }}>
-            Saved Places
-          </p>
-          <div style={{ display: "flex", gap: 10 }}>
-            {savedPlaces.map((place, i) => {
-              const isSelected = selectedSaved === place.id;
-              const isAdding = addingPlace?.id === place.id;
-              const isUnset = place.lat === 0;
-              return (
-                <motion.button
-                  key={place.id}
-                  custom={i + 1}
-                  variants={springReveal}
-                  initial="hidden"
-                  animate="show"
-                  whileTap={{ scale: 0.94 }}
-                  onClick={() => handleSavedSelect(place)}
+            {/* Geocoding suggestions dropdown */}
+            <AnimatePresence>
+              {suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
                   style={{
-                    flex: 1,
-                    background: isAdding
-                      ? "rgba(189,35,32,0.1)"
-                      : isSelected
-                      ? "rgba(189,35,32,0.12)"
-                      : "rgba(255,255,255,0.04)",
-                    border: `1.5px solid ${isAdding ? "rgba(189,35,32,0.5)" : isSelected ? "rgba(189,35,32,0.4)" : "rgba(255,255,255,0.07)"}`,
-                    borderRadius: 14,
-                    padding: "10px 12px",
-                    cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 8,
-                    textAlign: "left",
-                    transition: "all 0.2s",
+                    background: "rgba(18,18,18,0.98)",
+                    border: "1.5px solid rgba(189,35,32,0.25)",
+                    borderTop: "none",
+                    borderRadius: "0 0 16px 16px",
+                    overflow: "hidden",
                   }}
                 >
-                  <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
-                    {place.label === "Home" ? <HomeIcon /> : place.label === "Work" ? <WorkIcon /> : <OtherIcon />}
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
-                      {place.label}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 10, color: isUnset ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {isUnset ? "Tap to set" : place.address}
-                    </p>
-                  </div>
-                  {!isUnset && (
+                  {suggestions.map((f, i) => (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePlace(place);
-                      }}
+                      key={i}
+                      onMouseDown={() => handleSuggestionSelect(f)}
                       style={{
-                        marginLeft: "auto",
-                        width: 22,
-                        height: 22,
-                        borderRadius: 7,
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "rgba(255,255,255,0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        display: "flex", alignItems: "center", gap: 10,
+                        width: "100%", background: "none", border: "none",
+                        borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                        padding: "11px 14px",
                         cursor: "pointer",
-                        flexShrink: 0,
+                        textAlign: "left",
                       }}
-                      aria-label={`Delete ${place.label} address`}
                     >
-                      <DeleteIcon />
+                      <span style={{ color: "rgba(189,35,32,0.6)", flexShrink: 0, display: "flex" }}>
+                        <PinIcon color="#BD2320" />
+                      </span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 600 }}>
+                          {f.place_name.split(",")[0]}
+                        </p>
+                        <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {f.place_name.split(",").slice(1).join(",").trim()}
+                        </p>
+                      </div>
                     </button>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
-        {/* Use current location row */}
-        <motion.button
-          custom={3}
-          variants={springReveal}
-          initial="hidden"
-          animate="show"
-          whileTap={{ scale: 0.97 }}
-          onClick={handleGPS}
-          style={{
-            width: "100%",
-            background: "rgba(255,255,255,0.04)",
-            border: "1.5px solid rgba(255,255,255,0.07)",
-            borderRadius: 14,
-            padding: "12px 14px",
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 12,
-            marginBottom: 14,
-          }}
-        >
-          <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: "rgba(189,35,32,0.1)",
-            border: "1px solid rgba(189,35,32,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <motion.span
-              animate={isDetecting ? { rotate: 360 } : { rotate: 0 }}
-              transition={{ duration: 1, repeat: isDetecting ? Infinity : 0, ease: "linear" }}
-              style={{ color: "#BD2320", display: "flex" }}
-            >
-              <GPSIcon />
-            </motion.span>
-          </div>
-          <div style={{ flex: 1, textAlign: "left" }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>
-              {isDetecting ? "Detecting location…" : "Use current location"}
+          {/* Saved places row */}
+          <motion.div
+            custom={1}
+            variants={springReveal}
+            initial="hidden"
+            animate="show"
+            style={{ marginBottom: 20 }}
+          >
+            <p style={{
+              margin: "0 0 10px", fontSize: 10,
+              color: "rgba(255,255,255,0.35)",
+              letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700,
+            }}>
+              Saved Places
             </p>
-            <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Detect via GPS</p>
-          </div>
-          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 18 }}>›</span>
-        </motion.button>
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
+              {savedPlaces.map((place, i) => {
+                const isSelected = selectedSaved === place.id;
+                const isAdding = addingPlace?.id === place.id;
+                const isUnset = place.lat === 0;
+                return (
+                  <motion.button
+                    key={place.id}
+                    custom={i + 1}
+                    variants={springReveal}
+                    initial="hidden"
+                    animate="show"
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => handleSavedSelect(place)}
+                    style={{
+                      flex: "0 0 160px",
+                      background: isAdding
+                        ? "rgba(189,35,32,0.1)"
+                        : isSelected
+                        ? "rgba(189,35,32,0.12)"
+                        : "rgba(255,255,255,0.04)",
+                      border: `1.5px solid ${isAdding ? "rgba(189,35,32,0.5)" : isSelected ? "rgba(189,35,32,0.4)" : "rgba(255,255,255,0.07)"}`,
+                      borderRadius: 14,
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 8,
+                      textAlign: "left",
+                      transition: "all 0.2s",
+                      position: "relative",
+                    }}
+                  >
+                    <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
+                      {place.label === "Home" ? <House size={18} weight="duotone" /> : place.label === "Work" ? <Briefcase size={18} weight="duotone" /> : <MapPinIcon size={18} weight="duotone" />}
+                    </span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
+                        {place.label}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 10, color: isUnset ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {isUnset ? "Tap to set" : place.address}
+                      </p>
+                    </div>
+                    {!isUnset && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePlace(place);
+                        }}
+                        style={{
+                          marginLeft: 4,
+                          width: 28,
+                          height: 28,
+                          borderRadius: 9,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "rgba(255,255,255,0.5)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                        aria-label={`Delete ${place.label} address`}
+                      >
+                        <DeleteIcon />
+                      </button>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
 
-        {/* Confirm / Save CTA */}
+          {/* Use current location row */}
+          <motion.button
+            custom={3}
+            variants={springReveal}
+            initial="hidden"
+            animate="show"
+            whileTap={{ scale: 0.97 }}
+            onClick={handleGPS}
+            style={{
+              width: "100%",
+              background: "rgba(255,255,255,0.04)",
+              border: "1.5px solid rgba(255,255,255,0.07)",
+              borderRadius: 14,
+              padding: "12px 14px",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: 10,
+              background: "rgba(189,35,32,0.1)",
+              border: "1px solid rgba(189,35,32,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <motion.span
+                animate={isDetecting ? { rotate: 360 } : { rotate: 0 }}
+                transition={{ duration: 1, repeat: isDetecting ? Infinity : 0, ease: "linear" }}
+                style={{ color: "#BD2320", display: "flex" }}
+              >
+                <GPSIcon />
+              </motion.span>
+            </div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>
+                {isDetecting ? "Detecting location…" : "Use current location"}
+              </p>
+              <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Detect via GPS</p>
+            </div>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 18 }}>›</span>
+          </motion.button>
+        </div>
+
+        {/* Confirm / Save CTA (Fixed at bottom) */}
         <motion.div
           custom={4}
           variants={springReveal}
           initial="hidden"
           animate="show"
+          style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.04)" }}
         >
           {addingPlace ? (
             <motion.button
