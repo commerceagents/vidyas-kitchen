@@ -35,7 +35,7 @@ type TipTone = "info" | "warn" | "success";
 const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
 const MAX_DISTANCE_KM = 15;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/navigation-night-v1";
+const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
 const LS_SAVED_PLACES = "vk_saved_places";
 
 const DEFAULT_PLACES: SavedPlace[] = [
@@ -541,10 +541,22 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     type: "fill-extrusion",
                     minzoom: 14,
                     paint: {
-                      "fill-extrusion-color": "#17243A",
+                      "fill-extrusion-color": [
+                        "interpolate",
+                        ["linear"],
+                        ["get", "height"],
+                        0,
+                        "#121212",
+                        60,
+                        "#1a1214",
+                        140,
+                        "#231416",
+                        280,
+                        "#2e1719",
+                      ],
                       "fill-extrusion-height": ["get", "height"],
                       "fill-extrusion-base": ["get", "min_height"],
-                      "fill-extrusion-opacity": 0.82,
+                      "fill-extrusion-opacity": 0.95,
                     },
                   },
                   labelLayer?.id
@@ -574,6 +586,18 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           </div>
         </FallbackMap>
       )}
+
+      {/* Red-black tint over map for brand tone */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 4,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(circle at 50% 42%, rgba(189,35,32,0.08) 0%, rgba(0,0,0,0) 48%), linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.48) 100%)",
+        }}
+      />
 
       {/* Map bottom fade — blends map into sheet */}
       <div style={{
