@@ -332,6 +332,19 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     }, 350);
   }, []);
 
+  const resolveAddress = useCallback(async (lat: number, lng: number) => {
+    if (!MAPBOX_TOKEN) return "Pinned location";
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi,place,neighborhood&limit=1`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const feature = data?.features?.[0];
+      return feature?.place_name?.trim() || "Pinned location";
+    } catch {
+      return "Pinned location";
+    }
+  }, []);
+
   const handleSuggestionSelect = (feature: GeoFeature) => {
     const [lng, lat] = feature.center;
     const shortName = feature.place_name.split(",")[0];
@@ -343,21 +356,25 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setAddingPlace(null);
   };
 
-  const handleGPS = useCallback(() => {
+  const handleGPS = useCallback(async () => {
     setIsDetecting(true);
     if (!navigator.geolocation) { setIsDetecting(false); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude } = pos.coords;
         setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
         setPinCoords({ lat: latitude, lng: longitude });
-        setIsDetecting(false);
         setSelectedSaved(null);
+        setAddingPlace(null);
+        setSearchText("Locating address...");
+        const addr = await resolveAddress(latitude, longitude);
+        setSearchText(addr);
+        setIsDetecting(false);
       },
       () => setIsDetecting(false),
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }, []);
+  }, [resolveAddress]);
 
   const handleRecenter = useCallback(() => {
     setViewState((v) => ({
@@ -374,23 +391,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setAddingPlace(null);
     setSuggestions([]);
     setSearchText("Locating address...");
-
-    if (!MAPBOX_TOKEN) {
-      setSearchText("Pinned location");
-      return;
-    }
-
-    try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi,place&limit=1`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const feature = data?.features?.[0];
-      const resolved = feature?.place_name?.trim();
-      setSearchText(resolved || "Pinned location");
-    } catch {
-      setSearchText("Pinned location");
-    }
-  }, []);
+    const addr = await resolveAddress(lat, lng);
+    setSearchText(addr);
+  }, [resolveAddress]);
 
   const handleSavedSelect = (place: SavedPlace) => {
     if (place.lat === 0) {
