@@ -627,7 +627,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               type="tel" inputMode="numeric" maxLength={11}
               className="vk-login-input"
               value={formatDisplay(rawPhone)}
-              placeholder="98765 43210"
+              placeholder="Enter your number"
               onChange={e => {
                 const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                 setRawPhone(digits);
