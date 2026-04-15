@@ -261,12 +261,29 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_PLACES);
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(320);
   const mapRef = useRef<{ getMap: () => mapboxgl.Map } | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load saved places from localStorage on mount
   useEffect(() => {
     setSavedPlaces(loadSavedPlaces());
+  }, []);
+
+  // Keep recenter button just above the drawer edge.
+  useEffect(() => {
+    const measure = () => {
+      if (sheetRef.current) setSheetHeight(sheetRef.current.offsetHeight);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (sheetRef.current) observer.observe(sheetRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   // Geocoding search with debounce
@@ -319,6 +336,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       zoom: 15,
     }));
   }, [pinCoords]);
+
+  const handleMapPinSet = useCallback((lat: number, lng: number) => {
+    setPinCoords({ lat, lng });
+    setSelectedSaved(null);
+    if (!searchText.trim()) setSearchText("Pinned location");
+  }, [searchText]);
 
   const handleSavedSelect = (place: SavedPlace) => {
     if (place.lat === 0) {
@@ -380,6 +403,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           mapStyle={MAP_STYLE}
           mapboxAccessToken={MAPBOX_TOKEN}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          onClick={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
           onLoad={(e) => {
             try {
               // Set Standard style to night mode
@@ -388,7 +412,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           }}
           attributionControl={false}
         >
-          <Marker longitude={pinCoords.lng} latitude={pinCoords.lat} anchor="bottom">
+          <Marker
+            longitude={pinCoords.lng}
+            latitude={pinCoords.lat}
+            anchor="bottom"
+            draggable
+            onDragEnd={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
+          >
             <MapPin />
           </Marker>
         </Map>
@@ -465,7 +495,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         style={{
           position: "absolute",
           right: 18,
-          bottom: 330,
+          bottom: sheetHeight + 14,
           zIndex: 25,
           background: "rgba(14,14,14,0.85)",
           backdropFilter: "blur(16px)",
@@ -484,6 +514,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
       {/* ── BOTTOM GLASS SHEET ── */}
       <motion.div
+        ref={sheetRef}
         variants={sheetReveal}
         initial="hidden"
         animate="show"
