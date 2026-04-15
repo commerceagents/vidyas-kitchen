@@ -380,12 +380,23 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, [resolveAddress]);
 
   const handleRecenter = useCallback(() => {
-    setViewState((v) => ({
-      ...v,
-      longitude: pinCoords.lng,
-      latitude: pinCoords.lat,
-      zoom: 17,
-    }));
+    const map = mapRef.current?.getMap();
+    if (map) {
+      map.flyTo({
+        center: [pinCoords.lng, pinCoords.lat],
+        zoom: 17,
+        speed: 1.4,
+        curve: 1,
+        easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out cubic — fast then settles
+      });
+    } else {
+      setViewState((v) => ({
+        ...v,
+        longitude: pinCoords.lng,
+        latitude: pinCoords.lat,
+        zoom: 17,
+      }));
+    }
   }, [pinCoords]);
 
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
