@@ -41,6 +41,7 @@ const LS_SAVED_PLACES = "vk_saved_places";
 const DEFAULT_PLACES: SavedPlace[] = [
   { id: "home", label: "Home", address: "Add home address", lat: 0, lng: 0 },
   { id: "work", label: "Work", address: "Add work address", lat: 0, lng: 0 },
+  { id: "other", label: "Other", address: "Add other address", lat: 0, lng: 0 },
 ];
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -59,7 +60,10 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 function loadSavedPlaces(): SavedPlace[] {
   try {
     const raw = localStorage.getItem(LS_SAVED_PLACES);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as SavedPlace[];
+      return DEFAULT_PLACES.map((base) => parsed.find((p) => p.id === base.id) || base);
+    }
   } catch {}
   return DEFAULT_PLACES;
 }
@@ -117,6 +121,23 @@ function WorkIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
       <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function OtherIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 21s7-7.75 7-13a7 7 0 10-14 0c0 5.25 7 13 7 13z" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="8.5" r="2.3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path d="M3 6h18M8 6V4h8v2M9 10v7M15 10v7M6 6l1 14h10l1-14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -402,6 +423,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       return;
     }
     const label = searchText.trim() || "Saved location";
+    const duplicate = savedPlaces.find((p) => {
+      if (p.id === addingPlace.id || p.lat === 0) return false;
+      const sameAddress = p.address.trim().toLowerCase() === label.toLowerCase();
+      const nearSamePoint = getDistanceKm(p.lat, p.lng, pinCoords.lat, pinCoords.lng) < 0.05;
+      return sameAddress || nearSamePoint;
+    });
+    if (duplicate) {
+      showTip(`Already saved as ${duplicate.label}. Choose another address`, "warn");
+      return;
+    }
     const updated = savedPlaces.map((p) =>
       p.id === addingPlace.id
         ? { ...p, address: label, lat: pinCoords.lat, lng: pinCoords.lng }
@@ -412,6 +443,24 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSelectedSaved(addingPlace.id);
     showTip(`${addingPlace.label} saved`, "success");
     setAddingPlace(null);
+  };
+
+  const handleDeletePlace = (place: SavedPlace) => {
+    const resetAddress =
+      place.id === "home"
+        ? "Add home address"
+        : place.id === "work"
+        ? "Add work address"
+        : "Add other address";
+    const updated = savedPlaces.map((p) =>
+      p.id === place.id ? { ...p, address: resetAddress, lat: 0, lng: 0 } : p
+    );
+    setSavedPlaces(updated);
+    savePlaces(updated);
+    if (selectedSaved === place.id) setSelectedSaved(null);
+    if (addingPlace?.id === place.id) setAddingPlace(null);
+    if (searchText === place.address) setSearchText("");
+    showTip(`${place.label} removed`, "info");
   };
 
   const handleConfirm = () => {
@@ -853,7 +902,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   }}
                 >
                   <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
-                    {place.label === "Home" ? <HomeIcon /> : <WorkIcon />}
+                    {place.label === "Home" ? <HomeIcon /> : place.label === "Work" ? <WorkIcon /> : <OtherIcon />}
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
@@ -863,31 +912,34 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                       {isUnset ? "Tap to set" : place.address}
                     </p>
                   </div>
+                  {!isUnset && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePlace(place);
+                      }}
+                      style={{
+                        marginLeft: "auto",
+                        width: 22,
+                        height: 22,
+                        borderRadius: 7,
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        background: "rgba(255,255,255,0.04)",
+                        color: "rgba(255,255,255,0.45)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                      aria-label={`Delete ${place.label} address`}
+                    >
+                      <DeleteIcon />
+                    </button>
+                  )}
                 </motion.button>
               );
             })}
-
-            {/* "+" spot */}
-            <motion.button
-              custom={3}
-              variants={springReveal}
-              initial="hidden"
-              animate="show"
-              whileTap={{ scale: 0.94 }}
-              style={{
-                width: 52,
-                background: "rgba(255,255,255,0.04)",
-                border: "1.5px solid rgba(255,255,255,0.07)",
-                borderRadius: 14,
-                cursor: "pointer",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
-                color: "rgba(255,255,255,0.3)",
-                padding: "10px 8px",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>+</span>
-              <span style={{ fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>Other</span>
-            </motion.button>
           </div>
         </motion.div>
 
