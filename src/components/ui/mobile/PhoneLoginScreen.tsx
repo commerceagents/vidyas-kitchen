@@ -177,11 +177,12 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 600,
   },
   greenTick: {
-    width: 28, height: 28, borderRadius: "50%",
+    width: 26, height: 26, borderRadius: "50%",
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
     flexShrink: 0,
-    boxShadow: "0 0 16px rgba(34,197,94,0.5)",
+    marginRight: 2,
+    boxShadow: "0 0 12px rgba(34,197,94,0.4)",
   },
   hint: {
     fontSize: 10, color: "rgba(189,35,32,0.7)", marginTop: 8, paddingLeft: 2,
@@ -418,7 +419,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           initial={{ opacity: 0, scale: 0.8, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 340, damping: 26 }}
-          style={{ marginBottom: T.sp5, position: "relative", width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ marginBottom: T.sp5, position: "relative", width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", overflow: "visible" }}
         >
           {[0, 1, 2].map((i) => (
             <motion.div
@@ -426,21 +427,21 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               aria-hidden
               style={{
                 position: "absolute",
-                width: 96 + i * 18,
-                height: 96 + i * 18,
+                width: 96,
+                height: 96,
                 borderRadius: "50%",
-                border: "1px solid rgba(189,35,32,0.35)",
+                border: "1px solid rgba(189,35,32,0.45)",
                 pointerEvents: "none",
               }}
               animate={{
-                scale: [1, 1.12, 1],
-                opacity: [0.45 - i * 0.1, 0.08, 0.45 - i * 0.1],
+                scale: [1, 9],
+                opacity: [0.22 - i * 0.04, 0],
               }}
               transition={{
-                duration: 5 + i * 0.7,
+                duration: 3.8,
                 repeat: Infinity,
-                ease: "easeInOut",
-                delay: i * 0.6,
+                ease: "easeOut",
+                delay: i * 1.25,
               }}
             />
           ))}
