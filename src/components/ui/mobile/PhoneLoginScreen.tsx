@@ -555,7 +555,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                   initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.4 }}
                   transition={{ type: "spring" as const, stiffness: 320, damping: 22 }}
-                  style={{ display: "flex", alignItems: "center" }}
+                  style={{ display: "flex", alignItems: "center", paddingRight: 3 }}
                 >
                   <div style={S.greenTick}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
