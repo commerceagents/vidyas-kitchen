@@ -910,11 +910,19 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
                       {place.label === "Home" ? <House size={18} weight="duotone" /> : place.label === "Work" ? <Briefcase size={18} weight="duotone" /> : <MapPinIcon size={18} weight="duotone" />}
                     </span>
-                    <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                       <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
                         {place.label}
                       </p>
-                      <p style={{ margin: 0, fontSize: 10, color: isUnset ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <p style={{ 
+                        margin: 0, 
+                        fontSize: 10, 
+                        color: isUnset ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.3)", 
+                        overflow: "hidden", 
+                        textOverflow: "ellipsis", 
+                        whiteSpace: "nowrap",
+                        width: "100%"
+                      }}>
                         {isUnset ? "Tap to set" : place.address}
                       </p>
                     </div>
