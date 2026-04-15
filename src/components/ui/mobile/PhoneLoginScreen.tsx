@@ -450,6 +450,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       setShowOtp(true);
       setTimeout(() => otpRefs.current[0]?.focus(), 350);
     } catch (e) {
+      console.error("Firebase Send Error:", e);
       clearRecaptcha();
       setSendError(firebaseErrorMessage(e));
     } finally {
@@ -883,7 +884,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       </AnimatePresence>
 
       {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web */}
-      <div id="vk-recaptcha" style={{ position: "fixed", left: 0, bottom: 0, width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)" }} aria-hidden />
+      <div id="vk-recaptcha" style={{ position: "fixed", left: 0, bottom: 0, width: 1, height: 1, opacity: 0.01, pointerEvents: "none" }} />
     </div>
   );
 }
