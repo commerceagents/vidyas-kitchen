@@ -497,35 +497,39 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8, y: -10 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            style={{
-              position: "absolute",
-              bottom: sheetHeight + 24,
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 35,
-              padding: "8px 16px",
-              borderRadius: 20,
-              background: "rgba(14,14,14,0.92)",
-              backdropFilter: "blur(12px)",
-              border: `1px solid ${
-                floatingTip.tone === "warn"
-                  ? "rgba(189,35,32,0.4)"
-                  : floatingTip.tone === "success"
-                  ? "rgba(34,197,94,0.4)"
-                  : "rgba(255,255,255,0.15)"
-              }`,
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              textAlign: "center",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-              pointerEvents: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              whiteSpace: "nowrap",
-            }}
+              style={{
+                position: "absolute",
+                bottom: sheetHeight + 24,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 9999,
+                padding: "10px 20px",
+                borderRadius: 24,
+                background: "rgba(20,20,20,0.95)",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                border: `1px solid ${
+                  floatingTip.tone === "warn"
+                    ? "rgba(189,35,32,0.6)"
+                    : floatingTip.tone === "success"
+                    ? "rgba(34,197,94,0.6)"
+                    : "rgba(255,255,255,0.2)"
+                }`,
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: "0.01em",
+                textAlign: "center",
+                boxShadow: "0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset",
+                pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                whiteSpace: "nowrap",
+                width: "max-content",
+                minWidth: "200px",
+              }}
           >
             {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
             {floatingTip.text}
