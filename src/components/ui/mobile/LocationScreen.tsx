@@ -314,10 +314,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, []);
 
   const showTip = useCallback((text: string, tone: TipTone = "info") => {
-    const id = Date.now();
-    setFloatingTip({ text, tone, id });
-    if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
-    tipTimerRef.current = setTimeout(() => setFloatingTip(null), 1800);
+    // Tooltip removed as requested
   }, []);
 
   // Geocoding search with debounce
@@ -485,77 +482,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", overflow: "hidden" }}>
-      {/* Floating status tooltip (outside drawer) */}
+      {/* Floating status tooltip removed */}
       <AnimatePresence>
-        {floatingTip && (
-          <motion.div
-            key={floatingTip.id}
-            initial={{ opacity: 0, y: -14, scale: 0.88 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 360, damping: 28 }}
-            style={{
-              position: "absolute",
-              bottom: sheetHeight + 80,
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 35,
-              minWidth: 220,
-              maxWidth: "88vw",
-              padding: "10px 14px",
-              borderRadius: 12,
-              background:
-                floatingTip.tone === "warn"
-                  ? "rgba(40,16,16,0.92)"
-                  : floatingTip.tone === "success"
-                  ? "rgba(16,40,24,0.92)"
-                  : "rgba(15,15,20,0.92)",
-              border:
-                floatingTip.tone === "warn"
-                  ? "1px solid rgba(189,35,32,0.45)"
-                  : floatingTip.tone === "success"
-                  ? "1px solid rgba(34,197,94,0.45)"
-                  : "1px solid rgba(120,140,255,0.35)",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              textAlign: "center",
-              backdropFilter: "blur(10px)",
-              boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
-              pointerEvents: "none",
-            }}
-          >
-            {floatingTip.text}
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <motion.span
-                key={i}
-                initial={{ opacity: 0.7, x: 0, y: 0, scale: 0.5 }}
-                animate={{
-                  opacity: [0.7, 0],
-                  x: [0, (i - 2.5) * 8],
-                  y: [0, i % 2 === 0 ? -12 : 12],
-                  scale: [0.5, 1.2],
-                }}
-                transition={{ duration: 0.8, delay: 0.05 * i, ease: "easeOut" }}
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  width: 4,
-                  height: 4,
-                  borderRadius: "50%",
-                  background:
-                    floatingTip.tone === "warn"
-                      ? "rgba(189,35,32,0.8)"
-                      : floatingTip.tone === "success"
-                      ? "rgba(34,197,94,0.8)"
-                      : "rgba(120,140,255,0.8)",
-                }}
-              />
-            ))}
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* ── FULL SCREEN MAP ── */}
