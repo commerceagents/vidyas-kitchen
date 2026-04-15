@@ -35,7 +35,7 @@ interface LocationScreenProps {
 const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
 const MAX_DISTANCE_KM = 15;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/standard";
+const MAP_STYLE = "mapbox://styles/mapbox/navigation-night-v1";
 const LS_SAVED_PLACES = "vk_saved_places";
 
 const DEFAULT_PLACES: SavedPlace[] = [
@@ -340,11 +340,29 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     }));
   }, [pinCoords]);
 
-  const handleMapPinSet = useCallback((lat: number, lng: number) => {
+  const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
-    if (!searchText.trim()) setSearchText("Pinned location");
-  }, [searchText]);
+    setAddingPlace(null);
+    setSuggestions([]);
+    setSearchText("Locating address...");
+
+    if (!MAPBOX_TOKEN) {
+      setSearchText("Pinned location");
+      return;
+    }
+
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi,place&limit=1`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const feature = data?.features?.[0];
+      const resolved = feature?.place_name?.trim();
+      setSearchText(resolved || "Pinned location");
+    } catch {
+      setSearchText("Pinned location");
+    }
+  }, []);
 
   const handleSavedSelect = (place: SavedPlace) => {
     if (place.lat === 0) {
@@ -411,9 +429,34 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           onClick={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
           onLoad={(e) => {
             try {
-              // Set Standard style to night mode
-              e.target.setConfigProperty("basemap", "lightPreset", "night");
-              e.target.setConfigProperty("basemap", "show3dObjects", true);
+              const map = e.target;
+              const style = map.getStyle();
+              const layers = style.layers || [];
+              const labelLayer = layers.find(
+                (layer) =>
+                  layer.type === "symbol" &&
+                  typeof (layer as { layout?: { "text-field"?: unknown } }).layout?.["text-field"] !== "undefined"
+              );
+
+              if (!map.getLayer("vk-3d-buildings")) {
+                map.addLayer(
+                  {
+                    id: "vk-3d-buildings",
+                    source: "composite",
+                    "source-layer": "building",
+                    filter: ["==", "extrude", "true"],
+                    type: "fill-extrusion",
+                    minzoom: 14,
+                    paint: {
+                      "fill-extrusion-color": "#17243A",
+                      "fill-extrusion-height": ["get", "height"],
+                      "fill-extrusion-base": ["get", "min_height"],
+                      "fill-extrusion-opacity": 0.82,
+                    },
+                  },
+                  labelLayer?.id
+                );
+              }
             } catch {}
           }}
           attributionControl={false}
