@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
-import { House, Briefcase } from "@phosphor-icons/react";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -30,6 +29,7 @@ interface GeoFeature {
 interface LocationScreenProps {
   onLocationSet: (loc: LocationData) => void;
 }
+type TipTone = "info" | "warn" | "success";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
@@ -264,14 +264,23 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_PLACES);
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
+  const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState(320);
   const mapRef = useRef<{ getMap: () => mapboxgl.Map } | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load saved places from localStorage on mount
   useEffect(() => {
     setSavedPlaces(loadSavedPlaces());
+  }, []);
+
+  const showTip = useCallback((text: string, tone: TipTone = "info") => {
+    const id = Date.now();
+    setFloatingTip({ text, tone, id });
+    if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
+    tipTimerRef.current = setTimeout(() => setFloatingTip(null), 1800);
   }, []);
 
   // Keep recenter button just above the drawer edge.
@@ -367,20 +376,31 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const handleSavedSelect = (place: SavedPlace) => {
     if (place.lat === 0) {
       // Enter "add address" mode for this place
+      setSelectedSaved(null);
       setAddingPlace(place);
-      setSearchText("");
       setSuggestions([]);
+      showTip(`Set pin position, then save as ${place.label}`, "warn");
+      return;
+    }
+    if (selectedSaved === place.id) {
+      setSelectedSaved(null);
+      setAddingPlace(null);
+      showTip(`${place.label} deselected`, "info");
       return;
     }
     setSelectedSaved(place.id);
     setAddingPlace(null);
-    setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 15 }));
+    setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: Math.max(v.zoom, 16) }));
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
   };
 
   const handleSavePlace = () => {
     if (!addingPlace) return;
+    if (!searchText.trim() || searchText === "Locating address...") {
+      showTip("Wait for address or search one before saving", "warn");
+      return;
+    }
     const label = searchText.trim() || "Saved location";
     const updated = savedPlaces.map((p) =>
       p.id === addingPlace.id
@@ -390,6 +410,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSavedPlaces(updated);
     savePlaces(updated);
     setSelectedSaved(addingPlace.id);
+    showTip(`${addingPlace.label} saved`, "success");
     setAddingPlace(null);
   };
 
@@ -414,6 +435,78 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", overflow: "hidden" }}>
+      {/* Floating status tooltip (outside drawer) */}
+      <AnimatePresence>
+        {floatingTip && (
+          <motion.div
+            key={floatingTip.id}
+            initial={{ opacity: 0, y: -14, scale: 0.88 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.92 }}
+            transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            style={{
+              position: "absolute",
+              top: 84,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 35,
+              minWidth: 220,
+              maxWidth: "88vw",
+              padding: "10px 14px",
+              borderRadius: 12,
+              background:
+                floatingTip.tone === "warn"
+                  ? "rgba(40,16,16,0.92)"
+                  : floatingTip.tone === "success"
+                  ? "rgba(16,40,24,0.92)"
+                  : "rgba(15,15,20,0.92)",
+              border:
+                floatingTip.tone === "warn"
+                  ? "1px solid rgba(189,35,32,0.45)"
+                  : floatingTip.tone === "success"
+                  ? "1px solid rgba(34,197,94,0.45)"
+                  : "1px solid rgba(120,140,255,0.35)",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              textAlign: "center",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
+              pointerEvents: "none",
+            }}
+          >
+            {floatingTip.text}
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <motion.span
+                key={i}
+                initial={{ opacity: 0.7, x: 0, y: 0, scale: 0.5 }}
+                animate={{
+                  opacity: [0.7, 0],
+                  x: [0, (i - 2.5) * 8],
+                  y: [0, i % 2 === 0 ? -12 : 12],
+                  scale: [0.5, 1.2],
+                }}
+                transition={{ duration: 0.8, delay: 0.05 * i, ease: "easeOut" }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: 4,
+                  height: 4,
+                  borderRadius: "50%",
+                  background:
+                    floatingTip.tone === "warn"
+                      ? "rgba(189,35,32,0.8)"
+                      : floatingTip.tone === "success"
+                      ? "rgba(34,197,94,0.8)"
+                      : "rgba(120,140,255,0.8)",
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── FULL SCREEN MAP ── */}
       {hasToken ? (
@@ -587,41 +680,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           background: "rgba(255,255,255,0.12)",
           margin: "0 auto 20px",
         }} />
-
-        {/* "Add address" banner when setting Home/Work */}
-        <AnimatePresence>
-          {addingPlace && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-              animate={{ opacity: 1, height: "auto", marginBottom: 12 }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              style={{
-                background: "rgba(189,35,32,0.08)",
-                border: "1.5px solid rgba(189,35,32,0.25)",
-                borderRadius: 12,
-                padding: "10px 14px",
-                display: "flex", alignItems: "center", gap: 8,
-              }}
-            >
-              <span style={{ color: "#BD2320", fontSize: 14 }}>
-                {addingPlace.label === "Home" ? (
-                  <House size={16} weight="duotone" />
-                ) : (
-                  <Briefcase size={16} weight="duotone" />
-                )}
-              </span>
-              <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>
-                Search or use GPS to set your <span style={{ color: "#BD2320" }}>{addingPlace.label}</span> address
-              </p>
-              <button
-                onClick={() => setAddingPlace(null)}
-                style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
-              >
-                ×
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Search bar + suggestions */}
         <motion.div
