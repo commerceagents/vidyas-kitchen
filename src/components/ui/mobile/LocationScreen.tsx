@@ -314,7 +314,10 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, []);
 
   const showTip = useCallback((text: string, tone: TipTone = "info") => {
-    // Tooltip removed as requested
+    const id = Date.now();
+    setFloatingTip({ text, tone, id });
+    if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
+    tipTimerRef.current = setTimeout(() => setFloatingTip(null), 2200);
   }, []);
 
   // Geocoding search with debounce
@@ -485,8 +488,76 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", overflow: "hidden" }}>
-      {/* Floating status tooltip removed */}
+      {/* Floating status tooltip (small, cute, bottom-centered) */}
       <AnimatePresence>
+        {floatingTip && (
+          <motion.div
+            key={floatingTip.id}
+            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8, y: -10 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            style={{
+              position: "absolute",
+              bottom: sheetHeight + 24,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 35,
+              padding: "8px 16px",
+              borderRadius: 20,
+              background: "rgba(14,14,14,0.92)",
+              backdropFilter: "blur(12px)",
+              border: `1px solid ${
+                floatingTip.tone === "warn"
+                  ? "rgba(189,35,32,0.4)"
+                  : floatingTip.tone === "success"
+                  ? "rgba(34,197,94,0.4)"
+                  : "rgba(255,255,255,0.15)"
+              }`,
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              textAlign: "center",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
+            {floatingTip.text}
+            
+            {/* Burst particles on exit (handled via exit animation and separate dots) */}
+            <AnimatePresence>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <motion.span
+                  key={`dot-${i}`}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 0 }}
+                  exit={{
+                    opacity: [1, 0],
+                    scale: [1, 0.2],
+                    x: (Math.random() - 0.5) * 60,
+                    y: (Math.random() - 0.5) * 60,
+                  }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    width: 3,
+                    height: 3,
+                    borderRadius: "50%",
+                    background: floatingTip.tone === "warn" ? "#BD2320" : "#fff",
+                  }}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── FULL SCREEN MAP ── */}
