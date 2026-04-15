@@ -359,13 +359,23 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
   const getOrCreateRecaptcha = useCallback(() => {
     if (!auth) throw new Error("Firebase Auth not available");
+    // Always look for the element in the DOM to be safe
+    const container = document.getElementById("vk-recaptcha");
+    if (!container) throw new Error("reCAPTCHA container missing");
+    
     if (recaptchaVerifierRef.current) return recaptchaVerifierRef.current;
-    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, "vk-recaptcha", {
+    
+    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, container, {
       size: "invisible",
-      callback: () => {},
+      callback: () => {
+        console.log("reCAPTCHA solved");
+      },
+      "expired-callback": () => {
+        clearRecaptcha();
+      }
     });
     return recaptchaVerifierRef.current;
-  }, []);
+  }, [clearRecaptcha]);
 
   useEffect(() => {
     return () => {
