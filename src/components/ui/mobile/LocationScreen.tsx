@@ -288,6 +288,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState(320);
+  const sheetHeightRef = useRef(320); // always up-to-date inside async callbacks
   const mapRef = useRef<{ getMap: () => mapboxgl.Map } | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -298,10 +299,14 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSavedPlaces(loadSavedPlaces());
   }, []);
 
-  // Keep recenter button just above the drawer edge.
+  // Keep recenter button and padding ref synced with actual drawer height.
   useEffect(() => {
     const measure = () => {
-      if (sheetRef.current) setSheetHeight(sheetRef.current.offsetHeight);
+      if (sheetRef.current) {
+        const h = sheetRef.current.offsetHeight;
+        setSheetHeight(h);
+        sheetHeightRef.current = h;
+      }
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -359,8 +364,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     // Keep addingPlace — user might be searching for their Home/Work address
   };
 
-  // padding offsets map center upward so pin lands in the visible area above the drawer
-  const drawerPadding = { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 };
+  // Always reads live drawer height — safe inside async callbacks
+  const getPadding = () => ({
+    bottom: sheetHeightRef.current + 40,
+    top: 80,
+    left: 0,
+    right: 0,
+  });
 
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
@@ -370,20 +380,18 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         const { latitude, longitude } = pos.coords;
         setPinCoords({ lat: latitude, lng: longitude });
         setSelectedSaved(null);
-        // Keep addingPlace — user might be using GPS to set their Home/Work
         setSearchText("Locating address...");
-        // Smooth bird's-eye fly: zooms out, shows the journey, lands at location
         const map = mapRef.current?.getMap();
         if (map) {
           map.flyTo({
             center: [longitude, latitude],
-            zoom: 17,
-            curve: 1.42,   // zoom out to bird's eye then zoom back in
+            zoom: 18,          // tighter zoom
+            curve: 1.42,       // bird's-eye: zooms out, shows journey, lands
             speed: 1.1,
-            padding: { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 },
+            padding: getPadding(),
           });
         } else {
-          setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
+          setViewState((v) => ({ ...v, longitude, latitude, zoom: 18 }));
         }
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
@@ -392,17 +400,17 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       () => setIsDetecting(false),
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }, [resolveAddress, sheetHeight]);
+  }, [resolveAddress]);
 
   const handleRecenter = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (map) {
       map.flyTo({
         center: [pinCoords.lng, pinCoords.lat],
-        zoom: 17,
+        zoom: 18,
         speed: 1.4,
         curve: 1,
-        padding: drawerPadding,
+        padding: getPadding(),
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
       });
     } else {
@@ -410,10 +418,10 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         ...v,
         longitude: pinCoords.lng,
         latitude: pinCoords.lat,
-        zoom: 17,
+        zoom: 18,
       }));
     }
-  }, [pinCoords, drawerPadding]);
+  }, [pinCoords]);
 
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
     setPinCoords({ lat, lng });
@@ -466,14 +474,14 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     if (map) {
       map.flyTo({
         center: [place.lng, place.lat],
-        zoom: 17,
+        zoom: 18,
         speed: 1.4,
         curve: 1,
-        padding: { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 },
+        padding: getPadding(),
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
       });
     } else {
-      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 17 }));
+      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 18 }));
     }
   };
 
