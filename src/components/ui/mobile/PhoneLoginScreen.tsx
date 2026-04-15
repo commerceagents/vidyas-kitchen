@@ -293,7 +293,7 @@ const D = {
     border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
     borderRadius: 16,
     height: 62,
-    paddingRight: 10,
+    paddingRight: 16,
     boxSizing: "border-box",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
@@ -500,22 +500,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 color: C.white, fontSize: 16, fontWeight: 600, fontFamily: C.mono,
               }}
             />
-            <AnimatePresence>
-              {isNameValid && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.4 }}
-                  transition={{ type: "spring" as const, stiffness: 320, damping: 22 }}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <div style={S.greenTick}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -549,22 +533,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               onBlur={() => setFocused(false)}
               style={S.phoneInput}
             />
-            <AnimatePresence>
-              {rawPhone.length === 10 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.4 }}
-                  transition={{ type: "spring" as const, stiffness: 320, damping: 22 }}
-                  style={{ display: "flex", alignItems: "center", marginRight: 10 }}
-                >
-                  <div style={S.greenTick}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           <AnimatePresence>
