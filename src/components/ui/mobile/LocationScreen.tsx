@@ -45,6 +45,16 @@ const DEFAULT_PLACES: SavedPlace[] = [
   { id: "other", label: "Other", address: "Add other address", lat: 0, lng: 0 },
 ];
 
+/**
+ * Shifts the camera center south by `bottomOffsetPx` pixels so the target
+ * coordinate visually appears in the center of the area above the drawer.
+ */
+function getOffsetCenter(lat: number, lng: number, bottomOffsetPx: number, zoom: number): [number, number] {
+  const metersPerPx = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+  const latOffsetDeg = (bottomOffsetPx * metersPerPx) / 111320;
+  return [lng, lat - latOffsetDeg]; // move camera center south → pin appears higher
+}
+
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -364,13 +374,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     // Keep addingPlace — user might be searching for their Home/Work address
   };
 
-  // Always reads live drawer height — safe inside async callbacks
-  const getPadding = () => ({
-    bottom: sheetHeightRef.current + 40,
-    top: 80,
-    left: 0,
-    right: 0,
-  });
+  const TARGET_ZOOM = 18;
 
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
@@ -383,15 +387,17 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         setSearchText("Locating address...");
         const map = mapRef.current?.getMap();
         if (map) {
+          // Offset camera center south so pin lands in the visual middle
+          // of the visible map area above the bottom drawer
+          const center = getOffsetCenter(latitude, longitude, sheetHeightRef.current / 2, TARGET_ZOOM);
           map.flyTo({
-            center: [longitude, latitude],
-            zoom: 18,          // tighter zoom
-            curve: 1.42,       // bird's-eye: zooms out, shows journey, lands
+            center,
+            zoom: TARGET_ZOOM,
+            curve: 1.42,   // bird's-eye: zooms out, shows journey, lands
             speed: 1.1,
-            padding: getPadding(),
           });
         } else {
-          setViewState((v) => ({ ...v, longitude, latitude, zoom: 18 }));
+          setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
         }
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
@@ -405,12 +411,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const handleRecenter = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (map) {
+      const center = getOffsetCenter(pinCoords.lat, pinCoords.lng, sheetHeightRef.current / 2, TARGET_ZOOM);
       map.flyTo({
-        center: [pinCoords.lng, pinCoords.lat],
-        zoom: 18,
+        center,
+        zoom: TARGET_ZOOM,
         speed: 1.4,
         curve: 1,
-        padding: getPadding(),
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
       });
     } else {
@@ -418,7 +424,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         ...v,
         longitude: pinCoords.lng,
         latitude: pinCoords.lat,
-        zoom: 18,
+        zoom: TARGET_ZOOM,
       }));
     }
   }, [pinCoords]);
@@ -472,16 +478,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSearchText(place.address);
     const map = mapRef.current?.getMap();
     if (map) {
+      const center = getOffsetCenter(place.lat, place.lng, sheetHeightRef.current / 2, TARGET_ZOOM);
       map.flyTo({
-        center: [place.lng, place.lat],
-        zoom: 18,
+        center,
+        zoom: TARGET_ZOOM,
         speed: 1.4,
         curve: 1,
-        padding: getPadding(),
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
       });
     } else {
-      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 18 }));
+      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
     }
   };
 
