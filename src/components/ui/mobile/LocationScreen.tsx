@@ -359,17 +359,32 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     // Keep addingPlace — user might be searching for their Home/Work address
   };
 
+  // padding offsets map center upward so pin lands in the visible area above the drawer
+  const drawerPadding = { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 };
+
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
     if (!navigator.geolocation) { setIsDetecting(false); return; }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
         setPinCoords({ lat: latitude, lng: longitude });
         setSelectedSaved(null);
         // Keep addingPlace — user might be using GPS to set their Home/Work
         setSearchText("Locating address...");
+        // Smooth bird's-eye fly: zooms out, shows the journey, lands at location
+        const map = mapRef.current?.getMap();
+        if (map) {
+          map.flyTo({
+            center: [longitude, latitude],
+            zoom: 17,
+            curve: 1.42,   // zoom out to bird's eye then zoom back in
+            speed: 1.1,
+            padding: { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 },
+          });
+        } else {
+          setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
+        }
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
         setIsDetecting(false);
@@ -377,7 +392,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       () => setIsDetecting(false),
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }, [resolveAddress]);
+  }, [resolveAddress, sheetHeight]);
 
   const handleRecenter = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -387,7 +402,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         zoom: 17,
         speed: 1.4,
         curve: 1,
-        easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out cubic — fast then settles
+        padding: drawerPadding,
+        easing: (t: number) => 1 - Math.pow(1 - t, 3),
       });
     } else {
       setViewState((v) => ({
@@ -397,7 +413,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         zoom: 17,
       }));
     }
-  }, [pinCoords]);
+  }, [pinCoords, drawerPadding]);
 
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
     setPinCoords({ lat, lng });
@@ -444,9 +460,21 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     // Select and navigate to saved place
     setSelectedSaved(place.id);
     setAddingPlace(null);
-    setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 17 }));
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
+    const map = mapRef.current?.getMap();
+    if (map) {
+      map.flyTo({
+        center: [place.lng, place.lat],
+        zoom: 17,
+        speed: 1.4,
+        curve: 1,
+        padding: { bottom: sheetHeight + 40, top: 80, left: 0, right: 0 },
+        easing: (t: number) => 1 - Math.pow(1 - t, 3),
+      });
+    } else {
+      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 17 }));
+    }
   };
 
   const handleSavePlace = () => {
@@ -569,27 +597,33 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
             {floatingTip.text}
 
-            {/* Burst particles – animate outward on mount (reliable, not exit-dependent) */}
-            {[0,1,2,3,4,5,6,7,8,9,11].map((i) => {
-              const angle = (i / 11) * 2 * Math.PI;
-              const dist = 26 + (i % 4) * 10;
+            {/* Burst particles — invisible until they exit the pill, then pop and fly */}
+            {[0,1,2,3,4,5,6,7,8,9,10,11].map((i) => {
+              const angle = (i / 12) * 2 * Math.PI;
+              const near = 18;  // start just outside pill edge
+              const far  = 44 + (i % 4) * 12;
               const color =
                 floatingTip.tone === "warn"
-                  ? "rgba(189,35,32,0.9)"
+                  ? "rgba(189,35,32,0.95)"
                   : floatingTip.tone === "success"
-                  ? "rgba(34,197,94,0.9)"
-                  : "rgba(255,255,255,0.8)";
+                  ? "rgba(34,197,94,0.95)"
+                  : "rgba(255,255,255,0.9)";
               return (
                 <motion.span
                   key={`dot-${floatingTip.id}-${i}`}
-                  initial={{ opacity: 0.9, scale: 1, x: 0, y: 0 }}
+                  initial={{ opacity: 0, x: Math.cos(angle) * near, y: Math.sin(angle) * near, scale: 0 }}
                   animate={{
-                    opacity: [0.9, 0.7, 0],
-                    scale: [1.2, 0.6, 0.1],
-                    x: [0, Math.cos(angle) * dist * 0.5, Math.cos(angle) * dist],
-                    y: [0, Math.sin(angle) * dist * 0.5, Math.sin(angle) * dist],
+                    opacity: [0, 1, 1, 0],
+                    scale:   [0, 1.1, 0.9, 0.1],
+                    x: [Math.cos(angle) * near, Math.cos(angle) * far],
+                    y: [Math.sin(angle) * near, Math.sin(angle) * far],
                   }}
-                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 + (i % 3) * 0.04 }}
+                  transition={{
+                    duration: 0.55,
+                    times: [0, 0.15, 0.65, 1],
+                    ease: "easeOut",
+                    delay: (i % 4) * 0.03,
+                  }}
                   style={{
                     position: "absolute",
                     left: "50%",
