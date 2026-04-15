@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import { auth } from "@/lib/firebase";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
 const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
@@ -339,13 +341,16 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [showOtp, setShowOtp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalTab>("terms");
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [sendLoading, setSendLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [otpError, setOtpError] = useState(false);
+  const [otpErrorMsg, setOtpErrorMsg] = useState("Incorrect code. Try again.");
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (displayName?.trim()) {
@@ -377,33 +382,74 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const handleSend = async () => {
     if (!isValid) return;
     setSendLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    setSendLoading(false);
-    setShowOtp(true);
-    setTimeout(() => otpRefs.current[0]?.focus(), 350);
+    try {
+      // Set up invisible reCAPTCHA once, attached to the send button
+      if (!recaptchaRef.current) {
+        recaptchaRef.current = new RecaptchaVerifier(auth, "send-otp-btn", {
+          size: "invisible",
+        });
+      }
+      const result = await signInWithPhoneNumber(auth, `+91${rawPhone}`, recaptchaRef.current);
+      confirmationRef.current = result;
+      setSendLoading(false);
+      setShowOtp(true);
+      setTimeout(() => otpRefs.current[0]?.focus(), 350);
+    } catch (err: unknown) {
+      setSendLoading(false);
+      // Reset reCAPTCHA so user can retry
+      recaptchaRef.current?.clear();
+      recaptchaRef.current = null;
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/too-many-requests") {
+        setOtpErrorMsg("Too many attempts. Try again later.");
+      } else if (code === "auth/invalid-phone-number") {
+        setOtpErrorMsg("Invalid phone number.");
+      } else {
+        setOtpErrorMsg("Failed to send OTP. Check your number.");
+      }
+      setOtpError(true);
+      setShowOtp(true); // show sheet to display the error
+    }
   };
 
   const handleOtpChange = (i: number, val: string) => {
     if (!/^\d*$/.test(val)) return;
     setOtpError(false);
+    setOtpErrorMsg("Incorrect code. Try again.");
     const n = [...otp]; n[i] = val.slice(-1); setOtp(n);
-    if (val && i < 3) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
+    if (val && i < 5) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
     if (n.every(d => d)) handleVerify(n.join(""));
   };
 
   const handleVerify = async (code: string) => {
-    if (code.length !== 4) {
+    if (code.length !== 6) {
       setOtpError(true);
-      setOtp(["", "", "", ""]);
+      setOtpErrorMsg("Enter the full 6-digit code.");
+      setOtp(["", "", "", "", "", ""]);
       otpRefs.current[0]?.focus();
       return;
     }
+    if (!confirmationRef.current) {
+      setOtpError(true);
+      setOtpErrorMsg("Session expired. Tap Resend.");
+      return;
+    }
     setVerifyLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    const finalName = displayNameInput.trim() || "Guest";
-    localStorage.setItem(LS_DISPLAY_NAME, finalName);
-    onVerified(`+91${rawPhone}`, finalName);
-    // Stay in loading state until unmount — avoids button flashing “active” before navigation
+    try {
+      await confirmationRef.current.confirm(code);
+      const finalName = displayNameInput.trim() || "Guest";
+      localStorage.setItem(LS_DISPLAY_NAME, finalName);
+      onVerified(`+91${rawPhone}`, finalName);
+    } catch (err: unknown) {
+      setVerifyLoading(false);
+      setOtpError(true);
+      const errCode = (err as { code?: string })?.code;
+      setOtpErrorMsg(
+        errCode === "auth/code-expired" ? "Code expired. Tap Resend." : "Incorrect code. Try again."
+      );
+      setOtp(["", "", "", "", "", ""]);
+      setTimeout(() => otpRefs.current[0]?.focus(), 80);
+    }
   };
 
   // ─── Render ─────────────────────────────────────────────────────
@@ -552,6 +598,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           transition={{ type: "spring" as const, stiffness: 340, damping: 26, delay: 0.28 }}
         >
           <motion.button
+            id="send-otp-btn"
             style={{ ...D.primaryBtn(isValid && !sendLoading, 0) }}
             onClick={handleSend}
             disabled={!isValid || sendLoading}
@@ -636,7 +683,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 {otpError && (
                   <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
-                    That code didn&apos;t work. Try again.
+                    {otpErrorMsg}
                   </motion.p>
                 )}
               </AnimatePresence>
@@ -676,7 +723,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
               <div style={{ textAlign: "center", marginTop: T.sp3 }}>
                 {canResend
-                  ? <button onClick={() => { setOtp(["", "", "", ""]); setOtpError(false); }}
+                  ? <button onClick={() => { setOtp(["", "", "", "", "", ""]); setOtpError(false); setShowOtp(false); setTimeout(() => handleSend(), 200); }}
                       style={{ color: C.red, fontSize: 12, background: "none", border: "none", cursor: "pointer", fontFamily: C.mono, fontWeight: 600, letterSpacing: "0.02em" }}>
                       Resend code
                     </button>
