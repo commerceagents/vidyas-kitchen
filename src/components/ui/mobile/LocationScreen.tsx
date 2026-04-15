@@ -351,12 +351,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const handleSuggestionSelect = (feature: GeoFeature) => {
     const [lng, lat] = feature.center;
     const shortName = feature.place_name.split(",")[0];
-    setSearchText(shortName);
+    setSearchText(feature.place_name);
     setSuggestions([]);
     setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: 17 }));
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
-    setAddingPlace(null);
+    // Keep addingPlace — user might be searching for their Home/Work address
   };
 
   const handleGPS = useCallback(async () => {
@@ -368,7 +368,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         setViewState((v) => ({ ...v, longitude, latitude, zoom: 17 }));
         setPinCoords({ lat: latitude, lng: longitude });
         setSelectedSaved(null);
-        setAddingPlace(null);
+        // Keep addingPlace — user might be using GPS to set their Home/Work
         setSearchText("Locating address...");
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
@@ -391,7 +391,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
-    setAddingPlace(null);
+    // Keep addingPlace — user is moving the pin to set their saved location
     setSuggestions([]);
     setSearchText("Locating address...");
     const addr = await resolveAddress(lat, lng);
@@ -399,20 +399,38 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, [resolveAddress]);
 
   const handleSavedSelect = (place: SavedPlace) => {
+    // Tapping same card while in adding mode → cancel
+    if (addingPlace?.id === place.id) {
+      setAddingPlace(null);
+      return;
+    }
+
     if (place.lat === 0) {
-      // Enter "add address" mode for this place
+      // Enter "add address" mode — just activate it, CTA makes it obvious
       setSelectedSaved(null);
       setAddingPlace(place);
       setSuggestions([]);
-      showTip(`Set pin position, then save as ${place.label}`, "warn");
+      // If there's already a resolved address on the pin, hint the user
+      const hasResolved =
+        searchText.length > 0 &&
+        searchText !== "Locating address..." &&
+        searchText !== "Set your location" &&
+        searchText !== "Pinned location";
+      if (hasResolved) {
+        showTip(`Tap "Save as ${place.label}" to use current pin`, "info");
+      }
       return;
     }
+
+    // Place already has an address
     if (selectedSaved === place.id) {
+      // Tapping again deselects silently
       setSelectedSaved(null);
       setAddingPlace(null);
-      showTip(`${place.label} deselected`, "info");
       return;
     }
+
+    // Select and navigate to saved place
     setSelectedSaved(place.id);
     setAddingPlace(null);
     setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: 17 }));
@@ -422,11 +440,15 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   const handleSavePlace = () => {
     if (!addingPlace) return;
-    if (!searchText.trim() || searchText === "Locating address...") {
-      showTip("Wait for address or search one before saving", "warn");
+    if (
+      !searchText.trim() ||
+      searchText === "Locating address..." ||
+      searchText === "Pinned location"
+    ) {
+      showTip("Move the pin to a named location first", "warn");
       return;
     }
-    const label = searchText.trim() || "Saved location";
+    const label = searchText.trim();
     const duplicate = savedPlaces.find((p) => {
       if (p.id === addingPlace.id || p.lat === 0) return false;
       const sameAddress = p.address.trim().toLowerCase() === label.toLowerCase();
@@ -445,7 +467,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSavedPlaces(updated);
     savePlaces(updated);
     setSelectedSaved(addingPlace.id);
-    showTip(`${addingPlace.label} saved`, "success");
+    showTip(`${addingPlace.label} saved!`, "success");
     setAddingPlace(null);
   };
 
@@ -464,7 +486,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     if (selectedSaved === place.id) setSelectedSaved(null);
     if (addingPlace?.id === place.id) setAddingPlace(null);
     if (searchText === place.address) setSearchText("");
-    showTip(`${place.label} removed`, "info");
+    showTip(`${place.label} cleared`, "info");
   };
 
   const handleConfirm = () => {
@@ -934,13 +956,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                       <p style={{ 
                         margin: 0, 
                         fontSize: 10, 
-                        color: isUnset ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.3)", 
+                        color: isAdding ? "rgba(189,35,32,0.8)" : isUnset ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.3)", 
                         overflow: "hidden", 
                         textOverflow: "ellipsis", 
                         whiteSpace: "nowrap",
                         maxWidth: "100px"
                       }}>
-                        {isUnset ? "Tap to set" : place.address}
+                        {isAdding ? "Setting location…" : isUnset ? "Tap to add" : place.address}
                       </p>
                     </div>
                     {!isUnset && (
