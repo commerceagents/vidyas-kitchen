@@ -493,72 +493,83 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         {floatingTip && (
           <motion.div
             key={floatingTip.id}
-            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            initial={{ opacity: 0, y: 20, scale: 0.88 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8, y: -10 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              style={{
-                position: "absolute",
-                bottom: sheetHeight + 24,
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 9999,
-                padding: "10px 20px",
-                borderRadius: 24,
-                background: "rgba(20,20,20,0.95)",
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
-                border: `1px solid ${
-                  floatingTip.tone === "warn"
-                    ? "rgba(189,35,32,0.6)"
-                    : floatingTip.tone === "success"
-                    ? "rgba(34,197,94,0.6)"
-                    : "rgba(255,255,255,0.2)"
-                }`,
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.01em",
-                textAlign: "center",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset",
-                pointerEvents: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                whiteSpace: "nowrap",
-                width: "max-content",
-                minWidth: "200px",
-              }}
+            exit={{ opacity: 0, scale: 0.75, y: 10 }}
+            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            style={{
+              position: "fixed",
+              bottom: 100,
+              left: 0,
+              right: 0,
+              margin: "0 auto",
+              width: "fit-content",
+              maxWidth: "80vw",
+              zIndex: 9999,
+              padding: "10px 20px",
+              borderRadius: 24,
+              background: "rgba(18,18,18,0.96)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: `1px solid ${
+                floatingTip.tone === "warn"
+                  ? "rgba(189,35,32,0.6)"
+                  : floatingTip.tone === "success"
+                  ? "rgba(34,197,94,0.5)"
+                  : "rgba(255,255,255,0.15)"
+              }`,
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "0.01em",
+              textAlign: "center",
+              boxShadow: "0 8px 28px rgba(0,0,0,0.55)",
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              whiteSpace: "nowrap",
+              overflow: "visible",
+            }}
           >
             {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
             {floatingTip.text}
             
-            {/* Burst particles on exit (handled via exit animation and separate dots) */}
+            {/* Burst particles – fire outward on exit */}
             <AnimatePresence>
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <motion.span
-                  key={`dot-${i}`}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 0 }}
-                  exit={{
-                    opacity: [1, 0],
-                    scale: [1, 0.2],
-                    x: (Math.random() - 0.5) * 60,
-                    y: (Math.random() - 0.5) * 60,
-                  }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "50%",
-                    width: 3,
-                    height: 3,
-                    borderRadius: "50%",
-                    background: floatingTip.tone === "warn" ? "#BD2320" : "#fff",
-                  }}
-                />
-              ))}
+              {[0,1,2,3,4,5,6,7].map((i) => {
+                const angle = (i / 8) * 2 * Math.PI;
+                const dist = 30 + (i % 3) * 12;
+                return (
+                  <motion.span
+                    key={`dot-${floatingTip.id}-${i}`}
+                    initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.2,
+                      x: Math.cos(angle) * dist,
+                      y: Math.sin(angle) * dist,
+                    }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      width: i % 2 === 0 ? 5 : 3,
+                      height: i % 2 === 0 ? 5 : 3,
+                      borderRadius: "50%",
+                      background:
+                        floatingTip.tone === "warn"
+                          ? "rgba(189,35,32,0.95)"
+                          : floatingTip.tone === "success"
+                          ? "rgba(34,197,94,0.95)"
+                          : "rgba(255,255,255,0.85)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                );
+              })}
             </AnimatePresence>
           </motion.div>
         )}
