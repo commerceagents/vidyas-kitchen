@@ -181,7 +181,6 @@ const S: Record<string, CSSProperties> = {
     background: C.green,
     display: "flex", alignItems: "center", justifyContent: "center",
     flexShrink: 0,
-    marginRight: 2,
     boxShadow: "0 0 12px rgba(34,197,94,0.4)",
   },
   hint: {
@@ -294,7 +293,7 @@ const D = {
     border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
     borderRadius: 16,
     height: 62,
-    paddingRight: 12,
+    paddingRight: 10,
     boxSizing: "border-box",
     transition: "border-color 0.2s, box-shadow 0.2s",
     boxShadow: valid
