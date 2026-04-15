@@ -79,9 +79,24 @@ export async function POST(req: Request) {
           if (items.length > 0) {
             const agent = new VidyaAgent();
             await agent.upsertCustomer(from, profileName?.trim() || "WhatsApp User");
-            const total = items.reduce((sum, i) => sum + i.item_price * i.quantity, 0);
+
+            // Fetch all menu items to map retailer_id to UUID
+            const menu = await agent.getAgainstOrderMenu();
+            const orderItems = items.map((i) => {
+              const matched = menu.find(
+                (m) => m.retailer_id === i.product_retailer_id || m.id === i.product_retailer_id
+              );
+              const price = matched?.price || i.item_price || 0;
+              return {
+                menu_item_id: matched?.id || i.product_retailer_id,
+                quantity: i.quantity,
+                price_at_order: price,
+              };
+            });
+
+            const total = orderItems.reduce((sum, i) => sum + i.price_at_order * i.quantity, 0);
             const deliverySlot = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString();
-            const orderData = await agent.createOrder(from, [], total, deliverySlot);
+            const orderData = await agent.createOrder(from, orderItems, total, deliverySlot);
             if (orderData && orderData.paymentLink) {
               const lines = items.map(
                 (i) => `• ${i.product_retailer_id} × ${i.quantity} — ₹${i.item_price * i.quantity}`

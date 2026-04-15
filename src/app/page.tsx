@@ -23,14 +23,10 @@ export default function Home() {
     if (phoneParam) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
 
-    // Skip splash only when returning from in-app legal pages (same session), not on full reload
-    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-    const isReload = nav?.type === "reload";
+    // Skip splash when returning from in-app legal pages (LegalHub sets skip_splash)
     const shouldSkip = localStorage.getItem("skip_splash") === "true";
-    if (shouldSkip && !isReload) {
+    if (shouldSkip) {
       setShowSplash(false);
-      localStorage.removeItem("skip_splash");
-    } else if (shouldSkip && isReload) {
       localStorage.removeItem("skip_splash");
     }
 
