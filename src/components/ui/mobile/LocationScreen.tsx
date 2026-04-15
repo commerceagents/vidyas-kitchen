@@ -921,7 +921,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                         overflow: "hidden", 
                         textOverflow: "ellipsis", 
                         whiteSpace: "nowrap",
-                        width: "100%"
+                        maxWidth: "100px"
                       }}>
                         {isUnset ? "Tap to set" : place.address}
                       </p>
