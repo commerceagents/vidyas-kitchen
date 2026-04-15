@@ -45,15 +45,6 @@ const DEFAULT_PLACES: SavedPlace[] = [
   { id: "other", label: "Other", address: "Add other address", lat: 0, lng: 0 },
 ];
 
-/**
- * Shifts the camera center south by `bottomOffsetPx` pixels so the target
- * coordinate visually appears in the center of the area above the drawer.
- */
-function getOffsetCenter(lat: number, lng: number, bottomOffsetPx: number, zoom: number): [number, number] {
-  const metersPerPx = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
-  const latOffsetDeg = (bottomOffsetPx * metersPerPx) / 111320;
-  return [lng, lat - latOffsetDeg]; // move camera center south → pin appears higher
-}
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -316,6 +307,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         const h = sheetRef.current.offsetHeight;
         setSheetHeight(h);
         sheetHeightRef.current = h;
+        // Tell Mapbox about the UI overlay so all flyTo/easeTo
+        // automatically centers within the visible area above the drawer.
+        const map = mapRef.current?.getMap();
+        if (map) {
+          map.setPadding({ top: 80, bottom: h + 20, left: 0, right: 0 });
+        }
       }
     };
     measure();
@@ -387,13 +384,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         setSearchText("Locating address...");
         const map = mapRef.current?.getMap();
         if (map) {
-          // Offset camera center south so pin lands in the visual middle
-          // of the visible map area above the bottom drawer
-          const center = getOffsetCenter(latitude, longitude, sheetHeightRef.current / 2, TARGET_ZOOM);
+          // map.setPadding() already tells Mapbox to center within visible area
           map.flyTo({
-            center,
+            center: [longitude, latitude],
             zoom: TARGET_ZOOM,
-            curve: 1.42,   // bird's-eye: zooms out, shows journey, lands
+            curve: 1.42,  // bird's-eye: zooms out, shows journey, lands
             speed: 1.1,
           });
         } else {
@@ -411,9 +406,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const handleRecenter = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (map) {
-      const center = getOffsetCenter(pinCoords.lat, pinCoords.lng, sheetHeightRef.current / 2, TARGET_ZOOM);
       map.flyTo({
-        center,
+        center: [pinCoords.lng, pinCoords.lat],
         zoom: TARGET_ZOOM,
         speed: 1.4,
         curve: 1,
@@ -478,9 +472,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSearchText(place.address);
     const map = mapRef.current?.getMap();
     if (map) {
-      const center = getOffsetCenter(place.lat, place.lng, sheetHeightRef.current / 2, TARGET_ZOOM);
       map.flyTo({
-        center,
+        center: [place.lng, place.lat],
         zoom: TARGET_ZOOM,
         speed: 1.4,
         curve: 1,
@@ -672,6 +665,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           onLoad={(e) => {
             try {
               const map = e.target;
+              // Set padding so all camera ops respect the drawer overlay
+              map.setPadding({ top: 80, bottom: sheetHeightRef.current + 20, left: 0, right: 0 });
               const style = map.getStyle();
               const layers = style.layers || [];
               const labelLayer = layers.find(
