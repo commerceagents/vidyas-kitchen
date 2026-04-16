@@ -1143,26 +1143,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 letterSpacing: "0.08em", textTransform: "uppercase",
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                marginBottom: 12,
+                marginBottom: 24,
               }}
             >
               <span style={{ display: "flex" }}><PinIcon color="#fff" /></span>
               Confirm Location
             </motion.button>
           )}
-
-          <button
-            onClick={handleSkip}
-            style={{
-              background: "none", border: "none",
-              color: "rgba(255,255,255,0.25)",
-              fontSize: 11, letterSpacing: "0.1em",
-              textTransform: "uppercase", fontWeight: 600,
-              cursor: "pointer", width: "100%", padding: 4,
-            }}
-          >
-            Skip for now
-          </button>
         </motion.div>
       </motion.div>
     </div>

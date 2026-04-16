@@ -427,6 +427,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     if (code === "auth/quota-exceeded") return "SMS quota exceeded. Try again tomorrow.";
     if (code === "auth/captcha-check-failed") return "Security check failed. Try again.";
     if (code === "auth/network-request-failed") return "Network error. Check your connection.";
+    if (message.includes("reCAPTCHA has already been rendered")) {
+      return "System busy. Please refresh the page and try again.";
+    }
     
     return message || "Could not send code. Try again.";
   };
@@ -681,7 +684,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             {sendLoading ? "Sending…" : "Send OTP"}
           </motion.button>
           {sendError && (
-            <p style={{ color: C.red, fontSize: 11, textAlign: "center", marginTop: T.sp2, fontFamily: C.mono, lineHeight: 1.5 }}>
+            <p style={{ color: C.red, fontSize: 13, fontWeight: 600, textAlign: "center", marginTop: T.sp3, fontFamily: C.mono, lineHeight: 1.5, padding: "0 10px" }}>
               {sendError}
             </p>
           )}
