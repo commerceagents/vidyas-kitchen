@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { LocationScreen } from "./LocationScreen";
+import { LocationMarkedScreen } from "./LocationMarkedScreen";
 
-type MobileStep = "login" | "location" | "home";
+type MobileStep = "login" | "location" | "location_marked" | "home";
 
 interface LocationData {
   label: string;
@@ -87,6 +88,10 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   const handleLocationSet = (loc: LocationData) => {
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
+    setStep("location_marked");
+  };
+
+  const handleLocationMarkedDone = () => {
     setStep("home");
   };
 
@@ -108,6 +113,19 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
             exit={{ opacity: 0, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } }}
           >
             <LocationScreen onLocationSet={handleLocationSet} />
+          </motion.div>
+        )}
+
+        {step === "location_marked" && location && (
+          <motion.div
+            key="location-marked"
+            className="w-full h-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28 }}
+          >
+            <LocationMarkedScreen label={location.label} onDone={handleLocationMarkedDone} />
           </motion.div>
         )}
 
