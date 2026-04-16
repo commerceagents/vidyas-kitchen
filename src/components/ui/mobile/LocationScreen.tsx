@@ -362,13 +362,23 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   const handleSuggestionSelect = (feature: GeoFeature) => {
     const [lng, lat] = feature.center;
-    const shortName = feature.place_name.split(",")[0];
     setSearchText(feature.place_name);
     setSuggestions([]);
-    setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: 17 }));
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
-    // Keep addingPlace — user might be searching for their Home/Work address
+
+    const map = mapRef.current?.getMap();
+    if (map) {
+      map.flyTo({
+        center: [lng, lat],
+        zoom: TARGET_ZOOM,
+        speed: 1.2,
+        curve: 1,
+        essential: true,
+      });
+    } else {
+      setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: TARGET_ZOOM }));
+    }
   };
 
   const TARGET_ZOOM = 18;
@@ -389,11 +399,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             center: [longitude, latitude],
             zoom: TARGET_ZOOM,
             curve: 1.42,  // bird's-eye: zooms out, shows journey, lands
-            speed: 1.1,
-            essential: true, // ensures animation plays even if user is moving map
+            speed: 0.8,   // slightly slower for more "butter"
+            essential: true,
           });
-          // Force state sync so Marker doesn't lag behind flyTo
-          setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
+          // REMOVED immediate setViewState here — it was causing the abrupt jump.
+          // Mapbox will emit 'move' events during flyTo which onMove will catch.
         } else {
           setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
         }
@@ -412,12 +422,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       map.flyTo({
         center: [pinCoords.lng, pinCoords.lat],
         zoom: TARGET_ZOOM,
-        speed: 1.4,
+        speed: 1.2,
         curve: 1,
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
         essential: true,
       });
-      setViewState((v) => ({ ...v, longitude: pinCoords.lng, latitude: pinCoords.lat, zoom: TARGET_ZOOM }));
     } else {
       setViewState((v) => ({
         ...v,
@@ -480,12 +489,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       map.flyTo({
         center: [place.lng, place.lat],
         zoom: TARGET_ZOOM,
-        speed: 1.4,
+        speed: 1.2,
         curve: 1,
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
         essential: true,
       });
-      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
     } else {
       setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
     }
