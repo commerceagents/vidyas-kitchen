@@ -272,13 +272,17 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function LocationScreen({ onLocationSet }: LocationScreenProps) {
-  const [viewState, setViewState] = useState({
+  // initialViewState makes the map UNCONTROLLED — Mapbox owns the camera,
+  // no React state fights against flyTo animations.
+  const initialViewState = {
     longitude: SIVAKASI_CENTER.lng,
     latitude: SIVAKASI_CENTER.lat,
     zoom: 13,
     pitch: 58,
     bearing: -18,
-  });
+  };
+  // Keep a minimal copy just for the Marker position sync
+  const [viewState, setViewState] = useState(initialViewState);
   const [pinCoords, setPinCoords] = useState(SIVAKASI_CENTER);
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
@@ -660,7 +664,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       {/* ── FULL SCREEN MAP ── */}
       {hasToken ? (
         <Map
-          {...viewState}
+          initialViewState={initialViewState}
           onMove={(e) => setViewState(e.viewState)}
           mapStyle={MAP_STYLE}
           mapboxAccessToken={MAPBOX_TOKEN}
