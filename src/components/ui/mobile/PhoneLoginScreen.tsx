@@ -215,22 +215,19 @@ const S: Record<string, CSSProperties> = {
     display: "flex", flexDirection: "column",
     overflow: "hidden",
   },
-  otpFullHeader: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    minHeight: 48,
-    padding: `max(12px, env(safe-area-inset-top, 0px)) ${T.sp3}px 10px`,
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
-  },
   otpFullBody: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
     minHeight: 0,
-    padding: `0 ${T.sp3}px max(32px, env(safe-area-inset-bottom, 0px))`,
+    padding: `max(20px, env(safe-area-inset-top, 0px)) ${T.sp3}px max(32px, env(safe-area-inset-bottom, 0px))`,
     overflowY: "auto" as const,
+  },
+  otpHeroBlock: {
+    width: "100%",
+    textAlign: "center" as const,
+    marginBottom: T.sp4,
   },
   sheetTitle: {
     fontSize: 20, fontWeight: 800,
@@ -786,43 +783,40 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
           >
-            <div style={S.otpFullHeader}>
-              <button
-                type="button"
-                onClick={dismissOtp}
-                disabled={otpVerifySuccess}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "none",
-                  border: "none",
-                  cursor: otpVerifySuccess ? "default" : "pointer",
-                  color: otpVerifySuccess ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)",
-                  fontFamily: C.mono,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: "0.02em",
-                  padding: "4px 0",
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </button>
-            </div>
-
             <div style={S.otpFullBody}>
               {!verifyLoading && !otpVerifySuccess && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
-                  <p style={S.sheetTitle}>Enter the OTP</p>
-                  <p style={S.sheetSub}>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.06 }}
+                  style={S.otpHeroBlock}
+                >
+                  <p style={{ ...S.sheetTitle, textAlign: "center" }}>Enter the OTP</p>
+                  <p style={{ ...S.sheetSub, textAlign: "center", marginBottom: 10 }}>
                     Sent to{" "}
                     <span style={{ color: "rgba(255,255,255,0.75)" }}>
                       +91 {formatDisplay(rawPhone)}
                     </span>
                   </p>
+                  <button
+                    type="button"
+                    onClick={dismissOtp}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "rgba(189,35,32,0.95)",
+                      fontFamily: C.mono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                      padding: "6px 12px",
+                      textDecoration: "underline",
+                      textUnderlineOffset: 4,
+                    }}
+                  >
+                    Change number
+                  </button>
                 </motion.div>
               )}
 
