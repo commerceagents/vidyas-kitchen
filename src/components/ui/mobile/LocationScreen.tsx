@@ -390,7 +390,10 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             zoom: TARGET_ZOOM,
             curve: 1.42,  // bird's-eye: zooms out, shows journey, lands
             speed: 1.1,
+            essential: true, // ensures animation plays even if user is moving map
           });
+          // Force state sync so Marker doesn't lag behind flyTo
+          setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
         } else {
           setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
         }
@@ -412,7 +415,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         speed: 1.4,
         curve: 1,
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
+        essential: true,
       });
+      setViewState((v) => ({ ...v, longitude: pinCoords.lng, latitude: pinCoords.lat, zoom: TARGET_ZOOM }));
     } else {
       setViewState((v) => ({
         ...v,
@@ -478,7 +483,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         speed: 1.4,
         curve: 1,
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
+        essential: true,
       });
+      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
     } else {
       setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
     }
