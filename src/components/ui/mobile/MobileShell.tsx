@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { LocationScreen } from "./LocationScreen";
-import { DeliveryCheckScreen } from "./DeliveryCheckScreen";
 
-type MobileStep = "login" | "location" | "delivery_check" | "home";
+type MobileStep = "login" | "location" | "home";
 
 interface LocationData {
   label: string;
@@ -88,10 +87,6 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   const handleLocationSet = (loc: LocationData) => {
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
-    setStep("delivery_check");
-  };
-
-  const handleProceedToHome = () => {
     setStep("home");
   };
 
@@ -113,18 +108,6 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
             exit={{ opacity: 0, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } }}
           >
             <LocationScreen onLocationSet={handleLocationSet} />
-          </motion.div>
-        )}
-
-        {step === "delivery_check" && location && (
-          <motion.div key="check" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <DeliveryCheckScreen
-              locationLabel={location.label}
-              inRange={location.inRange}
-              onProceed={handleProceedToHome}
-              phone={phone}
-              displayName={name}
-            />
           </motion.div>
         )}
 
