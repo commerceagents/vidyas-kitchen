@@ -1133,8 +1133,20 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 12,
+                position: "relative",
+                overflow: "hidden",
               }}
             >
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                  skewX: -20,
+                }}
+              />
               Save as {addingPlace.label}
             </motion.button>
           ) : (
@@ -1152,8 +1164,20 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 24,
+                position: "relative",
+                overflow: "hidden",
               }}
             >
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                  skewX: -20,
+                }}
+              />
               <span style={{ display: "flex" }}><PinIcon color="#fff" /></span>
               Confirm Location
             </motion.button>

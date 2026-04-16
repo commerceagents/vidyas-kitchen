@@ -312,6 +312,8 @@ const D = {
     transition: "all 0.2s",
     marginTop: mt,
     boxShadow: active ? "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset" : "none",
+    position: "relative",
+    overflow: "hidden",
   }),
   legalTab: (active: boolean): CSSProperties => ({
     padding: `${T.sp1}px ${T.sp2}px`,
@@ -681,6 +683,19 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             disabled={!isValid || sendLoading}
             whileTap={{ scale: 0.97 }}
           >
+            {/* Shine effect */}
+            {isValid && !sendLoading && (
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                  skewX: -20,
+                }}
+              />
+            )}
             {sendLoading ? "Sending…" : "Send OTP"}
           </motion.button>
           {sendError && (
@@ -746,91 +761,95 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               </motion.div>
 
               {/* 6-digit OTP (Firebase SMS) */}
-              <div style={S.otpRow}>
-                {otp.map((digit, i) => (
-                  <motion.input key={i}
-                    ref={el => { otpRefs.current[i] = el; }}
-                    type="tel" inputMode="numeric" maxLength={1}
-                    value={digit}
-                    onChange={e => handleOtpChange(i, e.target.value)}
-                    onKeyDown={e => { if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus(); }}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.08 + i * 0.04 }}
-                    style={{
-                      width: 46, height: 56,
-                      textAlign: "center", fontSize: 26, fontWeight: 800,
-                      color: C.white,
-                      background: "rgba(255,255,255,0.05)",
-                      border: `1.5px solid ${otpError ? "rgba(189,35,32,0.5)" : digit ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
-                      borderRadius: 16,
-                      outline: "none",
-                      caretColor: C.red,
-                      boxShadow: digit && !otpError ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
-                      transition: "border-color 0.18s, box-shadow 0.18s",
-                      fontFamily: C.mono,
-                    }}
-                  />
-                ))}
-              </div>
+              <AnimatePresence mode="wait">
+                {verifyLoading ? (
+                  <motion.div
+                    key="loader-container"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
+                      style={{
+                        display: "block",
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        border: "4px solid rgba(189,35,32,0.2)",
+                        borderTopColor: C.red,
+                      }}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="otp-inputs-container"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <div style={S.otpRow}>
+                      {otp.map((digit, i) => (
+                        <motion.input key={i}
+                          ref={el => { otpRefs.current[i] = el; }}
+                          type="tel" inputMode="numeric" maxLength={1}
+                          value={digit}
+                          onChange={e => handleOtpChange(i, e.target.value)}
+                          onKeyDown={e => { if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus(); }}
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.08 + i * 0.04 }}
+                          style={{
+                            width: 46, height: 56,
+                            textAlign: "center", fontSize: 26, fontWeight: 800,
+                            color: C.white,
+                            background: "rgba(255,255,255,0.05)",
+                            border: `1.5px solid ${otpError ? "rgba(189,35,32,0.5)" : digit ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
+                            borderRadius: 16,
+                            outline: "none",
+                            caretColor: C.red,
+                            boxShadow: digit && !otpError ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
+                            transition: "border-color 0.18s, box-shadow 0.18s",
+                            fontFamily: C.mono,
+                          }}
+                        />
+                      ))}
+                    </div>
 
-              <AnimatePresence>
-                {otpError && (
-                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ color: C.red, fontSize: 11, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
-                    That code didn&apos;t work. Try again.
-                  </motion.p>
+                    <AnimatePresence>
+                      {otpError && (
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          style={{ color: C.red, fontSize: 13, fontWeight: 600, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
+                          That code didn&apos;t work. Try again.
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+
+                    {canResend && (
+                      <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
+                        <button type="button" disabled={sendLoading} onClick={() => void handleResendOtp()}
+                          style={{ color: C.red, fontSize: 13, background: "none", border: "none", cursor: sendLoading ? "wait" : "pointer", fontFamily: C.mono, fontWeight: 700, letterSpacing: "0.02em", opacity: sendLoading ? 0.5 : 1 }}>
+                          {sendLoading ? "Sending…" : "Resend code"}
+                        </button>
+                      </div>
+                    )}
+
+                    {!canResend && (
+                      <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
+                        <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
+                          Resend in{" "}
+                          <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                            style={{ color: "rgba(255,255,255,0.55)" }}>
+                            {resendTimer}s
+                          </motion.span>
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
                 )}
               </AnimatePresence>
-
-              <button
-                type="button"
-                aria-busy={verifyLoading}
-                aria-label={verifyLoading ? "Verifying" : "Verify and continue"}
-                style={{
-                  ...D.primaryBtn(otp.every((d) => d) || verifyLoading, 0),
-                  minHeight: 52,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onClick={() => handleVerify(otp.join(""))}
-                disabled={otp.some((d) => !d) || verifyLoading}
-              >
-                {verifyLoading ? (
-                  <motion.span
-                    aria-hidden
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
-                    style={{
-                      display: "block",
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      border: "2.5px solid rgba(255,255,255,0.25)",
-                      borderTopColor: "#ffffff",
-                    }}
-                  />
-                ) : (
-                  "Verify & continue"
-                )}
-              </button>
-
-              <div style={{ textAlign: "center", marginTop: T.sp3 }}>
-                {canResend
-                  ? <button type="button" disabled={sendLoading} onClick={() => void handleResendOtp()}
-                      style={{ color: C.red, fontSize: 12, background: "none", border: "none", cursor: sendLoading ? "wait" : "pointer", fontFamily: C.mono, fontWeight: 600, letterSpacing: "0.02em", opacity: sendLoading ? 0.5 : 1 }}>
-                      {sendLoading ? "Sending…" : "Resend code"}
-                    </button>
-                  : <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 11, fontFamily: C.mono }}>
-                      Resend in{" "}
-                      <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                        style={{ color: "rgba(255,255,255,0.55)" }}>
-                        {resendTimer}s
-                      </motion.span>
-                    </p>
-                }
-              </div>
             </motion.div>
           </>
         )}
