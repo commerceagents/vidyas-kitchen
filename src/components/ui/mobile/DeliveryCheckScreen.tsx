@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface DeliveryCheckScreenProps {
   locationLabel: string;
@@ -12,10 +12,13 @@ interface DeliveryCheckScreenProps {
 }
 
 const AUTO_ADVANCE_MS = 2800;
+/** Green “Location confirmed” beat before the delivery-zone card (matches OTP verified timing). */
+const LOCATION_CONFIRMED_BEAT_MS = 1550;
 
 const C = {
   bg: "#0a0a0a",
   red: "#BD2320",
+  green: "#22c55e",
   white: "#ffffff",
   muted: "#A0A0A0",
   mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
@@ -40,6 +43,8 @@ export function DeliveryCheckScreen({
   displayName,
 }: DeliveryCheckScreenProps) {
   const [notifySent, setNotifySent] = useState(false);
+  /** After confirm on map, first show “Location confirmed” on this screen, then the zone card. */
+  const [locationBeatDone, setLocationBeatDone] = useState(() => !inRange);
   const proceedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const firstName = formatFirstName(displayName || "");
@@ -52,12 +57,22 @@ export function DeliveryCheckScreen({
   };
 
   useEffect(() => {
-    if (!inRange) return;
+    if (!inRange) {
+      setLocationBeatDone(true);
+      return;
+    }
+    setLocationBeatDone(false);
+    const id = setTimeout(() => setLocationBeatDone(true), LOCATION_CONFIRMED_BEAT_MS);
+    return () => clearTimeout(id);
+  }, [inRange]);
+
+  useEffect(() => {
+    if (!inRange || !locationBeatDone) return;
     proceedTimer.current = setTimeout(() => {
       onProceed();
     }, AUTO_ADVANCE_MS);
     return () => clearTimer();
-  }, [inRange, onProceed]);
+  }, [inRange, locationBeatDone, onProceed]);
 
   const handleContinue = () => {
     clearTimer();
@@ -116,7 +131,70 @@ export function DeliveryCheckScreen({
 
       <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", justifyContent: "center" }}>
         {inRange ? (
+          <AnimatePresence mode="wait">
+            {!locationBeatDone ? (
+              <motion.div
+                key="location-confirmed-beat"
+                role="status"
+                aria-live="polite"
+                initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                style={{
+                  width: "100%",
+                  maxWidth: 360,
+                  minHeight: 300,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 16,
+                  padding: "48px 24px",
+                }}
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: "rgba(34,197,94,0.14)",
+                    border: "1.5px solid rgba(34,197,94,0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke={C.green}
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </motion.div>
+                <div
+                  style={{
+                    padding: "10px 22px",
+                    borderRadius: 999,
+                    background: "rgba(18,18,18,0.96)",
+                    border: "1px solid rgba(34,197,94,0.45)",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  <p style={{ margin: 0, color: C.white, fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>
+                    Location confirmed
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
           <motion.div
+            key="delivery-zone-card"
             style={glassCard}
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -267,6 +345,8 @@ export function DeliveryCheckScreen({
               Continue
             </motion.button>
           </motion.div>
+            )}
+          </AnimatePresence>
         ) : (
           <motion.div
             style={glassCard}

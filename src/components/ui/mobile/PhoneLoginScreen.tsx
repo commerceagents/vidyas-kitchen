@@ -207,24 +207,30 @@ const S: Record<string, CSSProperties> = {
     WebkitBackdropFilter: "blur(12px)",
     zIndex: 40,
   },
-  // OTP Sheet — glass style
-  otpSheet: {
-    position: "fixed", bottom: 0, left: 0, right: 0,
-    zIndex: 50,
-    background: "rgba(14,14,14,0.95)",
-    backdropFilter: "blur(40px)",
-    WebkitBackdropFilter: "blur(40px)",
-    borderRadius: "28px 28px 0 0",
-    border: "1px solid rgba(255,255,255,0.07)",
-    borderBottom: "none",
-    padding: `20px ${T.sp3}px 40px`,
+  /** OTP — full screen (not a bottom drawer). */
+  otpFullPage: {
+    position: "fixed", inset: 0, zIndex: 50,
+    background: C.bg,
     fontFamily: C.mono,
-    boxShadow: "0 -8px 40px rgba(0,0,0,0.6)",
+    display: "flex", flexDirection: "column",
+    overflow: "hidden",
   },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    background: "rgba(255,255,255,0.12)",
-    margin: `0 auto 20px`,
+  otpFullHeader: {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    minHeight: 48,
+    padding: `max(12px, env(safe-area-inset-top, 0px)) ${T.sp3}px 10px`,
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+  },
+  otpFullBody: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: 0,
+    padding: `0 ${T.sp3}px max(32px, env(safe-area-inset-bottom, 0px))`,
+    overflowY: "auto" as const,
   },
   sheetTitle: {
     fontSize: 20, fontWeight: 800,
@@ -245,7 +251,7 @@ const S: Record<string, CSSProperties> = {
   // Legal sheet
   legalSheet: {
     position: "fixed", inset: 0,
-    zIndex: 50,
+    zIndex: 60,
     background: "#0a0a0a",
     fontFamily: C.mono,
     display: "flex", flexDirection: "column",
@@ -558,6 +564,22 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }
   };
 
+  const dismissOtp = useCallback(() => {
+    if (otpVerifySuccess) return;
+    setShowOtp(false);
+    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+    if (postOtpNavTimerRef.current) {
+      clearTimeout(postOtpNavTimerRef.current);
+      postOtpNavTimerRef.current = null;
+    }
+    confirmationRef.current = null;
+    clearRecaptcha();
+    setOtp(Array(OTP_LEN).fill(""));
+    setOtpError(false);
+    setVerifyLoading(false);
+    setOtpVerifySuccess(false);
+  }, [OTP_LEN, clearRecaptcha, otpVerifySuccess]);
+
   // ─── Render ─────────────────────────────────────────────────────
   return (
     <div style={S.root}>
@@ -753,42 +775,47 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         </motion.div>
       </div>
 
-      {/* ── OTP BOTTOM SHEET ─────────────────────────────────────── */}
+      {/* ── OTP FULL PAGE (not a drawer) ─────────────────────────── */}
       <AnimatePresence>
         {showOtp && (
-          <>
-            <motion.div
-              key="otp-bd"
-              style={{
-                ...S.backdrop,
-                pointerEvents: otpVerifySuccess ? ("none" as const) : undefined,
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (otpVerifySuccess) return;
-                setShowOtp(false);
-                if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
-                if (postOtpNavTimerRef.current) {
-                  clearTimeout(postOtpNavTimerRef.current);
-                  postOtpNavTimerRef.current = null;
-                }
-                confirmationRef.current = null;
-                clearRecaptcha();
-                setOtp(Array(OTP_LEN).fill(""));
-                setOtpError(false);
-                setVerifyLoading(false);
-                setOtpVerifySuccess(false);
-              }}
-            />
-            <motion.div key="otp-sheet" style={S.otpSheet}
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 34 }}>
-              <div style={S.handle} />
+          <motion.div
+            key="otp-fullpage"
+            style={S.otpFullPage}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+          >
+            <div style={S.otpFullHeader}>
+              <button
+                type="button"
+                onClick={dismissOtp}
+                disabled={otpVerifySuccess}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "none",
+                  border: "none",
+                  cursor: otpVerifySuccess ? "default" : "pointer",
+                  color: otpVerifySuccess ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)",
+                  fontFamily: C.mono,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  padding: "4px 0",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+            </div>
 
+            <div style={S.otpFullBody}>
               {!verifyLoading && !otpVerifySuccess && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
                   <p style={S.sheetTitle}>Enter the OTP</p>
                   <p style={S.sheetSub}>
                     Sent to{" "}
@@ -950,8 +977,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
-          </>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
