@@ -290,7 +290,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState(320);
   const sheetHeightRef = useRef(320); // always up-to-date inside async callbacks
-  const mapRef = useRef<{ getMap: () => mapboxgl.Map } | null>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -309,7 +309,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         sheetHeightRef.current = h;
         // Tell Mapbox about the UI overlay so all flyTo/easeTo
         // automatically centers within the visible area above the drawer.
-        const map = mapRef.current?.getMap();
+        const map = mapInstanceRef.current;
         if (map) {
           map.setPadding({ top: 80, bottom: h + 20, left: 0, right: 0 });
         }
@@ -367,7 +367,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
 
-    const map = mapRef.current?.getMap();
+    const map = mapInstanceRef.current;
     if (map) {
       map.flyTo({
         center: [lng, lat],
@@ -392,21 +392,20 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         setPinCoords({ lat: latitude, lng: longitude });
         setSelectedSaved(null);
         setSearchText("Locating address...");
-        const map = mapRef.current?.getMap();
+        
+        const map = mapInstanceRef.current;
         if (map) {
-          // map.setPadding() already tells Mapbox to center within visible area
           map.flyTo({
             center: [longitude, latitude],
             zoom: TARGET_ZOOM,
             curve: 1.42,  // bird's-eye: zooms out, shows journey, lands
-            speed: 0.8,   // slightly slower for more "butter"
+            speed: 0.8,
             essential: true,
           });
-          // REMOVED immediate setViewState here — it was causing the abrupt jump.
-          // Mapbox will emit 'move' events during flyTo which onMove will catch.
         } else {
           setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
         }
+        
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
         setIsDetecting(false);
@@ -417,7 +416,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, [resolveAddress]);
 
   const handleRecenter = useCallback(() => {
-    const map = mapRef.current?.getMap();
+    const map = mapInstanceRef.current;
     if (map) {
       map.flyTo({
         center: [pinCoords.lng, pinCoords.lat],
@@ -427,13 +426,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
         essential: true,
       });
-    } else {
-      setViewState((v) => ({
-        ...v,
-        longitude: pinCoords.lng,
-        latitude: pinCoords.lat,
-        zoom: TARGET_ZOOM,
-      }));
     }
   }, [pinCoords]);
 
@@ -484,7 +476,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setAddingPlace(null);
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
-    const map = mapRef.current?.getMap();
+    const map = mapInstanceRef.current;
     if (map) {
       map.flyTo({
         center: [place.lng, place.lat],
@@ -668,7 +660,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       {/* ── FULL SCREEN MAP ── */}
       {hasToken ? (
         <Map
-          ref={mapRef as React.Ref<unknown> & React.RefObject<{ getMap: () => mapboxgl.Map }>}
           {...viewState}
           onMove={(e) => setViewState(e.viewState)}
           mapStyle={MAP_STYLE}
@@ -680,6 +671,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           onLoad={(e) => {
             try {
               const map = e.target;
+              mapInstanceRef.current = map;
               // Set padding so all camera ops respect the drawer overlay
               map.setPadding({ top: 80, bottom: sheetHeightRef.current + 20, left: 0, right: 0 });
               const style = map.getStyle();
