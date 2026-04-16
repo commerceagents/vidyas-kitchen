@@ -26,36 +26,36 @@ const content = {
     ],
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Please read these Terms of Service (&ldquo;Terms&rdquo;) carefully as they contain important information about your legal rights, remedies and obligations. By accessing or using the Vidya&apos;s Kitchen Platform, you agree to comply with and be bound by these Terms.</p>
+        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Please read these Terms of Service (&ldquo;Terms&rdquo;) carefully as they contain important information about your legal rights, remedies and obligations. By accessing or using the Vidya&apos;s Kitchen Platform, you agree to comply with and be bound by these Terms.</p>
         
         <section id="acceptance" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Acceptance of Terms</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>By accessing Vidya&apos;s Kitchen services via our website or WhatsApp bot, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Acceptance of Terms</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>By accessing Vidya&apos;s Kitchen services via our website or WhatsApp bot, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
         </section>
 
         <section id="description" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Service Description</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen provides home-cooked meal catering and delivery services. All orders are subject to availability and acceptance by us.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. Service Description</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen provides home-cooked meal catering and delivery services. All orders are subject to availability and acceptance by us.</p>
         </section>
 
         <section id="obligations" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>3. User Obligations</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Users must provide accurate information for order delivery and payment. Any misuse of the WhatsApp bot or website to place fraudulent orders is strictly prohibited.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. User Obligations</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Users must provide accurate information for order delivery and payment. Any misuse of the WhatsApp bot or website to place fraudulent orders is strictly prohibited.</p>
         </section>
 
         <section id="pricing" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>4. Pricing and Payment</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>All prices are listed in Indian Rupees (INR). Payments must be made via the secure Razorpay links provided after order confirmation. Orders will only be processed once payment is confirmed.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>4. Pricing and Payment</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>All prices are listed in Indian Rupees (INR). Payments must be made via the secure Razorpay links provided after order confirmation. Orders will only be processed once payment is confirmed.</p>
         </section>
 
         <section id="liability" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>5. Limitation of Liability</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services or the consumption of our products beyond the order value.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>5. Limitation of Liability</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services or the consumption of our products beyond the order value.</p>
         </section>
 
         <section id="law" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>6. Governing Law</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>These terms are governed by the laws of India, and any disputes will be subject to the exclusive jurisdiction of the courts in Sivakasi, Tamil Nadu.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>6. Governing Law</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>These terms are governed by the laws of India, and any disputes will be subject to the exclusive jurisdiction of the courts in Sivakasi, Tamil Nadu.</p>
         </section>
       </div>
     )
@@ -70,11 +70,11 @@ const content = {
     ],
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>At Vidya&apos;s Kitchen, we value your privacy. This policy explains how we collect and use your data when you interact with our platform.</p>
+        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>At Vidya&apos;s Kitchen, we value your privacy. This policy explains how we collect and use your data when you interact with our platform.</p>
         
         <section id="collection" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Information We Collect</h2>
-          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Information We Collect</h2>
+          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>
             <li><strong>WhatsApp Details:</strong> Name and phone number provided when interacting with our bot.</li>
             <li><strong>Order Content:</strong> Items ordered, delivery preferences, and special instructions.</li>
             <li><strong>Payment Info:</strong> We use Razorpay for payment processing and do not store your credit card details.</li>
@@ -82,13 +82,13 @@ const content = {
         </section>
 
         <section id="usage" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. How We Use Information</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Your data is used solely to provide and improve our services, including processing orders, sending payment links, and responding to your queries on WhatsApp.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. How We Use Information</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Your data is used solely to provide and improve our services, including processing orders, sending payment links, and responding to your queries on WhatsApp.</p>
         </section>
 
         <section id="sharing" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>3. Data Sharing</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>We do not sell or rent your personal information. Data is shared only with Razorpay to facilitate payments.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Data Sharing</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>We do not sell or rent your personal information. Data is shared only with Razorpay to facilitate payments.</p>
         </section>
       </div>
     )
@@ -103,17 +103,17 @@ const content = {
     ],
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>As we prepare fresh home-cooked meals, our refund and cancellation policies are strict to ensure quality and minimize waste.</p>
+        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>As we prepare fresh home-cooked meals, our refund and cancellation policies are strict to ensure quality and minimize waste.</p>
         
         <section id="cancellation" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Order Cancellation</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Cancellations are only permitted within 15 minutes of placing the order. Once food preparation has started, we cannot accept cancellations.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Order Cancellation</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Cancellations are only permitted within 15 minutes of placing the order. Once food preparation has started, we cannot accept cancellations.</p>
         </section>
 
         <section id="eligibility" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Refund Eligibility</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>Refunds are issued if:</p>
-          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. Refund Eligibility</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Refunds are issued if:</p>
+          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>
             <li>The delivered food is spoiled.</li>
             <li>Wrong items were delivered.</li>
             <li>Order was not delivered due to our error.</li>
@@ -121,8 +121,8 @@ const content = {
         </section>
 
         <section id="process" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>3. Refund Process</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: '1.8' }}>To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days.</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Refund Process</h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days.</p>
         </section>
       </div>
     )
@@ -265,8 +265,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     textAlign: 'left',
                     fontSize: '12px',
                     fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.2em',
+                    letterSpacing: '0.06em',
                     transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
                     color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
                     transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
@@ -326,8 +325,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     textDecoration: 'none',
                     color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
                     transition: 'all 0.3s ease',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
+                    letterSpacing: '0.02em',
                     display: 'block'
                   }}
                   className="hover:text-white"
@@ -375,7 +373,6 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               letterSpacing: '-0.02em',
               lineHeight: '1',
               marginBottom: '20px',
-              textTransform: 'uppercase',
               color: '#FFFFFF',
               textAlign: 'center',
               width: '100%',
@@ -387,9 +384,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             <p style={{
               fontSize: '11px',
               fontWeight: '900',
-              letterSpacing: '0.25em',
-              color: 'rgba(255,255,255,0.2)',
-              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: 'rgba(255,255,255,0.58)',
               textAlign: 'center',
               width: '100%',
               display: 'block'
@@ -398,7 +394,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             </p>
           </div>
           
-          <div style={{ color: 'rgba(255,255,255,0.5)', lineHeight: '2.2', fontSize: '18px', width: '100%' }}>
+          <div style={{ color: 'rgba(255,255,255,0.55)', lineHeight: '2.2', fontSize: '18px', width: '100%' }}>
             {content[activeTab].body}
           </div>
 
@@ -423,9 +419,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             <p style={{
               fontSize: '11px',
               fontWeight: '900',
-              letterSpacing: '0.3em',
-              color: 'rgba(255,255,255,0.2)',
-              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'rgba(255,255,255,0.55)',
               textAlign: 'center',
               display: 'flex',
               alignItems: 'center',

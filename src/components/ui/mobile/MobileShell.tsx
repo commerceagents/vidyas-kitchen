@@ -105,7 +105,13 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
         )}
 
         {step === "location" && (
-          <motion.div key="location" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+          <motion.div
+            key="location"
+            className="w-full h-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 1.35, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } }}
+          >
             <LocationScreen onLocationSet={handleLocationSet} />
           </motion.div>
         )}

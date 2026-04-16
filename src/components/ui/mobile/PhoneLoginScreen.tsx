@@ -18,6 +18,8 @@ interface PhoneLoginScreenProps {
 }
 
 const LS_DISPLAY_NAME = "vk_display_name";
+/** Show “OTP verified” before handing off to the map step. */
+const OTP_VERIFIED_TOOLTIP_MS = 1550;
 
 function formatFirstName(raw: string) {
   const s = raw.trim().split(/\s+/)[0];
@@ -48,30 +50,30 @@ const C = {
 // ─── Legal content ────────────────────────────────────────────────
 const legalContent: Record<LegalTab, { title: string; sections: { heading: string; text: string }[] }> = {
   terms: {
-    title: "TERMS OF SERVICE",
+    title: "Terms of Service",
     sections: [
-      { heading: "1. ACCEPTANCE OF TERMS", text: "by accessing vidya's kitchen services via our website or whatsapp bot, you agree to be bound by these terms of service. if you do not agree, please do not use our services." },
-      { heading: "2. SERVICE DESCRIPTION", text: "vidya's kitchen provides home-cooked meal catering and delivery services. all orders are subject to availability and acceptance by us." },
-      { heading: "3. USER OBLIGATIONS", text: "users must provide accurate information for order delivery and payment. any misuse of the whatsapp bot or website to place fraudulent orders is strictly prohibited." },
-      { heading: "4. PRICING AND PAYMENT", text: "all prices are listed in indian rupees (inr). payments must be made via secure razorpay links provided after order confirmation. orders will only be processed once payment is confirmed." },
-      { heading: "5. LIMITATION OF LIABILITY", text: "vidya's kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services beyond the order value." },
-      { heading: "6. GOVERNING LAW", text: "these terms are governed by the laws of india. any disputes shall be subject to the exclusive jurisdiction of the courts in sivakasi, tamil nadu." },
+      { heading: "1. Acceptance of Terms", text: "By accessing Vidya's Kitchen services via our website or WhatsApp bot, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services." },
+      { heading: "2. Service Description", text: "Vidya's Kitchen provides home-cooked meal catering and delivery services. All orders are subject to availability and acceptance by us." },
+      { heading: "3. User Obligations", text: "Users must provide accurate information for order delivery and payment. Any misuse of the WhatsApp bot or website to place fraudulent orders is strictly prohibited." },
+      { heading: "4. Pricing and Payment", text: "All prices are listed in Indian Rupees (INR). Payments must be made via secure Razorpay links provided after order confirmation. Orders will only be processed once payment is confirmed." },
+      { heading: "5. Limitation of Liability", text: "Vidya's Kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services beyond the order value." },
+      { heading: "6. Governing Law", text: "These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts in Sivakasi, Tamil Nadu." },
     ],
   },
   privacy: {
-    title: "PRIVACY POLICY",
+    title: "Privacy Policy",
     sections: [
-      { heading: "1. INFORMATION WE COLLECT", text: "we collect your whatsapp name, phone number, items ordered, delivery preferences, and special instructions. we use razorpay for payments and do not store card details." },
-      { heading: "2. HOW WE USE INFORMATION", text: "your data is used solely to provide and improve our services — including processing orders, sending payment links, and responding to queries on whatsapp." },
-      { heading: "3. DATA SHARING", text: "we do not sell or rent your personal information. data is shared only with razorpay to facilitate payments." },
+      { heading: "1. Information We Collect", text: "We collect your WhatsApp name, phone number, items ordered, delivery preferences, and special instructions. We use Razorpay for payments and do not store card details." },
+      { heading: "2. How We Use Information", text: "Your data is used solely to provide and improve our services, including processing orders, sending payment links, and responding to queries on WhatsApp." },
+      { heading: "3. Data Sharing", text: "We do not sell or rent your personal information. Data is shared only with Razorpay to facilitate payments." },
     ],
   },
   refund: {
-    title: "REFUND POLICY",
+    title: "Refund Policy",
     sections: [
-      { heading: "1. ORDER CANCELLATION", text: "cancellations are only permitted within 15 minutes of placing the order. once food preparation has started, we cannot accept cancellations." },
-      { heading: "2. REFUND ELIGIBILITY", text: "refunds are issued if the delivered food is spoiled, wrong items were delivered, or the order was not delivered due to our error." },
-      { heading: "3. REFUND PROCESS", text: "to request a refund, please contact us on whatsapp with photos of the issue within 1 hour of delivery. approved refunds will be processed via razorpay within 5–7 business days." },
+      { heading: "1. Order Cancellation", text: "Cancellations are only permitted within 15 minutes of placing the order. Once food preparation has started, we cannot accept cancellations." },
+      { heading: "2. Refund Eligibility", text: "Refunds are issued if the delivered food is spoiled, wrong items were delivered, or the order was not delivered due to our error." },
+      { heading: "3. Refund Process", text: "To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days." },
     ],
   },
 };
@@ -319,10 +321,10 @@ const D = {
     padding: `${T.sp1}px ${T.sp2}px`,
     borderRadius: T.sp1,
     border: "none", cursor: "pointer",
-    fontFamily: C.mono, fontSize: 10, fontWeight: 700,
-    letterSpacing: "0.1em", textTransform: "uppercase",
+    fontFamily: C.mono, fontSize: 11, fontWeight: 700,
+    letterSpacing: "0.03em",
     background: active ? C.red : "transparent",
-    color: active ? C.white : C.muted,
+    color: active ? C.white : "rgba(255,255,255,0.58)",
     whiteSpace: "nowrap",
     transition: "all 0.18s",
   }),
@@ -350,6 +352,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postOtpNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [otpVerifySuccess, setOtpVerifySuccess] = useState(false);
 
   const clearRecaptcha = useCallback(() => {
     try {
@@ -382,6 +387,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
   useEffect(() => {
     return () => {
+      if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+      if (postOtpNavTimerRef.current) clearTimeout(postOtpNavTimerRef.current);
       confirmationRef.current = null;
       clearRecaptcha();
     };
@@ -468,6 +475,12 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   };
 
   const handleResendOtp = async () => {
+    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+    if (postOtpNavTimerRef.current) {
+      clearTimeout(postOtpNavTimerRef.current);
+      postOtpNavTimerRef.current = null;
+    }
+    setOtpVerifySuccess(false);
     setOtpError(false);
     setSendError(null);
     setOtp(Array(OTP_LEN).fill(""));
@@ -487,11 +500,18 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const handleOtpChange = (i: number, val: string) => {
     if (!/^\d*$/.test(val)) return;
     setOtpError(false);
+    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
     const n = [...otp];
     n[i] = val.slice(-1);
     setOtp(n);
     if (val && i < OTP_LEN - 1) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
-    if (n.every((d) => d)) handleVerify(n.join(""));
+    if (n.every((d) => d) && !verifyLoading) {
+      const code = n.join("");
+      // Small delay so the final typed digit is visible before loader takes over.
+      autoVerifyTimerRef.current = setTimeout(() => {
+        void handleVerify(code);
+      }, 180);
+    }
   };
 
   const handleVerify = async (code: string) => {
@@ -523,7 +543,13 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       }
 
       localStorage.setItem(LS_DISPLAY_NAME, finalName);
-      onVerified(phoneE164, finalName);
+      setVerifyLoading(false);
+      setOtpVerifySuccess(true);
+      if (postOtpNavTimerRef.current) clearTimeout(postOtpNavTimerRef.current);
+      postOtpNavTimerRef.current = setTimeout(() => {
+        postOtpNavTimerRef.current = null;
+        onVerified(phoneE164, finalName);
+      }, OTP_VERIFIED_TOOLTIP_MS);
     } catch {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
@@ -733,16 +759,27 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           <>
             <motion.div
               key="otp-bd"
-              style={S.backdrop}
+              style={{
+                ...S.backdrop,
+                pointerEvents: otpVerifySuccess ? ("none" as const) : undefined,
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
+                if (otpVerifySuccess) return;
                 setShowOtp(false);
+                if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+                if (postOtpNavTimerRef.current) {
+                  clearTimeout(postOtpNavTimerRef.current);
+                  postOtpNavTimerRef.current = null;
+                }
                 confirmationRef.current = null;
                 clearRecaptcha();
                 setOtp(Array(OTP_LEN).fill(""));
                 setOtpError(false);
+                setVerifyLoading(false);
+                setOtpVerifySuccess(false);
               }}
             />
             <motion.div key="otp-sheet" style={S.otpSheet}
@@ -750,25 +787,88 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               transition={{ type: "spring", stiffness: 300, damping: 34 }}>
               <div style={S.handle} />
 
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-                <p style={S.sheetTitle}>Enter the code</p>
-                <p style={S.sheetSub}>
-                  Sent to{" "}
-                  <span style={{ color: "rgba(255,255,255,0.75)" }}>
-                    +91 {formatDisplay(rawPhone)}
-                  </span>
-                </p>
-              </motion.div>
+              {!verifyLoading && !otpVerifySuccess && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+                  <p style={S.sheetTitle}>Enter the OTP</p>
+                  <p style={S.sheetSub}>
+                    Sent to{" "}
+                    <span style={{ color: "rgba(255,255,255,0.75)" }}>
+                      +91 {formatDisplay(rawPhone)}
+                    </span>
+                  </p>
+                </motion.div>
+              )}
 
               {/* 6-digit OTP (Firebase SMS) */}
               <AnimatePresence mode="wait">
-                {verifyLoading ? (
+                {otpVerifySuccess ? (
+                  <motion.div
+                    key="otp-verified"
+                    role="status"
+                    aria-live="polite"
+                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.94 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                    style={{
+                      minHeight: 168,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 14,
+                      padding: `${T.sp2}px ${T.sp3}px ${T.sp4}px`,
+                    }}
+                  >
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: "50%",
+                        background: "rgba(34,197,94,0.14)",
+                        border: "1.5px solid rgba(34,197,94,0.45)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M5 13l4 4L19 7"
+                          stroke={C.green}
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </motion.div>
+                    <div
+                      style={{
+                        padding: "10px 22px",
+                        borderRadius: 999,
+                        background: "rgba(18,18,18,0.96)",
+                        border: "1px solid rgba(34,197,94,0.45)",
+                        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+                      }}
+                    >
+                      <p style={{ margin: 0, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em", fontFamily: C.mono }}>
+                        OTP verified
+                      </p>
+                    </div>
+                    <p style={{ margin: 0, color: "rgba(255,255,255,0.38)", fontSize: 12, fontWeight: 600, fontFamily: C.mono }}>
+                      Taking you to the map…
+                    </p>
+                  </motion.div>
+                ) : verifyLoading ? (
                   <motion.div
                     key="loader-container"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
-                    style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     <motion.span
                       animate={{ rotate: 360 }}
@@ -865,14 +965,14 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             {/* Header */}
             <div style={S.legalHeader}>
               <button onClick={() => setShowLegal(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: C.muted, fontFamily: C.mono, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.6)", fontFamily: C.mono, fontSize: 11, letterSpacing: "0.04em" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M15 19l-7-7 7-7" />
                 </svg>
-                BACK
+                Back
               </button>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: C.mono }}>
-                legal hub
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", letterSpacing: "0.04em", fontFamily: C.mono }}>
+                Legal Hub
               </span>
             </div>
 
@@ -880,7 +980,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             <div style={S.legalTabBar}>
               {(["terms", "privacy", "refund"] as LegalTab[]).map(tab => (
                 <button key={tab} style={D.legalTab(legalTab === tab)} onClick={() => setLegalTab(tab)}>
-                  {tab === "terms" ? "TERMS" : tab === "privacy" ? "PRIVACY" : "REFUND"}
+                  {tab === "terms" ? "Terms" : tab === "privacy" ? "Privacy" : "Refund"}
                 </button>
               ))}
             </div>
@@ -890,20 +990,20 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <motion.div key={legalTab} style={S.legalBody}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "0.02em", marginBottom: T.sp3, textTransform: "uppercase" }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "0.01em", marginBottom: T.sp3 }}>
                   {legalContent[legalTab].title}
                 </h1>
-                <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: T.sp6 }}>
-                  last updated: march 23, 2026
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", letterSpacing: "0.03em", marginBottom: T.sp6 }}>
+                  Last updated: March 23, 2026
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: T.sp6 }}>
                   {legalContent[legalTab].sections.map((sec, i) => (
                     <section key={i}>
-                      <h2 style={{ fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: T.sp2 }}>
+                      <h2 style={{ fontSize: 13, fontWeight: 800, color: C.white, letterSpacing: "0.02em", marginBottom: T.sp2 }}>
                         {sec.heading}
                       </h2>
-                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.9, letterSpacing: "0.02em" }}>
+                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.9, letterSpacing: "0.015em" }}>
                         {sec.text}
                       </p>
                     </section>
@@ -912,8 +1012,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
                 {/* Footer */}
                 <div style={{ marginTop: T.sp8, paddingTop: T.sp4, borderTop: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
-                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                    © 2026 vidya&apos;s kitchen. all rights reserved.
+                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "0.03em" }}>
+                    © 2026 Vidya&apos;s Kitchen. All rights reserved.
                   </p>
                 </div>
               </motion.div>

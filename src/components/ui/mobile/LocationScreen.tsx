@@ -39,6 +39,28 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
 const LS_SAVED_PLACES = "vk_saved_places";
 
+/** Insets passed with the camera so the map never paints “unpadded” then snaps when overlays mount. */
+const MAP_PAD_TOP = 80;
+const MAP_PAD_BOTTOM_EXTRA = 20;
+/** Must match initial `sheetHeight` so padding matches before the first layout measure. */
+const INITIAL_SHEET_FALLBACK_H = 320;
+/** Hold success UI before handing off to delivery step (matches OTP verified beat). */
+const LOCATION_CONFIRMED_HOLD_MS = 1550;
+const GREEN_ACCENT = "#22c55e";
+
+/** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
+function easeSmootherstep(t: number) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+/** Double smoothstep — very soft accel/decel (“laggy” smooth). */
+function easeLaggySmooth(t: number) {
+  const s = t * t * (3 - 2 * t);
+  return s * s * (3 - 2 * s);
+}
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
+}
+
 const DEFAULT_PLACES: SavedPlace[] = [
   { id: "home", label: "Home", address: "Add home address", lat: 0, lng: 0 },
   { id: "work", label: "Work", address: "Add work address", lat: 0, lng: 0 },
@@ -184,9 +206,9 @@ function RecenterIcon() {
 function MapPin() {
   return (
     <motion.div
-      initial={{ scale: 0, y: -20 }}
-      animate={{ scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.5 }}
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 420, damping: 26, delay: 0.12 }}
       style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}
     >
       {/* Expanding neon rings */}
@@ -272,17 +294,19 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function LocationScreen({ onLocationSet }: LocationScreenProps) {
-  // initialViewState makes the map UNCONTROLLED — Mapbox owns the camera,
-  // no React state fights against flyTo animations.
-  const initialViewState = {
+  const [viewState, setViewState] = useState({
     longitude: SIVAKASI_CENTER.lng,
     latitude: SIVAKASI_CENTER.lat,
     zoom: 13,
     pitch: 58,
     bearing: -18,
-  };
-  // Keep a minimal copy just for the Marker position sync
-  const [viewState, setViewState] = useState(initialViewState);
+    padding: {
+      top: MAP_PAD_TOP,
+      bottom: INITIAL_SHEET_FALLBACK_H + MAP_PAD_BOTTOM_EXTRA,
+      left: 0,
+      right: 0,
+    },
+  });
   const [pinCoords, setPinCoords] = useState(SIVAKASI_CENTER);
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
@@ -292,12 +316,96 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(320);
-  const sheetHeightRef = useRef(320); // always up-to-date inside async callbacks
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const [locationConfirmSuccess, setLocationConfirmSuccess] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
+  const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postConfirmNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLocationRef = useRef<LocationData | null>(null);
+  const cameraAnimRef = useRef<number | null>(null);
+  /** Bumped when cancelling camera work so in-flight RAF does not fire `onComplete`. */
+  const cameraGenRef = useRef(0);
+  const viewStateRef = useRef(viewState);
+  const TARGET_ZOOM = 18;
+
+  useEffect(() => {
+    viewStateRef.current = viewState;
+  }, [viewState]);
+
+  const stopCameraAnimation = useCallback(() => {
+    cameraGenRef.current += 1;
+    if (cameraAnimRef.current !== null) {
+      cancelAnimationFrame(cameraAnimRef.current);
+      cameraAnimRef.current = null;
+    }
+  }, []);
+
+  type AnimateCameraOptions = {
+    easing?: (t: number) => number;
+    /** Fires only if this segment was not cancelled by `stopCameraAnimation`. */
+    onComplete?: () => void;
+  };
+
+  const animateCameraTo = useCallback(
+    (
+      lng: number,
+      lat: number,
+      duration = 1400,
+      targetZoom = TARGET_ZOOM,
+      options?: AnimateCameraOptions
+    ) => {
+      stopCameraAnimation();
+      const gen = cameraGenRef.current;
+      const from = viewStateRef.current;
+      const start = performance.now();
+      const ease = options?.easing ?? easeSmootherstep;
+      const step = (now: number) => {
+        if (gen !== cameraGenRef.current) {
+          cameraAnimRef.current = null;
+          return;
+        }
+        const t = Math.min(1, (now - start) / duration);
+        const eased = ease(t);
+        setViewState((v) => ({
+          ...v,
+          longitude: from.longitude + (lng - from.longitude) * eased,
+          latitude: from.latitude + (lat - from.latitude) * eased,
+          zoom: from.zoom + (targetZoom - from.zoom) * eased,
+        }));
+        if (t < 1) {
+          cameraAnimRef.current = requestAnimationFrame(step);
+        } else {
+          cameraAnimRef.current = null;
+          if (gen === cameraGenRef.current) options?.onComplete?.();
+        }
+      };
+      cameraAnimRef.current = requestAnimationFrame(step);
+    },
+    [stopCameraAnimation]
+  );
+
+  /**
+   * “Detect location” — one uninterrupted glide to the pin (no midpoint stop),
+   * then slow zoom-in. Glide length scales slightly with distance so long hops stay fluid.
+   */
+  const animateCameraRoute = useCallback(
+    (lng: number, lat: number) => {
+      const from = viewStateRef.current;
+      const travelZoom = Math.max(13.2, TARGET_ZOOM - 3.05);
+      const distKm = getDistanceKm(from.latitude, from.longitude, lat, lng);
+      const glideMs = Math.min(20000, Math.max(8200, 7600 + distKm * 130));
+
+      animateCameraTo(lng, lat, glideMs, travelZoom, {
+        easing: easeLaggySmooth,
+        onComplete: () => {
+          animateCameraTo(lng, lat, 7200, TARGET_ZOOM, { easing: easeOutCubic });
+        },
+      });
+    },
+    [animateCameraTo]
+  );
 
   // Load saved places from localStorage on mount
   useEffect(() => {
@@ -311,12 +419,17 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         const h = sheetRef.current.offsetHeight;
         setSheetHeight(h);
         sheetHeightRef.current = h;
-        // Tell Mapbox about the UI overlay so all flyTo/easeTo
-        // automatically centers within the visible area above the drawer.
-        const map = mapInstanceRef.current;
-        if (map) {
-          map.setPadding({ top: 80, bottom: h + 20, left: 0, right: 0 });
-        }
+        // Keep padding in React viewState (same source as Map props) so the camera
+        // never renders one frame without insets then jumps when setPadding runs.
+        setViewState((v) => ({
+          ...v,
+          padding: {
+            top: MAP_PAD_TOP,
+            bottom: h + MAP_PAD_BOTTOM_EXTRA,
+            left: 0,
+            right: 0,
+          },
+        }));
       }
     };
     measure();
@@ -326,6 +439,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => stopCameraAnimation();
+  }, [stopCameraAnimation]);
+
+  useEffect(() => {
+    return () => {
+      if (postConfirmNavTimerRef.current) clearTimeout(postConfirmNavTimerRef.current);
     };
   }, []);
 
@@ -370,22 +493,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setSuggestions([]);
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
-
-    const map = mapInstanceRef.current;
-    if (map) {
-      map.flyTo({
-        center: [lng, lat],
-        zoom: TARGET_ZOOM,
-        speed: 1.2,
-        curve: 1,
-        essential: true,
-      });
-    } else {
-      setViewState((v) => ({ ...v, longitude: lng, latitude: lat, zoom: TARGET_ZOOM }));
-    }
+    animateCameraTo(lng, lat, 1600);
   };
-
-  const TARGET_ZOOM = 18;
 
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
@@ -397,18 +506,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         setSelectedSaved(null);
         setSearchText("Locating address...");
         
-        const map = mapInstanceRef.current;
-        if (map) {
-          map.flyTo({
-            center: [longitude, latitude],
-            zoom: TARGET_ZOOM,
-            curve: 1.42,  // bird's-eye: zooms out, shows journey, lands
-            speed: 0.8,
-            essential: true,
-          });
-        } else {
-          setViewState((v) => ({ ...v, longitude, latitude, zoom: TARGET_ZOOM }));
-        }
+        animateCameraRoute(longitude, latitude);
         
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
@@ -417,21 +515,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       () => setIsDetecting(false),
       { enableHighAccuracy: true, timeout: 8000 }
     );
-  }, [resolveAddress]);
+  }, [animateCameraRoute, resolveAddress]);
 
   const handleRecenter = useCallback(() => {
-    const map = mapInstanceRef.current;
-    if (map) {
-      map.flyTo({
-        center: [pinCoords.lng, pinCoords.lat],
-        zoom: TARGET_ZOOM,
-        speed: 1.2,
-        curve: 1,
-        easing: (t: number) => 1 - Math.pow(1 - t, 3),
-        essential: true,
-      });
-    }
-  }, [pinCoords]);
+    animateCameraTo(pinCoords.lng, pinCoords.lat, 1500);
+  }, [animateCameraTo, pinCoords]);
 
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
     setPinCoords({ lat, lng });
@@ -480,19 +568,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     setAddingPlace(null);
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
-    const map = mapInstanceRef.current;
-    if (map) {
-      map.flyTo({
-        center: [place.lng, place.lat],
-        zoom: TARGET_ZOOM,
-        speed: 1.2,
-        curve: 1,
-        easing: (t: number) => 1 - Math.pow(1 - t, 3),
-        essential: true,
-      });
-    } else {
-      setViewState((v) => ({ ...v, longitude: place.lng, latitude: place.lat, zoom: TARGET_ZOOM }));
-    }
+    animateCameraTo(place.lng, place.lat, 1700);
   };
 
   const handleSavePlace = () => {
@@ -551,12 +627,21 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       ? savedPlaces.find((p) => p.id === selectedSaved)?.label || "Saved Location"
       : searchText.trim() || "Current Location";
     const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, SIVAKASI_CENTER.lat, SIVAKASI_CENTER.lng);
-    onLocationSet({
+    const data: LocationData = {
       label,
       lat: pinCoords.lat,
       lng: pinCoords.lng,
       inRange: dist <= MAX_DISTANCE_KM,
-    });
+    };
+    pendingLocationRef.current = data;
+    setLocationConfirmSuccess(true);
+    if (postConfirmNavTimerRef.current) clearTimeout(postConfirmNavTimerRef.current);
+    postConfirmNavTimerRef.current = setTimeout(() => {
+      postConfirmNavTimerRef.current = null;
+      const next = pendingLocationRef.current;
+      pendingLocationRef.current = null;
+      if (next) onLocationSet(next);
+    }, LOCATION_CONFIRMED_HOLD_MS);
   };
 
   const handleSkip = () => {
@@ -664,20 +749,35 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       {/* ── FULL SCREEN MAP ── */}
       {hasToken ? (
         <Map
-          initialViewState={initialViewState}
-          onMove={(e) => setViewState(e.viewState)}
+          {...viewState}
+          interactive={!locationConfirmSuccess}
+          onMove={(e) =>
+            setViewState((prev) => {
+              const p = e.viewState.padding;
+              return {
+                ...e.viewState,
+                padding: {
+                  top: p?.top ?? prev.padding.top,
+                  bottom: p?.bottom ?? prev.padding.bottom,
+                  left: p?.left ?? prev.padding.left,
+                  right: p?.right ?? prev.padding.right,
+                },
+              };
+            })
+          }
           mapStyle={MAP_STYLE}
           mapboxAccessToken={MAPBOX_TOKEN}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
           maxPitch={75}
           minPitch={20}
-          onClick={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
+          onClick={
+            locationConfirmSuccess
+              ? undefined
+              : (e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)
+          }
           onLoad={(e) => {
             try {
               const map = e.target;
-              mapInstanceRef.current = map;
-              // Set padding so all camera ops respect the drawer overlay
-              map.setPadding({ top: 80, bottom: sheetHeightRef.current + 20, left: 0, right: 0 });
               const style = map.getStyle();
               const layers = style.layers || [];
               const labelLayer = layers.find(
@@ -725,7 +825,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             longitude={pinCoords.lng}
             latitude={pinCoords.lat}
             anchor="bottom"
-            draggable
+            draggable={!locationConfirmSuccess}
             onDragEnd={(e) => handleMapPinSet(e.lngLat.lat, e.lngLat.lng)}
           >
             <MapPin />
@@ -782,6 +882,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           alignItems: "center",
           gap: 10,
           boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+          pointerEvents: locationConfirmSuccess ? "none" : undefined,
         }}
       >
         <div style={{
@@ -811,8 +912,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 340, damping: 28, delay: 0.45 }}
-        whileTap={{ scale: 0.88 }}
+        whileTap={{ scale: locationConfirmSuccess ? 1 : 0.88 }}
         onClick={handleRecenter}
+        disabled={locationConfirmSuccess}
         style={{
           position: "absolute",
           right: 18,
@@ -825,9 +927,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           borderRadius: 14,
           width: 44, height: 44,
           display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
+          cursor: locationConfirmSuccess ? "default" : "pointer",
           color: "rgba(255,255,255,0.7)",
           boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          pointerEvents: locationConfirmSuccess ? "none" : undefined,
+          opacity: locationConfirmSuccess ? 0.35 : 1,
         }}
       >
         <RecenterIcon />
@@ -861,9 +965,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           background: "rgba(255,255,255,0.12)",
           margin: "0 auto 20px",
           flexShrink: 0,
+          pointerEvents: locationConfirmSuccess ? "none" : undefined,
         }} />
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", scrollbarWidth: "none" }}>
+        <div style={{
+          flex: 1, overflowY: "auto", padding: "0 20px", scrollbarWidth: "none",
+          pointerEvents: locationConfirmSuccess ? "none" : undefined,
+        }}>
           {/* Search bar + suggestions */}
           <motion.div
             custom={0}
@@ -1114,70 +1222,131 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           animate="show"
           style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.04)" }}
         >
-          {addingPlace ? (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleSavePlace}
-              style={{
-                width: "100%",
-                background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
-                border: "none", borderRadius: 16,
-                padding: "16px",
-                cursor: "pointer",
-                color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.08em", textTransform: "uppercase",
-                boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                marginBottom: 12,
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
+          <AnimatePresence mode="wait">
+            {locationConfirmSuccess ? (
               <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                key="loc-confirmed"
+                role="status"
+                aria-live="polite"
+                initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.94 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
                 style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
-                  skewX: -20,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 14,
+                  padding: "12px 12px 28px",
                 }}
-              />
-              Save as {addingPlace.label}
-            </motion.button>
-          ) : (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleConfirm}
-              style={{
-                width: "100%",
-                background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
-                border: "none", borderRadius: 16,
-                padding: "16px",
-                cursor: "pointer",
-                color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.08em", textTransform: "uppercase",
-                boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                marginBottom: 24,
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: "rgba(34,197,94,0.14)",
+                    border: "1.5px solid rgba(34,197,94,0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke={GREEN_ACCENT}
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </motion.div>
+                <div
+                  style={{
+                    padding: "10px 22px",
+                    borderRadius: 999,
+                    background: "rgba(18,18,18,0.96)",
+                    border: "1px solid rgba(34,197,94,0.45)",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  <p style={{ margin: 0, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>
+                    Location confirmed
+                  </p>
+                </div>
+              </motion.div>
+            ) : addingPlace ? (
+              <motion.button
+                key="save-place"
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSavePlace}
                 style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
-                  skewX: -20,
+                  width: "100%",
+                  background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
+                  border: "none", borderRadius: 16,
+                  padding: "16px",
+                  cursor: "pointer",
+                  color: "#fff", fontSize: 14, fontWeight: 800,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  marginBottom: 12,
+                  position: "relative",
+                  overflow: "hidden",
                 }}
-              />
-              <span style={{ display: "flex" }}><PinIcon color="#fff" /></span>
-              Confirm Location
-            </motion.button>
-          )}
+              >
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "100%" }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                  style={{
+                    position: "absolute", inset: 0,
+                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                    skewX: -20,
+                  }}
+                />
+                Save as {addingPlace.label}
+              </motion.button>
+            ) : (
+              <motion.button
+                key="confirm-loc"
+                whileTap={{ scale: 0.97 }}
+                onClick={handleConfirm}
+                style={{
+                  width: "100%",
+                  background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
+                  border: "none", borderRadius: 16,
+                  padding: "16px",
+                  cursor: "pointer",
+                  color: "#fff", fontSize: 14, fontWeight: 800,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  marginBottom: 24,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "100%" }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                  style={{
+                    position: "absolute", inset: 0,
+                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                    skewX: -20,
+                  }}
+                />
+                <span style={{ display: "flex" }}><PinIcon color="#fff" /></span>
+                Confirm Location
+              </motion.button>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     </div>
