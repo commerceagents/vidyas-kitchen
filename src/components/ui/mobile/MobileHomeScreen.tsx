@@ -632,8 +632,8 @@ export function MobileHomeScreen({
           pointerEvents: "none",
         }}
       >
-        <motion.div
-          layout
+        {/* Fixed-size outer pill — never resizes, so borderRadius never morphs */}
+        <div
           style={{
             display: "flex", alignItems: "center",
             background: "rgba(14,14,14,0.92)",
@@ -641,8 +641,8 @@ export function MobileHomeScreen({
             WebkitBackdropFilter: "blur(32px)",
             border: "1px solid rgba(255,255,255,0.09)",
             borderRadius: 99,
-            padding: "8px 20px",
-            gap: 6,
+            padding: "8px 12px",
+            gap: 4,
             boxShadow: "0 8px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
             pointerEvents: "auto",
           }}
@@ -652,26 +652,27 @@ export function MobileHomeScreen({
             return (
               <motion.button
                 key={id}
-                layout
                 onClick={() => setActiveNav(id)}
-                /* Tap micro-animation: squeeze + slight bounce back */
-                whileTap={{ scale: 0.82, rotate: isActive ? 0 : -6 }}
-                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                whileTap={{ scale: 0.84 }}
+                transition={{ type: "spring", stiffness: 600, damping: 24 }}
                 style={{
                   display: "flex", flexDirection: "row",
-                  alignItems: "center", gap: 8,
+                  alignItems: "center", justifyContent: "center",
+                  gap: 7,
                   background: "none", border: "none",
                   cursor: "pointer",
-                  /* Active item gets pill padding, inactive stays compact */
-                  padding: isActive ? "9px 16px" : "9px 12px",
+                  padding: "9px 14px",
                   position: "relative",
                   borderRadius: 99,
                   fontFamily: C.mono,
                   outline: "none",
                   overflow: "hidden",
+                  /* Fixed slot so container never changes width */
+                  minWidth: 52,
                 }}
               >
-                {/* Active pill bg — shared layoutId so it glides between items */}
+                {/* Glow background — slides via layoutId, constrained to
+                    fixed-size slot so it never distorts the outer pill */}
                 {isActive && (
                   <motion.div
                     layoutId="navActivePill"
@@ -681,29 +682,28 @@ export function MobileHomeScreen({
                       border: `1px solid ${C.redBorder}`,
                       borderRadius: 99,
                     }}
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.8 }}
                   />
                 )}
 
-                {/* Icon — scale up when active */}
+                {/* Icon */}
                 <motion.span
-                  layout
-                  animate={{ scale: isActive ? 1.15 : 1 }}
-                  transition={{ type: "spring", stiffness: 480, damping: 26 }}
-                  style={{ position: "relative", zIndex: 1, display: "flex" }}
+                  animate={{ scale: isActive ? 1.12 : 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 28 }}
+                  style={{ position: "relative", zIndex: 1, display: "flex", flexShrink: 0 }}
                 >
                   <Icon active={isActive} />
                 </motion.span>
 
-                {/* Label — slides in to the right of icon only when active */}
-                <AnimatePresence mode="popLayout">
+                {/* Label — only when active, slides in from left */}
+                <AnimatePresence initial={false}>
                   {isActive && (
                     <motion.span
-                      key={`label-${id}`}
-                      initial={{ opacity: 0, width: 0, x: -10 }}
-                      animate={{ opacity: 1, width: "auto", x: 0 }}
-                      exit={{ opacity: 0, width: 0, x: -10 }}
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      key={`lbl-${id}`}
+                      initial={{ opacity: 0, x: -6, width: 0 }}
+                      animate={{ opacity: 1, x: 0, width: "auto" }}
+                      exit={{ opacity: 0, x: -6, width: 0 }}
+                      transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
                       style={{
                         fontSize: 11, fontWeight: 800,
                         letterSpacing: "0.07em",
@@ -712,7 +712,7 @@ export function MobileHomeScreen({
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         position: "relative", zIndex: 1,
-                        display: "block",
+                        display: "inline-block",
                       }}
                     >
                       {navLabel}
@@ -722,7 +722,7 @@ export function MobileHomeScreen({
               </motion.button>
             );
           })}
-        </motion.div>
+        </div>
       </motion.div>
 
 
