@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
+import { MobileHomeScreen } from "./MobileHomeScreen";
 
 type MobileStep = "login" | "location" | "location_marked" | "home";
 
@@ -130,24 +131,8 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
         )}
 
         {step === "home" && (
-          <motion.div key="home" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
-            {/* Mobile Home Placeholder — Next phase */}
-            <div className="flex flex-col items-center justify-center h-full text-white px-8 text-center">
-              <div className="mb-4 w-12 h-12 rounded-full bg-[#BD2320]/20 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="#BD2320">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="9" r="2.5" fill="white" />
-                </svg>
-              </div>
-              {location && (
-                <div className="flex items-center gap-1.5 mb-6 bg-white/5 border border-white/10 rounded-full px-4 py-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#BD2320] animate-pulse" />
-                  <span className="text-white/70 text-sm">{location.label}</span>
-                </div>
-              )}
-              <h2 className="text-2xl font-bold mb-2">Home is coming next!</h2>
-              <p className="text-white/40 text-sm">The full menu & ordering experience is being built.</p>
-            </div>
+          <motion.div key="home" className="h-full w-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
+            <MobileHomeScreen displayName={name} location={location} />
           </motion.div>
         )}
       </AnimatePresence>
