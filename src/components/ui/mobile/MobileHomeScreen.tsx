@@ -61,7 +61,7 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
       {/* ─── FIXED HEADER AREA ────────────────────────────────────────────────── */}
       <div
         ref={rootRef}
-        className="absolute left-0 right-0 z-40 flex flex-col items-center gap-3 px-5 pt-[max(12px,env(safe-area-inset-top))]"
+        className="absolute left-0 right-0 z-40 flex flex-col items-center gap-4 px-6 pt-[max(20px,env(safe-area-inset-top))]"
       >
         {/* Main Location Pill */}
         <motion.button
@@ -71,14 +71,14 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
           aria-controls={menuId}
           onClick={() => setOpen((v) => !v)}
           whileTap={{ scale: 0.97 }}
-          className={`relative flex w-full max-w-[280px] flex-col items-center rounded-[24px] p-3.5 transition-colors ${GLASS_PILL} ${
-            open ? "border-red-500/30" : ""
+          className={`relative flex w-auto min-w-[200px] max-w-[90vw] flex-col items-center rounded-[32px] px-8 py-5 transition-all duration-300 ${GLASS_PILL} ${
+            open ? "border-red-500/40 ring-4 ring-red-500/10" : ""
           }`}
         >
           <span className={LABEL_HEADER}>Location</span>
-          <div className="mt-1.5 flex w-full items-center justify-center gap-2 px-1">
-            <MapPin size={20} weight="fill" className="text-[#e31e24] drop-shadow-[0_0_8px_rgba(227,30,36,0.5)]" />
-            <span className="min-w-0 max-w-[170px] truncate text-[16px] font-bold tracking-tight text-white">
+          <div className="mt-2 flex w-full items-center justify-center gap-3">
+            <MapPin size={22} weight="fill" className="text-[#e31e24] drop-shadow-[0_0_10px_rgba(227,30,36,0.6)]" />
+            <span className="min-w-0 flex-1 truncate text-center text-[17px] font-bold tracking-tight text-white">
               {label}
             </span>
             <motion.div
@@ -94,22 +94,22 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
         <AnimatePresence>
           {!inRange && showWarning && !open && (
             <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              initial={{ opacity: 0, y: -12, scale: 0.94 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className={`flex w-full max-w-[320px] items-center gap-3 rounded-[20px] p-3 ${GLASS_PILL} border-red-500/20`}
+              exit={{ opacity: 0, y: -12, scale: 0.94 }}
+              className={`flex w-full max-w-[340px] items-center gap-4 rounded-[24px] px-6 py-4 ${GLASS_PILL} border-red-500/30 shadow-[0_12px_40px_rgba(189,35,32,0.15)]`}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-[#e31e24]">
-                <MapPinArea size={24} weight="duotone" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-500/15 text-[#e31e24]">
+                <MapPinArea size={26} weight="duotone" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-[13px] font-bold leading-tight text-white">Is this the right address?</p>
-                <p className="text-[11px] font-medium text-neutral-400">It looks a little far from you.</p>
+                <p className="text-[14px] font-bold leading-tight text-white">Is this the right address?</p>
+                <p className="mt-0.5 text-[12px] font-medium text-neutral-400">It looks a little far from you.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowWarning(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white transition-colors"
               >
                 <X size={16} weight="bold" />
               </button>
@@ -124,22 +124,22 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
               id={menuId}
               role="dialog"
               aria-label="Delivery location"
-              initial={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
+              exit={{ opacity: 0, y: -10 }}
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
-              className={`w-full max-w-[280px] rounded-[24px] p-5 ${GLASS_PILL}`}
+              className={`w-full max-w-[320px] rounded-[32px] p-8 ${GLASS_PILL} border-white/10`}
             >
               <p className={LABEL_HEADER}>Delivering to</p>
-              <p className="mt-2 text-[18px] font-bold leading-tight tracking-tight text-white">{label}</p>
+              <p className="mt-3 text-[20px] font-extrabold leading-tight tracking-tight text-white">{label}</p>
 
-              <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-white/5 p-2.5">
+              <div className="mt-6 flex items-center gap-3 rounded-[18px] bg-white/5 px-4 py-3.5 ring-1 ring-white/5">
                 <div
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    inRange ? "bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]" : "bg-amber-400"
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                    inRange ? "bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.6)]" : "bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]"
                   }`}
                 />
-                <span className="text-[12px] font-semibold text-neutral-400">
+                <span className="text-[13px] font-bold text-neutral-400">
                   {inRange ? "Inside delivery zone" : "Confirm address manually"}
                 </span>
               </div>
@@ -151,7 +151,7 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
                     close();
                     onChangeLocation();
                   }}
-                  className="mt-5 w-full rounded-[18px] bg-[#e31e24] py-3.5 text-center text-[13px] font-bold text-white shadow-[0_4px_20px_rgba(227,30,36,0.3)] active:scale-95 transition-transform"
+                  className="mt-8 w-full rounded-[20px] bg-[#e31e24] py-4 text-center text-[14px] font-extrabold text-white shadow-[0_8px_25px_rgba(227,30,36,0.35)] active:scale-95 transition-all"
                 >
                   Change delivery address
                 </button>
@@ -170,7 +170,7 @@ export function MobileHomeScreen({ displayName, location, onChangeLocation }: Mo
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-30 bg-black/70 backdrop-blur-md"
             onClick={close}
           />
         )}
