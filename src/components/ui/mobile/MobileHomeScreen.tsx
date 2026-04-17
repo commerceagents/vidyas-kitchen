@@ -32,10 +32,8 @@ const CATEGORY_ICONS: Record<MenuCategoryId, string> = {
   mutton: "🐑",
 };
 
-const SPRING = { type: "spring" as const, stiffness: 420, damping: 34 };
-
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 30 };
 type CategoryFilter = MenuCategoryId | "all";
-
 const FEATURED_ID = "chk-1";
 
 export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProps) {
@@ -73,8 +71,7 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
   }, []);
 
   const { totalCount, subtotal } = useMemo(() => {
-    let count = 0;
-    let sum = 0;
+    let count = 0, sum = 0;
     for (const it of allItems) {
       const q = cart[it.id] ?? 0;
       if (q) { count += q; sum += q * it.price; }
@@ -84,46 +81,52 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
 
   const first = formatFirstName(displayName);
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  const greet = hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";
 
   return (
-    <div className="relative h-full w-full bg-[#0d0b0b] text-white">
+    /*
+     * vk-mobile-ui → scoped CSS in globals.css forces Outfit font here,
+     * overriding the global * { font-family: JetBrains Mono } rule.
+     */
+    <div className="vk-mobile-ui relative h-full w-full bg-[#0d0b0b] text-white">
 
-      {/* ── SCROLLABLE CONTENT ──────────────────────────────────── */}
+      {/* ── SCROLLABLE BODY ─────────────────────────────────────── */}
       <div
         className="h-full overflow-y-auto overflow-x-hidden"
-        style={{ paddingBottom: totalCount > 0 ? 100 : 32 }}
+        style={{ paddingBottom: totalCount > 0 ? 108 : 36 }}
       >
 
         {/* ── STICKY HEADER ─────────────────────────────────────── */}
-        <div className="sticky top-0 z-30 bg-[#0d0b0b]/96 px-5 pt-[max(14px,env(safe-area-inset-top))] pb-4 backdrop-blur-xl">
+        <div className="sticky top-0 z-30 bg-[#0d0b0b]/95 px-5 pt-[max(16px,env(safe-area-inset-top))] pb-3 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            {/* Left: logo + greeting */}
+            {/* Logo + greeting */}
             <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden rounded-2xl bg-[#1e1515] ring-1 ring-white/10">
+              <div className="relative h-11 w-11 overflow-hidden rounded-[14px] bg-[#1e1515] ring-1 ring-white/10 shadow-lg">
                 <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" fill className="object-cover" />
               </div>
               <div>
-                <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30"
+                >
                   Good {greet}
                 </p>
-                <p className="font-sans text-[14px] font-bold leading-tight text-white">
+                <p className="text-[15px] font-bold leading-tight text-white">
                   {first ? `Hey, ${first} 👋` : "Welcome back"}
                 </p>
               </div>
             </div>
 
-            {/* Right: delivery pill */}
+            {/* Delivery pill */}
             {location && (
-              <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5">
+              <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1.5">
                 <span
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                     location.inRange
-                      ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                      ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"
                       : "bg-amber-400"
                   }`}
                 />
-                <span className="max-w-[88px] truncate font-sans text-[11px] font-medium text-white/55">
+                <span className="max-w-[80px] truncate text-[11px] font-medium text-white/55">
                   {location.label}
                 </span>
               </div>
@@ -131,52 +134,58 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
           </div>
         </div>
 
+        {/* ── CONTENT ───────────────────────────────────────────── */}
         <div className="px-5">
 
-          {/* ── HEADLINE ──────────────────────────────────────────── */}
-          <div className="mb-5 mt-2">
-            <h1 className="font-sans text-[1.9rem] font-black leading-[1.15] tracking-tight text-white">
-              What are you<br />
-              <span className="text-[#ff4c48]">craving today?</span>
+          {/* Headline */}
+          <div className="mb-6 mt-4">
+            <h1 className="text-[2rem] font-black leading-[1.1] tracking-[-0.02em] text-white">
+              What are you
+            </h1>
+            <h1 className="text-[2rem] font-black leading-[1.1] tracking-[-0.02em] text-[#ff4c48]">
+              craving today?
             </h1>
           </div>
 
           {/* ── FEATURED CARD ─────────────────────────────────────── */}
-          <div className="mb-6 overflow-hidden rounded-[24px] bg-[#1a0f0f] shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
-            <div className="flex items-stretch">
-              {/* Text side */}
-              <div className="flex flex-1 flex-col justify-center gap-2.5 px-5 py-5">
-                <span className="inline-block w-fit rounded-lg bg-[#BD2320]/20 px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.1em] text-[#ff6b68]">
+          <div className="mb-7 overflow-hidden rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#1f1010] to-[#130c0c] shadow-[0_12px_48px_rgba(0,0,0,0.55)]">
+            <div className="flex items-stretch" style={{ minHeight: 160 }}>
+
+              {/* Left: text */}
+              <div className="flex flex-1 flex-col justify-center gap-3 px-5 py-5">
+                <span className="inline-block w-fit rounded-lg bg-[#BD2320]/25 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#ff6b68]">
                   Today&apos;s Special
                 </span>
-                <p className="font-sans text-[16px] font-black leading-snug text-white">
-                  {featured.name}
-                </p>
-                <p className="line-clamp-2 font-sans text-[11px] leading-relaxed text-white/40">
-                  {featured.description}
-                </p>
+                <div>
+                  <p className="text-[17px] font-black leading-snug tracking-tight text-white">
+                    {featured.name}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/35">
+                    {featured.description}
+                  </p>
+                </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-sans text-[18px] font-black text-[#ff4c48]">
+                  <span className="text-[20px] font-black text-[#ff4c48]">
                     ₹{featured.price}
                   </span>
-                  {cart[featured.id] && cart[featured.id] > 0 ? (
+                  {(cart[featured.id] ?? 0) > 0 ? (
                     <div className="flex items-center gap-2">
                       <motion.button
                         type="button"
-                        whileTap={{ scale: 0.85 }}
+                        whileTap={{ scale: 0.82 }}
                         onClick={() => decOne(featured.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 font-sans text-base font-bold text-white"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-[18px] font-bold text-white"
                       >
                         −
                       </motion.button>
-                      <span className="min-w-[1.5rem] text-center font-sans text-[14px] font-bold text-white">
+                      <span className="min-w-[1.5rem] text-center text-[15px] font-bold text-white">
                         {cart[featured.id]}
                       </span>
                       <motion.button
                         type="button"
-                        whileTap={{ scale: 0.85 }}
+                        whileTap={{ scale: 0.82 }}
                         onClick={() => addOne(featured.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#BD2320] font-sans text-base font-bold text-white"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#BD2320] text-[18px] font-bold text-white shadow-[0_4px_14px_rgba(189,35,32,0.45)]"
                       >
                         +
                       </motion.button>
@@ -186,70 +195,80 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
                       type="button"
                       whileTap={{ scale: 0.94 }}
                       onClick={() => addOne(featured.id)}
-                      className="rounded-xl bg-[#BD2320] px-4 py-2 font-sans text-[12px] font-bold text-white shadow-[0_4px_16px_rgba(189,35,32,0.4)]"
+                      className="rounded-xl bg-[#BD2320] px-4 py-2 text-[12px] font-bold text-white shadow-[0_4px_16px_rgba(189,35,32,0.4)]"
                     >
                       Add
                     </motion.button>
                   )}
                 </div>
               </div>
-              {/* Image side */}
-              <div className="relative w-[150px] shrink-0">
+
+              {/* Right: image */}
+              <div className="relative w-[145px] shrink-0">
                 <Image
                   src={featured.image}
                   alt={featured.name}
                   fill
                   className="object-cover"
-                  sizes="150px"
+                  sizes="145px"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#1a0f0f] via-transparent to-transparent" />
+                {/* gradient blending left edge into card bg */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#1f1010] via-[#1f1010]/30 to-transparent" />
               </div>
             </div>
           </div>
 
           {/* ── CATEGORY PILLS ────────────────────────────────────── */}
-          <div className="-mx-5 mb-5">
-            <div className="no-scrollbar flex gap-2.5 overflow-x-auto px-5 pb-0.5">
-              <CategoryPill
-                label="All"
-                active={filter === "all"}
-                onClick={() => setFilter("all")}
-              />
-              {MENU_CATEGORIES.map((c) => (
-                <CategoryPill
-                  key={c.id}
-                  label={c.label}
-                  icon={CATEGORY_ICONS[c.id]}
-                  active={filter === c.id}
-                  onClick={() => setFilter(c.id)}
-                />
-              ))}
+          <div className="-mx-5 mb-6">
+            <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 pb-1">
+              {(["all", ...MENU_CATEGORIES.map((c) => c.id)] as (CategoryFilter)[]).map((id) => {
+                const cat = MENU_CATEGORIES.find((c) => c.id === id);
+                const label = id === "all" ? "All" : cat?.label ?? id;
+                const icon = id === "all" ? undefined : CATEGORY_ICONS[id as MenuCategoryId];
+                const active = filter === id;
+                return (
+                  <motion.button
+                    key={id}
+                    type="button"
+                    whileTap={{ scale: 0.93 }}
+                    onClick={() => setFilter(id)}
+                    className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-2.5 text-[13px] font-bold transition-all duration-200 ${
+                      active
+                        ? "bg-[#BD2320] text-white shadow-[0_4px_20px_rgba(189,35,32,0.5)]"
+                        : "bg-white/[0.07] text-white/45"
+                    }`}
+                  >
+                    {icon && <span className="text-[15px] leading-none">{icon}</span>}
+                    {label}
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
-          {/* ── SECTION HEADER ────────────────────────────────────── */}
-          <div className="mb-4 flex items-center justify-between">
-            <p className="font-sans text-[15px] font-bold text-white">
+          {/* ── SECTION LABEL ─────────────────────────────────────── */}
+          <div className="mb-4 flex items-baseline justify-between">
+            <p className="text-[17px] font-bold text-white">
               {filter === "all"
                 ? "All dishes"
                 : `${MENU_CATEGORIES.find((c) => c.id === filter)?.label} dishes`}
             </p>
-            <span className="font-sans text-[11px] text-white/25">
+            <span className="text-[12px] text-white/25">
               {gridItems.length} item{gridItems.length !== 1 ? "s" : ""}
             </span>
           </div>
 
           {/* ── 2-COLUMN GRID ─────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
+          <motion.div layout className="grid grid-cols-2 gap-3.5">
             <AnimatePresence mode="popLayout">
               {gridItems.map((item) => (
                 <motion.div
                   key={item.id}
                   layout
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.88 }}
+                  initial={{ opacity: 0, scale: 0.88, y: 12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
                   transition={SPRING}
                 >
                   <DishCard
@@ -261,33 +280,33 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
                 </motion.div>
               ))}
             </AnimatePresence>
-          </div>
+          </motion.div>
 
         </div>
       </div>
 
-      {/* ── STICKY CART BAR ───────────────────────────────────── */}
+      {/* ── CART BAR ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {totalCount > 0 && (
           <motion.div
-            initial={{ y: 90, opacity: 0 }}
+            initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
+            exit={{ y: 100, opacity: 0 }}
             transition={SPRING}
-            className="absolute inset-x-0 bottom-0 z-50 px-4 pb-[max(16px,env(safe-area-inset-bottom))]"
+            className="absolute inset-x-0 bottom-0 z-50 px-5 pb-[max(18px,env(safe-area-inset-bottom))]"
           >
-            <div className="flex items-center justify-between rounded-[22px] bg-[#BD2320] px-5 py-4 shadow-[0_-4px_40px_rgba(189,35,32,0.55)]">
+            <div className="flex items-center justify-between rounded-[22px] bg-[#BD2320] px-6 py-4 shadow-[0_-2px_40px_rgba(189,35,32,0.6)]">
               <div>
-                <p className="font-sans text-[11px] font-medium text-white/65">
+                <p className="text-[11px] font-medium text-white/60">
                   {totalCount} item{totalCount > 1 ? "s" : ""} in cart
                 </p>
-                <p className="font-sans text-[20px] font-black leading-tight text-white">
+                <p className="text-[22px] font-black leading-tight text-white">
                   ₹{subtotal}
                 </p>
               </div>
               <button
                 type="button"
-                className="rounded-xl bg-white/20 px-5 py-2.5 font-sans text-[13px] font-bold text-white active:bg-white/30"
+                className="rounded-[14px] bg-white/20 px-5 py-3 text-[13px] font-bold text-white active:bg-white/30"
               >
                 Place order →
               </button>
@@ -296,35 +315,6 @@ export function MobileHomeScreen({ displayName, location }: MobileHomeScreenProp
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-/* ── CATEGORY PILL ──────────────────────────────────────────── */
-function CategoryPill({
-  label,
-  icon,
-  active,
-  onClick,
-}: {
-  label: string;
-  icon?: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      type="button"
-      whileTap={{ scale: 0.94 }}
-      onClick={onClick}
-      className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-4 py-2.5 font-sans text-[13px] font-bold transition-all duration-200 ${
-        active
-          ? "bg-[#BD2320] text-white shadow-[0_4px_18px_rgba(189,35,32,0.45)]"
-          : "bg-white/[0.07] text-white/50"
-      }`}
-    >
-      {icon && <span className="text-[16px] leading-none">{icon}</span>}
-      {label}
-    </motion.button>
   );
 }
 
@@ -341,49 +331,49 @@ function DishCard({
   onDec: () => void;
 }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-[20px] border border-white/[0.06] bg-[#161212] shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+    <div className="flex flex-col overflow-hidden rounded-[20px] border border-white/[0.06] bg-[#161212] shadow-[0_6px_28px_rgba(0,0,0,0.45)]">
       {/* Food photo */}
-      <div className="relative h-[130px] w-full overflow-hidden bg-[#1e1818]">
+      <div className="relative h-[140px] w-full overflow-hidden bg-[#1e1616]">
         <Image
           src={item.image}
           alt={item.name}
           fill
-          className="object-cover transition-transform duration-500 active:scale-105"
+          className="object-cover"
           sizes="200px"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#161212] to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%] bg-gradient-to-t from-[#161212] to-transparent" />
       </div>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <p className="line-clamp-2 font-sans text-[13px] font-bold leading-snug text-white">
+      <div className="flex flex-1 flex-col gap-1.5 px-3.5 pb-3.5 pt-2.5">
+        <p className="line-clamp-2 text-[13px] font-bold leading-snug text-white">
           {item.name}
         </p>
-        <p className="line-clamp-1 font-sans text-[10px] leading-snug text-white/30">
+        <p className="line-clamp-1 text-[10px] text-white/28">
           {item.description}
         </p>
-        <div className="mt-auto flex items-center justify-between pt-1">
-          <span className="font-sans text-[15px] font-black text-[#ff4c48]">
+        <div className="mt-auto flex items-center justify-between pt-1.5">
+          <span className="text-[15px] font-black text-[#ff4c48]">
             ₹{item.price}
           </span>
           {qty > 0 ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <motion.button
                 type="button"
-                whileTap={{ scale: 0.82 }}
+                whileTap={{ scale: 0.8 }}
                 onClick={onDec}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-sans text-[15px] font-bold text-white"
+                className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-[15px] font-bold text-white"
               >
                 −
               </motion.button>
-              <span className="min-w-[1.4rem] text-center font-sans text-[13px] font-bold text-white">
+              <span className="min-w-[1.2rem] text-center text-[13px] font-bold text-white">
                 {qty}
               </span>
               <motion.button
                 type="button"
-                whileTap={{ scale: 0.82 }}
+                whileTap={{ scale: 0.8 }}
                 onClick={onAdd}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#BD2320] font-sans text-[15px] font-bold text-white"
+                className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#BD2320] text-[15px] font-bold text-white shadow-[0_3px_10px_rgba(189,35,32,0.4)]"
               >
                 +
               </motion.button>
@@ -391,9 +381,9 @@ function DishCard({
           ) : (
             <motion.button
               type="button"
-              whileTap={{ scale: 0.82 }}
+              whileTap={{ scale: 0.8 }}
               onClick={onAdd}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#BD2320] font-sans text-[20px] font-bold leading-none text-white shadow-[0_4px_14px_rgba(189,35,32,0.45)]"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#BD2320] text-[19px] font-bold leading-none text-white shadow-[0_4px_14px_rgba(189,35,32,0.5)]"
             >
               +
             </motion.button>

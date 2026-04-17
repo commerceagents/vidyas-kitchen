@@ -135,3 +135,12 @@ body {
 /* Hide scrollbar for category pill rows */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/*
+ * Mobile UI font override — beats the global * selector above.
+ * Outfit is a clean rounded sans-serif loaded in layout.tsx.
+ */
+.vk-mobile-ui,
+.vk-mobile-ui * {
+  font-family: var(--font-outfit), system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+}
