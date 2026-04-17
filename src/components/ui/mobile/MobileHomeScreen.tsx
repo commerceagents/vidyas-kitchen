@@ -632,64 +632,99 @@ export function MobileHomeScreen({
           pointerEvents: "none",
         }}
       >
-        <div style={{
-          display: "flex", alignItems: "center",
-          background: "rgba(14,14,14,0.92)",
-          backdropFilter: "blur(32px)",
-          WebkitBackdropFilter: "blur(32px)",
-          border: "1px solid rgba(255,255,255,0.09)",
-          borderRadius: 99,
-          padding: "10px 28px",
-          gap: 36,
-          boxShadow: "0 8px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
-          pointerEvents: "auto",
-        }}>
+        <motion.div
+          layout
+          style={{
+            display: "flex", alignItems: "center",
+            background: "rgba(14,14,14,0.92)",
+            backdropFilter: "blur(32px)",
+            WebkitBackdropFilter: "blur(32px)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderRadius: 99,
+            padding: "8px 20px",
+            gap: 6,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+            pointerEvents: "auto",
+          }}
+        >
           {NAV_ITEMS.map(({ id, label: navLabel, icon: Icon }) => {
             const isActive = activeNav === id;
             return (
               <motion.button
                 key={id}
-                whileTap={{ scale: 0.86 }}
+                layout
                 onClick={() => setActiveNav(id)}
+                /* Tap micro-animation: squeeze + slight bounce back */
+                whileTap={{ scale: 0.82, rotate: isActive ? 0 : -6 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
                 style={{
-                  display: "flex", flexDirection: "column",
-                  alignItems: "center", gap: 4,
+                  display: "flex", flexDirection: "row",
+                  alignItems: "center", gap: 8,
                   background: "none", border: "none",
-                  cursor: "pointer", padding: "4px",
+                  cursor: "pointer",
+                  /* Active item gets pill padding, inactive stays compact */
+                  padding: isActive ? "9px 16px" : "9px 12px",
                   position: "relative",
+                  borderRadius: 99,
                   fontFamily: C.mono,
+                  outline: "none",
+                  overflow: "hidden",
                 }}
               >
+                {/* Active pill bg — shared layoutId so it glides between items */}
                 {isActive && (
                   <motion.div
-                    layoutId="navPill"
+                    layoutId="navActivePill"
                     style={{
-                      position: "absolute", inset: -6,
+                      position: "absolute", inset: 0,
                       background: C.redFaint,
                       border: `1px solid ${C.redBorder}`,
-                      borderRadius: 14,
+                      borderRadius: 99,
                     }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
-                <span style={{ position: "relative", zIndex: 1 }}>
+
+                {/* Icon — scale up when active */}
+                <motion.span
+                  layout
+                  animate={{ scale: isActive ? 1.15 : 1 }}
+                  transition={{ type: "spring", stiffness: 480, damping: 26 }}
+                  style={{ position: "relative", zIndex: 1, display: "flex" }}
+                >
                   <Icon active={isActive} />
-                </span>
-                <span style={{
-                  fontSize: 9, fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  color: isActive ? C.red : "rgba(255,255,255,0.28)",
-                  textTransform: "uppercase",
-                  position: "relative", zIndex: 1,
-                  transition: "color 0.18s",
-                }}>
-                  {navLabel}
-                </span>
+                </motion.span>
+
+                {/* Label — slides in to the right of icon only when active */}
+                <AnimatePresence mode="popLayout">
+                  {isActive && (
+                    <motion.span
+                      key={`label-${id}`}
+                      initial={{ opacity: 0, width: 0, x: -10 }}
+                      animate={{ opacity: 1, width: "auto", x: 0 }}
+                      exit={{ opacity: 0, width: 0, x: -10 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      style={{
+                        fontSize: 11, fontWeight: 800,
+                        letterSpacing: "0.07em",
+                        color: C.red,
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        position: "relative", zIndex: 1,
+                        display: "block",
+                      }}
+                    >
+                      {navLabel}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </motion.button>
             );
           })}
-        </div>
+        </motion.div>
       </motion.div>
+
 
       {/* Backdrop for location dropdown */}
       <AnimatePresence>
