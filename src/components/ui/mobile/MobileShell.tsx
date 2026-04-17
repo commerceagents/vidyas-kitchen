@@ -132,7 +132,11 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
 
         {step === "home" && (
           <motion.div key="home" className="h-full w-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
-            <MobileHomeScreen displayName={name} location={location} />
+            <MobileHomeScreen
+              displayName={name}
+              location={location}
+              onChangeLocation={() => setStep("location")}
+            />
           </motion.div>
         )}
       </AnimatePresence>
