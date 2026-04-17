@@ -121,25 +121,6 @@ export function LocationMarkedScreen({ label, onDone }: LocationMarkedScreenProp
           Taking you to your menu…
         </p>
 
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          onClick={fireDone}
-          style={{
-            marginTop: 8,
-            padding: "12px 28px",
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.06)",
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-            letterSpacing: "0.02em",
-          }}
-        >
-          Continue
-        </motion.button>
       </motion.div>
     </div>
   );
