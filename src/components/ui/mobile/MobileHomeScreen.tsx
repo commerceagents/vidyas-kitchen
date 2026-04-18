@@ -128,7 +128,7 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-// ─── BestSellingCard — tall card, ~half-screen width ───────────────────────
+// ─── BestSellingCard — tall card, wider, fixed text zone for aligned pricing ─
 function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   return (
@@ -138,8 +138,8 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 54vw",          // a little more than half-screen width
-        maxWidth: 220,
+        flex: "0 0 62vw",
+        maxWidth: 260,
         background: "rgba(15,15,15,0.96)",
         border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 24,
@@ -147,44 +147,39 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         cursor: "pointer",
         flexShrink: 0,
         boxShadow: "0 6px 30px rgba(0,0,0,0.5)",
+        /* Flex column so we can push price to a consistent baseline */
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      {/* Image — tall proportion */}
-      <div style={{ position: "relative", height: "44vw", maxHeight: 180, overflow: "hidden" }}>
+      {/* Image */}
+      <div style={{ position: "relative", height: "50vw", maxHeight: 210, overflow: "hidden", flexShrink: 0 }}>
         <Image
           src={imgSrc}
           alt={item.name}
           fill
-          sizes="54vw"
+          sizes="62vw"
           style={{ objectFit: "cover" }}
         />
-        {/* Scrim */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(15,15,15,0.95) 0%, rgba(0,0,0,0.08) 55%)",
+          background: "linear-gradient(to top, rgba(15,15,15,0.95) 0%, rgba(0,0,0,0.06) 55%)",
         }} />
-        {/* Category badge */}
-        <div style={{
-          position: "absolute", top: 10, left: 10,
-          background: "rgba(0,0,0,0.68)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 8, padding: "3px 8px",
-          fontSize: 9, fontWeight: 700,
-          color: "rgba(255,255,255,0.65)",
-          textTransform: "uppercase" as const,
-          letterSpacing: "0.08em",
-        }}>
-          {item.category}
-        </div>
       </div>
 
-      {/* Text */}
-      <div style={{ padding: "12px 14px 16px" }}>
+      {/* Text zone — fixed height so price always aligns across cards */}
+      <div style={{
+        padding: "14px 16px 18px",
+        flex: 1,
+        display: "flex", flexDirection: "column",
+        justifyContent: "space-between",
+      }}>
+        {/* Name — clamped to exactly 2 lines */}
         <p style={{
-          margin: 0, fontSize: 13, color: C.white,
-          fontWeight: 700, lineHeight: 1.35,
+          margin: 0, fontSize: 14, color: C.white,
+          fontWeight: 700, lineHeight: 1.4,
+          /* Force 2-line clamp with fixed height = 2 × lineHeight × fontSize */
+          height: "calc(14px * 1.4 * 2)",
           overflow: "hidden",
           display: "-webkit-box",
           WebkitLineClamp: 2,
@@ -192,14 +187,14 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         }}>
           {item.name}
         </p>
-        <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 4 }}>
-          <span style={{ fontSize: 15, color: C.white, fontWeight: 800 }}>
-            ₹{item.price.toLocaleString("en-IN")}
-          </span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.32)", fontWeight: 600, letterSpacing: "0.06em" }}>
-            / order
-          </span>
-        </div>
+        {/* Price — always at the fixed bottom of the text zone */}
+        <p style={{
+          margin: "10px 0 0",
+          fontSize: 17, color: C.white, fontWeight: 800,
+          letterSpacing: "0.01em",
+        }}>
+          ₹{item.price.toLocaleString("en-IN")}
+        </p>
       </div>
     </motion.div>
   );
@@ -491,16 +486,16 @@ export function MobileHomeScreen({
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(3) }}>
           <p style={{
-            margin: 0, fontSize: 13,
-            color: "rgba(255,255,255,0.38)",
-            fontWeight: 600, letterSpacing: "0.04em",
+            margin: 0, fontSize: 16,
+            color: "rgba(255,255,255,0.42)",
+            fontWeight: 600, letterSpacing: "0.02em",
           }}>
             {greeting}{firstName ? "," : ""}
           </p>
           <h1 style={{
-            margin: "4px 0 0",
-            fontSize: 30, fontWeight: 800,
-            lineHeight: 1.15, letterSpacing: "-0.3px",
+            margin: "6px 0 0",
+            fontSize: 38, fontWeight: 800,
+            lineHeight: 1.1, letterSpacing: "-0.5px",
             color: C.white,
           }}>
             {firstName ? (
@@ -512,40 +507,18 @@ export function MobileHomeScreen({
               <span>What are you craving?</span>
             )}
           </h1>
-          {firstName && (
-            <p style={{
-              margin: "5px 0 0", fontSize: 14,
-              color: "rgba(255,255,255,0.3)", fontWeight: 500,
-            }}>
-              What are you craving today?
-            </p>
-          )}
         </motion.div>
 
         {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.1)} style={{ marginBottom: sp(3) }}>
-          <div style={{
-            display: "flex", alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: sp(2),
+          <p style={{
+            margin: "0 0 12px", fontSize: 11,
+            color: "rgba(255,255,255,0.35)",
+            fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase",
           }}>
-            <p style={{
-              margin: 0, fontSize: 11,
-              color: "rgba(255,255,255,0.35)",
-              fontWeight: 700, letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}>
-              Best Selling Dishes
-            </p>
-            <div style={{
-              fontSize: 9, fontWeight: 700, color: C.red,
-              letterSpacing: "0.08em", textTransform: "uppercase",
-              background: C.redFaint, border: `1px solid ${C.redBorder}`,
-              padding: "3px 8px", borderRadius: 6,
-            }}>
-              Against Order
-            </div>
-          </div>
+            Best Selling Dishes
+          </p>
 
           <div style={{
             display: "flex", gap: 12,
@@ -661,18 +634,18 @@ export function MobileHomeScreen({
                   gap: 7,
                   background: "none", border: "none",
                   cursor: "pointer",
-                  padding: "9px 14px",
+                  padding: "9px 0",
                   position: "relative",
                   borderRadius: 99,
                   fontFamily: C.mono,
                   outline: "none",
+                  /* IDENTICAL fixed width for ALL buttons — container never
+                     changes size, so borderRadius never morphs or jerks */
+                  width: 88,
                   overflow: "hidden",
-                  /* Fixed slot so container never changes width */
-                  minWidth: 52,
                 }}
               >
-                {/* Glow background — slides via layoutId, constrained to
-                    fixed-size slot so it never distorts the outer pill */}
+                {/* Glow pill — slides via layoutId between fixed-width slots */}
                 {isActive && (
                   <motion.div
                     layoutId="navActivePill"
@@ -682,43 +655,40 @@ export function MobileHomeScreen({
                       border: `1px solid ${C.redBorder}`,
                       borderRadius: 99,
                     }}
-                    transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.8 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.7 }}
                   />
                 )}
 
                 {/* Icon */}
                 <motion.span
-                  animate={{ scale: isActive ? 1.12 : 1 }}
+                  animate={{ scale: isActive ? 1.1 : 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 28 }}
                   style={{ position: "relative", zIndex: 1, display: "flex", flexShrink: 0 }}
                 >
                   <Icon active={isActive} />
                 </motion.span>
 
-                {/* Label — only when active, slides in from left */}
-                <AnimatePresence initial={false}>
-                  {isActive && (
-                    <motion.span
-                      key={`lbl-${id}`}
-                      initial={{ opacity: 0, x: -6, width: 0 }}
-                      animate={{ opacity: 1, x: 0, width: "auto" }}
-                      exit={{ opacity: 0, x: -6, width: 0 }}
-                      transition={{ type: "spring", stiffness: 460, damping: 36, mass: 0.7 }}
-                      style={{
-                        fontSize: 11, fontWeight: 800,
-                        letterSpacing: "0.07em",
-                        color: C.red,
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        position: "relative", zIndex: 1,
-                        display: "inline-block",
-                      }}
-                    >
-                      {navLabel}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
+                {/* Label — opacity-only animation, no width change, no layout shift */}
+                <motion.span
+                  animate={{
+                    opacity: isActive ? 1 : 0,
+                    x: isActive ? 0 : -4,
+                    scale: isActive ? 1 : 0.85,
+                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                  style={{
+                    fontSize: 11, fontWeight: 800,
+                    letterSpacing: "0.07em",
+                    color: C.red,
+                    textTransform: "uppercase",
+                    whiteSpace: "nowrap",
+                    position: "relative", zIndex: 1,
+                    /* Always occupies space — opacity hides it, no reflow */
+                    visibility: isActive ? "visible" : "hidden",
+                  }}
+                >
+                  {navLabel}
+                </motion.span>
               </motion.button>
             );
           })}
