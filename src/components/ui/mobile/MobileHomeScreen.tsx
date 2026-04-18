@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useSpring, useVelocity, useTransform } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
@@ -252,11 +252,32 @@ export function MobileHomeScreen({
   const [locationOpen,   setLocationOpen]   = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
 
+  // ── Liquid-mercury navbar spring ──────────────────────────────────────────
+  //   Each circle slot = 56px + 20px gap. Index positions: 0, 76, 152
+  const NAV_SLOT  = 56;   // circle diameter
+  const NAV_GAP   = 20;   // gap between circles
+  const navIndexOf = (id: string) => NAV_ITEMS.findIndex((n) => n.id === id);
+  const xForIndex  = (i: number)  => i * (NAV_SLOT + NAV_GAP);
+
+  // Spring for x position — bouncy so it overshoots (liquid feel)
+  const glowX   = useSpring(xForIndex(navIndexOf("home")), {
+    stiffness: 320, damping: 22, mass: 0.75,
+  });
+  // Derive velocity → scaleX: fast motion → stretched oval → settles to circle
+  const glowVel  = useVelocity(glowX);
+  const glowScaleX = useTransform(glowVel, [-700, 0, 700], [1.55, 1, 1.55]);
+
   const locationRef = useRef<HTMLDivElement>(null);
   const label     = location?.label?.trim() || "Set delivery location";
   const inRange   = location?.inRange ?? true;
   const greeting  = getGreeting();
   const firstName = formatFirstName(displayName);
+
+  // Update glow x whenever activeNav changes
+  useEffect(() => {
+    glowX.set(xForIndex(navIndexOf(activeNav)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNav]);
 
   // Fetch from Supabase
   useEffect(() => {
@@ -509,6 +530,7 @@ export function MobileHomeScreen({
       <div style={{
         position: "relative", zIndex: 1,
         padding: `0 ${sp(2)}px`,
+        paddingTop: sp(3),
         paddingBottom: 88 + sp(2),
       }}>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
@@ -616,7 +638,7 @@ export function MobileHomeScreen({
         </motion.div>
       </div>
 
-      {/* ── FLOATING BOTTOM NAVBAR ────────────────────────────────────────── */}
+      {/* ── FLOATING CIRCLE NAVBAR — Option B liquid mercury ───────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
@@ -626,96 +648,82 @@ export function MobileHomeScreen({
           bottom: 0, left: 0, right: 0,
           zIndex: 60,
           display: "flex", justifyContent: "center",
-          paddingBottom: "max(20px, env(safe-area-inset-bottom))",
-          paddingLeft: sp(2), paddingRight: sp(2),
+          paddingBottom: "max(24px, env(safe-area-inset-bottom))",
           paddingTop: sp(1),
-          background: `linear-gradient(to top, ${C.bg} 55%, transparent)`,
+          background: `linear-gradient(to top, ${C.bg} 60%, transparent)`,
           pointerEvents: "none",
         }}
       >
-        {/* Fixed-size outer pill — never resizes, so borderRadius never morphs */}
+        {/*
+          Three separate frosted-glass circles.
+          A SINGLE liquid glow div travels between them via useSpring(x).
+          glowVelocity → glowScaleX: fast = stretched oval, slow = circle.
+          This creates the mercury-drop / water-blob fluid transition.
+        */}
         <div
           style={{
-            display: "flex", alignItems: "center",
-            background: "rgba(14,14,14,0.92)",
-            backdropFilter: "blur(32px)",
-            WebkitBackdropFilter: "blur(32px)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            borderRadius: 99,
-            padding: "8px 12px",
-            gap: 4,
-            boxShadow: "0 8px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+            position: "relative",
+            display: "flex",
+            gap: NAV_GAP,
+            alignItems: "center",
             pointerEvents: "auto",
           }}
         >
-          {NAV_ITEMS.map(({ id, label: navLabel, icon: Icon }) => {
+          {/* ── Liquid glow blob — single element, animates between slots ── */}
+          <motion.div
+            style={{
+              position: "absolute",
+              top: 0, left: 0,
+              width: NAV_SLOT, height: NAV_SLOT,
+              borderRadius: "50%",
+              x: glowX,
+              scaleX: glowScaleX,
+              /* Red frosted glass glow */
+              background: C.redFaint,
+              border: `1.5px solid ${C.redBorder}`,
+              boxShadow: `0 0 22px ${C.redGlow}, 0 0 8px ${C.redBorder} inset`,
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+
+          {/* ── Individual circles ── */}
+          {NAV_ITEMS.map(({ id, icon: Icon }, i) => {
             const isActive = activeNav === id;
             return (
               <motion.button
                 key={id}
                 onClick={() => setActiveNav(id)}
-                whileTap={{ scale: 0.84 }}
-                transition={{ type: "spring", stiffness: 600, damping: 24 }}
+                whileTap={{ scale: 0.82 }}
+                transition={{ type: "spring", stiffness: 600, damping: 26 }}
                 style={{
-                  display: "flex", flexDirection: "row",
-                  alignItems: "center", justifyContent: "center",
-                  gap: 7,
-                  background: "none", border: "none",
+                  width: NAV_SLOT, height: NAV_SLOT,
+                  borderRadius: "50%",
+                  /* Semi-transparent so glow bleeds through when active */
+                  background: "rgba(14,14,14,0.78)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  border: `1px solid ${
+                    isActive ? "rgba(189,35,32,0.2)" : "rgba(255,255,255,0.09)"
+                  }`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer",
-                  padding: "9px 0",
-                  position: "relative",
-                  borderRadius: 99,
-                  fontFamily: C.mono,
                   outline: "none",
-                  /* IDENTICAL fixed width for ALL buttons — container never
-                     changes size, so borderRadius never morphs or jerks */
-                  width: 88,
-                  overflow: "hidden",
+                  position: "relative",
+                  zIndex: 1,
+                  boxShadow: isActive
+                    ? `0 6px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.redBorder} inset`
+                    : "0 4px 20px rgba(0,0,0,0.4)",
+                  fontFamily: C.mono,
+                  flexShrink: 0,
                 }}
               >
-                {/* Glow pill — slides via layoutId between fixed-width slots */}
-                {isActive && (
-                  <motion.div
-                    layoutId="navActivePill"
-                    style={{
-                      position: "absolute", inset: 0,
-                      background: C.redFaint,
-                      border: `1px solid ${C.redBorder}`,
-                      borderRadius: 99,
-                    }}
-                    transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.7 }}
-                  />
-                )}
-
-                {/* Icon */}
                 <motion.span
-                  animate={{ scale: isActive ? 1.1 : 1 }}
+                  animate={{ scale: isActive ? 1.12 : 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 28 }}
-                  style={{ position: "relative", zIndex: 1, display: "flex", flexShrink: 0 }}
+                  style={{ display: "flex" }}
                 >
                   <Icon active={isActive} />
-                </motion.span>
-
-                {/* Label — opacity-only animation, no width change, no layout shift */}
-                <motion.span
-                  animate={{
-                    opacity: isActive ? 1 : 0,
-                    x: isActive ? 0 : -4,
-                    scale: isActive ? 1 : 0.85,
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
-                  style={{
-                    fontSize: 11, fontWeight: 800,
-                    letterSpacing: "0.07em",
-                    color: C.red,
-                    textTransform: "uppercase",
-                    whiteSpace: "nowrap",
-                    position: "relative", zIndex: 1,
-                    /* Always occupies space — opacity hides it, no reflow */
-                    visibility: isActive ? "visible" : "hidden",
-                  }}
-                >
-                  {navLabel}
                 </motion.span>
               </motion.button>
             );
