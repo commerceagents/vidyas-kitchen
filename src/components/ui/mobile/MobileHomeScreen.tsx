@@ -220,12 +220,12 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
           )}
         </AnimatePresence>
 
-        {/* Recipe Tag — centrally anchored at top */}
+        {/* Recipe Tag — top left */}
         {tag && (
           <div style={{
             position: "absolute",
-            top: 14, left: "50%",
-            transform: "translateX(-50%)",
+            top: 14, left: 14,
+            maxWidth: "calc(100% - 28px)",
             background: "rgba(12,12,12,0.55)",
             backdropFilter: "blur(12px) saturate(140%)",
             WebkitBackdropFilter: "blur(12px) saturate(140%)",
@@ -233,14 +233,12 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
             borderRadius: 8,
             padding: "6px 12px",
             zIndex: 2,
-            whiteSpace: "nowrap",
           }}>
             <span style={{
               fontSize: 10, fontWeight: 900,
               color: "rgba(255,255,255,0.95)",
-              letterSpacing: "0.1em",
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
-              textAlign: "center",
             }}>
               {tag}
             </span>
@@ -378,7 +376,10 @@ export function MobileHomeScreen({
       if (data) {
         const all = data as MenuItem[];
         setItems(all);
-        setBestFive(shuffle(all).slice(0, 5));
+        // Prioritize dishes with RECIPE in name to keep best-sellers consistent
+        const favorites = all.filter(d => d.name.toUpperCase().includes("RECIPE"));
+        const others    = all.filter(d => !d.name.toUpperCase().includes("RECIPE"));
+        setBestFive([...favorites, ...others].slice(0, 5));
       }
       setLoading(false);
     })();
@@ -706,7 +707,7 @@ export function MobileHomeScreen({
               <p style={{ margin: 0, fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
                 Browse Full Menu
               </p>
-              <p style={{ margin: "3px 0 0", fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>
+              <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
                 {loading ? "Loading…" : `${items.length} dishes available`}
               </p>
             </div>
