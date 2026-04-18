@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, RefObject } from "react";
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
@@ -957,7 +957,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
     });
   };
 
-  const { scrollXProgress } = useScroll({
+  useScroll({
     container: carouselRef,
   });
 
@@ -1057,7 +1057,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           height: "100%",
           alignItems: "center"
         }}>
-          {filtered.length > 0 ? filtered.map((item, idx) => (
+          {filtered.length > 0 ? filtered.map((item) => (
             <MenuCarouselCard 
               key={item.id} 
               item={item} 
