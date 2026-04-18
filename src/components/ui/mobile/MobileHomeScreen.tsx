@@ -662,7 +662,7 @@ export function MobileHomeScreen({
                 whileTap={{ scale: 0.85 }}
                 /* Spring-expand from circle to pill */
                 animate={{
-                  width: isActive ? 116 : NAV_CIRCLE,
+                  width: isActive ? 132 : NAV_CIRCLE,
                   paddingLeft: isActive ? 16 : 17,
                   paddingRight: isActive ? 16 : 17,
                   background: isActive
