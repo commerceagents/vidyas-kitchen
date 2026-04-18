@@ -220,22 +220,20 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
           )}
         </AnimatePresence>
 
-        {/* Recipe Tag — top left */}
+        {/* Recipe Tag — centrally anchored at top */}
         {tag && (
           <div style={{
             position: "absolute",
-            top: 14, left: 14, right: 14,
-            maxWidth: "calc(100% - 28px)",
+            top: 14, left: "50%",
+            transform: "translateX(-50%)",
             background: "rgba(12,12,12,0.55)",
             backdropFilter: "blur(12px) saturate(140%)",
             WebkitBackdropFilter: "blur(12px) saturate(140%)",
             border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 8,
-            padding: "6px 10px",
+            padding: "6px 12px",
             zIndex: 2,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
+            whiteSpace: "nowrap",
           }}>
             <span style={{
               fontSize: 10, fontWeight: 900,
