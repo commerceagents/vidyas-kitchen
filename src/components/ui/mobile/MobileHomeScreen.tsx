@@ -138,8 +138,8 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 72vw",
-        maxWidth: 300,
+        flex: "0 0 78vw",
+        maxWidth: 320,
         /* Taller card */
         height: "90vw",
         maxHeight: 380,
@@ -156,7 +156,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         src={imgSrc}
         alt={item.name}
         fill
-        sizes="72vw"
+        sizes="78vw"
         style={{ objectFit: "cover" }}
       />
 
@@ -512,7 +512,7 @@ export function MobileHomeScreen({
         paddingBottom: 88 + sp(2),
       }}>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(2) }}>
+        <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(2), marginTop: sp(3) }}>
           <p style={{
             margin: 0, fontSize: 16,
             color: "rgba(255,255,255,0.42)",
@@ -556,7 +556,7 @@ export function MobileHomeScreen({
             WebkitOverflowScrolling: "touch",
           }}>
             {loading
-              ? [1, 2, 3].map((i) => <Skeleton key={i} w="72vw" h={380} r={28} />)
+              ? [1, 2, 3].map((i) => <Skeleton key={i} w="78vw" h={380} r={28} />)
               : bestFive.map((item, i) => (
                   <BestSellingCard key={item.id} item={item} index={i} />
                 ))}
