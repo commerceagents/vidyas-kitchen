@@ -259,13 +259,17 @@ export function MobileHomeScreen({
   const navIndexOf = (id: string) => NAV_ITEMS.findIndex((n) => n.id === id);
   const xForIndex  = (i: number)  => i * (NAV_SLOT + NAV_GAP);
 
-  // Spring for x position — bouncy so it overshoots (liquid feel)
+  // Spring for x position — high mass = inertia (slow start), spring tension
+  // builds into acceleration, low damping = overshoot bounce on landing.
+  // This gives the "slow → fast → spring bounce" depth the user wants.
   const glowX   = useSpring(xForIndex(navIndexOf("home")), {
-    stiffness: 320, damping: 22, mass: 0.75,
+    stiffness: 250,   // moderate pull — not snappy, lets mass dominate start
+    damping:   16,    // low → allows meaningful overshoot (spring bounce)
+    mass:      2.2,   // heavy blob → high inertia → slow start, faster mid-flight
   });
-  // Derive velocity → scaleX: fast motion → stretched oval → settles to circle
-  const glowVel  = useVelocity(glowX);
-  const glowScaleX = useTransform(glowVel, [-700, 0, 700], [1.55, 1, 1.55]);
+  // Velocity → scaleX stretch: heavier mass = higher peak velocity mid-flight
+  const glowVel    = useVelocity(glowX);
+  const glowScaleX = useTransform(glowVel, [-900, 0, 900], [1.7, 1, 1.7]);
 
   const locationRef = useRef<HTMLDivElement>(null);
   const label     = location?.label?.trim() || "Set delivery location";
