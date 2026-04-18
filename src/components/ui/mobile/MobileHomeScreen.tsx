@@ -67,9 +67,9 @@ interface MobileHomeScreenProps {
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id: "home",    label: "Home",    icon: HomeIcon    },
-  { id: "orders",  label: "Orders",  icon: OrdersIcon  },
-  { id: "account", label: "Account", icon: AccountIcon },
+  { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 108 },
+  { id: "orders",  label: "Orders",  icon: OrdersIcon,  activeWidth: 124 },
+  { id: "account", label: "Account", icon: AccountIcon, activeWidth: 132 },
 ];
 
 function HomeIcon({ active }: { active: boolean }) {
@@ -121,6 +121,18 @@ function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
+function parseRecipeTag(name: string) {
+  // Catch (MOM'S RECIPE), SISTER'S RECIPE, etc.
+  const regex = /[\(]?([A-Z\s'-]+RECIPE)[\)]?/i;
+  const match = name.match(regex);
+  if (match) {
+    const tag = match[1].trim();
+    // Remove the entire match including parens from the clean name
+    const cleanName = name.replace(match[0], "").trim();
+    return { cleanName, tag };
+  }
+  return { cleanName: name, tag: null };
+}
 
 const fadeUp = (delay = 0) => ({
   initial:    { opacity: 0, y: 16 },
@@ -128,19 +140,21 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-// ─── BestSellingCard — full-bleed, frosted-glass pill with name + price ──────
 function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
   const imgSrc = getItemImage(item.name, item.image_url);
+  const { cleanName, tag } = parseRecipeTag(item.name);
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <motion.div
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
+      initial={{ scale: 0.9, rotateY: index % 2 === 0 ? 10 : -10, opacity: 0.7 }}
+      whileInView={{ scale: 1, rotateY: 0, opacity: 1 }}
+      viewport={{ amount: 0.8, once: false }}
+      transition={{ type: "spring", stiffness: 260, damping: 28, delay: index * 0.05 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 78vw",
+        flex: "0 0 80vw",
         maxWidth: 320,
-        /* Taller card */
         height: "90vw",
         maxHeight: 380,
         borderRadius: 28,
@@ -151,26 +165,81 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         boxShadow: "0 10px 40px rgba(0,0,0,0.65)",
       }}
     >
-      {/* Full-bleed image */}
-      <Image
-        src={imgSrc}
-        alt={item.name}
-        fill
-        sizes="78vw"
-        style={{ objectFit: "cover" }}
-      />
+      {/* Full-bleed image with fade-in */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: loaded ? 1 : 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <Image
+          src={imgSrc}
+          alt={item.name}
+          fill
+          sizes="78vw"
+          style={{ objectFit: "cover" }}
+          onLoad={() => setLoaded(true)}
+        />
+      </motion.div>
 
-      {/* Very light scrim — keeps top visible, heavier at bottom */}
+      {/* Shimmering Skeleton Placeholder */}
+      <AnimatePresence>
+        {!loaded && (
+          <motion.div
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              position: "absolute", inset: 0,
+              background: "rgba(255,255,255,0.04)",
+              overflow: "hidden",
+            }}
+          >
+            <motion.div
+              animate={{ x: ["-100%", "100%"] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+              style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Recipe Tag — top left */}
+      {tag && (
+        <div style={{
+          position: "absolute",
+          top: 16, left: 16,
+          background: "rgba(12,12,12,0.45)",
+          backdropFilter: "blur(12px) saturate(140%)",
+          WebkitBackdropFilter: "blur(12px) saturate(140%)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 8,
+          padding: "5px 10px",
+          zIndex: 2,
+        }}>
+          <span style={{
+            fontSize: 10, fontWeight: 900,
+            color: "rgba(255,255,255,0.9)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+          }}>
+            {tag}
+          </span>
+        </div>
+      )}
+
+      {/* Very light scrim */}
       <div style={{
         position: "absolute", inset: 0,
         background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0) 75%)",
       }} />
 
-      {/* Frosted glass pill — true glassmorphism so image bleeds through */}
+      {/* Frosted glass pill */}
       <div style={{
         position: "absolute",
         bottom: 12, left: 12, right: 12,
-        /* Low-opacity tint so image is visible behind the glass */
         background: "rgba(12,12,12,0.38)",
         backdropFilter: "blur(28px) saturate(160%)",
         WebkitBackdropFilter: "blur(28px) saturate(160%)",
@@ -196,7 +265,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
             letterSpacing: "0.01em",
             textShadow: "0 1px 6px rgba(0,0,0,0.6)",
           }}>
-            {item.name}
+            {cleanName}
           </p>
           <p style={{
             margin: "6px 0 0",
@@ -567,6 +636,8 @@ export function MobileHomeScreen({
             paddingBottom: 8,
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
+            /* 3D Perspective for children cards */
+            perspective: "1200px",
           }}>
             {loading
               ? [1, 2, 3].map((i) => <Skeleton key={i} w="78vw" h={380} r={28} />)
@@ -651,7 +722,8 @@ export function MobileHomeScreen({
             pointerEvents: "auto",
           }}
         >
-          {NAV_ITEMS.map(({ id, label: navLabel, icon: Icon }) => {
+          {NAV_ITEMS.map((item) => {
+            const { id, label: navLabel, icon: Icon, activeWidth } = item;
             const isActive   = activeNav === id;
             const showRipple = rippleTarget === id;
 
@@ -662,7 +734,7 @@ export function MobileHomeScreen({
                 whileTap={{ scale: 0.85 }}
                 /* Spring-expand from circle to pill */
                 animate={{
-                  width: isActive ? 132 : NAV_CIRCLE,
+                  width: isActive ? activeWidth : NAV_CIRCLE,
                   paddingLeft: isActive ? 16 : 17,
                   paddingRight: isActive ? 16 : 17,
                   background: isActive
