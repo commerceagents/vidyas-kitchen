@@ -231,14 +231,17 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
             WebkitBackdropFilter: "blur(12px) saturate(140%)",
             border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 8,
-            padding: "6px 12px",
+            padding: "6px 14px", // Slighly more padding
             zIndex: 2,
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <span style={{
               fontSize: 10, fontWeight: 900,
               color: "rgba(255,255,255,0.95)",
               letterSpacing: "0.12em",
+              marginRight: "-0.12em", // Offset letter-spacing for true center
               textTransform: "uppercase",
+              textAlign: "center",
             }}>
               {tag}
             </span>
@@ -513,6 +516,7 @@ export function MobileHomeScreen({
                 padding: "20px 18px",
                 boxShadow: "0 16px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
                 zIndex: 100,
+                textAlign: "center",
               }}
             >
               <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
