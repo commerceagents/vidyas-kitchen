@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
@@ -347,6 +347,7 @@ export function MobileHomeScreen({
   const [bestFive,       setBestFive]       = useState<MenuItem[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [activeNav,      setActiveNav]      = useState("home");
+  const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
   const [locationOpen,   setLocationOpen]   = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
 
@@ -407,12 +408,25 @@ export function MobileHomeScreen({
       style={{
         position: "fixed", inset: 0,
         background: C.bg,
-        overflowY: "auto",
-        overscrollBehavior: "contain",
+        overflow: "hidden", // Let sub-screens handle scrolling
         fontFamily: C.mono,
         color: C.white,
       }}
     >
+      <AnimatePresence mode="wait">
+        {activeScreen === "home" ? (
+          <motion.div
+            key="home-screen"
+            initial={{ opacity: 0, x: 0 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            style={{
+              position: "absolute", inset: 0,
+              overflowY: "auto",
+              paddingBottom: 88,
+            }}
+          >
       {/* ── Ambient glow ─────────────────────────────────────────────────── */}
       <div style={{
         position: "absolute", top: -60, left: "50%",
@@ -686,6 +700,7 @@ export function MobileHomeScreen({
         <motion.div {...fadeUp(0.16)}>
           <motion.button
             whileTap={{ scale: 0.97 }}
+            onClick={() => setActiveScreen("menu")}
             style={{
               width: "100%",
               background: C.surfaceDeep,
@@ -733,7 +748,10 @@ export function MobileHomeScreen({
             </div>
           </motion.button>
         </motion.div>
-      </div>
+    ) : (
+      <MenuBrowseView key="menu-screen" onBack={() => setActiveScreen("home")} allItems={items} />
+    )}
+    </AnimatePresence>
 
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
@@ -883,5 +901,374 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function ChickenIcon({ active }: { active: boolean }) {
+  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M14 4a6 6 0 0 0-6 6c0 1.5 2 3 2 3l1 2s.5 2 1.5 2.5 4 .5 5-.5c1-1 .5-4 0-5.5a10 10 0 0 0-3.5-7.5z" stroke={s} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 11c1 0 2 1 2 2" stroke={s} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 17l4-2M5 21l3-3" stroke={s} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function EggIcon({ active }: { active: boolean }) {
+  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C8 2 5 7 5 12s3 10 7 10 7-5 7-10-3-10-7-10z" stroke={s} strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 7c.5 1 1 2 1 4 0 1-.5 2.5-1 3.5" stroke={s} strokeWidth="1.2" opacity="0.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function MuttonIcon({ active }: { active: boolean }) {
+  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M4 12c0-4.4 3.6-8 8-8s8 3.6 8 8c0 2.2-.9 4.2-2.3 5.7L12 21l-5.7-3.3C4.9 16.2 4 14.2 4 12z" stroke={s} strokeWidth="2" strokeLinecap="round"/>
+      <path d="M12 4v4M8 6l2 2M16 6l-2 2" stroke={s} strokeWidth="1.5" opacity="0.4" strokeLinecap="round"/>
+      <path d="M9 11h6M10 14h4" stroke={s} strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
+  const [activeCat, setActiveCat] = useState("chicken");
+  const [cart, setCart]           = useState<Record<string, number>>({});
+  const carouselRef               = useRef<HTMLDivElement>(null);
+  
+  const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
+
+  const categories = [
+    { id: "chicken", label: "Chicken", icon: ChickenIcon },
+    { id: "egg",     label: "Egg",     icon: EggIcon },
+    { id: "mutton",  label: "Mutton",  icon: MuttonIcon },
+  ];
+
+  const updateQty = (id: string, delta: number) => {
+    setCart(prev => {
+      const current = prev[id] || 0;
+      const next = Math.max(0, current + delta);
+      return { ...prev, [id]: next };
+    });
+  };
+
+  const { scrollXProgress } = useScroll({
+    container: carouselRef,
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      style={{
+        position: "absolute", inset: 0,
+        background: C.bg,
+        zIndex: 100,
+        overflow: "hidden",
+        display: "flex", flexDirection: "column",
+      }}
+    >
+      {/* Sticky Header */}
+      <div style={{
+        padding: `max(16px, env(safe-area-inset-top)) ${sp(2)}px 16px`,
+        display: "flex", alignItems: "center", gap: 16,
+        background: `linear-gradient(to bottom, ${C.bg} 80%, transparent)`,
+        flexShrink: 0, zIndex: 10,
+      }}>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={onBack}
+          style={{
+            width: 44, height: 44, borderRadius: "50%",
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </motion.button>
+        <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Browse Menu</h2>
+      </div>
+
+      {/* Category Chips */}
+      <div style={{
+        padding: `0 ${sp(2)}px 24px`,
+        display: "flex", gap: 10,
+        overflowX: "auto", scrollbarWidth: "none",
+        flexShrink: 0, zIndex: 10,
+      }}>
+        {categories.map((cat) => {
+          const active = activeCat === cat.id;
+          const Icon = cat.icon;
+          return (
+            <motion.button
+              key={cat.id}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveCat(cat.id)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 16,
+                background: active ? C.red : C.surface,
+                border: `1px solid ${active ? C.redBorder : C.border}`,
+                display: "flex", alignItems: "center", gap: 8,
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+                boxShadow: active ? `0 4px 20px ${C.redGlow}` : "none",
+              }}
+            >
+              <Icon active={active} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                {cat.label}
+              </span>
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* ── 3D WHEEL CAROUSEL ────────────────────────────────────────── */}
+      <div 
+        ref={carouselRef}
+        style={{ 
+          flex: 1, 
+          position: "relative",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 12vw",
+          perspective: "1200px",
+          scrollSnapType: "x mandatory",
+        }}
+      >
+        <div style={{ 
+          display: "flex", 
+          gap: "8vw", 
+          paddingRight: "12vw",
+          height: "100%",
+          alignItems: "center"
+        }}>
+          {filtered.length > 0 ? filtered.map((item, idx) => (
+            <MenuCarouselCard 
+              key={item.id} 
+              item={item} 
+              qty={cart[item.id] || 0} 
+              onUpdate={(d) => updateQty(item.id, d)}
+              containerRef={carouselRef}
+            />
+          )) : (
+            <div style={{ width: "76vw", textAlign: "center", opacity: 0.3 }}>
+              No dishes available in this category.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cart Summary Bar */}
+      <AnimatePresence>
+        {Object.values(cart).some(q => q > 0) && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            style={{
+              position: "absolute", bottom: 32, left: 24, right: 24,
+              background: C.red,
+              borderRadius: 22,
+              padding: "18px 24px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              boxShadow: "0 12px 40px rgba(189,35,32,0.45)",
+              zIndex: 110,
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ 
+                width: 32, height: 32, borderRadius: "50%", 
+                background: "rgba(255,255,255,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14, fontWeight: 900
+              }}>
+                {Object.values(cart).reduce((a, b) => a + b, 0)}
+              </div>
+              <span style={{ fontWeight: 800, fontSize: 16 }}>Items Added</span>
+            </div>
+            <span style={{ fontWeight: 900, fontSize: 18, letterSpacing: "0.02em" }}>CHECKOUT →</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function MenuCarouselCard({ item, qty, onUpdate, containerRef }: { 
+  item: MenuItem, 
+  qty: number, 
+  onUpdate: (d: number) => void,
+  containerRef: React.RefObject<HTMLDivElement>
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const imgSrc  = getItemImage(item.name, item.image_url);
+  const { cleanName, tag } = parseRecipeTag(item.name);
+  const [loaded, setLoaded] = useState(false);
+
+  // ── Circular 3D Animation Logic ──────────────────────────────────────────
+  const { scrollXProgress } = useScroll({
+    target: cardRef,
+    container: containerRef,
+    offset: ["start end", "end start"]
+  });
+
+  // Calculate rotation and scale based on viewport position
+  // 0.5 is centered. 0 is entering, 1 is exiting.
+  const rotateY = useTransform(scrollXProgress, [0, 0.5, 1], [30, 0, -30]);
+  const scale   = useTransform(scrollXProgress, [0, 0.5, 1], [0.85, 1, 0.85]);
+  const z       = useTransform(scrollXProgress, [0, 0.5, 1], [-200, 0, -200]);
+  const opacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.4, 1, 0.4]);
+
+  return (
+    <motion.div
+      ref={cardRef}
+      style={{
+        width: "76vw",
+        maxWidth: 320,
+        height: "60vh",
+        maxHeight: 520,
+        borderRadius: 36,
+        background: "rgba(16,16,16,0.55)",
+        backdropFilter: "blur(32px) saturate(180%)",
+        WebkitBackdropFilter: "blur(32px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        flexShrink: 0,
+        boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+        scrollSnapAlign: "center",
+        // Apply 3D Transforms
+        rotateY,
+        scale,
+        z,
+        opacity,
+        transformStyle: "preserve-3d",
+      }}
+    >
+      {/* Top: Image Section */}
+      <div style={{ position: "relative", width: "100%", height: "65%", overflow: "hidden" }}>
+        <motion.div
+          animate={{ opacity: loaded ? 1 : 0 }}
+          transition={{ duration: 0.6 }}
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <Image 
+            src={imgSrc} 
+            alt={item.name} 
+            fill 
+            sizes="76vw" 
+            style={{ objectFit: "cover" }}
+            onLoad={() => setLoaded(true)}
+          />
+        </motion.div>
+        
+        {tag && (
+          <div style={{
+            position: "absolute", top: 20, left: 20,
+            background: "rgba(10,10,10,0.65)",
+            backdropFilter: "blur(12px)",
+            borderRadius: 10, padding: "6px 12px", 
+            border: "1px solid rgba(255,255,255,0.15)",
+            zIndex: 10
+          }}>
+            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
+              {tag}
+            </span>
+          </div>
+        )}
+        
+        {/* Subtle glass overlay on image */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)",
+          pointerEvents: "none"
+        }} />
+      </div>
+
+      {/* Bottom: Info & Cart */}
+      <div style={{ flex: 1, padding: "24px 24px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, lineHeight: 1.2, color: C.white }}>{cleanName}</h3>
+          <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: C.red, letterSpacing: "0.02em" }}>
+            ₹{item.price.toLocaleString("en-IN")}
+          </p>
+        </div>
+
+        {/* Dynamic Cart Button */}
+        <div style={{ marginTop: 20 }}>
+          {qty === 0 ? (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onUpdate(1)}
+              style={{
+                width: "100%", height: 56, borderRadius: 18,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 12, cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "0.04em" }}>ADD TO CART</span>
+            </motion.button>
+          ) : (
+            <div style={{ 
+              width: "100%", height: 56, borderRadius: 18,
+              background: C.red,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "0 8px",
+              boxShadow: `0 8px 30px ${C.redGlow}`,
+            }}>
+              <motion.button 
+                whileTap={{ scale: 0.8 }} 
+                onClick={() => onUpdate(-1)}
+                style={{ width: 44, height: 44, background: "rgba(255,255,255,0.2)", borderRadius: 14, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </motion.button>
+              
+              <AnimatePresence mode="wait">
+                <motion.span 
+                  key={qty}
+                  initial={{ y: 5, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -5, opacity: 0 }}
+                  style={{ fontWeight: 900, fontSize: 20, color: "white" }}
+                >
+                  {qty}
+                </motion.span>
+              </AnimatePresence>
+
+              <motion.button 
+                whileTap={{ scale: 0.8 }} 
+                onClick={() => onUpdate(1)}
+                style={{ width: 44, height: 44, background: "rgba(255,255,255,0.2)", borderRadius: 14, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </motion.button>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
