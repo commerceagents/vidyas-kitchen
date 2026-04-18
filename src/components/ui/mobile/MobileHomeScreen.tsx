@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, RefObject } from "react";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -1114,7 +1114,7 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef }: {
   item: MenuItem, 
   qty: number, 
   onUpdate: (d: number) => void,
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: RefObject<HTMLDivElement>
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgSrc  = getItemImage(item.name, item.image_url);
