@@ -128,7 +128,7 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-// ─── BestSellingCard — tall card, wider, fixed text zone for aligned pricing ─
+// ─── BestSellingCard — full-bleed image, glass pill overlay ────────────────
 function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   return (
@@ -138,63 +138,88 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 62vw",
-        maxWidth: 260,
-        background: "rgba(15,15,15,0.96)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 24,
+        flex: "0 0 68vw",
+        maxWidth: 280,
+        height: "80vw",
+        maxHeight: 320,
+        borderRadius: 28,
         overflow: "hidden",
         cursor: "pointer",
         flexShrink: 0,
-        boxShadow: "0 6px 30px rgba(0,0,0,0.5)",
-        /* Flex column so we can push price to a consistent baseline */
-        display: "flex",
-        flexDirection: "column",
+        position: "relative",
+        boxShadow: "0 8px 36px rgba(0,0,0,0.6)",
       }}
     >
-      {/* Image */}
-      <div style={{ position: "relative", height: "50vw", maxHeight: 210, overflow: "hidden", flexShrink: 0 }}>
-        <Image
-          src={imgSrc}
-          alt={item.name}
-          fill
-          sizes="62vw"
-          style={{ objectFit: "cover" }}
-        />
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(15,15,15,0.95) 0%, rgba(0,0,0,0.06) 55%)",
-        }} />
-      </div>
+      {/* Full-bleed dish image */}
+      <Image
+        src={imgSrc}
+        alt={item.name}
+        fill
+        sizes="68vw"
+        style={{ objectFit: "cover" }}
+      />
 
-      {/* Text zone — fixed height so price always aligns across cards */}
+      {/* Gradient scrim — heavy at bottom for legibility */}
       <div style={{
-        padding: "14px 16px 18px",
-        flex: 1,
-        display: "flex", flexDirection: "column",
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.18) 45%, rgba(0,0,0,0) 70%)",
+      }} />
+
+      {/* Dish name — overlaid directly on the photo above the pill */}
+      <p style={{
+        position: "absolute",
+        bottom: 92,
+        left: 14, right: 72,
+        margin: 0,
+        fontSize: 16, fontWeight: 800,
+        lineHeight: 1.3,
+        color: C.white,
+        letterSpacing: "0.01em",
+        overflow: "hidden",
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical" as const,
+        textShadow: "0 2px 14px rgba(0,0,0,0.9)",
+      }}>
+        {item.name}
+      </p>
+
+      {/* Glass pill — only price + red circle arrow */}
+      <div style={{
+        position: "absolute",
+        bottom: 12, left: 12, right: 12,
+        background: "rgba(8,8,8,0.60)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        border: "1px solid rgba(255,255,255,0.13)",
+        borderRadius: 20,
+        padding: "12px 12px 12px 16px",
+        display: "flex",
+        alignItems: "center",
         justifyContent: "space-between",
       }}>
-        {/* Name — clamped to exactly 2 lines */}
-        <p style={{
-          margin: 0, fontSize: 14, color: C.white,
-          fontWeight: 700, lineHeight: 1.4,
-          /* Force 2-line clamp with fixed height = 2 × lineHeight × fontSize */
-          height: "calc(14px * 1.4 * 2)",
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical" as const,
-        }}>
-          {item.name}
-        </p>
-        {/* Price — always at the fixed bottom of the text zone */}
-        <p style={{
-          margin: "10px 0 0",
-          fontSize: 17, color: C.white, fontWeight: 800,
+        <span style={{
+          fontSize: 19, fontWeight: 900,
+          color: C.white,
           letterSpacing: "0.01em",
         }}>
           ₹{item.price.toLocaleString("en-IN")}
-        </p>
+        </span>
+
+        {/* Red circle arrow button */}
+        <div style={{
+          width: 44, height: 44,
+          borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+          boxShadow: `0 4px 16px rgba(189,35,32,0.55)`,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 17L17 7M17 7H7M17 7v10" />
+          </svg>
+        </div>
       </div>
     </motion.div>
   );
@@ -528,7 +553,7 @@ export function MobileHomeScreen({
             WebkitOverflowScrolling: "touch",
           }}>
             {loading
-              ? [1, 2, 3].map((i) => <Skeleton key={i} w="54vw" h={280} r={24} />)
+              ? [1, 2, 3].map((i) => <Skeleton key={i} w="68vw" h={320} r={28} />)
               : bestFive.map((item, i) => (
                   <BestSellingCard key={item.id} item={item} index={i} />
                 ))}
