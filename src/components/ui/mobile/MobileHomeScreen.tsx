@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useSpring, useVelocity, useTransform } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
@@ -252,31 +252,23 @@ export function MobileHomeScreen({
   const [locationOpen,   setLocationOpen]   = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
 
-  // ── Liquid-mercury navbar spring ──────────────────────────────────────────
-  //   Each circle slot = 56px + 20px gap. Index positions: 0, 76, 152
-  const NAV_SLOT  = 56;   // circle diameter
-  const NAV_GAP   = 20;   // gap between circles
-  const navIndexOf = (id: string) => NAV_ITEMS.findIndex((n) => n.id === id);
-  const xForIndex  = (i: number)  => i * (NAV_SLOT + NAV_GAP);
+  // ── Ripple Ring navbar state ────────────────────────────────────────────
+  const NAV_CIRCLE = 56;  // circle size
+  const [rippleKey,    setRippleKey]    = useState(0);
+  const [rippleTarget, setRippleTarget] = useState("home");
 
-  // Spring for x position
-  const glowX      = useSpring(xForIndex(navIndexOf("home")), {
-    stiffness: 380, damping: 28, mass: 0.9,
-  });
-  const glowVel    = useVelocity(glowX);
-  const glowScaleX = useTransform(glowVel, [-600, 0, 600], [1.45, 1, 1.45]);
+  function handleNav(id: string) {
+    if (id === activeNav) return;
+    setActiveNav(id);
+    setRippleTarget(id);
+    setRippleKey((k) => k + 1);
+  }
 
   const locationRef = useRef<HTMLDivElement>(null);
   const label     = location?.label?.trim() || "Set delivery location";
   const inRange   = location?.inRange ?? true;
   const greeting  = getGreeting();
   const firstName = formatFirstName(displayName);
-
-  // Update glow x whenever activeNav changes
-  useEffect(() => {
-    glowX.set(xForIndex(navIndexOf(activeNav)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeNav]);
 
   // Fetch from Supabase
   useEffect(() => {
@@ -637,7 +629,7 @@ export function MobileHomeScreen({
         </motion.div>
       </div>
 
-      {/* ── FLOATING CIRCLE NAVBAR — Option B liquid mercury ───────────────── */}
+      {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
@@ -653,77 +645,111 @@ export function MobileHomeScreen({
           pointerEvents: "none",
         }}
       >
-        {/*
-          Three separate frosted-glass circles.
-          A SINGLE liquid glow div travels between them via useSpring(x).
-          glowVelocity → glowScaleX: fast = stretched oval, slow = circle.
-          This creates the mercury-drop / water-blob fluid transition.
-        */}
         <div
           style={{
-            position: "relative",
-            display: "flex",
-            gap: NAV_GAP,
-            alignItems: "center",
+            display: "flex", gap: 14, alignItems: "center",
             pointerEvents: "auto",
           }}
         >
-          {/* ── Liquid glow blob — single element, animates between slots ── */}
-          <motion.div
-            style={{
-              position: "absolute",
-              top: 0, left: 0,
-              width: NAV_SLOT, height: NAV_SLOT,
-              borderRadius: "50%",
-              x: glowX,
-              scaleX: glowScaleX,
-              /* Red frosted glass glow */
-              background: C.redFaint,
-              border: `1.5px solid ${C.redBorder}`,
-              boxShadow: `0 0 22px ${C.redGlow}, 0 0 8px ${C.redBorder} inset`,
-              pointerEvents: "none",
-              zIndex: 0,
-            }}
-          />
+          {NAV_ITEMS.map(({ id, label: navLabel, icon: Icon }) => {
+            const isActive   = activeNav === id;
+            const showRipple = rippleTarget === id;
 
-          {/* ── Individual circles ── */}
-          {NAV_ITEMS.map(({ id, icon: Icon }, i) => {
-            const isActive = activeNav === id;
             return (
               <motion.button
                 key={id}
-                onClick={() => setActiveNav(id)}
-                whileTap={{ scale: 0.82 }}
-                transition={{ type: "spring", stiffness: 600, damping: 26 }}
+                onClick={() => handleNav(id)}
+                whileTap={{ scale: 0.85 }}
+                /* Spring-expand from circle to pill */
+                animate={{
+                  width: isActive ? 112 : NAV_CIRCLE,
+                  background: isActive
+                    ? "rgba(189,35,32,0.14)"
+                    : "rgba(14,14,14,0.78)",
+                  borderColor: isActive
+                    ? "rgba(189,35,32,0.32)"
+                    : "rgba(255,255,255,0.09)",
+                  boxShadow: isActive
+                    ? "0 0 28px rgba(189,35,32,0.32), 0 4px 20px rgba(0,0,0,0.4)"
+                    : "0 4px 20px rgba(0,0,0,0.4)",
+                }}
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 style={{
-                  width: NAV_SLOT, height: NAV_SLOT,
-                  borderRadius: "50%",
-                  /* Semi-transparent so glow bleeds through when active */
-                  background: "rgba(14,14,14,0.78)",
+                  height: NAV_CIRCLE,
+                  borderRadius: 28,
+                  border: "1.5px solid",
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
-                  border: `1px solid ${
-                    isActive ? "rgba(189,35,32,0.2)" : "rgba(255,255,255,0.09)"
-                  }`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  display: "flex", alignItems: "center",
+                  justifyContent: isActive ? "flex-start" : "center",
+                  paddingLeft: isActive ? 16 : 0,
+                  paddingRight: isActive ? 16 : 0,
+                  gap: 8,
                   cursor: "pointer",
                   outline: "none",
                   position: "relative",
-                  zIndex: 1,
-                  boxShadow: isActive
-                    ? `0 6px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.redBorder} inset`
-                    : "0 4px 20px rgba(0,0,0,0.4)",
+                  overflow: "hidden",
                   fontFamily: C.mono,
                   flexShrink: 0,
                 }}
               >
+                {/* Ripple ring effect */}
+                <AnimatePresence>
+                  {showRipple && (
+                    <motion.div
+                      key={rippleKey}
+                      initial={{ scale: 0.4, opacity: 1 }}
+                      animate={{ scale: 3, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      style={{
+                        position: "absolute",
+                        top: "50%", left: NAV_CIRCLE / 2,
+                        width: NAV_CIRCLE, height: NAV_CIRCLE,
+                        borderRadius: "50%",
+                        border: "2px solid rgba(189,35,32,0.6)",
+                        transform: "translate(-50%, -50%)",
+                        pointerEvents: "none",
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Icon */}
                 <motion.span
-                  animate={{ scale: isActive ? 1.12 : 1 }}
+                  animate={{ scale: isActive ? 1.15 : 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 28 }}
-                  style={{ display: "flex" }}
+                  style={{
+                    display: "flex", flexShrink: 0,
+                    position: "relative", zIndex: 1,
+                  }}
                 >
                   <Icon active={isActive} />
                 </motion.span>
+
+                {/* Label — only visible when active */}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      key={`lbl-${id}`}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30, delay: 0.05 }}
+                      style={{
+                        fontSize: 12, fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        color: C.red,
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                        position: "relative", zIndex: 1,
+                      }}
+                    >
+                      {navLabel}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </motion.button>
             );
           })}
