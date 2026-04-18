@@ -155,101 +155,105 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         flex: "0 0 80vw",
         maxWidth: 320,
         height: "90vw",
-        maxHeight: 380,
+        maxHeight: 400, // Slightly taller to fit stacked info comfortably
         borderRadius: 28,
         overflow: "hidden",
         cursor: "pointer",
         flexShrink: 0,
         position: "relative",
         boxShadow: "0 10px 40px rgba(0,0,0,0.65)",
+        /* Entire card is now the glass container */
+        background: "rgba(18,18,18,0.45)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      {/* Full-bleed image with fade-in */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: loaded ? 1 : 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        style={{ position: "absolute", inset: 0 }}
-      >
-        <Image
-          src={imgSrc}
-          alt={item.name}
-          fill
-          sizes="78vw"
-          style={{ objectFit: "cover" }}
-          onLoad={() => setLoaded(true)}
-        />
-      </motion.div>
+      {/* ── TOP SECTION: IMAGE ─────────────────────────────────────────── */}
+      <div style={{
+        position: "relative",
+        width: "100%",
+        height: "68%",
+        overflow: "hidden",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+      }}>
+        {/* Full-bleed image with fade-in */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: loaded ? 1 : 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <Image
+            src={imgSrc}
+            alt={item.name}
+            fill
+            sizes="78vw"
+            style={{ objectFit: "cover" }}
+            onLoad={() => setLoaded(true)}
+          />
+        </motion.div>
 
-      {/* Shimmering Skeleton Placeholder */}
-      <AnimatePresence>
-        {!loaded && (
-          <motion.div
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            style={{
-              position: "absolute", inset: 0,
-              background: "rgba(255,255,255,0.04)",
-              overflow: "hidden",
-            }}
-          >
+        {/* Shimmering Skeleton Placeholder (Image part) */}
+        <AnimatePresence>
+          {!loaded && (
             <motion.div
-              animate={{ x: ["-100%", "100%"] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
               style={{
                 position: "absolute", inset: 0,
-                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                background: "rgba(255,255,255,0.04)",
+                overflow: "hidden",
               }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            >
+              <motion.div
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Recipe Tag — top left */}
-      {tag && (
-        <div style={{
-          position: "absolute",
-          top: 16, left: 16, right: 16, // Use right to allow centering logic
-          maxWidth: "calc(100% - 32px)",
-          background: "rgba(12,12,12,0.45)",
-          backdropFilter: "blur(12px) saturate(140%)",
-          WebkitBackdropFilter: "blur(12px) saturate(140%)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          borderRadius: 8,
-          padding: "6px 10px",
-          zIndex: 2,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}>
-          <span style={{
-            fontSize: 10, fontWeight: 900,
-            color: "rgba(255,255,255,0.9)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            textAlign: "center",
+        {/* Recipe Tag — top left */}
+        {tag && (
+          <div style={{
+            position: "absolute",
+            top: 14, left: 14, right: 14,
+            maxWidth: "calc(100% - 28px)",
+            background: "rgba(12,12,12,0.55)",
+            backdropFilter: "blur(12px) saturate(140%)",
+            WebkitBackdropFilter: "blur(12px) saturate(140%)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 8,
+            padding: "6px 10px",
+            zIndex: 2,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
           }}>
-            {tag}
-          </span>
-        </div>
-      )}
+            <span style={{
+              fontSize: 10, fontWeight: 900,
+              color: "rgba(255,255,255,0.95)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              textAlign: "center",
+            }}>
+              {tag}
+            </span>
+          </div>
+        )}
+      </div>
 
-      {/* Very light scrim */}
+      {/* ── BOTTOM SECTION: INFO ────────────────────────────────────────── */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0) 75%)",
-      }} />
-
-      {/* Frosted glass pill */}
-      <div style={{
-        position: "absolute",
-        bottom: 12, left: 12, right: 12,
-        background: "rgba(12,12,12,0.38)",
-        backdropFilter: "blur(28px) saturate(160%)",
-        WebkitBackdropFilter: "blur(28px) saturate(160%)",
-        border: "1px solid rgba(255,255,255,0.18)",
-        borderRadius: 22,
-        padding: "16px 14px 16px 18px",
+        flex: 1,
+        padding: "16px 18px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -259,44 +263,46 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
             margin: 0,
-            fontSize: 13, fontWeight: 700,
-            lineHeight: 1.35,
+            fontSize: 14, fontWeight: 700,
+            lineHeight: 1.3,
             color: C.white,
             overflow: "hidden",
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical" as const,
             letterSpacing: "0.01em",
-            textShadow: "0 1px 6px rgba(0,0,0,0.6)",
           }}>
             {cleanName}
           </p>
-          <p style={{
-            margin: "6px 0 0",
-            fontSize: 15, fontWeight: 800,
-            color: C.white,
-            letterSpacing: "0.02em",
-            textShadow: "0 1px 6px rgba(0,0,0,0.5)",
+          <div style={{
+            display: "flex", alignItems: "baseline", gap: 6, marginTop: 6
           }}>
-            ₹{item.price.toLocaleString("en-IN")}
-          </p>
+            <span style={{
+              fontSize: 17, fontWeight: 800,
+              color: C.white,
+              letterSpacing: "0.02em",
+            }}>
+              ₹{item.price.toLocaleString("en-IN")}
+            </span>
+          </div>
         </div>
 
         {/* Red circle arrow */}
         <div style={{
-          width: 44, height: 44,
+          width: 46, height: 46,
           borderRadius: "50%",
           background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
-          boxShadow: `0 4px 18px rgba(189,35,32,0.6)`,
+          boxShadow: `0 4px 18px rgba(189,35,32,0.5)`,
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
             stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 17L17 7M17 7H7M17 7v10" />
           </svg>
         </div>
       </div>
+
     </motion.div>
   );
 }
@@ -309,6 +315,26 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
       background: "rgba(255,255,255,0.04)",
       border: "1px solid rgba(255,255,255,0.05)",
     }} />
+  );
+}
+function CardSkeleton() {
+  return (
+    <div style={{
+      width: "80vw", maxWidth: 320, height: 400, borderRadius: 28, flexShrink: 0,
+      background: "rgba(18,18,18,0.45)",
+      backdropFilter: "blur(24px)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      overflow: "hidden", display: "flex", flexDirection: "column"
+    }}>
+      <div style={{ height: "68%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
+      <div style={{ flex: 1, padding: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ width: "70%", height: 14, borderRadius: 4, background: "rgba(255,255,255,0.04)" }} />
+          <div style={{ width: "40%", height: 18, borderRadius: 4, background: "rgba(255,255,255,0.04)", marginTop: 8 }} />
+        </div>
+        <div style={{ width: 46, height: 46, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+      </div>
+    </div>
   );
 }
 
@@ -642,7 +668,7 @@ export function MobileHomeScreen({
             WebkitOverflowScrolling: "touch",
           }}>
             {loading
-              ? [1, 2, 3].map((i) => <Skeleton key={i} w="78vw" h={380} r={28} />)
+              ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
               : bestFive.map((item, i) => (
                   <BestSellingCard key={item.id} item={item} index={i} />
                 ))}
