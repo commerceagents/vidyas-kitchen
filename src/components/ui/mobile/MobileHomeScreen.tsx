@@ -122,13 +122,13 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 function parseRecipeTag(name: string) {
-  // Catch (MOM'S RECIPE), SISTER'S RECIPE, etc.
-  const regex = /[\(]?([A-Z\s'-]+RECIPE)[\)]?/i;
+  // Catch (MOM'S RECIPE), SISTER'S RECIPE, etc. specifically to avoid swallowing the dish name
+  const regex = /[\(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[\)]?/i;
   const match = name.match(regex);
   if (match) {
     const tag = match[1].trim();
-    // Remove the entire match including parens from the clean name
     const cleanName = name.replace(match[0], "").trim();
+    // If name starts with "Special", "Idli Special", etc, we keep those but the tag is extracted
     return { cleanName, tag };
   }
   return { cleanName: name, tag: null };
@@ -147,10 +147,9 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
 
   return (
     <motion.div
-      initial={{ scale: 0.9, rotateY: index % 2 === 0 ? 10 : -10, opacity: 0.7 }}
-      whileInView={{ scale: 1, rotateY: 0, opacity: 1 }}
-      viewport={{ amount: 0.8, once: false }}
-      transition={{ type: "spring", stiffness: 260, damping: 28, delay: index * 0.05 }}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
         flex: "0 0 80vw",
@@ -210,20 +209,25 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       {tag && (
         <div style={{
           position: "absolute",
-          top: 16, left: 16,
+          top: 16, left: 16, right: 16, // Use right to allow centering logic
+          maxWidth: "calc(100% - 32px)",
           background: "rgba(12,12,12,0.45)",
           backdropFilter: "blur(12px) saturate(140%)",
           WebkitBackdropFilter: "blur(12px) saturate(140%)",
           border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 8,
-          padding: "5px 10px",
+          padding: "6px 10px",
           zIndex: 2,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }}>
           <span style={{
             fontSize: 10, fontWeight: 900,
             color: "rgba(255,255,255,0.9)",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
+            textAlign: "center",
           }}>
             {tag}
           </span>
@@ -636,8 +640,6 @@ export function MobileHomeScreen({
             paddingBottom: 8,
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
-            /* 3D Perspective for children cards */
-            perspective: "1200px",
           }}>
             {loading
               ? [1, 2, 3].map((i) => <Skeleton key={i} w="78vw" h={380} r={28} />)
