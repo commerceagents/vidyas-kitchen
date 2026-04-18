@@ -176,11 +176,11 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         WebkitBackdropFilter: "blur(28px) saturate(160%)",
         border: "1px solid rgba(255,255,255,0.18)",
         borderRadius: 22,
-        padding: "14px 12px 14px 16px",
+        padding: "16px 14px 16px 18px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 8,
+        gap: 12,
       }}>
         {/* Left: name + price stacked */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -521,11 +521,11 @@ export function MobileHomeScreen({
       <div style={{
         position: "relative", zIndex: 1,
         padding: `0 ${sp(2)}px`,
-        paddingTop: sp(3),
+        paddingTop: sp(4),
         paddingBottom: 88 + sp(2),
       }}>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(2), marginTop: sp(3) }}>
+        <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(3), marginTop: sp(4) }}>
           <p style={{
             margin: 0, fontSize: 16,
             color: "rgba(255,255,255,0.42)",
@@ -662,7 +662,9 @@ export function MobileHomeScreen({
                 whileTap={{ scale: 0.85 }}
                 /* Spring-expand from circle to pill */
                 animate={{
-                  width: isActive ? 112 : NAV_CIRCLE,
+                  width: isActive ? 116 : NAV_CIRCLE,
+                  paddingLeft: isActive ? 16 : 17,
+                  paddingRight: isActive ? 16 : 17,
                   background: isActive
                     ? "rgba(189,35,32,0.14)"
                     : "rgba(14,14,14,0.78)",
@@ -681,9 +683,7 @@ export function MobileHomeScreen({
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
                   display: "flex", alignItems: "center",
-                  justifyContent: isActive ? "flex-start" : "center",
-                  paddingLeft: isActive ? 16 : 0,
-                  paddingRight: isActive ? 16 : 0,
+                  justifyContent: "flex-start",
                   gap: 8,
                   cursor: "pointer",
                   outline: "none",
