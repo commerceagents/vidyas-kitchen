@@ -492,23 +492,27 @@ export function MobileHomeScreen({
           </motion.svg>
         </motion.button>
 
-        {/* Location dropdown */}
+        {/* Location dropdown — now absolute to avoid content push */}
         <AnimatePresence>
           {locationOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
               style={{
-                marginTop: 8,
+                position: "absolute",
+                top: "100%",
+                left: sp(2), right: sp(2),
+                marginTop: 0,
                 background: C.surfaceDeep,
                 backdropFilter: "blur(40px)",
                 WebkitBackdropFilter: "blur(40px)",
                 borderRadius: 20,
                 border: `1px solid ${C.borderFaint}`,
                 padding: "20px 18px",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+                boxShadow: "0 16px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+                zIndex: 100,
               }}
             >
               <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
