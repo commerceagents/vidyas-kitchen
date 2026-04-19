@@ -644,10 +644,11 @@ export function MobileHomeScreen({
         position: "relative", zIndex: 1,
         flex: 1,
         display: "flex", flexDirection: "column",
-        justifyContent: "space-evenly",
+        justifyContent: "center",
+        gap: sp(6),
         padding: `0 ${sp(2)}px`,
         paddingTop: sp(1),
-        paddingBottom: sp(4),
+        paddingBottom: sp(6), // extra room at bottom
       }}>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
