@@ -152,10 +152,10 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 80vw",
-        maxWidth: 320,
-        height: "90vw",
-        maxHeight: 400, // Slightly taller to fit stacked info comfortably
+        flex: "0 0 74vw",
+        maxWidth: 280,
+        height: "82vw",
+        maxHeight: 340,
         borderRadius: 28,
         overflow: "hidden",
         cursor: "pointer",
