@@ -947,7 +947,6 @@ function MuttonIcon({ active }: { active: boolean }) {
 function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [cart, setCart]           = useState<Record<string, number>>({});
-  const [effect, setEffect]       = useState<"reel" | "pop">("reel");
   const carouselRef               = useRef<HTMLDivElement>(null);
   
   const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
@@ -984,27 +983,6 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         display: "flex", flexDirection: "column",
       }}
     >
-      {/* ── AMBIENT LIQUID BACKDROP (For Color Pop) ───────────────────────── */}
-      <AnimatePresence>
-        {effect === "pop" && (
-          <motion.div
-            key="liquid-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "absolute", inset: 0,
-              pointerEvents: "none", zIndex: 0,
-              background: activeCat === "chicken" ? "radial-gradient(circle at 50% 50%, #ff8c00 0%, transparent 70%)" :
-                         activeCat === "egg"     ? "radial-gradient(circle at 50% 50%, #ffd700 0%, transparent 70%)" :
-                         activeCat === "mutton"  ? "radial-gradient(circle at 50% 50%, #dc143c 0%, transparent 70%)" :
-                         "transparent",
-              filter: "blur(80px)",
-              transition: "background 0.8s ease-in-out"
-            }}
-          />
-        )}
-      </AnimatePresence>
       {/* Sticky Header */}
       <div style={{
         padding: `max(16px, env(safe-area-inset-top)) ${sp(2)}px 16px`,
@@ -1028,36 +1006,6 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           </svg>
         </motion.button>
         <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, flex: 1 }}>Browse Menu</h2>
-
-        {/* Aesthetic Switcher Trigger */}
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            setEffect(prev => prev === "reel" ? "pop" : "reel");
-          }}
-          style={{
-            width: 44, height: 44, borderRadius: 14,
-            background: C.surfaceDeep,
-            border: `1.5px solid ${C.red}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: `0 4px 15px ${C.redGlow}`,
-            position: "relative",
-          }}
-        >
-          <div style={{
-            position: "absolute", top: -14, right: -4,
-            fontSize: 9, background: C.red, color: "#fff",
-            padding: "2px 8px", borderRadius: 8, fontWeight: 900,
-            textTransform: "uppercase", letterSpacing: "0.05em",
-            whiteSpace: "nowrap"
-          }}>
-            {effect === "reel" ? "Film Reel" : "Color Pop"}
-          </div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-        </motion.button>
       </div>
 
       {/* Category Chips */}
@@ -1094,7 +1042,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         })}
       </div>
 
-      {/* ── INTERACTIVE CAROUSEL DEPLOYED ─────────────────────────────────── */}
+      {/* ── CYLINDRICAL ROTARY CAROUSEL ──────────────────────────────────── */}
       <div 
         ref={carouselRef}
         style={{ 
@@ -1103,19 +1051,19 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           overflowX: "auto",
           scrollbarWidth: "none",
           display: "flex",
-          alignItems: "flex-start", // Moved up from center
+          alignItems: "center", // Back to center for better rotation pivot
           padding: `0 ${sp(3)}px`,
-          paddingTop: sp(2), // tight alignment to tags
-          scrollSnapType: "x mandatory",
+          perspective: 1200, // 3D Perspective
           WebkitOverflowScrolling: "touch",
+          scrollSnapType: "x mandatory",
         }}
       >
         <div style={{ 
           display: "flex", 
-          gap: effect === "reel" ? 0 : 20, 
+          gap: 0, // Gap handled by card transformations
           paddingBottom: 80,
-          alignItems: "flex-start",
-          paddingTop: 12,
+          alignItems: "center",
+          transformStyle: "preserve-3d",
         }}>
           {filtered.length > 0 ? filtered.map((item) => (
             <MenuCarouselCard 
@@ -1124,10 +1072,9 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
               qty={cart[item.id] || 0} 
               onUpdate={(d) => updateQty(item.id, d)}
               containerRef={carouselRef}
-              effect={effect}
             />
           )) : (
-            <div style={{ width: effect === "reel" ? "100vw" : "86vw", textAlign: "center", opacity: 0.3 }}>
+            <div style={{ width: "100vw", textAlign: "center", opacity: 0.3 }}>
               No dishes available in this category.
             </div>
           )}
@@ -1171,12 +1118,11 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   );
 }
 
-function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: { 
+function MenuCarouselCard({ item, qty, onUpdate, containerRef }: { 
   item: MenuItem, 
   qty: number, 
   onUpdate: (d: number) => void,
-  containerRef: RefObject<HTMLDivElement | null>,
-  effect: "reel" | "pop"
+  containerRef: RefObject<HTMLDivElement | null>
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgSrc  = getItemImage(item.name, item.image_url);
@@ -1190,36 +1136,36 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: {
     offset: ["start end", "end start"]
   });
 
-  // 1. Film Reel Mode (Continuous Strip)
-  const rWidth = useTransform(scrollXProgress, [0, 0.5, 1], ["75vw", "86vw", "75vw"]);
-  const rScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.94, 1, 0.94]);
-
-  // 2. Color Pop Mode (Soft Focus)
-  const pScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.88, 1, 0.88]);
-  const pOpacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.45, 1, 0.45]);
+  // ── Cylindrical Rotary Transforms ─────────────────────────────────
+  const rotateY  = useTransform(scrollXProgress, [0, 0.5, 1], [35, 0, -35]);
+  const z        = useTransform(scrollXProgress, [0, 0.5, 1], [-200, 0, -200]);
+  const scale    = useTransform(scrollXProgress, [0, 0.5, 1], [0.85, 1, 0.85]);
+  const opacity  = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.4, 1, 0.4]);
 
   return (
     <motion.div
       ref={cardRef}
       style={{
-        width: effect === "reel" ? rWidth : "78vw",
-        maxWidth: effect === "reel" ? 400 : 340,
+        width: "80vw", // Large hero focus
+        maxWidth: 380,
         height: "60vh",
         maxHeight: 520,
         borderRadius: 32,
-        background: "rgba(16,16,16,0.55)",
+        background: "rgba(16,16,16,0.6)",
         backdropFilter: "blur(32px) saturate(180%)",
         WebkitBackdropFilter: "blur(32px) saturate(180%)",
         border: "1px solid rgba(255,255,255,0.12)",
         overflow: "hidden",
         display: "flex", flexDirection: "column",
         flexShrink: 0,
-        boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+        boxShadow: "0 30px 80px rgba(0,0,0,0.7)",
         scrollSnapAlign: "center",
-        // Conditional Transforms
-        scale: effect === "reel" ? rScale : pScale,
-        opacity: effect === "pop" ? pOpacity : 1,
-        zIndex: effect === "reel" ? 1 : 1,
+        // 3D Transforms
+        rotateY,
+        z,
+        scale,
+        opacity,
+        transformStyle: "preserve-3d",
       }}
     >
       {/* Top: Image Section */}
