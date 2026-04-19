@@ -947,7 +947,7 @@ function MuttonIcon({ active }: { active: boolean }) {
 function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [cart, setCart]           = useState<Record<string, number>>({});
-  const [effect, setEffect]       = useState<"depth" | "parallax" | "elastic">("depth");
+  const [effect, setEffect]       = useState<"reel" | "pop">("reel");
   const carouselRef               = useRef<HTMLDivElement>(null);
   
   const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
@@ -984,6 +984,27 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         display: "flex", flexDirection: "column",
       }}
     >
+      {/* ── AMBIENT LIQUID BACKDROP (For Color Pop) ───────────────────────── */}
+      <AnimatePresence>
+        {effect === "pop" && (
+          <motion.div
+            key="liquid-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.15 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "absolute", inset: 0,
+              pointerEvents: "none", zIndex: 0,
+              background: activeCat === "chicken" ? "radial-gradient(circle at 50% 50%, #ff8c00 0%, transparent 70%)" :
+                         activeCat === "egg"     ? "radial-gradient(circle at 50% 50%, #ffd700 0%, transparent 70%)" :
+                         activeCat === "mutton"  ? "radial-gradient(circle at 50% 50%, #dc143c 0%, transparent 70%)" :
+                         "transparent",
+              filter: "blur(80px)",
+              transition: "background 0.8s ease-in-out"
+            }}
+          />
+        )}
+      </AnimatePresence>
       {/* Sticky Header */}
       <div style={{
         padding: `max(16px, env(safe-area-inset-top)) ${sp(2)}px 16px`,
@@ -1012,9 +1033,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => {
-            const sequence: ("depth" | "parallax" | "elastic")[] = ["depth", "parallax", "elastic"];
-            const nextIndex = (sequence.indexOf(effect) + 1) % sequence.length;
-            setEffect(sequence[nextIndex]);
+            setEffect(prev => prev === "reel" ? "pop" : "reel");
           }}
           style={{
             width: 44, height: 44, borderRadius: 14,
@@ -1029,10 +1048,11 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           <div style={{
             position: "absolute", top: -14, right: -4,
             fontSize: 9, background: C.red, color: "#fff",
-            padding: "2px 6px", borderRadius: 8, fontWeight: 900,
-            textTransform: "uppercase", letterSpacing: "0.05em"
+            padding: "2px 8px", borderRadius: 8, fontWeight: 900,
+            textTransform: "uppercase", letterSpacing: "0.05em",
+            whiteSpace: "nowrap"
           }}>
-            {effect}
+            {effect === "reel" ? "Film Reel" : "Color Pop"}
           </div>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -1092,7 +1112,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
       >
         <div style={{ 
           display: "flex", 
-          gap: 16, 
+          gap: effect === "reel" ? 0 : 20, 
           paddingBottom: 80,
           alignItems: "flex-start",
           paddingTop: 12,
@@ -1107,7 +1127,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
               effect={effect}
             />
           )) : (
-            <div style={{ width: "86vw", textAlign: "center", opacity: 0.3 }}>
+            <div style={{ width: effect === "reel" ? "100vw" : "86vw", textAlign: "center", opacity: 0.3 }}>
               No dishes available in this category.
             </div>
           )}
@@ -1156,7 +1176,7 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: {
   qty: number, 
   onUpdate: (d: number) => void,
   containerRef: RefObject<HTMLDivElement | null>,
-  effect: "depth" | "parallax" | "elastic"
+  effect: "reel" | "pop"
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgSrc  = getItemImage(item.name, item.image_url);
@@ -1170,23 +1190,20 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: {
     offset: ["start end", "end start"]
   });
 
-  // 1. Depth Focus Transforms
-  const dScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.88, 1, 0.88]);
-  const dOpacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.45, 1, 0.45]);
+  // 1. Film Reel Mode (Continuous Strip)
+  const rWidth = useTransform(scrollXProgress, [0, 0.5, 1], ["75vw", "86vw", "75vw"]);
+  const rScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.94, 1, 0.94]);
 
-  // 2. Parallax Transforms
-  const pImageX = useTransform(scrollXProgress, [0, 0.5, 1], [-25, 0, 25]);
-
-  // 3. Elastic (Dynamic Skew)
-  const eSkew = useTransform(scrollXProgress, [0, 0.5, 1], [-4, 0, 4]);
-  const eScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.94, 1, 0.94]);
+  // 2. Color Pop Mode (Soft Focus)
+  const pScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.88, 1, 0.88]);
+  const pOpacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.45, 1, 0.45]);
 
   return (
     <motion.div
       ref={cardRef}
       style={{
-        width: "78vw",
-        maxWidth: 340,
+        width: effect === "reel" ? rWidth : "78vw",
+        maxWidth: effect === "reel" ? 400 : 340,
         height: "60vh",
         maxHeight: 520,
         borderRadius: 32,
@@ -1200,9 +1217,9 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: {
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         scrollSnapAlign: "center",
         // Conditional Transforms
-        scale: effect === "depth" ? dScale : (effect === "elastic" ? eScale : 1),
-        opacity: effect === "depth" ? dOpacity : 1,
-        skewX: effect === "elastic" ? eSkew : 0,
+        scale: effect === "reel" ? rScale : pScale,
+        opacity: effect === "pop" ? pOpacity : 1,
+        zIndex: effect === "reel" ? 1 : 1,
       }}
     >
       {/* Top: Image Section */}
@@ -1210,12 +1227,7 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: {
         <motion.div
           animate={{ opacity: loaded ? 1 : 0 }}
           transition={{ duration: 0.6 }}
-          style={{ 
-            position: "absolute", 
-            inset: 0,
-            x: effect === "parallax" ? pImageX : 0, // Parallax effect
-            scale: effect === "parallax" ? 1.15 : 1.05, // Extra zoom for parallax window
-          }}
+          style={{ position: "absolute", inset: 0, scale: 1.05 }}
         >
           <Image 
             src={imgSrc} 
