@@ -1052,8 +1052,8 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           scrollbarWidth: "none",
           display: "flex",
           alignItems: "center", // Back to center for better rotation pivot
-          padding: `0 ${sp(3)}px`,
-          perspective: 1200, // 3D Perspective
+          padding: `0 12vw`, // Perfect centering for 76vw cards
+          perspective: 850, // More aggressive 3D Perspective
           WebkitOverflowScrolling: "touch",
           scrollSnapType: "x mandatory",
         }}
@@ -1136,18 +1136,18 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef }: {
     offset: ["start end", "end start"]
   });
 
-  // ── Cylindrical Rotary Transforms ─────────────────────────────────
-  const rotateY  = useTransform(scrollXProgress, [0, 0.5, 1], [35, 0, -35]);
-  const z        = useTransform(scrollXProgress, [0, 0.5, 1], [-200, 0, -200]);
-  const scale    = useTransform(scrollXProgress, [0, 0.5, 1], [0.85, 1, 0.85]);
-  const opacity  = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.4, 1, 0.4]);
+  // ── Cylindrical Rotary Transforms (Aggressive Pixel-Perfect) ──────
+  const rotateY  = useTransform(scrollXProgress, [0, 0.5, 1], [55, 0, -55]);
+  const z        = useTransform(scrollXProgress, [0, 0.5, 1], [-450, 0, -450]);
+  const scale    = useTransform(scrollXProgress, [0, 0.5, 1], [0.75, 1, 0.75]);
+  const opacity  = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.35, 1, 0.35]);
 
   return (
     <motion.div
       ref={cardRef}
       style={{
-        width: "80vw", // Large hero focus
-        maxWidth: 380,
+        width: "76vw", // Matched focus
+        maxWidth: 360,
         height: "60vh",
         maxHeight: 520,
         borderRadius: 32,
