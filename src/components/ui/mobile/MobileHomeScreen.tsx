@@ -383,7 +383,7 @@ export function MobileHomeScreen({
         // Prioritize dishes with RECIPE in name to keep best-sellers consistent
         const favorites = all.filter(d => d.name.toUpperCase().includes("RECIPE"));
         const others    = all.filter(d => !d.name.toUpperCase().includes("RECIPE"));
-        setBestFive([...favorites, ...others].slice(0, 5));
+        setBestFive([...favorites, ...others].sort((a, b) => a.price - b.price).slice(0, 5));
       }
       setLoading(false);
     })();
