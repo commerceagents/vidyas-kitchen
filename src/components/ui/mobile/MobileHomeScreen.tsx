@@ -947,9 +947,21 @@ function MuttonIcon({ active }: { active: boolean }) {
 function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [cart, setCart]           = useState<Record<string, number>>({});
+  const [currentIdx, setCurrentIdx] = useState(0);
   const carouselRef               = useRef<HTMLDivElement>(null);
   
   const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
+  const totalCards = filtered.length;
+  
+  // Reset to first card when category changes
+  const handleCatChange = (cat: string) => {
+    setActiveCat(cat);
+    setCurrentIdx(0);
+  };
+
+  const handleSwipe = (direction: number) => {
+    setCurrentIdx(prev => Math.max(0, Math.min(totalCards - 1, prev + direction)));
+  };
 
   const categories = [
     { id: "chicken", label: "Chicken" },
@@ -1022,7 +1034,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
             <motion.button
               key={cat.id}
               whileTap={{ scale: 0.96 }}
-              onClick={() => setActiveCat(cat.id)}
+              onClick={() => handleCatChange(cat.id)}
               style={{
                 padding: "10px 20px",
                 borderRadius: 16,
@@ -1042,43 +1054,67 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         })}
       </div>
 
-      {/* ── CYLINDRICAL ROTARY CAROUSEL ──────────────────────────────────── */}
-      <div 
+      {/* ── ARC FAN CAROUSEL ─────────────────────────────────────────────────── */}
+      <div
         ref={carouselRef}
-        style={{ 
-          flex: 1, 
+        style={{
+          flex: 1,
           position: "relative",
-          overflowX: "auto",
-          scrollbarWidth: "none",
           display: "flex",
-          alignItems: "center", // Back to center for better rotation pivot
-          padding: `0 12vw`, // Perfect centering for 76vw cards
-          perspective: 850, // More aggressive 3D Perspective
-          WebkitOverflowScrolling: "touch",
-          scrollSnapType: "x mandatory",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          perspective: 1000,
         }}
       >
-        <div style={{ 
-          display: "flex", 
-          gap: 0, // Gap handled by card transformations
-          paddingBottom: 80,
-          alignItems: "center",
-          transformStyle: "preserve-3d",
+        {/* Drag Layer */}
+        <motion.div
+          style={{ position: "absolute", inset: 0, zIndex: 200, cursor: "grab" }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.1}
+          onDragEnd={(_, info) => {
+            if (info.offset.x < -60) handleSwipe(1);  // swipe left → next
+            else if (info.offset.x > 60) handleSwipe(-1); // swipe right → prev
+          }}
+        />
+
+        {/* Arc Navigation Dots */}
+        <div style={{
+          position: "absolute", bottom: 24, left: 0, right: 0,
+          display: "flex", justifyContent: "center", gap: 8, zIndex: 201
         }}>
-          {filtered.length > 0 ? filtered.map((item) => (
-            <MenuCarouselCard 
-              key={item.id} 
-              item={item} 
-              qty={cart[item.id] || 0} 
-              onUpdate={(d) => updateQty(item.id, d)}
-              containerRef={carouselRef}
+          {filtered.map((_, i) => (
+            <motion.div
+              key={i}
+              onClick={() => setCurrentIdx(i)}
+              animate={{
+                width: i === currentIdx ? 24 : 8,
+                background: i === currentIdx ? C.red : "rgba(255,255,255,0.3)",
+              }}
+              style={{ height: 8, borderRadius: 4, cursor: "pointer" }}
             />
-          )) : (
-            <div style={{ width: "100vw", textAlign: "center", opacity: 0.3 }}>
-              No dishes available in this category.
-            </div>
-          )}
+          ))}
         </div>
+
+        {/* Cards in Arc Formation */}
+        {filtered.length > 0 ? filtered.map((item, i) => {
+          const offset = i - currentIdx;
+          return (
+            <ArcCard
+              key={item.id}
+              item={item}
+              qty={cart[item.id] || 0}
+              onUpdate={(d) => updateQty(item.id, d)}
+              offset={offset}
+              onClick={() => { if (offset !== 0) setCurrentIdx(i); }}
+            />
+          );
+        }) : (
+          <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "center" }}>
+            No dishes available.
+          </div>
+        )}
       </div>
 
       {/* Cart Summary Bar */}
@@ -1118,163 +1154,149 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   );
 }
 
-function MenuCarouselCard({ item, qty, onUpdate, containerRef }: { 
-  item: MenuItem, 
-  qty: number, 
-  onUpdate: (d: number) => void,
-  containerRef: RefObject<HTMLDivElement | null>
+function ArcCard({ item, qty, onUpdate, offset, onClick }: {
+  item: MenuItem;
+  qty: number;
+  onUpdate: (d: number) => void;
+  offset: number; // distance from center: 0=center, -1=left, 1=right, etc.
+  onClick: () => void;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const imgSrc  = getItemImage(item.name, item.image_url);
+  const imgSrc = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
 
-  // ── Scroll Tracking ─────────────────────────────────
-  const { scrollXProgress } = useScroll({
-    target: cardRef,
-    container: containerRef,
-    offset: ["start end", "end start"]
-  });
-
-  // ── Cylindrical Rotary Transforms (Aggressive Pixel-Perfect) ──────
-  const rotateY  = useTransform(scrollXProgress, [0, 0.5, 1], [55, 0, -55]);
-  const z        = useTransform(scrollXProgress, [0, 0.5, 1], [-450, 0, -450]);
-  const scale    = useTransform(scrollXProgress, [0, 0.5, 1], [0.75, 1, 0.75]);
-  const opacity  = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.35, 1, 0.35]);
+  // Arc/Fan transforms based on offset
+  const CARD_W = 72; // vw
+  const rotateZ  = offset * 18;          // degrees
+  const x        = offset * 70;          // vw units
+  const y        = Math.abs(offset) * 8; // drop down from center
+  const scale    = offset === 0 ? 1 : Math.max(0.72, 1 - Math.abs(offset) * 0.14);
+  const opacity  = offset === 0 ? 1 : Math.max(0.38, 1 - Math.abs(offset) * 0.32);
+  const zIndex   = 100 - Math.abs(offset) * 10;
+  const isCenter = offset === 0;
 
   return (
     <motion.div
-      ref={cardRef}
-      style={{
-        width: "76vw", // Matched focus
-        maxWidth: 360,
-        height: "60vh",
-        maxHeight: 520,
-        borderRadius: 32,
-        background: "rgba(16,16,16,0.6)",
-        backdropFilter: "blur(32px) saturate(180%)",
-        WebkitBackdropFilter: "blur(32px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        flexShrink: 0,
-        boxShadow: "0 30px 80px rgba(0,0,0,0.7)",
-        scrollSnapAlign: "center",
-        // 3D Transforms
-        rotateY,
-        z,
+      onClick={!isCenter ? onClick : undefined}
+      animate={{
+        rotateZ,
+        x: `${x}vw`,
+        y: `${y}vh`,
         scale,
         opacity,
-        transformStyle: "preserve-3d",
+        zIndex,
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      style={{
+        position: "absolute",
+        width: `${CARD_W}vw`,
+        maxWidth: 360,
+        height: "58vh",
+        maxHeight: 500,
+        borderRadius: 28,
+        background: "rgba(16,16,16,0.75)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        border: isCenter ? `1.5px solid ${C.red}` : "1px solid rgba(255,255,255,0.1)",
+        overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        boxShadow: isCenter
+          ? `0 32px 80px rgba(0,0,0,0.75), 0 0 0 2px ${C.redGlow}`
+          : "0 16px 40px rgba(0,0,0,0.5)",
+        cursor: !isCenter ? "pointer" : "default",
       }}
     >
-      {/* Top: Image Section */}
-      <div style={{ position: "relative", width: "100%", height: "65%", overflow: "hidden" }}>
+      {/* Image */}
+      <div style={{ position: "relative", width: "100%", height: "62%", overflow: "hidden" }}>
         <motion.div
           animate={{ opacity: loaded ? 1 : 0 }}
-          transition={{ duration: 0.6 }}
-          style={{ position: "absolute", inset: 0, scale: 1.05 }}
+          transition={{ duration: 0.5 }}
+          style={{ position: "absolute", inset: 0 }}
         >
-          <Image 
-            src={imgSrc} 
-            alt={item.name} 
-            fill 
-            sizes="76vw" 
+          <Image
+            src={imgSrc}
+            alt={item.name}
+            fill
+            sizes="72vw"
             style={{ objectFit: "cover" }}
             onLoad={() => setLoaded(true)}
           />
         </motion.div>
-        
+
+        {/* Gradient overlay */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 45%)",
+          pointerEvents: "none"
+        }} />
+
         {tag && (
           <div style={{
-            position: "absolute", top: 20, left: 20,
-            background: "rgba(10,10,10,0.65)",
-            backdropFilter: "blur(12px)",
-            borderRadius: 10, padding: "6px 12px", 
-            border: "1px solid rgba(255,255,255,0.15)",
-            zIndex: 10
+            position: "absolute", top: 16, left: 16,
+            background: "rgba(10,10,10,0.6)",
+            backdropFilter: "blur(10px)",
+            borderRadius: 8, padding: "4px 10px",
+            border: "1px solid rgba(255,255,255,0.12)",
           }}>
             <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
               {tag}
             </span>
           </div>
         )}
-        
-        {/* Subtle glass overlay on image */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)",
-          pointerEvents: "none"
-        }} />
       </div>
 
-      {/* Bottom: Info & Cart */}
-      <div style={{ flex: 1, padding: "24px 24px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      {/* Info & Cart */}
+      <div style={{ flex: 1, padding: "20px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, lineHeight: 1.2, color: C.white }}>{cleanName}</h3>
-          <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: C.red, letterSpacing: "0.02em" }}>
-            ₹{item.price.toLocaleString("en-IN")}
-          </p>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, lineHeight: 1.2, color: C.white }}>{cleanName}</h3>
+          <p style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 900, color: C.red }}>₹{item.price.toLocaleString("en-IN")}</p>
         </div>
 
-        {/* Dynamic Cart Button */}
-        <div style={{ marginTop: 20 }}>
-          {qty === 0 ? (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onUpdate(1)}
-              style={{
-                width: "100%", height: 56, borderRadius: 18,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 12, cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "0.04em" }}>ADD TO CART</span>
-            </motion.button>
-          ) : (
-            <div style={{ 
-              width: "100%", height: 56, borderRadius: 18,
-              background: C.red,
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "0 8px",
-              boxShadow: `0 8px 30px ${C.redGlow}`,
-            }}>
-              <motion.button 
-                whileTap={{ scale: 0.8 }} 
-                onClick={() => onUpdate(-1)}
-                style={{ width: 44, height: 44, background: "rgba(255,255,255,0.2)", borderRadius: 14, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </motion.button>
-              
-              <AnimatePresence mode="wait">
-                <motion.span 
-                  key={qty}
-                  initial={{ y: 5, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -5, opacity: 0 }}
-                  style={{ fontWeight: 900, fontSize: 20, color: "white" }}
-                >
-                  {qty}
-                </motion.span>
-              </AnimatePresence>
-
-              <motion.button 
-                whileTap={{ scale: 0.8 }} 
+        {isCenter && (
+          <div style={{ marginTop: 14 }}>
+            {qty === 0 ? (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onUpdate(1)}
-                style={{ width: 44, height: 44, background: "rgba(255,255,255,0.2)", borderRadius: 14, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                style={{
+                  width: "100%", height: 52, borderRadius: 16,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 10, cursor: "pointer",
+                }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.05em", color: C.white }}>ADD TO CART</span>
               </motion.button>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div style={{
+                width: "100%", height: 52, borderRadius: 16,
+                background: C.red, display: "flex",
+                alignItems: "center", justifyContent: "space-between",
+                padding: "0 6px",
+                boxShadow: `0 8px 24px ${C.redGlow}`,
+              }}>
+                <motion.button whileTap={{ scale: 0.8 }} onClick={() => onUpdate(-1)}
+                  style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.2)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </motion.button>
+                <AnimatePresence mode="wait">
+                  <motion.span key={qty} initial={{ y: 4, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -4, opacity: 0 }}
+                    style={{ fontWeight: 900, fontSize: 18, color: "white" }}>
+                    {qty}
+                  </motion.span>
+                </AnimatePresence>
+                <motion.button whileTap={{ scale: 0.8 }} onClick={() => onUpdate(1)}
+                  style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.2)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </motion.button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );
