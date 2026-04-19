@@ -423,8 +423,10 @@ export function MobileHomeScreen({
             transition={{ duration: 0.35, ease: "easeInOut" }}
             style={{
               position: "absolute", inset: 0,
-              overflowY: "auto",
-              paddingBottom: 88,
+              height: "100dvh",
+              overflow: "hidden",
+              display: "flex", flexDirection: "column",
+              paddingBottom: "max(12px, env(safe-area-inset-bottom))",
             }}
           >
       {/* ── Ambient glow ─────────────────────────────────────────────────── */}
@@ -637,15 +639,18 @@ export function MobileHomeScreen({
         </AnimatePresence>
       </div>
 
-      {/* ── SCROLLABLE CONTENT ────────────────────────────────────────────── */}
+      {/* ── MAIN CONTENT ── Centered & Elevated ────────────────────────────── */}
       <div style={{
         position: "relative", zIndex: 1,
+        flex: 1,
+        display: "flex", flexDirection: "column",
+        justifyContent: "space-evenly",
         padding: `0 ${sp(2)}px`,
-        paddingTop: sp(4),
-        paddingBottom: 88 + sp(2),
+        paddingTop: sp(1),
+        paddingBottom: sp(4),
       }}>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.06)} style={{ marginBottom: sp(3), marginTop: sp(4) }}>
+        <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
           <p style={{
             margin: 0, fontSize: 16,
             color: "rgba(255,255,255,0.42)",
@@ -671,7 +676,7 @@ export function MobileHomeScreen({
         </motion.div>
 
         {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.1)} style={{ marginBottom: sp(2) }}>
+        <motion.div {...fadeUp(0.1)} style={{ marginBottom: 0 }}>
           <p style={{
             margin: "0 0 12px", fontSize: 11,
             color: "rgba(255,255,255,0.35)",
@@ -748,10 +753,12 @@ export function MobileHomeScreen({
             </div>
           </motion.button>
         </motion.div>
-    ) : (
-      <MenuBrowseView key="menu-screen" onBack={() => setActiveScreen("home")} allItems={items} />
-    )}
-    </AnimatePresence>
+      </div>
+    </motion.div>
+  ) : (
+    <MenuBrowseView key="menu-screen" onBack={() => setActiveScreen("home")} allItems={items} />
+  )}
+</AnimatePresence>
 
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
@@ -944,9 +951,9 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
 
   const categories = [
-    { id: "chicken", label: "Chicken", icon: ChickenIcon },
-    { id: "egg",     label: "Egg",     icon: EggIcon },
-    { id: "mutton",  label: "Mutton",  icon: MuttonIcon },
+    { id: "chicken", label: "Chicken" },
+    { id: "egg",     label: "Egg" },
+    { id: "mutton",  label: "Mutton" },
   ];
 
   const updateQty = (id: string, delta: number) => {
@@ -1004,29 +1011,28 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
       <div style={{
         padding: `0 ${sp(2)}px 24px`,
         display: "flex", gap: 10,
+        justifyContent: "center",
         overflowX: "auto", scrollbarWidth: "none",
         flexShrink: 0, zIndex: 10,
       }}>
         {categories.map((cat) => {
           const active = activeCat === cat.id;
-          const Icon = cat.icon;
           return (
             <motion.button
               key={cat.id}
               whileTap={{ scale: 0.96 }}
               onClick={() => setActiveCat(cat.id)}
               style={{
-                padding: "10px 16px",
+                padding: "10px 20px",
                 borderRadius: 16,
                 background: active ? C.red : C.surface,
                 border: `1px solid ${active ? C.redBorder : C.border}`,
-                display: "flex", alignItems: "center", gap: 8,
+                display: "flex", alignItems: "center",
                 whiteSpace: "nowrap",
                 cursor: "pointer",
                 boxShadow: active ? `0 4px 20px ${C.redGlow}` : "none",
               }}
             >
-              <Icon active={active} />
               <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
                 {cat.label}
               </span>
@@ -1035,7 +1041,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         })}
       </div>
 
-      {/* ── 3D WHEEL CAROUSEL ────────────────────────────────────────── */}
+      {/* ── FLAT HORIZONTAL CAROUSEL ─────────────────────────────────── */}
       <div 
         ref={carouselRef}
         style={{ 
@@ -1045,16 +1051,15 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           scrollbarWidth: "none",
           display: "flex",
           alignItems: "center",
-          padding: "0 12vw",
-          perspective: "1200px",
+          padding: `0 ${sp(2)}px`,
           scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         <div style={{ 
           display: "flex", 
-          gap: "8vw", 
-          paddingRight: "12vw",
-          height: "100%",
+          gap: 20, 
+          paddingBottom: 40,
           alignItems: "center"
         }}>
           {filtered.length > 0 ? filtered.map((item) => (
@@ -1066,7 +1071,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
               containerRef={carouselRef}
             />
           )) : (
-            <div style={{ width: "76vw", textAlign: "center", opacity: 0.3 }}>
+            <div style={{ width: "86vw", textAlign: "center", opacity: 0.3 }}>
               No dishes available in this category.
             </div>
           )}
@@ -1110,40 +1115,26 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   );
 }
 
-function MenuCarouselCard({ item, qty, onUpdate, containerRef }: { 
+function MenuCarouselCard({ item, qty, onUpdate }: { 
   item: MenuItem, 
   qty: number, 
   onUpdate: (d: number) => void,
-  containerRef: RefObject<HTMLDivElement>
+  containerRef: RefObject<HTMLDivElement | null>
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgSrc  = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
 
-  // ── Circular 3D Animation Logic ──────────────────────────────────────────
-  const { scrollXProgress } = useScroll({
-    target: cardRef,
-    container: containerRef,
-    offset: ["start end", "end start"]
-  });
-
-  // Calculate rotation and scale based on viewport position
-  // 0.5 is centered. 0 is entering, 1 is exiting.
-  const rotateY = useTransform(scrollXProgress, [0, 0.5, 1], [30, 0, -30]);
-  const scale   = useTransform(scrollXProgress, [0, 0.5, 1], [0.85, 1, 0.85]);
-  const z       = useTransform(scrollXProgress, [0, 0.5, 1], [-200, 0, -200]);
-  const opacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.4, 1, 0.4]);
-
   return (
     <motion.div
       ref={cardRef}
       style={{
-        width: "76vw",
-        maxWidth: 320,
-        height: "60vh",
-        maxHeight: 520,
-        borderRadius: 36,
+        width: "86vw",
+        maxWidth: 380,
+        height: "64vh",
+        maxHeight: 540,
+        borderRadius: 32,
         background: "rgba(16,16,16,0.55)",
         backdropFilter: "blur(32px) saturate(180%)",
         WebkitBackdropFilter: "blur(32px) saturate(180%)",
@@ -1153,12 +1144,6 @@ function MenuCarouselCard({ item, qty, onUpdate, containerRef }: {
         flexShrink: 0,
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         scrollSnapAlign: "center",
-        // Apply 3D Transforms
-        rotateY,
-        scale,
-        z,
-        opacity,
-        transformStyle: "preserve-3d",
       }}
     >
       {/* Top: Image Section */}
