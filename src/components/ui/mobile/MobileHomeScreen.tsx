@@ -947,6 +947,7 @@ function MuttonIcon({ active }: { active: boolean }) {
 function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [cart, setCart]           = useState<Record<string, number>>({});
+  const [effect, setEffect]       = useState<"depth" | "parallax" | "elastic">("depth");
   const carouselRef               = useRef<HTMLDivElement>(null);
   
   const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
@@ -1005,7 +1006,38 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </motion.button>
-        <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Browse Menu</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, flex: 1 }}>Browse Menu</h2>
+
+        {/* Aesthetic Switcher Trigger */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            const sequence: ("depth" | "parallax" | "elastic")[] = ["depth", "parallax", "elastic"];
+            const nextIndex = (sequence.indexOf(effect) + 1) % sequence.length;
+            setEffect(sequence[nextIndex]);
+          }}
+          style={{
+            width: 44, height: 44, borderRadius: 14,
+            background: C.surfaceDeep,
+            border: `1.5px solid ${C.red}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: `0 4px 15px ${C.redGlow}`,
+            position: "relative",
+          }}
+        >
+          <div style={{
+            position: "absolute", top: -14, right: -4,
+            fontSize: 9, background: C.red, color: "#fff",
+            padding: "2px 6px", borderRadius: 8, fontWeight: 900,
+            textTransform: "uppercase", letterSpacing: "0.05em"
+          }}>
+            {effect}
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </motion.button>
       </div>
 
       {/* Category Chips */}
@@ -1042,7 +1074,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         })}
       </div>
 
-      {/* ── FLAT HORIZONTAL CAROUSEL ─────────────────────────────────── */}
+      {/* ── INTERACTIVE CAROUSEL DEPLOYED ─────────────────────────────────── */}
       <div 
         ref={carouselRef}
         style={{ 
@@ -1051,17 +1083,19 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           overflowX: "auto",
           scrollbarWidth: "none",
           display: "flex",
-          alignItems: "center",
-          padding: `0 ${sp(2)}px`,
+          alignItems: "flex-start", // Moved up from center
+          padding: `0 ${sp(3)}px`,
+          paddingTop: sp(2), // tight alignment to tags
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
         }}
       >
         <div style={{ 
           display: "flex", 
-          gap: 20, 
-          paddingBottom: 40,
-          alignItems: "center"
+          gap: 16, 
+          paddingBottom: 80,
+          alignItems: "flex-start",
+          paddingTop: 12,
         }}>
           {filtered.length > 0 ? filtered.map((item) => (
             <MenuCarouselCard 
@@ -1070,6 +1104,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
               qty={cart[item.id] || 0} 
               onUpdate={(d) => updateQty(item.id, d)}
               containerRef={carouselRef}
+              effect={effect}
             />
           )) : (
             <div style={{ width: "86vw", textAlign: "center", opacity: 0.3 }}>
@@ -1116,25 +1151,44 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   );
 }
 
-function MenuCarouselCard({ item, qty, onUpdate }: { 
+function MenuCarouselCard({ item, qty, onUpdate, containerRef, effect }: { 
   item: MenuItem, 
   qty: number, 
   onUpdate: (d: number) => void,
-  containerRef: RefObject<HTMLDivElement | null>
+  containerRef: RefObject<HTMLDivElement | null>,
+  effect: "depth" | "parallax" | "elastic"
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgSrc  = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
 
+  // ── Scroll Tracking ─────────────────────────────────
+  const { scrollXProgress } = useScroll({
+    target: cardRef,
+    container: containerRef,
+    offset: ["start end", "end start"]
+  });
+
+  // 1. Depth Focus Transforms
+  const dScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.88, 1, 0.88]);
+  const dOpacity = useTransform(scrollXProgress, [0.1, 0.5, 0.9], [0.45, 1, 0.45]);
+
+  // 2. Parallax Transforms
+  const pImageX = useTransform(scrollXProgress, [0, 0.5, 1], [-25, 0, 25]);
+
+  // 3. Elastic (Dynamic Skew)
+  const eSkew = useTransform(scrollXProgress, [0, 0.5, 1], [-4, 0, 4]);
+  const eScale = useTransform(scrollXProgress, [0, 0.5, 1], [0.94, 1, 0.94]);
+
   return (
     <motion.div
       ref={cardRef}
       style={{
-        width: "86vw",
-        maxWidth: 380,
-        height: "64vh",
-        maxHeight: 540,
+        width: "78vw",
+        maxWidth: 340,
+        height: "60vh",
+        maxHeight: 520,
         borderRadius: 32,
         background: "rgba(16,16,16,0.55)",
         backdropFilter: "blur(32px) saturate(180%)",
@@ -1145,6 +1199,10 @@ function MenuCarouselCard({ item, qty, onUpdate }: {
         flexShrink: 0,
         boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
         scrollSnapAlign: "center",
+        // Conditional Transforms
+        scale: effect === "depth" ? dScale : (effect === "elastic" ? eScale : 1),
+        opacity: effect === "depth" ? dOpacity : 1,
+        skewX: effect === "elastic" ? eSkew : 0,
       }}
     >
       {/* Top: Image Section */}
@@ -1152,7 +1210,12 @@ function MenuCarouselCard({ item, qty, onUpdate }: {
         <motion.div
           animate={{ opacity: loaded ? 1 : 0 }}
           transition={{ duration: 0.6 }}
-          style={{ position: "absolute", inset: 0 }}
+          style={{ 
+            position: "absolute", 
+            inset: 0,
+            x: effect === "parallax" ? pImageX : 0, // Parallax effect
+            scale: effect === "parallax" ? 1.15 : 1.05, // Extra zoom for parallax window
+          }}
         >
           <Image 
             src={imgSrc} 
