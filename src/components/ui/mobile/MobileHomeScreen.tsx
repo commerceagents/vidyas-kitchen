@@ -216,7 +216,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
             padding: "5px 12px",
             zIndex: 10,
           }}>
-            <span style={{ fontSize: 9, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               {tag}
             </span>
           </div>
@@ -1180,7 +1180,7 @@ function MenuGridCard({ item, qty, onUpdate }: {
           </h4>
           {tag && (
             <span style={{ 
-              fontSize: 8, fontWeight: 800, color: C.red, 
+              fontSize: 10, fontWeight: 800, color: C.red, 
               textTransform: "uppercase", letterSpacing: "0.04em",
               opacity: 0.9 
             }}>
