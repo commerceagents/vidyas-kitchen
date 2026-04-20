@@ -111,6 +111,9 @@ function formatFirstName(raw: string) {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
+function toTitleCase(str: string) {
+  return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, match => match.toUpperCase());
+}
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -234,7 +237,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
             marginBottom: 4,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
           }}>
-            {cleanName}
+            {toTitleCase(cleanName)}
           </h3>
           <p style={{
             margin: 0, fontSize: 18, fontWeight: 900,
@@ -522,7 +525,7 @@ export function MobileHomeScreen({
                     background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
                     border: "none", borderRadius: 14, padding: "15px",
                     color: C.white, fontSize: 13, fontWeight: 800,
-                    letterSpacing: "0.08em", textTransform: "uppercase" as const,
+                    letterSpacing: "0.02em",
                     cursor: "pointer",
                     boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
                     fontFamily: C.mono, position: "relative" as const, overflow: "hidden",
@@ -778,8 +781,7 @@ export function MobileHomeScreen({
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
                   display: "flex", alignItems: "center",
-                  justifyContent: "center", // Centered to match pill shape
-                  gap: 8,
+                  justifyContent: "flex-start", // Anchored layout
                   cursor: "pointer",
                   outline: "none",
                   position: "relative",
@@ -788,49 +790,54 @@ export function MobileHomeScreen({
                   flexShrink: 0,
                 }}
               >
-                {/* Ripple ring effect */}
-                <AnimatePresence>
-                  {showRipple && (
-                    <motion.div
-                      key={rippleKey}
-                      initial={{ scale: 0.4, opacity: 1 }}
-                      animate={{ scale: 3, opacity: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                      style={{
-                        position: "absolute",
-                        top: "50%", left: NAV_CIRCLE / 2,
-                        width: NAV_CIRCLE, height: NAV_CIRCLE,
-                        borderRadius: "50%",
-                        border: "2px solid rgba(189,35,32,0.6)",
-                        transform: "translate(-50%, -50%)",
-                        pointerEvents: "none",
-                        zIndex: 0,
-                      }}
-                    />
-                  )}
-                </AnimatePresence>
+                {/* Fixed-width Icon Container — Anchors the icon from sliding */}
+                <div style={{
+                  width: NAV_CIRCLE,
+                  height: "100%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  position: "relative", zIndex: 1,
+                }}>
+                  {/* Ripple ring effect */}
+                  <AnimatePresence>
+                    {showRipple && (
+                      <motion.div
+                        key={rippleKey}
+                        initial={{ scale: 0.4, opacity: 1 }}
+                        animate={{ scale: 3, opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        style={{
+                          position: "absolute",
+                          top: "50%", left: "50%",
+                          width: NAV_CIRCLE, height: NAV_CIRCLE,
+                          borderRadius: "50%",
+                          border: "2px solid rgba(189,35,32,0.6)",
+                          transform: "translate(-50%, -50%)",
+                          pointerEvents: "none",
+                          zIndex: 0,
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
 
-                {/* Icon */}
-                <motion.span
-                  animate={{ scale: isActive ? 1.15 : 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 28 }}
-                  style={{
-                    display: "flex", flexShrink: 0,
-                    position: "relative", zIndex: 1,
-                  }}
-                >
-                  <Icon active={isActive} />
-                </motion.span>
+                  <motion.span
+                    animate={{ scale: isActive ? 1.15 : 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 28 }}
+                    style={{ display: "flex" }}
+                  >
+                    <Icon active={isActive} />
+                  </motion.span>
+                </div>
 
-                {/* Label — only visible when active */}
+                {/* Label — only visible when active, expanding softly right */}
                 <AnimatePresence>
                   {isActive && (
                     <motion.span
                       key={`lbl-${id}`}
-                      initial={{ opacity: 0, x: -8 }}
+                      initial={{ opacity: 0, x: -6 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
+                      exit={{ opacity: 0 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30, delay: 0.05 }}
                       style={{
                         fontSize: 12, fontWeight: 800,
@@ -838,6 +845,7 @@ export function MobileHomeScreen({
                         color: C.red,
                         whiteSpace: "nowrap",
                         position: "relative", zIndex: 1,
+                        paddingRight: 20, // Extra breathing room for the label
                       }}
                     >
                       {navLabel}
@@ -1173,7 +1181,7 @@ function MenuGridCard({ item, qty, onUpdate }: {
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div style={{ height: 52, display: "flex", flexDirection: "column", gap: 4 }}>
           <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {cleanName}
+            {toTitleCase(cleanName)}
           </h4>
           {tag && (
             <span style={{ 
