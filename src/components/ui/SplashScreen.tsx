@@ -75,34 +75,6 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                       zIndex: 10
                     }}
                   />
-                  
-                  {/* Glitter Particles Effect - Shimmering burst BEHIND logo */}
-                  {[...Array(60)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                      animate={{ 
-                        opacity: [0, 1, 0.8, 1, 0],
-                        scale: [0, 1.2, 0.8, 1.1, 0],
-                        x: (Math.random() - 0.5) * 450,
-                        y: (Math.random() - 0.5) * 450,
-                      }}
-                      transition={{ 
-                        duration: 1.6, 
-                        ease: [0.16, 1, 0.3, 1],
-                        delay: Math.random() * 0.2
-                      }}
-                      style={{
-                        position: 'absolute',
-                        width: Math.random() * 3 + 1 + 'px',
-                        height: Math.random() * 3 + 1 + 'px',
-                        borderRadius: '50%',
-                        backgroundColor: '#BD2320',
-                        boxShadow: '0 0 10px rgba(189, 35, 32, 0.9)',
-                        zIndex: 15
-                      }}
-                    />
-                  ))}
                 </>
               )}
             </AnimatePresence>
