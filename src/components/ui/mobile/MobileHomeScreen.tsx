@@ -1165,11 +1165,11 @@ function MenuGridCard({ item, qty, onUpdate }: {
         border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
-        height: 260, // Standardized for alignment
+        height: 240, // Adjusted for 50/50 balance
         padding: "10px",
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "76%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
+      <div style={{ position: "relative", width: "100%", height: "50%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
         <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
         {tag && (
           <div style={{
@@ -1190,16 +1190,15 @@ function MenuGridCard({ item, qty, onUpdate }: {
       </div>
       
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ height: 38, marginBottom: 4, display: "flex", alignItems: "flex-start" }}>
-            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-              {cleanName}
-            </h4>
-          </div>
-          <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price.toLocaleString("en-IN")}</span>
+        <div style={{ height: 38, display: "flex", alignItems: "flex-start" }}>
+          <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {cleanName}
+          </h4>
         </div>
         
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price.toLocaleString("en-IN")}</span>
+          
           <div style={{ position: "relative" }}>
             <AnimatePresence mode="wait">
               {qty === 0 ? (
