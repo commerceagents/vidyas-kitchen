@@ -69,9 +69,9 @@ interface MobileHomeScreenProps {
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 108 },
-  { id: "orders",  label: "Order",   icon: OrdersIcon,  activeWidth: 108 },
-  { id: "account", label: "Account", icon: AccountIcon, activeWidth: 132 },
+  { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 128 },
+  { id: "orders",  label: "Order",   icon: OrdersIcon,  activeWidth: 128 },
+  { id: "account", label: "Account", icon: AccountIcon, activeWidth: 148 },
 ];
 
 function HomeIcon({ active }: { active: boolean }) {
@@ -232,7 +232,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       }}>
         <div style={{ textAlign: "left", flex: 1 }}>
           <h3 style={{
-            margin: 0, fontSize: 15, fontWeight: 500, // Reduced further (15) and weight (500)
+            margin: 0, fontSize: 18, fontWeight: 700, // Boosted size and weight
             color: C.white, lineHeight: 1.2,
             marginBottom: 4,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
@@ -1180,7 +1180,7 @@ function MenuGridCard({ item, qty, onUpdate }: {
       
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div style={{ height: 52, display: "flex", flexDirection: "column", gap: 4 }}>
-          <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {toTitleCase(cleanName)}
           </h4>
           {tag && (
