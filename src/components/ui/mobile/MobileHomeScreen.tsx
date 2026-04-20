@@ -387,7 +387,7 @@ export function MobileHomeScreen({
       }}
     >
       <AnimatePresence mode="wait">
-        {activeScreen === "home" ? (
+        {activeScreen === "home" && (
           <motion.div
             key="home-screen"
             initial={{ opacity: 0, x: 0 }}
@@ -738,17 +738,21 @@ export function MobileHomeScreen({
           </motion.button>
         </motion.div>
       </div>
-        <AnimatePresence>
-          {activeScreen === "menu" && (
-            <MenuBrowseView 
-              allItems={items} 
-              onBack={() => setActiveScreen("home")} 
-              cart={cart}
-              updateQty={updateQty}
-              onCheckout={onCheckout}
-            />
-          )}
-        </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activeScreen === "menu" && (
+          <MenuBrowseView 
+            allItems={items} 
+            onBack={() => setActiveScreen("home")} 
+            cart={cart}
+            updateQty={updateQty}
+            onCheckout={onCheckout}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
