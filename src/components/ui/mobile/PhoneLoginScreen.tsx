@@ -90,6 +90,7 @@ const S: Record<string, CSSProperties> = {
     fontFamily: C.mono,
     display: "flex", flexDirection: "column",
     overflowY: "auto", overscrollBehavior: "contain",
+    overflowX: "hidden", boxSizing: "border-box",
   },
   // Top ambient glow blob
   glowTop: {

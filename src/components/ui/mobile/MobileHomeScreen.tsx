@@ -152,154 +152,92 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
       whileTap={{ scale: 0.96 }}
       style={{
-        flex: "0 0 74vw",
-        maxWidth: 280,
-        height: "82vw",
-        maxHeight: 340,
-        borderRadius: 28,
+        flex: "0 0 72vw",
+        maxWidth: 270,
+        height: "88vw",
+        maxHeight: 360,
+        borderRadius: 30,
         overflow: "hidden",
-        cursor: "pointer",
         flexShrink: 0,
         position: "relative",
-        boxShadow: "0 10px 40px rgba(0,0,0,0.65)",
-        /* Entire card is now the glass container */
+        boxShadow: "0 12px 45px rgba(0,0,0,0.6)",
         background: "rgba(18,18,18,0.45)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        backdropFilter: "blur(32px) saturate(180%)",
+        WebkitBackdropFilter: "blur(32px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
       }}
     >
-      {/* ── TOP SECTION: IMAGE ─────────────────────────────────────────── */}
+      {/* ── IMAGE AT CENTER ────────────────────────────────────────────── */}
       <div style={{
         position: "relative",
         width: "100%",
-        height: "68%",
-        overflow: "hidden",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        height: "60%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 16,
       }}>
-        {/* Full-bleed image with fade-in */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: loaded ? 1 : 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          style={{ position: "absolute", inset: 0 }}
+          animate={{
+            opacity: loaded ? 1 : 0,
+            scale: loaded ? 1 : 0.9,
+          }}
+          transition={{ duration: 0.6 }}
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            borderRadius: 22,
+            overflow: "hidden",
+            boxShadow: "0 8px 25px rgba(0,0,0,0.4)",
+            border: "1px solid rgba(255,255,255,0.05)",
+          }}
         >
           <Image
             src={imgSrc}
             alt={item.name}
             fill
-            sizes="78vw"
+            sizes="72vw"
             style={{ objectFit: "cover" }}
             onLoad={() => setLoaded(true)}
           />
         </motion.div>
 
-        {/* Shimmering Skeleton Placeholder (Image part) */}
-        <AnimatePresence>
-          {!loaded && (
-            <motion.div
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              style={{
-                position: "absolute", inset: 0,
-                background: "rgba(255,255,255,0.04)",
-                overflow: "hidden",
-              }}
-            >
-              <motion.div
-                animate={{ x: ["-100%", "100%"] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Recipe Tag — top left */}
+        {/* Floating Tag over image */}
         {tag && (
           <div style={{
-            position: "absolute",
-            top: 14, left: 14,
-            maxWidth: "calc(100% - 28px)",
-            background: "rgba(12,12,12,0.55)",
-            backdropFilter: "blur(12px) saturate(140%)",
-            WebkitBackdropFilter: "blur(12px) saturate(140%)",
-            border: "1px solid rgba(255,255,255,0.18)",
-            borderRadius: 8,
-            padding: "6px 14px", // Slighly more padding
-            zIndex: 2,
-            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "absolute", top: 10, right: 10,
+            background: C.red, borderRadius: 6, padding: "4px 8px",
+            zIndex: 10, boxShadow: `0 4px 12px ${C.redGlow}`,
           }}>
-            <span style={{
-              fontSize: 10, fontWeight: 900,
-              color: "rgba(255,255,255,0.95)",
-              letterSpacing: "0.12em",
-              marginRight: "-0.12em", // Offset letter-spacing for true center
-              textTransform: "uppercase",
-              textAlign: "center",
-            }}>
+            <span style={{ fontSize: 8, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               {tag}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── BOTTOM SECTION: INFO ────────────────────────────────────────── */}
-      <div style={{
-        flex: 1,
-        padding: "16px 18px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-      }}>
-        {/* Left: name + price stacked */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            margin: 0,
-            fontSize: 14, fontWeight: 700,
-            lineHeight: 1.3,
-            color: C.white,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical" as const,
-            letterSpacing: "0.01em",
-          }}>
-            {cleanName}
-          </p>
-          <div style={{
-            display: "flex", alignItems: "baseline", gap: 6, marginTop: 6
-          }}>
-            <span style={{
-              fontSize: 17, fontWeight: 800,
-              color: C.white,
-              letterSpacing: "0.02em",
-            }}>
-              ₹{item.price.toLocaleString("en-IN")}
-            </span>
-          </div>
-        </div>
-
-        {/* Red circle arrow */}
-        <div style={{
-          width: 46, height: 46,
-          borderRadius: "50%",
-          background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-          boxShadow: `0 4px 18px rgba(189,35,32,0.5)`,
+      {/* ── INFO BELOW ────────────────────────────────────────────────── */}
+      <div style={{ textAlign: "center", width: "100%" }}>
+        <h3 style={{
+          margin: 0, fontSize: 18, fontWeight: 800,
+          color: C.white, lineHeight: 1.2,
+          marginBottom: 6,
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
         }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 17L17 7M17 7H7M17 7v10" />
-          </svg>
-        </div>
+          {cleanName}
+        </h3>
+        <p style={{
+          margin: 0, fontSize: 20, fontWeight: 900,
+          color: C.red, letterSpacing: "0.02em"
+        }}>
+          ₹{item.price.toLocaleString("en-IN")}
+        </p>
       </div>
 
     </motion.div>
@@ -639,17 +577,21 @@ export function MobileHomeScreen({
         </AnimatePresence>
       </div>
 
-      {/* ── MAIN CONTENT ── Centered & Elevated ────────────────────────────── */}
-      <div style={{
-        position: "relative", zIndex: 1,
-        flex: 1,
-        display: "flex", flexDirection: "column",
-        justifyContent: "flex-start",
-        gap: sp(4),
-        padding: `0 ${sp(2)}px`,
-        paddingTop: sp(2),
-        paddingBottom: sp(10), // large dead-space at bottom
-      }}>
+      <div 
+        className="vk-scroll-container"
+        style={{
+          position: "relative", zIndex: 1,
+          flex: 1,
+          display: "flex", flexDirection: "column",
+          justifyContent: "flex-start",
+          gap: sp(4),
+          padding: `0 ${sp(2.5)}px`,
+          paddingTop: sp(2),
+          overflowY: "auto",
+          paddingBottom: 130, // Spacer for the floating nav bar
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
           <p style={{
