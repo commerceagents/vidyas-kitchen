@@ -25,27 +25,29 @@ const sp = (n: number) => n * 8;
 
 // ─── Image map — local /public/menu-images/ (fixes broken Supabase URLs) ──
 const ITEM_IMAGES: Record<string, string> = {
-  "BLACK PEPPER CHICKEN GRAVY":              "/menu-images/chk-pepper-gravy.jpg",
-  "CHILLY CHICKEN GRAVY":                    "/menu-images/chk-chilly-gravy.jpg",
-  "CHICKEN GRAVY (MOM'S RECIPE)":            "/menu-images/chk-mom-gravy.jpg",
-  "CHICKEN GRAVY SISTER'S RECIPE":           "/menu-images/chk-sis-gravy.jpg",
-  "IDLI SPECIAL CHICKEN GRAVY":              "/menu-images/chk-idli-gravy.jpg",
-  "PEPPER CHICKEN (SISTER-IN-LAW'S RECIPE)": "/menu-images/chk-pepper-sil.jpg",
-  "CHICKEN WINGS":                           "/menu-images/chk-wings.jpg",
-  "CHILLY CHICKEN (DRY)":                    "/menu-images/chk-chilly-dry.jpg",
-  "FRESH CREAM MUTTON CURRY":                "/menu-images/mut-cream-curry.jpg",
-  "GRANDMA MUTTON KEEMA":                    "/menu-images/mut-grandma-keema.jpg",
-  "MUTTON KEEMA GRAVY":                      "/menu-images/mut-keema-gravy.jpg",
-  "MUTTON CURRY":                            "/menu-images/mut-curry.jpg",
-  "MUTTON STEW":                             "/menu-images/mut-stew.jpg",
-  "SPICY MUTTON GRAVY":                      "/menu-images/mut-spicy-gravy.jpg",
-  "MUTTON CHUKKA":                           "/menu-images/mut-chukka.jpg",
-  "EGG CHALNA":                              "/menu-images/egg-chalna.jpg",
-  "EGG CURRY":                               "/menu-images/egg-curry.jpg",
+  "Black Pepper Chicken Gravy":              "/menu-images/chk-pepper-gravy.jpg",
+  "Chilly Chicken Gravy":                    "/menu-images/chk-chilly-gravy.jpg",
+  "Chicken Gravy (Mom's Recipe)":            "/menu-images/chk-mom-gravy.jpg",
+  "Chicken Gravy Sister's Recipe":           "/menu-images/chk-sis-gravy.jpg",
+  "Idli Special Chicken Gravy":              "/menu-images/chk-idli-gravy.jpg",
+  "Pepper Chicken (Sister-In-Law's Recipe)": "/menu-images/chk-pepper-sil.jpg",
+  "Chicken Wings":                           "/menu-images/chk-wings.jpg",
+  "Chilly Chicken (Dry)":                    "/menu-images/chk-chilly-dry.jpg",
+  "Fresh Cream Mutton Curry":                "/menu-images/mut-cream-curry.jpg",
+  "Grandma Mutton Keema":                    "/menu-images/mut-grandma-keema.jpg",
+  "Mutton Keema Gravy":                      "/menu-images/mut-keema-gravy.jpg",
+  "Mutton Curry":                            "/menu-images/mut-curry.jpg",
+  "Mutton Stew":                             "/menu-images/mut-stew.jpg",
+  "Spicy Mutton Gravy":                      "/menu-images/mut-spicy-gravy.jpg",
+  "Mutton Chukka":                           "/menu-images/mut-chukka.jpg",
+  "Egg Chalna":                              "/menu-images/egg-chalna.jpg",
+  "Egg Curry":                               "/menu-images/egg-curry.jpg",
 };
 
 function getItemImage(name: string, fallbackUrl?: string | null) {
-  return ITEM_IMAGES[name.toUpperCase()] ?? fallbackUrl ?? "/VK_Logo.webp";
+  // Case-insensitive lookup
+  const key = Object.keys(ITEM_IMAGES).find(k => k.toUpperCase() === name.toUpperCase());
+  return (key ? ITEM_IMAGES[key] : null) ?? fallbackUrl ?? "/VK_Logo.webp";
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -75,28 +77,24 @@ const NAV_ITEMS = [
 function HomeIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"
-        stroke={s} strokeWidth={active ? 2.2 : 1.8} strokeLinejoin="round"/>
-      <path d="M9 21V12h6v9" stroke={s} strokeWidth={active ? 2.2 : 1.8} strokeLinejoin="round"/>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
     </svg>
   );
 }
 function OrdersIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="3" width="18" height="18" rx="3" stroke={s} strokeWidth={active ? 2.2 : 1.8}/>
-      <path d="M7 8h10M7 12h7M7 16h5" stroke={s} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round"/>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
     </svg>
   );
 }
 function AccountIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="8" r="4" stroke={s} strokeWidth={active ? 2.2 : 1.8}/>
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={s} strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round"/>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
   );
 }
@@ -431,20 +429,7 @@ export function MobileHomeScreen({
             fontFamily: C.mono,
           }}
         >
-          {/* Pin sqircle */}
-          <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: C.redFaint,
-            border: `1px solid ${C.redBorder}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill={C.red}>
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-              <circle cx="12" cy="9" r="2.5" fill="white"/>
-            </svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+          <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
             <p style={{
               margin: 0, fontSize: 10,
               color: "rgba(255,255,255,0.4)",
@@ -781,7 +766,7 @@ export function MobileHomeScreen({
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
                   display: "flex", alignItems: "center",
-                  justifyContent: "flex-start",
+                  justifyContent: "center", // Centered to match pill shape
                   gap: 8,
                   cursor: "pointer",
                   outline: "none",
@@ -987,7 +972,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
+            <path d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </motion.button>
         <h2 style={{ 
@@ -1030,7 +1015,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
                 position: "relative",
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
                 {cat.label}
               </span>
               {count > 0 && (
@@ -1126,13 +1111,13 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
             }}
           >
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Price</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.06em" }}>TOTAL PRICE</span>
               <span style={{ fontSize: 20, fontWeight: 900, color: "white" }}>₹{totalPrice.toLocaleString("en-IN")}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: "0.04em", color: "white" }}>CHECKOUT</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
+              <span style={{ fontWeight: 800, fontSize: 16, color: "white" }}>Checkout</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </div>
           </motion.div>
@@ -1208,7 +1193,9 @@ function MenuGridCard({ item, qty, onUpdate }: {
                     cursor: "pointer"
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
                 </motion.button>
               ) : (
                 <motion.div
@@ -1226,11 +1213,15 @@ function MenuGridCard({ item, qty, onUpdate }: {
                   }}
                 >
                   <button onClick={() => onUpdate(-1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14" />
+                    </svg>
                   </button>
                   <span style={{ fontSize: 13, fontWeight: 900, color: "white" }}>{qty}</span>
                   <button onClick={() => onUpdate(1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
                   </button>
                 </motion.div>
               )}
