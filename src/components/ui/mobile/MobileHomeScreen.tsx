@@ -154,8 +154,8 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       style={{
         flex: "0 0 72vw",
         maxWidth: 270,
-        height: "88vw",
-        maxHeight: 360,
+        height: "92vw",
+        maxHeight: 380,
         borderRadius: 30,
         overflow: "hidden",
         flexShrink: 0,
@@ -167,20 +167,15 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
+        padding: "12px",
       }}
     >
-      {/* ── IMAGE AT CENTER ────────────────────────────────────────────── */}
+      {/* ── IMAGE SECTION ────────────────────────────────────────────── */}
       <div style={{
         position: "relative",
         width: "100%",
-        height: "60%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
+        height: "72%",
+        marginBottom: 14,
       }}>
         <motion.div
           animate={{
@@ -208,33 +203,40 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
           />
         </motion.div>
 
-        {/* Floating Tag over image */}
+        {/* Glass Tag — top left */}
         {tag && (
           <div style={{
-            position: "absolute", top: 10, right: 10,
-            background: C.red, borderRadius: 6, padding: "4px 8px",
-            zIndex: 10, boxShadow: `0 4px 12px ${C.redGlow}`,
+            position: "absolute",
+            top: 12, left: 12,
+            background: "rgba(12,12,12,0.45)",
+            backdropFilter: "blur(10px) saturate(140%)",
+            WebkitBackdropFilter: "blur(10px) saturate(140%)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 8,
+            padding: "5px 12px",
+            zIndex: 10,
           }}>
-            <span style={{ fontSize: 8, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 9, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               {tag}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── INFO BELOW ────────────────────────────────────────────────── */}
-      <div style={{ textAlign: "center", width: "100%" }}>
+      {/* ── INFO SECTION ────────────────────────────────────────────────── */}
+      <div style={{ textAlign: "left", width: "100%", paddingLeft: 6 }}>
         <h3 style={{
-          margin: 0, fontSize: 18, fontWeight: 800,
+          margin: 0, fontSize: 17, fontWeight: 800,
           color: C.white, lineHeight: 1.2,
-          marginBottom: 6,
+          marginBottom: 4,
           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
         }}>
           {cleanName}
         </h3>
         <p style={{
-          margin: 0, fontSize: 20, fontWeight: 900,
-          color: C.red, letterSpacing: "0.02em"
+          margin: 0, fontSize: 18, fontWeight: 900,
+          color: C.white,
+          letterSpacing: "0.02em"
         }}>
           ₹{item.price.toLocaleString("en-IN")}
         </p>
