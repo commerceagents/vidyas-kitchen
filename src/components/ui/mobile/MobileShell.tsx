@@ -164,6 +164,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
               updateQty={updateQty}
             />
           </motion.div>
+        )}
         {step === "checkout" && location && (
           <motion.div
             key="checkout"
