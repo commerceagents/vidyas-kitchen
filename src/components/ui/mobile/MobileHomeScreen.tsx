@@ -936,8 +936,8 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
 
   const categories = [
     { id: "chicken", label: "Chicken" },
-    { id: "egg",     label: "Egg" },
-    { id: "mutton",  label: "Mutton" },
+    { id: "mutton",  label: "Mutton"  },
+    { id: "egg",     label: "Egg"     },
   ];
 
   const updateQty = (id: string, delta: number) => {
