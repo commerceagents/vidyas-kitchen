@@ -1232,5 +1232,3 @@ function MenuGridCard({ item, qty, onUpdate }: {
     </motion.div>
   );
 }
-  );
-}
