@@ -523,12 +523,13 @@ export function MobileHomeScreen({
                   style={{
                     marginTop: sp(2), width: "100%",
                     background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                    border: "none", borderRadius: 14, padding: "15px",
-                    color: C.white, fontSize: 13, fontWeight: 800,
+                    border: "none", borderRadius: 16, padding: "16px",
+                    color: C.white, fontSize: 14, fontWeight: 800,
                     letterSpacing: "0.02em",
                     cursor: "pointer",
                     boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
                     fontFamily: C.mono, position: "relative" as const, overflow: "hidden",
+                    display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
                   <motion.div
@@ -792,7 +793,7 @@ export function MobileHomeScreen({
               >
                 {/* Fixed-width Icon Container — Anchors the icon from sliding */}
                 <div style={{
-                  width: NAV_CIRCLE,
+                  width: isActive ? 48 : NAV_CIRCLE,
                   height: "100%",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
@@ -845,7 +846,7 @@ export function MobileHomeScreen({
                         color: C.red,
                         whiteSpace: "nowrap",
                         position: "relative", zIndex: 1,
-                        paddingRight: 20, // Extra breathing room for the label
+                        paddingLeft: 4, paddingRight: 18,
                       }}
                     >
                       {navLabel}
