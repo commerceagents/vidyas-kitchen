@@ -167,7 +167,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
-        padding: "12px",
+        padding: "10px", // Standardized
       }}
     >
       {/* ── IMAGE SECTION ────────────────────────────────────────────── */}
@@ -207,7 +207,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
         {tag && (
           <div style={{
             position: "absolute",
-            top: 12, left: 12,
+            top: 10, left: 10, // Perfectly aligned with text below
             background: "rgba(12,12,12,0.45)",
             backdropFilter: "blur(10px) saturate(140%)",
             WebkitBackdropFilter: "blur(10px) saturate(140%)",
@@ -225,7 +225,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
 
       {/* ── INFO SECTION ────────────────────────────────────────────────── */}
       <div style={{ 
-        width: "100%", paddingLeft: 6,
+        width: "100%", paddingLeft: 10, // Matched tag offset
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 12
       }}>
@@ -1157,42 +1157,46 @@ function MenuGridCard({ item, qty, onUpdate }: {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       style={{
-        background: "rgba(20,20,20,0.45)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        borderRadius: 24,
+        background: "rgba(18,18,18,0.45)", // Matched homepage
+        backdropFilter: "blur(32px) saturate(180%)", // Matched homepage
+        WebkitBackdropFilter: "blur(32px) saturate(180%)",
+        borderRadius: 30, // Matched homepage
         overflow: "hidden",
         border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
-        height: 220,
+        height: 260, // Standardized for alignment
+        padding: "10px",
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "76%", overflow: "hidden" }}>
+      <div style={{ position: "relative", width: "100%", height: "76%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
         <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
         {tag && (
           <div style={{
-            position: "absolute", top: 10, left: 10,
+            position: "absolute", top: 10, left: 10, // Synced with text below
             background: "rgba(12,12,12,0.45)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
+            backdropFilter: "blur(10px) saturate(140%)",
+            WebkitBackdropFilter: "blur(10px) saturate(140%)",
             border: "1px solid rgba(255,255,255,0.15)",
-            padding: "4px 10px",
+            padding: "5px 12px",
             borderRadius: 8, fontSize: 8, fontWeight: 900,
-            color: "white", textTransform: "uppercase",
-            letterSpacing: "0.08em"
+            color: "rgba(255,255,255,0.9)", textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            zIndex: 10,
           }}>
             {tag}
           </div>
         )}
       </div>
       
-      <div style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div style={{ textAlign: "left" }}>
-          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {cleanName}
-          </h4>
-          <span style={{ display: "block", marginTop: 4, fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price}</span>
+          <div style={{ height: 38, marginBottom: 4, display: "flex", alignItems: "flex-start" }}>
+            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {cleanName}
+            </h4>
+          </div>
+          <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price.toLocaleString("en-IN")}</span>
         </div>
         
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
