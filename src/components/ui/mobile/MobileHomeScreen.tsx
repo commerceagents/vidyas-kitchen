@@ -68,7 +68,7 @@ interface MobileHomeScreenProps {
 // ─── Nav icons ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 108 },
-  { id: "orders",  label: "Orders",  icon: OrdersIcon,  activeWidth: 124 },
+  { id: "orders",  label: "Order",   icon: OrdersIcon,  activeWidth: 108 },
   { id: "account", label: "Account", icon: AccountIcon, activeWidth: 132 },
 ];
 
@@ -174,8 +174,8 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       <div style={{
         position: "relative",
         width: "100%",
-        height: "72%",
-        marginBottom: 14,
+        height: "76%", // Increased to make dish more prominent
+        marginBottom: 14, // Reduced to keep info section within fixed card height
       }}>
         <motion.div
           animate={{
@@ -231,7 +231,7 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       }}>
         <div style={{ textAlign: "left", flex: 1 }}>
           <h3 style={{
-            margin: 0, fontSize: 17, fontWeight: 800,
+            margin: 0, fontSize: 15, fontWeight: 500, // Reduced further (15) and weight (500)
             color: C.white, lineHeight: 1.2,
             marginBottom: 4,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
@@ -286,7 +286,7 @@ function CardSkeleton() {
       border: "1px solid rgba(255,255,255,0.08)",
       overflow: "hidden", display: "flex", flexDirection: "column"
     }}>
-      <div style={{ height: "72%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
+      <div style={{ height: "76%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
       <div style={{ flex: 1, padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ flex: 1 }}>
           <div style={{ width: "70%", height: 14, borderRadius: 4, background: "rgba(255,255,255,0.04)" }} />
@@ -617,41 +617,33 @@ export function MobileHomeScreen({
       >
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <p style={{
-              margin: 0, fontSize: 16,
-              color: "rgba(255,255,255,0.42)",
-              fontWeight: 600, letterSpacing: "0.02em",
-            }}>
-              {greeting}
-            </p>
-            <h2 style={{
-              margin: 0, fontSize: 26, fontWeight: 900,
-              color: C.white, letterSpacing: "-0.01em",
-              minHeight: 32, // Prevent layout jump
-            }}>
-              {firstName ? (
-                <motion.span
-                  initial={{ opacity: 0, x: 4 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {firstName}.
-                </motion.span>
-              ) : (
-                <span style={{ color: "rgba(255,255,255,0.25)" }}>Welcome back!</span>
-              )}
-            </h2>
-          </div>
+          <p style={{
+            margin: 0, fontSize: 16,
+            color: "rgba(255,255,255,0.42)",
+            fontWeight: 500, // Reduced from 600
+            letterSpacing: "0.02em",
+          }}>
+            {greeting}
+          </p>
+          <h2 style={{
+            margin: 0, fontSize: 32, fontWeight: 900, // Increased from 26
+            color: C.white, marginTop: -2, letterSpacing: "-0.01em",
+          }}>
+            Hey, {firstName ? (
+              <span style={{ color: C.red }}>{firstName}.</span>
+            ) : (
+              "Welcome back!"
+            )}
+          </h2>
         </motion.div>
 
         {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.1)} style={{ marginBottom: 0 }}>
           <p style={{
-            margin: "0 0 12px", fontSize: 11,
+            margin: "0 0 12px", fontSize: 14, // Increased from 11
             color: "rgba(255,255,255,0.35)",
-            fontWeight: 700, letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            fontWeight: 600, // Slightly reduced from 700
+            letterSpacing: "0", // Removed letter-spacing
           }}>
             Best Selling Dishes
           </p>
@@ -847,7 +839,6 @@ export function MobileHomeScreen({
                         fontSize: 12, fontWeight: 800,
                         letterSpacing: "0.06em",
                         color: C.red,
-                        textTransform: "uppercase",
                         whiteSpace: "nowrap",
                         position: "relative", zIndex: 1,
                       }}
@@ -971,9 +962,10 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
       {/* Sticky Header */}
       <div style={{
         padding: `max(16px, env(safe-area-inset-top)) ${sp(2)}px 16px`,
-        display: "flex", alignItems: "center", gap: 16,
+        display: "flex", alignItems: "center",
         background: `linear-gradient(to bottom, ${C.bg} 80%, transparent)`,
         flexShrink: 0, zIndex: 10,
+        position: "relative",
       }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -984,25 +976,37 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
             border: `1px solid ${C.border}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer",
+            zIndex: 2,
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </motion.button>
-        <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, flex: 1 }}>Browse Menu</h2>
+        <h2 style={{ 
+          fontSize: 22, fontWeight: 800, margin: 0, 
+          position: "absolute", left: "50%", transform: "translateX(-50%)",
+          color: C.white, whiteSpace: "nowrap",
+          zIndex: 1
+        }}>
+          Browse Menu
+        </h2>
       </div>
 
       {/* Category Chips */}
       <div style={{
         padding: `0 ${sp(2)}px 24px`,
         display: "flex", gap: 10,
-        justifyContent: "center",
+        justifyContent: "flex-start",
         overflowX: "auto", scrollbarWidth: "none",
         flexShrink: 0, zIndex: 10,
       }}>
         {categories.map((cat) => {
           const active = activeCat === cat.id;
+          const count  = allItems
+            .filter(i => i.category.toLowerCase() === cat.id.toLowerCase())
+            .reduce((acc, cur) => acc + (cart[cur.id] || 0), 0);
+
           return (
             <motion.button
               key={cat.id}
@@ -1017,77 +1021,81 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
                 whiteSpace: "nowrap",
                 cursor: "pointer",
                 boxShadow: active ? `0 4px 20px ${C.redGlow}` : "none",
+                position: "relative",
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
                 {cat.label}
               </span>
+              {count > 0 && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  style={{
+                    position: "absolute", top: -6, right: -6,
+                    background: C.red, color: "white",
+                    width: 20, height: 20, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 900,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                    border: "2px solid #0a0a0a"
+                  }}
+                >
+                  {count}
+                </motion.div>
+              )}
             </motion.button>
           );
         })}
       </div>
 
-      {/* ── ARC FAN CAROUSEL ─────────────────────────────────────────────────── */}
-      <div
-        ref={carouselRef}
-        style={{
-          flex: 1,
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          perspective: 1000,
-        }}
-      >
-        {/* Drag Layer */}
-        <motion.div
-          style={{ position: "absolute", inset: 0, zIndex: 200, cursor: "grab" }}
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.1}
-          onDragEnd={(_, info) => {
-            if (info.offset.x < -60) handleSwipe(1);  // swipe left → next
-            else if (info.offset.x > 60) handleSwipe(-1); // swipe right → prev
-          }}
-        />
-
-        {/* Arc Navigation Dots */}
+      {/* ── GRID MENU ────────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        {/* Top Vignette */}
         <div style={{
-          position: "absolute", bottom: 24, left: 0, right: 0,
-          display: "flex", justifyContent: "center", gap: 8, zIndex: 201
-        }}>
-          {filtered.map((_, i) => (
-            <motion.div
-              key={i}
-              onClick={() => setCurrentIdx(i)}
-              animate={{
-                width: i === currentIdx ? 24 : 8,
-                background: i === currentIdx ? C.red : "rgba(255,255,255,0.3)",
-              }}
-              style={{ height: 8, borderRadius: 4, cursor: "pointer" }}
-            />
-          ))}
+          position: "absolute", top: 0, left: 0, right: 0, height: 40,
+          background: `linear-gradient(to bottom, ${C.bg}, transparent)`,
+          zIndex: 5, pointerEvents: "none"
+        }} />
+
+        <div
+          ref={carouselRef}
+          style={{
+            height: "100%",
+            overflowY: "auto",
+            padding: "0 16px 120px", // Large padding for checkout bar
+            scrollbarWidth: "none",
+          }}
+          className="no-scrollbar"
+        >
+          {filtered.length > 0 ? (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}>
+              {filtered.map((item, i) => (
+                <MenuGridCard
+                  key={item.id}
+                  item={item}
+                  qty={cart[item.id] || 0}
+                  onUpdate={(d) => updateQty(item.id, d)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 40 }}>
+              No dishes available.
+            </div>
+          )}
         </div>
 
-        {/* Cards in Arc Formation */}
-        {filtered.length > 0 ? filtered.map((item, i) => {
-          const offset = i - currentIdx;
-          return (
-            <ArcCard
-              key={item.id}
-              item={item}
-              qty={cart[item.id] || 0}
-              onUpdate={(d) => updateQty(item.id, d)}
-              offset={offset}
-              onClick={() => { if (offset !== 0) setCurrentIdx(i); }}
-            />
-          );
-        }) : (
-          <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "center" }}>
-            No dishes available.
-          </div>
-        )}
+        {/* Bottom Vignette */}
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0, height: 80,
+          background: `linear-gradient(to top, ${C.bg}, transparent)`,
+          zIndex: 5, pointerEvents: "none"
+        }} />
       </div>
 
       {/* Cart Summary Bar */}
@@ -1127,150 +1135,102 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   );
 }
 
-function ArcCard({ item, qty, onUpdate, offset, onClick }: {
+function MenuGridCard({ item, qty, onUpdate }: {
   item: MenuItem;
   qty: number;
   onUpdate: (d: number) => void;
-  offset: number; // distance from center: 0=center, -1=left, 1=right, etc.
-  onClick: () => void;
 }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
 
-  // Arc/Fan transforms based on offset
-  const CARD_W = 72; // vw
-  const rotateZ  = offset * 18;          // degrees
-  const x        = offset * 70;          // vw units
-  const y        = Math.abs(offset) * 8; // drop down from center
-  const scale    = offset === 0 ? 1 : Math.max(0.72, 1 - Math.abs(offset) * 0.14);
-  const opacity  = offset === 0 ? 1 : Math.max(0.38, 1 - Math.abs(offset) * 0.32);
-  const zIndex   = 100 - Math.abs(offset) * 10;
-  const isCenter = offset === 0;
-
   return (
     <motion.div
-      onClick={!isCenter ? onClick : undefined}
-      animate={{
-        rotateZ,
-        x: `${x}vw`,
-        y: `${y}vh`,
-        scale,
-        opacity,
-        zIndex,
-      }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       style={{
-        position: "absolute",
-        width: `${CARD_W}vw`,
-        maxWidth: 360,
-        height: "58vh",
-        maxHeight: 500,
-        borderRadius: 28,
-        background: "rgba(16,16,16,0.75)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: isCenter ? `1.5px solid ${C.red}` : "1px solid rgba(255,255,255,0.1)",
+        background: "rgba(20,20,20,0.45)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderRadius: 24,
         overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        boxShadow: isCenter
-          ? `0 32px 80px rgba(0,0,0,0.75), 0 0 0 2px ${C.redGlow}`
-          : "0 16px 40px rgba(0,0,0,0.5)",
-        cursor: !isCenter ? "pointer" : "default",
+        border: "1px solid rgba(255,255,255,0.08)",
+        display: "flex",
+        flexDirection: "column",
+        height: 220,
       }}
     >
-      {/* Image */}
-      <div style={{ position: "relative", width: "100%", height: "62%", overflow: "hidden" }}>
-        <motion.div
-          animate={{ opacity: loaded ? 1 : 0 }}
-          transition={{ duration: 0.5 }}
-          style={{ position: "absolute", inset: 0 }}
-        >
-          <Image
-            src={imgSrc}
-            alt={item.name}
-            fill
-            sizes="72vw"
-            style={{ objectFit: "cover" }}
-            onLoad={() => setLoaded(true)}
-          />
-        </motion.div>
-
-        {/* Gradient overlay */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 45%)",
-          pointerEvents: "none"
-        }} />
-
+      <div style={{ position: "relative", width: "100%", height: "60%", overflow: "hidden" }}>
+        <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
         {tag && (
           <div style={{
-            position: "absolute", top: 16, left: 16,
-            background: "rgba(10,10,10,0.6)",
-            backdropFilter: "blur(10px)",
-            borderRadius: 8, padding: "4px 10px",
-            border: "1px solid rgba(255,255,255,0.12)",
+            position: "absolute", top: 8, left: 8,
+            background: "rgba(0,0,0,0.5)", padding: "4px 8px",
+            borderRadius: 6, fontSize: 8, fontWeight: 900,
+            color: "white", textTransform: "uppercase"
           }}>
-            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
-              {tag}
-            </span>
+            {tag}
           </div>
         )}
       </div>
-
-      {/* Info & Cart */}
-      <div style={{ flex: 1, padding: "20px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, lineHeight: 1.2, color: C.white }}>{cleanName}</h3>
-          <p style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 900, color: C.red }}>₹{item.price.toLocaleString("en-IN")}</p>
-        </div>
-
-        {isCenter && (
-          <div style={{ marginTop: 14 }}>
-            {qty === 0 ? (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onUpdate(1)}
-                style={{
-                  width: "100%", height: 52, borderRadius: 16,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  gap: 10, cursor: "pointer",
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.05em", color: C.white }}>ADD TO CART</span>
-              </motion.button>
-            ) : (
-              <div style={{
-                width: "100%", height: 52, borderRadius: 16,
-                background: C.red, display: "flex",
-                alignItems: "center", justifyContent: "space-between",
-                padding: "0 6px",
-                boxShadow: `0 8px 24px ${C.redGlow}`,
-              }}>
-                <motion.button whileTap={{ scale: 0.8 }} onClick={() => onUpdate(-1)}
-                  style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.2)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      
+      <div style={{ flex: 1, padding: "10px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {cleanName}
+        </h4>
+        
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+          <span style={{ fontSize: 15, fontWeight: 900, color: C.white }}>₹{item.price}</span>
+          
+          <div style={{ pos: "relative" }}>
+            <AnimatePresence mode="wait">
+              {qty === 0 ? (
+                <motion.button
+                  key="add"
+                  initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                  whileTap={{ scale: 0.8 }}
+                  onClick={() => onUpdate(1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: C.red, border: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 4px 10px rgba(189,35,32,0.3)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </motion.button>
-                <AnimatePresence mode="wait">
-                  <motion.span key={qty} initial={{ y: 4, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -4, opacity: 0 }}
-                    style={{ fontWeight: 900, fontSize: 18, color: "white" }}>
-                    {qty}
-                  </motion.span>
-                </AnimatePresence>
-                <motion.button whileTap={{ scale: 0.8 }} onClick={() => onUpdate(1)}
-                  style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.2)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </motion.button>
-              </div>
-            )}
+              ) : (
+                <motion.div
+                  key="stepper"
+                  initial={{ width: 32, opacity: 0 }}
+                  animate={{ width: 80, opacity: 1 }}
+                  exit={{ width: 32, opacity: 0 }}
+                  style={{
+                    height: 32, borderRadius: 16,
+                    background: C.red, display: "flex",
+                    alignItems: "center", justifyContent: "space-between",
+                    padding: "0 4px",
+                    boxShadow: "0 4px 12px rgba(189,35,32,0.4)",
+                    overflow: "hidden"
+                  }}
+                >
+                  <button onClick={() => onUpdate(-1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "white" }}>{qty}</span>
+                  <button onClick={() => onUpdate(1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
+        </div>
       </div>
     </motion.div>
+  );
+}
   );
 }
