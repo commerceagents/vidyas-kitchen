@@ -941,11 +941,12 @@ function MuttonIcon({ active }: { active: boolean }) {
   );
 }
 
-function MenuBrowseView({ onBack, allItems, cart, updateQty }: { 
+function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout }: { 
   onBack: () => void, 
   allItems: MenuItem[],
   cart: Record<string, number>,
   updateQty: (id: string, delta: number) => void,
+  onCheckout?: () => void,
 }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [currentIdx, setCurrentIdx] = useState(0);
