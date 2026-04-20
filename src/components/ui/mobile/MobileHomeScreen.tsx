@@ -154,8 +154,8 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       style={{
         flex: "0 0 72vw",
         maxWidth: 270,
-        height: "92vw",
-        maxHeight: 380,
+        height: "82vw", // Reduced from 92vw
+        maxHeight: 340, // Reduced from 380
         borderRadius: 30,
         overflow: "hidden",
         flexShrink: 0,
@@ -224,22 +224,42 @@ function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
       </div>
 
       {/* ── INFO SECTION ────────────────────────────────────────────────── */}
-      <div style={{ textAlign: "left", width: "100%", paddingLeft: 6 }}>
-        <h3 style={{
-          margin: 0, fontSize: 17, fontWeight: 800,
-          color: C.white, lineHeight: 1.2,
-          marginBottom: 4,
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+      <div style={{ 
+        width: "100%", paddingLeft: 6,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12
+      }}>
+        <div style={{ textAlign: "left", flex: 1 }}>
+          <h3 style={{
+            margin: 0, fontSize: 17, fontWeight: 800,
+            color: C.white, lineHeight: 1.2,
+            marginBottom: 4,
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+          }}>
+            {cleanName}
+          </h3>
+          <p style={{
+            margin: 0, fontSize: 18, fontWeight: 900,
+            color: C.white,
+            letterSpacing: "0.02em"
+          }}>
+            ₹{item.price.toLocaleString("en-IN")}
+          </p>
+        </div>
+
+        {/* Restore the red circle button */}
+        <div style={{
+          width: 44, height: 44, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: `0 4px 15px rgba(189,35,32,0.4)`,
+          flexShrink: 0,
         }}>
-          {cleanName}
-        </h3>
-        <p style={{
-          margin: 0, fontSize: 18, fontWeight: 900,
-          color: C.white,
-          letterSpacing: "0.02em"
-        }}>
-          ₹{item.price.toLocaleString("en-IN")}
-        </p>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 17L17 7M17 7H7M17 7v10" />
+          </svg>
+        </div>
       </div>
 
     </motion.div>
@@ -259,19 +279,20 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
 function CardSkeleton() {
   return (
     <div style={{
-      width: "80vw", maxWidth: 320, height: 400, borderRadius: 28, flexShrink: 0,
+      width: "72vw", maxWidth: 270, height: "82vw", maxHeight: 340, // Exact match to BestSellingCard
+      borderRadius: 30, flexShrink: 0,
       background: "rgba(18,18,18,0.45)",
       backdropFilter: "blur(24px)",
       border: "1px solid rgba(255,255,255,0.08)",
       overflow: "hidden", display: "flex", flexDirection: "column"
     }}>
-      <div style={{ height: "68%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
-      <div style={{ flex: 1, padding: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ height: "72%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
+      <div style={{ flex: 1, padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ flex: 1 }}>
           <div style={{ width: "70%", height: 14, borderRadius: 4, background: "rgba(255,255,255,0.04)" }} />
           <div style={{ width: "40%", height: 18, borderRadius: 4, background: "rgba(255,255,255,0.04)", marginTop: 8 }} />
         </div>
-        <div style={{ width: 46, height: 46, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
       </div>
     </div>
   );
@@ -586,7 +607,7 @@ export function MobileHomeScreen({
           flex: 1,
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
-          gap: sp(4),
+          gap: sp(3), // Reduced from sp(4)
           padding: `0 ${sp(2.5)}px`,
           paddingTop: sp(2),
           overflowY: "auto",
@@ -596,28 +617,32 @@ export function MobileHomeScreen({
       >
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
-          <p style={{
-            margin: 0, fontSize: 16,
-            color: "rgba(255,255,255,0.42)",
-            fontWeight: 600, letterSpacing: "0.02em",
-          }}>
-            {greeting}{firstName ? "," : ""}
-          </p>
-          <h1 style={{
-            margin: "6px 0 0",
-            fontSize: 38, fontWeight: 800,
-            lineHeight: 1.1, letterSpacing: "-0.5px",
-            color: C.white,
-          }}>
-            {firstName ? (
-              <>
-                <span>Hey, </span>
-                <span style={{ color: C.red }}>{firstName}.</span>
-              </>
-            ) : (
-              <span>What are you craving?</span>
-            )}
-          </h1>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <p style={{
+              margin: 0, fontSize: 16,
+              color: "rgba(255,255,255,0.42)",
+              fontWeight: 600, letterSpacing: "0.02em",
+            }}>
+              {greeting}
+            </p>
+            <h2 style={{
+              margin: 0, fontSize: 26, fontWeight: 900,
+              color: C.white, letterSpacing: "-0.01em",
+              minHeight: 32, // Prevent layout jump
+            }}>
+              {firstName ? (
+                <motion.span
+                  initial={{ opacity: 0, x: 4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {firstName}.
+                </motion.span>
+              ) : (
+                <span style={{ color: "rgba(255,255,255,0.25)" }}>Welcome back!</span>
+              )}
+            </h2>
+          </div>
         </motion.div>
 
         {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
@@ -631,13 +656,17 @@ export function MobileHomeScreen({
             Best Selling Dishes
           </p>
 
-          <div style={{
-            display: "flex", gap: 12,
-            overflowX: "auto",
-            paddingBottom: 8,
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
-          }}>
+          <div 
+            className="no-scrollbar"
+            style={{
+              display: "flex", gap: 12,
+              overflowX: "auto",
+              paddingBottom: 8,
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             {loading
               ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
               : bestFive.map((item, i) => (
@@ -647,7 +676,7 @@ export function MobileHomeScreen({
         </motion.div>
 
         {/* ── BROWSE FULL MENU CTA ───────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.16)}>
+        <motion.div {...fadeUp(0.16)} style={{ marginTop: -8 }}>
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => setActiveScreen("menu")}
