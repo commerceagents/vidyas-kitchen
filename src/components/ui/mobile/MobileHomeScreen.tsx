@@ -146,7 +146,7 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-function BestSellingCard({ item, index }: { item: MenuItem; index: number }) {
+function BestSellingCard({ item, index, qty, onUpdate }: { item: MenuItem; index: number; qty: number; onUpdate: (delta: number) => void }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
