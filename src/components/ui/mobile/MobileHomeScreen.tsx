@@ -793,7 +793,7 @@ export function MobileHomeScreen({
               >
                 {/* Fixed-width Icon Container — Anchors the icon from sliding */}
                 <div style={{
-                  width: isActive ? 48 : NAV_CIRCLE,
+                  width: isActive ? 44 : NAV_CIRCLE,
                   height: "100%",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
@@ -846,7 +846,7 @@ export function MobileHomeScreen({
                         color: C.red,
                         whiteSpace: "nowrap",
                         position: "relative", zIndex: 1,
-                        paddingLeft: 4, paddingRight: 18,
+                        paddingLeft: 0, paddingRight: 18,
                       }}
                     >
                       {navLabel}
