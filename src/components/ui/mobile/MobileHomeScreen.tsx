@@ -429,6 +429,18 @@ export function MobileHomeScreen({
             fontFamily: C.mono,
           }}
         >
+          <div style={{
+            width: 32, height: 32, borderRadius: 10,
+            background: "rgba(189,35,32,0.12)",
+            border: "1px solid rgba(189,35,32,0.25)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            </svg>
+          </div>
           <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
             <p style={{
               margin: 0, fontSize: 10,
@@ -691,7 +703,7 @@ export function MobileHomeScreen({
               </p>
             </div>
             <div style={{
-              width: 46, height: 46, borderRadius: 14,
+              width: 46, height: 46, borderRadius: "50%",
               background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: `0 4px 18px ${C.redGlow}`,
@@ -746,8 +758,8 @@ export function MobileHomeScreen({
                 /* Spring-expand from circle to pill */
                 animate={{
                   width: isActive ? activeWidth : NAV_CIRCLE,
-                  paddingLeft: isActive ? 16 : 17,
-                  paddingRight: isActive ? 16 : 17,
+                  paddingLeft: isActive ? 16 : 0,
+                  paddingRight: isActive ? 16 : 0,
                   background: isActive
                     ? "rgba(189,35,32,0.14)"
                     : "rgba(14,14,14,0.78)",

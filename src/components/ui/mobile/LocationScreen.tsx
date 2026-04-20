@@ -130,27 +130,25 @@ const topBarReveal = {
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function HomeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M9 21V12h6v9" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
     </svg>
   );
 }
 
 function WorkIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="currentColor" strokeWidth="1.8" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.25 2.25 0 0 0-2.25-2.25H5.625a2.25 2.25 0 0 0-2.25 2.25m16.5 0v-2.25A2.25 2.25 0 0 0 18 7.5H6a2.25 2.25 0 0 0-2.25 2.25v2.25m16.5 0a2.25 2.25 0 0 1-2.25 2.25H5.625a2.25 2.25 0 0 1-2.25-2.25m10.875-12a1.125 1.125 0 0 1 1.125 1.125v1.5a1.125 1.125 0 0 1-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a1.125 1.125 0 0 1 1.125-1.125h4.5Z" />
     </svg>
   );
 }
 
 function OtherIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M12 21s7-7.75 7-13a7 7 0 10-14 0c0 5.25 7 13 7 13z" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="8.5" r="2.3" stroke="currentColor" strokeWidth="1.8" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+      <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
     </svg>
   );
 }
@@ -183,9 +181,8 @@ function GPSIcon() {
 
 function SearchIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
     </svg>
   );
 }
@@ -865,9 +862,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="#BD2320">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-            <circle cx="12" cy="9" r="2.5" fill="white" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
           </svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1199,7 +1196,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 padding: "16px",
                 cursor: "pointer",
                 color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.08em", textTransform: "uppercase",
+                letterSpacing: "0.02em",
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 12,
@@ -1230,7 +1227,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 padding: "16px",
                 cursor: "pointer",
                 color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.08em", textTransform: "uppercase",
+                letterSpacing: "0.02em",
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 24,
@@ -1248,7 +1245,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   skewX: -20,
                 }}
               />
-              <span style={{ display: "flex" }}><PinIcon color="#fff" /></span>
               Confirm Location
             </motion.button>
           )}
