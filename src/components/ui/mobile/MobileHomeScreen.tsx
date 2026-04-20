@@ -1069,7 +1069,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           style={{
             height: "100%",
             overflowY: "auto",
-            padding: "20px 16px 140px", // Increased top padding to avoid chip collision
+            padding: "20px 16px 110px", // Reduced bottom gap
             scrollbarWidth: "none",
           }}
           className="no-scrollbar"
