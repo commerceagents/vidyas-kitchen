@@ -914,8 +914,15 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
   const [currentIdx, setCurrentIdx] = useState(0);
   const carouselRef               = useRef<HTMLDivElement>(null);
   
-  const filtered = allItems.filter(i => i.category.toLowerCase() === activeCat.toLowerCase());
+  const filtered = allItems
+    .filter(i => i.category.toLowerCase() === activeCat.toLowerCase())
+    .sort((a, b) => a.price - b.price); // Low to High sorting
   const totalCards = filtered.length;
+  
+  const totalPrice = Object.entries(cart).reduce((acc, [id, q]) => {
+    const item = allItems.find(it => it.id === id);
+    return acc + (item ? item.price * q : 0);
+  }, 0);
   
   // Reset to first card when category changes
   const handleCatChange = (cat: string) => {
@@ -993,11 +1000,10 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
         </h2>
       </div>
 
-      {/* Category Chips */}
       <div style={{
-        padding: `0 ${sp(2)}px 24px`,
+        padding: `12px ${sp(2)}px 24px`, // Added top padding to move down
         display: "flex", gap: 10,
-        justifyContent: "flex-start",
+        justifyContent: "center", // Centered as requested
         overflowX: "auto", scrollbarWidth: "none",
         flexShrink: 0, zIndex: 10,
       }}>
@@ -1063,7 +1069,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
           style={{
             height: "100%",
             overflowY: "auto",
-            padding: "0 16px 120px", // Large padding for checkout bar
+            padding: "20px 16px 140px", // Increased top padding to avoid chip collision
             scrollbarWidth: "none",
           }}
           className="no-scrollbar"
@@ -1107,27 +1113,28 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
             exit={{ y: 100, opacity: 0 }}
             style={{
               position: "absolute", bottom: 32, left: 24, right: 24,
-              background: C.red,
+              background: "rgba(189,35,32,0.85)", // Transparent red
+              backdropFilter: "blur(24px) saturate(160%)", // Glass blur
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
               borderRadius: 22,
               padding: "18px 24px",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               boxShadow: "0 12px 40px rgba(189,35,32,0.45)",
               zIndex: 110,
               cursor: "pointer",
+              border: "1px solid rgba(255,255,255,0.15)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ 
-                width: 32, height: 32, borderRadius: "50%", 
-                background: "rgba(255,255,255,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, fontWeight: 900
-              }}>
-                {Object.values(cart).reduce((a, b) => a + b, 0)}
-              </div>
-              <span style={{ fontWeight: 800, fontSize: 16 }}>Items Added</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Price</span>
+              <span style={{ fontSize: 20, fontWeight: 900, color: "white" }}>₹{totalPrice.toLocaleString("en-IN")}</span>
             </div>
-            <span style={{ fontWeight: 900, fontSize: 18, letterSpacing: "0.02em" }}>CHECKOUT →</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: "0.04em", color: "white" }}>CHECKOUT</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1161,29 +1168,35 @@ function MenuGridCard({ item, qty, onUpdate }: {
         height: 220,
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "60%", overflow: "hidden" }}>
+      <div style={{ position: "relative", width: "100%", height: "76%", overflow: "hidden" }}>
         <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
         {tag && (
           <div style={{
-            position: "absolute", top: 8, left: 8,
-            background: "rgba(0,0,0,0.5)", padding: "4px 8px",
-            borderRadius: 6, fontSize: 8, fontWeight: 900,
-            color: "white", textTransform: "uppercase"
+            position: "absolute", top: 10, left: 10,
+            background: "rgba(12,12,12,0.45)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            padding: "4px 10px",
+            borderRadius: 8, fontSize: 8, fontWeight: 900,
+            color: "white", textTransform: "uppercase",
+            letterSpacing: "0.08em"
           }}>
             {tag}
           </div>
         )}
       </div>
       
-      <div style={{ flex: 1, padding: "10px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {cleanName}
-        </h4>
+      <div style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div style={{ textAlign: "left" }}>
+          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {cleanName}
+          </h4>
+          <span style={{ display: "block", marginTop: 4, fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price}</span>
+        </div>
         
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-          <span style={{ fontSize: 15, fontWeight: 900, color: C.white }}>₹{item.price}</span>
-          
-          <div style={{ pos: "relative" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+          <div style={{ position: "relative" }}>
             <AnimatePresence mode="wait">
               {qty === 0 ? (
                 <motion.button
