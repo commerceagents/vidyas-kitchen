@@ -6,8 +6,17 @@ import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
+import { CheckoutScreen } from "./CheckoutScreen";
 
-type MobileStep = "login" | "location" | "location_marked" | "home";
+type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
+
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  image_url: string | null;
+}
 
 interface LocationData {
   label: string;
@@ -28,6 +37,18 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   const [phone, setPhone] = useState(prefilledPhone || "");
   const [name, setName] = useState(prefilledName || "");
   const [location, setLocation] = useState<LocationData | null>(null);
+
+  // ── Hoisted State for Cart & Menu ───────────────────────────────────────
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [cart, setCart]   = useState<Record<string, number>>({});
+
+  const updateQty = (id: string, delta: number) => {
+    setCart(prev => {
+      const current = prev[id] || 0;
+      const next = Math.max(0, current + delta);
+      return { ...prev, [id]: next };
+    });
+  };
 
   // Restore session from localStorage
   useEffect(() => {
@@ -135,6 +156,35 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
             <MobileHomeScreen
               displayName={name}
               location={location}
+              onChangeLocation={() => setStep("location")}
+              onCheckout={() => setStep("checkout")}
+              items={items}
+              setItems={setItems}
+              cart={cart}
+              updateQty={updateQty}
+            />
+          </motion.div>
+        {step === "checkout" && location && (
+          <motion.div
+            key="checkout"
+            className="w-full h-full"
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <CheckoutScreen
+              onBack={() => setStep("home")}
+              onAddMore={() => setStep("home")}
+              onPlaceOrder={(method) => {
+                alert(`Order placed successfully via ${method.toUpperCase()}!`);
+                setCart({});
+                setStep("home");
+              }}
+              cart={cart}
+              items={items}
+              updateQty={updateQty}
+              locationLabel={location.label}
               onChangeLocation={() => setStep("location")}
             />
           </motion.div>

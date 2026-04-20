@@ -65,6 +65,11 @@ interface MobileHomeScreenProps {
   displayName: string;
   location: LocationLite | null;
   onChangeLocation?: () => void;
+  onCheckout?: () => void;
+  items: MenuItem[];
+  setItems: (items: MenuItem[]) => void;
+  cart: Record<string, number>;
+  updateQty: (id: string, delta: number) => void;
 }
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
@@ -304,14 +309,23 @@ export function MobileHomeScreen({
   displayName,
   location,
   onChangeLocation,
+  onCheckout,
+  items,
+  setItems,
+  cart,
+  updateQty,
 }: MobileHomeScreenProps) {
-  const [items,          setItems]          = useState<MenuItem[]>([]);
-  const [bestFive,       setBestFive]       = useState<MenuItem[]>([]);
-  const [loading,        setLoading]        = useState(true);
+  const [loading,        setLoading]        = useState(items.length === 0);
   const [activeNav,      setActiveNav]      = useState("home");
   const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
   const [locationOpen,   setLocationOpen]   = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
+
+  const bestFive = items
+    .filter(d => d.name.toUpperCase().includes("RECIPE"))
+    .concat(items.filter(d => !d.name.toUpperCase().includes("RECIPE")))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 5);
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 56;  // circle size
@@ -334,20 +348,17 @@ export function MobileHomeScreen({
   // Fetch from Supabase
   useEffect(() => {
     (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("menu_items")
-        .select("id, name, price, category, image_url")
-        .eq("is_available", true);
-      if (data) {
-        const all = data as MenuItem[];
-        setItems(all);
-        // Prioritize dishes with RECIPE in name to keep best-sellers consistent
-        const favorites = all.filter(d => d.name.toUpperCase().includes("RECIPE"));
-        const others    = all.filter(d => !d.name.toUpperCase().includes("RECIPE"));
-        setBestFive([...favorites, ...others].sort((a, b) => a.price - b.price).slice(0, 5));
+      if (items.length === 0) {
+        setLoading(true);
+        const { data } = await supabase
+          .from("menu_items")
+          .select("id, name, price, category, image_url")
+          .eq("is_available", true);
+        if (data) {
+          setItems(data as MenuItem[]);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 
@@ -663,7 +674,13 @@ export function MobileHomeScreen({
             {loading
               ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
               : bestFive.map((item, i) => (
-                  <BestSellingCard key={item.id} item={item} index={i} />
+                  <BestSellingCard 
+                    key={item.id} 
+                    item={item} 
+                    index={i} 
+                    qty={cart[item.id] || 0}
+                    onUpdate={(d) => updateQty(item.id, d)}
+                  />
                 ))}
           </div>
         </motion.div>
@@ -721,11 +738,17 @@ export function MobileHomeScreen({
           </motion.button>
         </motion.div>
       </div>
-    </motion.div>
-  ) : (
-    <MenuBrowseView key="menu-screen" onBack={() => setActiveScreen("home")} allItems={items} />
-  )}
-</AnimatePresence>
+        <AnimatePresence>
+          {activeScreen === "menu" && (
+            <MenuBrowseView 
+              allItems={items} 
+              onBack={() => setActiveScreen("home")} 
+              cart={cart}
+              updateQty={updateQty}
+              onCheckout={onCheckout}
+            />
+          )}
+        </AnimatePresence>
 
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
@@ -914,9 +937,13 @@ function MuttonIcon({ active }: { active: boolean }) {
   );
 }
 
-function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: MenuItem[] }) {
+function MenuBrowseView({ onBack, allItems, cart, updateQty }: { 
+  onBack: () => void, 
+  allItems: MenuItem[],
+  cart: Record<string, number>,
+  updateQty: (id: string, delta: number) => void,
+}) {
   const [activeCat, setActiveCat] = useState("chicken");
-  const [cart, setCart]           = useState<Record<string, number>>({});
   const [currentIdx, setCurrentIdx] = useState(0);
   const carouselRef               = useRef<HTMLDivElement>(null);
   
@@ -946,13 +973,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
     { id: "egg",     label: "Egg"     },
   ];
 
-  const updateQty = (id: string, delta: number) => {
-    setCart(prev => {
-      const current = prev[id] || 0;
-      const next = Math.max(0, current + delta);
-      return { ...prev, [id]: next };
-    });
-  };
+  // Removed local updateQty since it's passed from props
 
   useScroll({
     container: carouselRef,
@@ -1130,6 +1151,7 @@ function MenuBrowseView({ onBack, allItems }: { onBack: () => void, allItems: Me
               cursor: "pointer",
               border: "1px solid rgba(255,255,255,0.15)",
             }}
+            onClick={onCheckout}
           >
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.06em" }}>TOTAL PRICE</span>
