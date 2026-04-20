@@ -1165,11 +1165,11 @@ function MenuGridCard({ item, qty, onUpdate }: {
         border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         flexDirection: "column",
-        height: 240, // Adjusted for 50/50 balance
+        height: 260, // Increased to accommodate taller image
         padding: "10px",
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "50%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
+      <div style={{ position: "relative", width: "100%", height: "65%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
         <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
         {tag && (
           <div style={{
