@@ -1171,29 +1171,22 @@ function MenuGridCard({ item, qty, onUpdate }: {
     >
       <div style={{ position: "relative", width: "100%", height: "65%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
         <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
-        {tag && (
-          <div style={{
-            position: "absolute", top: 10, left: 10, // Synced with text below
-            background: "rgba(12,12,12,0.45)",
-            backdropFilter: "blur(10px) saturate(140%)",
-            WebkitBackdropFilter: "blur(10px) saturate(140%)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            padding: "5px 12px",
-            borderRadius: 8, fontSize: 8, fontWeight: 900,
-            color: "rgba(255,255,255,0.9)", textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            zIndex: 10,
-          }}>
-            {tag}
-          </div>
-        )}
       </div>
       
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div style={{ height: 38, display: "flex", alignItems: "flex-start" }}>
+        <div style={{ height: 52, display: "flex", flexDirection: "column", gap: 4 }}>
           <h4 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {cleanName}
           </h4>
+          {tag && (
+            <span style={{ 
+              fontSize: 8, fontWeight: 800, color: C.red, 
+              textTransform: "uppercase", letterSpacing: "0.04em",
+              opacity: 0.9 
+            }}>
+              {tag}
+            </span>
+          )}
         </div>
         
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
