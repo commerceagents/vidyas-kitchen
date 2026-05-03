@@ -177,11 +177,9 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
             <CheckoutScreen
               onBack={() => setStep("home")}
               onAddMore={() => setStep("home")}
-              onPlaceOrder={(method) => {
-                alert(`Order placed successfully via ${method.toUpperCase()}!`);
-                setCart({});
-                setStep("home");
-              }}
+              onPlaceOrder={() => setCart({})}
+              phone={phone}
+              customerName={name}
               cart={cart}
               items={items}
               updateQty={updateQty}

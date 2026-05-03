@@ -12,7 +12,7 @@ const razorpay = new Razorpay({
 export async function createPaymentLink(amount: number, orderId: string, customerName: string, customerPhone: string) {
   try {
     const paymentLink = await razorpay.paymentLink.create({
-      amount: amount * 100, // Razorpay works in paise
+      amount: Math.round(Number(amount) * 100), // paise (avoid float drift)
       currency: "INR",
       accept_partial: false,
       description: `Order #${orderId} - Vidya's Kitchen`,

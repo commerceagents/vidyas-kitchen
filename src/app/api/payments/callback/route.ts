@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createServerSupabase } from "@/lib/supabase-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   
   if (status === "paid" && paymentLinkId) {
     try {
+      const supabase = createServerSupabase();
       // 1. Find the order that exactly matches this payment link ID
       const { data: order, error: findError } = await supabase
         .from("orders")

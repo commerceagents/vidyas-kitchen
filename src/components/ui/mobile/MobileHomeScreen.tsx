@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, RefObject } from "react";
+import { useState, useEffect, useRef, RefObject, useCallback } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -140,13 +140,28 @@ function parseRecipeTag(name: string) {
   return { cleanName: name, tag: null };
 }
 
+/** Deterministic pseudo-random for demo stats (replace with real analytics later). */
+function stableHash(str: string) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function dishStatsFromId(id: string) {
+  const h = stableHash(id);
+  const rating = Math.round((37 + (h % 12)) / 10 * 10) / 10; // 3.7–4.8
+  const weekly = 72 + (stableHash(`${id}:wk`) % 140); // 72–211
+  const reviews = 18 + (h % 220);
+  return { rating, weekly, reviews };
+}
+
 const fadeUp = (delay = 0) => ({
   initial:    { opacity: 0, y: 16 },
   animate:    { opacity: 1, y: 0  },
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-function BestSellingCard({ item, index, qty, onUpdate }: { item: MenuItem; index: number; qty: number; onUpdate: (delta: number) => void }) {
+function BestSellingCard({ item, index, qty, onOpenDetail }: { item: MenuItem; index: number; qty: number; onOpenDetail: () => void }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
@@ -156,7 +171,16 @@ function BestSellingCard({ item, index, qty, onUpdate }: { item: MenuItem; index
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
-      whileTap={{ scale: 0.96 }}
+      whileTap={{ scale: 0.98 }}
+      role="button"
+      tabIndex={0}
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetail();
+        }
+      }}
       style={{
         flex: "0 0 72vw",
         maxWidth: 270,
@@ -174,6 +198,7 @@ function BestSellingCard({ item, index, qty, onUpdate }: { item: MenuItem; index
         display: "flex",
         flexDirection: "column",
         padding: "10px", // Standardized
+        cursor: "pointer",
       }}
     >
       {/* ── IMAGE SECTION ────────────────────────────────────────────── */}
@@ -225,6 +250,17 @@ function BestSellingCard({ item, index, qty, onUpdate }: { item: MenuItem; index
             <span style={{ fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               {tag}
             </span>
+          </div>
+        )}
+        {qty > 0 && (
+          <div style={{
+            position: "absolute", top: 10, right: 10, zIndex: 12,
+            minWidth: 26, height: 26, padding: "0 8px", borderRadius: 13,
+            background: C.red, color: "#fff", fontSize: 12, fontWeight: 900,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 4px 12px ${C.redGlow}`,
+          }}>
+            {qty}
           </div>
         )}
       </div>
@@ -304,6 +340,369 @@ function CardSkeleton() {
   );
 }
 
+function StarRow({ value }: { value: number }) {
+  const rounded = Math.min(5, Math.max(0, Math.round(value)));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 3 }} aria-hidden>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: 20,
+              lineHeight: 1,
+              color: i <= rounded ? "#fbbf24" : "rgba(255,255,255,0.12)",
+            }}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+      <span style={{ fontSize: 16, fontWeight: 900, color: C.white }}>{value.toFixed(1)}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.38)" }}>from buyers</span>
+    </div>
+  );
+}
+
+function DishDetailView({
+  item,
+  onClose,
+  qty,
+  updateQty,
+  cartTotalItems,
+  onCheckout,
+}: {
+  item: MenuItem;
+  onClose: () => void;
+  qty: number;
+  updateQty: (id: string, delta: number) => void;
+  cartTotalItems: number;
+  onCheckout?: () => void;
+}) {
+  const imgSrc = getItemImage(item.name, item.image_url);
+  const { cleanName, tag } = parseRecipeTag(item.name);
+  const { rating, weekly, reviews } = dishStatsFromId(item.id);
+  const highly = weekly >= 160;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 110,
+        background: C.bg,
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: C.mono,
+        color: C.white,
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          flexShrink: 0,
+          padding: `max(12px, env(safe-area-inset-top)) ${sp(2)}px 12px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          background: `linear-gradient(to bottom, ${C.bg} 90%, transparent)`,
+          zIndex: 5,
+        }}
+      >
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.9 }}
+          onClick={onClose}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </motion.button>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, flex: 1, textAlign: "center" }}>Dish details</h2>
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.92 }}
+          onClick={() => {
+            if (cartTotalItems > 0) onCheckout?.();
+          }}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            background: cartTotalItems > 0 ? C.surfaceDeep : "rgba(255,255,255,0.04)",
+            border: `1px solid ${cartTotalItems > 0 ? C.border : C.borderFaint}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: cartTotalItems > 0 ? "pointer" : "default",
+            position: "relative",
+            opacity: cartTotalItems > 0 ? 1 : 0.45,
+          }}
+          aria-label={cartTotalItems > 0 ? "Go to checkout" : "Cart is empty"}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6h15l-1.5 9h-12z" />
+            <path d="M6 6 5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+          </svg>
+          {cartTotalItems > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: -2,
+                right: -2,
+                minWidth: 20,
+                height: 20,
+                padding: "0 5px",
+                borderRadius: 10,
+                background: C.red,
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 900,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: `2px solid ${C.bg}`,
+              }}
+            >
+              {cartTotalItems > 99 ? "99+" : cartTotalItems}
+            </span>
+          )}
+        </motion.button>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          padding: `0 ${sp(2.5)}px 140px`,
+        }}
+        className="no-scrollbar"
+      >
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "4/3",
+            maxHeight: 320,
+            borderRadius: 24,
+            overflow: "hidden",
+            marginBottom: 20,
+            border: `1px solid ${C.borderFaint}`,
+            boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+          }}
+        >
+          <Image src={imgSrc} alt={item.name} fill sizes="100vw" style={{ objectFit: "cover" }} priority />
+          {tag && (
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                left: 12,
+                background: "rgba(12,12,12,0.55)",
+                backdropFilter: "blur(10px)",
+                borderRadius: 10,
+                padding: "6px 12px",
+                border: "1px solid rgba(255,255,255,0.12)",
+              }}
+            >
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.92)" }}>
+                {tag}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <h1 style={{ margin: "0 0 10px", fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+          {toTitleCase(cleanName)}
+        </h1>
+
+        <div style={{ marginBottom: 14 }}>
+          <StarRow value={rating} />
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
+            Based on {reviews.toLocaleString("en-IN")} ratings after purchase
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.05)",
+              border: `1px solid ${C.border}`,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              This week
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 900, color: C.white }}>
+              {weekly.toLocaleString("en-IN")} orders
+            </p>
+          </div>
+          {highly && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "#4ade80",
+                background: "rgba(74,222,128,0.12)",
+                border: "1px solid rgba(74,222,128,0.35)",
+                padding: "8px 12px",
+                borderRadius: 999,
+              }}
+            >
+              Highly reordered
+            </span>
+          )}
+        </div>
+
+        <p style={{ margin: 0, fontSize: 28, fontWeight: 900, color: C.white }}>
+          ₹{item.price.toLocaleString("en-IN")}
+          <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.35)", marginLeft: 8 }}>per order</span>
+        </p>
+      </div>
+
+      {/* Bottom bar */}
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 12,
+          padding: `16px ${sp(2.5)}px max(20px, env(safe-area-inset-bottom))`,
+          background: `linear-gradient(to top, ${C.bg} 85%, transparent)`,
+          borderTop: `1px solid ${C.borderFaint}`,
+        }}
+      >
+        {qty <= 0 ? (
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => updateQty(item.id, 1)}
+            style={{
+              width: "100%",
+              height: 56,
+              borderRadius: 18,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 16,
+              fontWeight: 900,
+              color: "#fff",
+              background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+              boxShadow: `0 8px 28px ${C.redGlow}`,
+            }}
+          >
+            Add to order · ₹{item.price.toLocaleString("en-IN")}
+          </motion.button>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "4px 6px 4px 10px",
+                borderRadius: 18,
+                background: C.surfaceDeep,
+                border: `1px solid ${C.border}`,
+                height: 56,
+              }}
+            >
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.9 }}
+                onClick={() => updateQty(item.id, -1)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  border: "none",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#fff",
+                  fontSize: 22,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                −
+              </motion.button>
+              <span style={{ fontSize: 18, fontWeight: 900, minWidth: 32, textAlign: "center" }}>{qty}</span>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.9 }}
+                onClick={() => updateQty(item.id, 1)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  border: "none",
+                  background: C.red,
+                  color: "#fff",
+                  fontSize: 22,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                +
+              </motion.button>
+            </div>
+            {cartTotalItems > 0 && (
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onCheckout?.()}
+                style={{
+                  height: 56,
+                  padding: "0 18px",
+                  borderRadius: 18,
+                  border: `1px solid ${C.redBorder}`,
+                  background: "rgba(189,35,32,0.18)",
+                  color: C.red,
+                  fontSize: 13,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Checkout
+              </motion.button>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 export function MobileHomeScreen({
   displayName,
@@ -315,6 +714,7 @@ export function MobileHomeScreen({
   cart,
   updateQty,
 }: MobileHomeScreenProps) {
+  const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
   const [loading,        setLoading]        = useState(items.length === 0);
   const [activeNav,      setActiveNav]      = useState("home");
   const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
@@ -326,6 +726,14 @@ export function MobileHomeScreen({
     .concat(items.filter(d => !d.name.toUpperCase().includes("RECIPE")))
     .sort((a, b) => a.price - b.price)
     .slice(0, 5);
+
+  const cartTotalItems = Object.values(cart).reduce((sum, q) => sum + q, 0);
+
+  const goCheckout = useCallback(() => {
+    setDishDetailItem(null);
+    setActiveScreen("home");
+    onCheckout?.();
+  }, [onCheckout]);
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 56;  // circle size
@@ -651,14 +1059,37 @@ export function MobileHomeScreen({
 
         {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.1)} style={{ marginBottom: 0 }}>
-          <p style={{
-            margin: "0 0 12px", fontSize: 14, // Increased from 11
-            color: "rgba(255,255,255,0.35)",
-            fontWeight: 600, // Slightly reduced from 700
-            letterSpacing: "0", // Removed letter-spacing
-          }}>
-            Best Selling Dishes
-          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (bestFive[0]) {
+                setLocationOpen(false);
+                setDishDetailItem(bestFive[0]);
+              }
+            }}
+            style={{
+              margin: "0 0 12px",
+              padding: 0,
+              border: "none",
+              background: "none",
+              cursor: bestFive.length ? "pointer" : "default",
+              display: "block",
+              textAlign: "left",
+              width: "100%",
+            }}
+          >
+            <p style={{
+              margin: 0, fontSize: 14,
+              color: "rgba(255,255,255,0.35)",
+              fontWeight: 600,
+              letterSpacing: "0",
+            }}>
+              Best Selling Dishes
+              {bestFive.length > 0 && (
+                <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.22)" }}>Tap to view top pick →</span>
+              )}
+            </p>
+          </button>
 
           <div 
             className="no-scrollbar"
@@ -679,7 +1110,10 @@ export function MobileHomeScreen({
                     item={item} 
                     index={i} 
                     qty={cart[item.id] || 0}
-                    onUpdate={(d) => updateQty(item.id, d)}
+                    onOpenDetail={() => {
+                      setLocationOpen(false);
+                      setDishDetailItem(item);
+                    }}
                   />
                 ))}
           </div>
@@ -689,7 +1123,10 @@ export function MobileHomeScreen({
         <motion.div {...fadeUp(0.16)} style={{ marginTop: -8 }}>
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={() => setActiveScreen("menu")}
+            onClick={() => {
+              setDishDetailItem(null);
+              setActiveScreen("menu");
+            }}
             style={{
               width: "100%",
               background: C.surfaceDeep,
@@ -749,7 +1186,21 @@ export function MobileHomeScreen({
             onBack={() => setActiveScreen("home")} 
             cart={cart}
             updateQty={updateQty}
-            onCheckout={onCheckout}
+            onCheckout={goCheckout}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {dishDetailItem && (
+          <DishDetailView
+            key={dishDetailItem.id}
+            item={dishDetailItem}
+            onClose={() => setDishDetailItem(null)}
+            qty={cart[dishDetailItem.id] || 0}
+            updateQty={updateQty}
+            cartTotalItems={cartTotalItems}
+            onCheckout={goCheckout}
           />
         )}
       </AnimatePresence>
@@ -757,7 +1208,10 @@ export function MobileHomeScreen({
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{
+          opacity: dishDetailItem ? 0 : 1,
+          y: dishDetailItem ? 24 : 0,
+        }}
         transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
         style={{
           position: "fixed",
@@ -773,7 +1227,7 @@ export function MobileHomeScreen({
         <div
           style={{
             display: "flex", gap: 14, alignItems: "center",
-            pointerEvents: "auto",
+            pointerEvents: dishDetailItem ? "none" : "auto",
           }}
         >
           {NAV_ITEMS.map((item) => {

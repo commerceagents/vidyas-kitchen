@@ -29,13 +29,16 @@ interface MenuItem {
 
 interface CheckoutScreenProps {
   onBack: () => void;
-  onPlaceOrder: (method: string) => void;
+  /** Called after Razorpay redirect succeeds (optional; not used on redirect flow). */
+  onPlaceOrder?: (method: string) => void;
   cart: Record<string, number>;
   items: MenuItem[];
   updateQty: (id: string, delta: number) => void;
   locationLabel: string;
   onChangeLocation: () => void;
   onAddMore: () => void;
+  phone: string;
+  customerName: string;
 }
 
 export function CheckoutScreen({
@@ -47,9 +50,12 @@ export function CheckoutScreen({
   locationLabel,
   onChangeLocation,
   onAddMore,
+  phone,
+  customerName,
 }: CheckoutScreenProps) {
   const [paymentMethod, setPaymentMethod] = useState("upi");
   const [placing, setPlacing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Filter items that are in cart
   const cartItems = items.filter(it => cart[it.id] > 0);
@@ -61,11 +67,40 @@ export function CheckoutScreen({
   const tax          = Math.round(itemTotal * 0.05); // 5% GST
   const grandTotal   = itemTotal + packagingFee + deliveryFee + tax;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (paymentMethod === "cod") {
+      setCheckoutError("Cash on delivery isn’t available for online checkout yet.");
+      return;
+    }
+    if (!phone.trim()) {
+      setCheckoutError("Missing phone. Please sign in again.");
+      return;
+    }
+    if (cartItems.length === 0) return;
+
     setPlacing(true);
-    setTimeout(() => {
-      onPlaceOrder(paymentMethod);
-    }, 2000);
+    setCheckoutError(null);
+    try {
+      const res = await fetch("/api/orders/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          customerName: customerName.trim() || "Customer",
+          deliveryAddress: locationLabel,
+          paymentMethod,
+          lines: cartItems.map((it) => ({ menuItemId: it.id, quantity: cart[it.id] })),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; paymentUrl?: string };
+      if (!res.ok) throw new Error(data.error || `Checkout failed (${res.status})`);
+      if (!data.paymentUrl) throw new Error("No payment URL returned");
+      onPlaceOrder?.(paymentMethod);
+      window.location.href = data.paymentUrl;
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : "Something went wrong");
+      setPlacing(false);
+    }
   };
 
   const fadeUp = {
@@ -220,17 +255,20 @@ export function CheckoutScreen({
             {[
               { id: "upi", label: "UPI (GPay/PhonePe)", icon: "⚡" },
               { id: "card", label: "Debit/Credit Card", icon: "💳" },
-              { id: "cod", label: "Cash on Delivery", icon: "💵" }
+              { id: "cod", label: "Cash on Delivery", icon: "💵", disabled: true },
             ].map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPaymentMethod(p.id)}
+                type="button"
+                disabled={"disabled" in p && p.disabled}
+                onClick={() => !("disabled" in p && p.disabled) && setPaymentMethod(p.id)}
                 style={{
                   flex: "0 0 140px", padding: "16px", borderRadius: 16,
+                  opacity: "disabled" in p && p.disabled ? 0.45 : 1,
                   background: paymentMethod === p.id ? "rgba(189,35,32,0.12)" : "rgba(255,255,255,0.03)",
                   border: `1.5px solid ${paymentMethod === p.id ? C.red : "rgba(255,255,255,0.06)"}`,
                   display: "flex", flexDirection: "column", gap: 8, textAlign: "left",
-                  cursor: "pointer", transition: "all 0.2s"
+                  cursor: "disabled" in p && p.disabled ? "not-allowed" : "pointer", transition: "all 0.2s"
                 }}
               >
                 <span style={{ fontSize: 20 }}>{p.icon}</span>
@@ -247,6 +285,15 @@ export function CheckoutScreen({
         background: `linear-gradient(to top, ${C.bg} 80%, transparent)`,
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30
       }}>
+        {checkoutError && (
+          <p style={{
+            margin: "0 0 12px", padding: "12px 14px", borderRadius: 14,
+            background: "rgba(189,35,32,0.15)", border: "1px solid rgba(189,35,32,0.35)",
+            color: "#fecaca", fontSize: 13, fontWeight: 600, lineHeight: 1.4
+          }}>
+            {checkoutError}
+          </p>
+        )}
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={handlePlaceOrder}
