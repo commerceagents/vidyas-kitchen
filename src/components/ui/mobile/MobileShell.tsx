@@ -42,6 +42,10 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   const [items, setItems] = useState<MenuItem[]>([]);
   const [cart, setCart]   = useState<Record<string, number>>({});
 
+  const [checkoutSourceDishId, setCheckoutSourceDishId] = useState<string | null>(null);
+  const [resumeDishDetail, setResumeDishDetail] = useState<{ id: string; nonce: number } | null>(null);
+  const [browseMenuSignal, setBrowseMenuSignal] = useState(0);
+
   const updateQty = (id: string, delta: number) => {
     setCart(prev => {
       const current = prev[id] || 0;
@@ -157,7 +161,13 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
               displayName={name}
               location={location}
               onChangeLocation={() => setStep("location")}
-              onCheckout={() => setStep("checkout")}
+              onCheckout={(fromDishId) => {
+                setCheckoutSourceDishId(fromDishId ?? null);
+                setStep("checkout");
+              }}
+              resumeDishDetail={resumeDishDetail}
+              onResumeDishDetailConsumed={() => setResumeDishDetail(null)}
+              openBrowseMenuSignal={browseMenuSignal}
               items={items}
               setItems={setItems}
               cart={cart}
@@ -175,8 +185,16 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <CheckoutScreen
-              onBack={() => setStep("home")}
-              onAddMore={() => setStep("home")}
+              onBack={() => {
+                const sid = checkoutSourceDishId;
+                setCheckoutSourceDishId(null);
+                setStep("home");
+                if (sid) setResumeDishDetail({ id: sid, nonce: Date.now() });
+              }}
+              onAddMore={() => {
+                setStep("home");
+                setBrowseMenuSignal((n) => n + 1);
+              }}
               onPlaceOrder={() => setCart({})}
               phone={phone}
               customerName={name}

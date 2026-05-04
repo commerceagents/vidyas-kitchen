@@ -868,10 +868,19 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           </svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600 }}>
+          <p style={{
+            margin: 0,
+            fontSize: 11,
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.55)",
+            letterSpacing: "0.02em",
+            lineHeight: 1.25,
+            fontFamily: "var(--font-outfit), system-ui, -apple-system, sans-serif",
+            WebkitFontSmoothing: "antialiased",
+          }}>
             Delivering to
           </p>
-          <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ margin: 0, fontSize: 15, color: "#fff", fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {searchText || "Set your location"}
           </p>
         </div>

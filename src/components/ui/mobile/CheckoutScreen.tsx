@@ -115,12 +115,15 @@ export function CheckoutScreen({
       display: "flex", flexDirection: "column", color: C.white,
       fontFamily: C.mono, overflow: "hidden"
     }}>
-      {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* ── Header (centered title, back balances width) ─────────────────── */}
       <div style={{
         padding: `max(16px, env(safe-area-inset-top)) ${sp(2.5)}px 16px`,
-        display: "flex", alignItems: "center", gap: 16,
+        display: "grid",
+        gridTemplateColumns: "44px 1fr 44px",
+        alignItems: "center",
+        columnGap: 10,
         background: `linear-gradient(to bottom, ${C.bg} 80%, transparent)`,
-        flexShrink: 0, zIndex: 10
+        flexShrink: 0, zIndex: 10,
       }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -129,14 +132,15 @@ export function CheckoutScreen({
             width: 44, height: 44, borderRadius: "50%",
             background: C.surface, border: `1px solid ${C.border}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </motion.button>
-        <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: "-0.01em" }}>Checkout</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", textAlign: "center" }}>Checkout</h2>
+        <div style={{ width: 44 }} aria-hidden />
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: `0 ${sp(2.5)}px 140px` }} className="no-scrollbar">
