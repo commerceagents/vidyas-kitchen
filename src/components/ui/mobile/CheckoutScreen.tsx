@@ -37,6 +37,18 @@ function toTitleCase(str: string) {
   return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, match => match.toUpperCase());
 }
 
+/** Same as home — strip (MOM'S RECIPE) etc. for layout; tag becomes a chip. */
+function parseRecipeTag(name: string) {
+  const regex = /[\(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[\)]?/i;
+  const match = name.match(regex);
+  if (match) {
+    const tag = match[1].trim();
+    const cleanName = name.replace(match[0], "").trim();
+    return { cleanName, tag };
+  }
+  return { cleanName: name, tag: null };
+}
+
 interface MenuItem {
   id: string;
   name: string;
@@ -211,21 +223,45 @@ export function CheckoutScreen({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {cartItems.map((item) => (
+            {cartItems.map((item) => {
+              const { cleanName, tag } = parseRecipeTag(item.name);
+              return (
               <div key={item.id} style={{
                 background: "rgba(255,255,255,0.03)", borderRadius: 18,
-                padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                gap: 12,
                 border: "1px solid rgba(255,255,255,0.05)"
               }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{toTitleCase(item.name)}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)" }}>₹{item.price}</p>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{toTitleCase(cleanName)}</p>
+                  {tag ? (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        marginTop: 6,
+                        padding: "3px 9px",
+                        borderRadius: 8,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.03em",
+                        background: "rgba(189,35,32,0.14)",
+                        border: "1px solid rgba(189,35,32,0.32)",
+                        color: "rgba(255,214,210,0.95)",
+                        fontFamily: C.mono,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {toTitleCase(tag)}
+                    </span>
+                  ) : null}
+                  <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800, color: C.white }}>₹{item.price}</p>
                 </div>
 
                 <div style={{
                   height: 32, borderRadius: 16, background: C.red, display: "flex",
                   alignItems: "center", justifyContent: "space-between", padding: "0 4px",
-                  boxShadow: "0 4px 12px rgba(189,35,32,0.4)", width: 80, flexShrink: 0
+                  boxShadow: "0 4px 12px rgba(189,35,32,0.4)", width: 80, flexShrink: 0,
+                  alignSelf: "center",
                 }}>
                   <button onClick={() => updateQty(item.id, -1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -240,7 +276,8 @@ export function CheckoutScreen({
                   </button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </motion.section>
 

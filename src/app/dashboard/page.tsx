@@ -2,11 +2,12 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import { kitchenLabelForStatus, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
-import { ShoppingBag, IndianRupee, AlertCircle, Truck } from "lucide-react";
+import { ShoppingBag, IndianRupee, AlertCircle, Truck, PackageOpen, Monitor } from "lucide-react";
 
 const fontUi = "var(--font-outfit), system-ui, sans-serif";
 const fontData = "var(--font-jetbrains-mono), ui-monospace, monospace";
@@ -70,9 +71,9 @@ export default function Dashboard() {
       .filter((o) => revenueStatuses.has(String((o as { status?: string }).status || "").toLowerCase()))
       .reduce((acc, o) => acc + Number((o as { total_amount?: number }).total_amount || 0), 0);
 
-    const pendingPayments = data.filter(
-      (o) => String((o as { status?: string }).status) === OrderStatus.PENDING_PAYMENT,
-    ).length;
+    const pendingPayments = data
+      .filter((o) => String((o as { status?: string }).status) === OrderStatus.PENDING_PAYMENT)
+      .reduce((acc, o) => acc + Number((o as { total_amount?: number }).total_amount || 0), 0);
 
     const pipeline = new Set([
       OrderStatus.PREPARING,
@@ -108,39 +109,86 @@ export default function Dashboard() {
         fontFamily: fontUi,
         background:
           "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(189, 35, 32, 0.12), transparent 55%), #080808",
-        padding: "clamp(1rem, 3vw, 2.75rem)",
+        padding: "clamp(1rem, 3vw, 2.75rem) clamp(0.75rem, 2.5vw, 1.5rem)",
         color: "#fff",
       }}
     >
+      <div
+        className="mb-4 flex gap-3 rounded-[1rem] border lg:hidden"
+        role="note"
+        style={{
+          padding: "0.85rem 1rem",
+          alignItems: "flex-start",
+          background: "rgba(189, 35, 32, 0.1)",
+          borderColor: "rgba(189, 35, 32, 0.28)",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          lineHeight: 1.45,
+          color: "rgba(255,255,255,0.88)",
+        }}
+      >
+        <Monitor
+          className="h-5 w-5 shrink-0"
+          strokeWidth={2}
+          style={{ color: "#BD2320", marginTop: 2 }}
+          aria-hidden
+        />
+        <p style={{ margin: 0 }}>
+          For a better experience, open this dashboard on a{" "}
+          <span style={{ color: "#fff", fontWeight: 700 }}>laptop or desktop</span>.
+        </p>
+      </div>
+
       <header
         className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"
         style={{ marginBottom: "clamp(1.75rem, 4vw, 2.75rem)" }}
       >
-        <div>
-          <h1
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "clamp(0.75rem, 2.5vw, 1.35rem)",
+          }}
+        >
+          <Image
+            src="/vk_logo_full.png"
+            alt="Vidya's Kitchen"
+            width={256}
+            height={256}
+            priority
             style={{
-              fontSize: "clamp(1.75rem, 4vw, 2.25rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.15,
-              margin: 0,
+              width: "clamp(52px, 8vw, 72px)",
+              height: "clamp(52px, 8vw, 72px)",
+              objectFit: "contain",
+              flexShrink: 0,
+              borderRadius: "50%",
             }}
-          >
-            Vidya&apos;s Kitchen
-          </h1>
-          <p
-            style={{
-              margin: "0.5rem 0 0",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.45)",
-              lineHeight: 1.5,
-            }}
-          >
-            Owner operations
-          </p>
+          />
+          <div>
+            <h1
+              style={{
+                fontSize: "clamp(1.75rem, 4vw, 2.25rem)",
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.15,
+                margin: 0,
+              }}
+            >
+              Vidya&apos;s Kitchen
+            </h1>
+            <p
+              style={{
+                margin: "0.5rem 0 0",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                letterSpacing: "0.02em",
+                color: "rgba(255,255,255,0.45)",
+                lineHeight: 1.5,
+              }}
+            >
+              Owner Operations
+            </p>
+          </div>
         </div>
         <div
           className="flex items-center self-start sm:self-auto shrink-0 rounded-full"
@@ -153,8 +201,7 @@ export default function Dashboard() {
             fontFamily: fontData,
             fontSize: "0.68rem",
             fontWeight: 700,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
+            letterSpacing: "0.03em",
             color: "rgba(255,255,255,0.78)",
             lineHeight: 1.5,
           }}
@@ -169,7 +216,7 @@ export default function Dashboard() {
               boxShadow: "0 0 10px rgba(34,197,94,0.6)",
             }}
           />
-          <span style={{ paddingTop: 1, paddingBottom: 1 }}>Live sync</span>
+          <span style={{ paddingTop: 1, paddingBottom: 1 }}>Live Sync</span>
         </div>
       </header>
 
@@ -179,36 +226,36 @@ export default function Dashboard() {
       >
         <StatCard
           icon={<ShoppingBag className="h-5 w-5" strokeWidth={2} />}
-          label="Total orders"
+          label="Total Orders"
           value={stats.totalOrders}
           accent="rgba(255,255,255,0.9)"
           iconTint="rgba(255,255,255,0.12)"
         />
         <StatCard
           icon={<IndianRupee className="h-5 w-5" strokeWidth={2} />}
-          label="Revenue (paid onward)"
+          label="Revenue (Paid Onward)"
           value={`₹${Math.round(stats.totalRevenue).toLocaleString("en-IN")}`}
           accent="#BD2320"
           iconTint="rgba(189, 35, 32, 0.15)"
         />
         <StatCard
           icon={<AlertCircle className="h-5 w-5" strokeWidth={2} />}
-          label="Pending payment"
-          value={stats.pendingPayments}
+          label="Pending Payment"
+          value={`₹${Math.round(stats.pendingPayments).toLocaleString("en-IN")}`}
           accent="#f59e0b"
           iconTint="rgba(245, 158, 11, 0.12)"
         />
         <StatCard
           icon={<Truck className="h-5 w-5" strokeWidth={2} />}
-          label="In kitchen & dispatch"
+          label="In Kitchen & Dispatch"
           value={stats.kitchenPipeline}
-          accent="#c4b5fd"
-          iconTint="rgba(196, 181, 253, 0.12)"
+          accent="#22c55e"
+          iconTint="rgba(34, 197, 94, 0.15)"
         />
       </div>
 
       <section
-        className="overflow-hidden rounded-[1.75rem]"
+        className="w-full overflow-hidden rounded-[1.75rem]"
         style={{
           border: "1px solid rgba(255,255,255,0.08)",
           background: "rgba(13, 13, 15, 0.92)",
@@ -232,7 +279,7 @@ export default function Dashboard() {
               lineHeight: 1.45,
             }}
           >
-            Orders by slot
+            Orders by Slot
           </h2>
           <button
             type="button"
@@ -240,10 +287,9 @@ export default function Dashboard() {
             className="shrink-0 rounded-full transition-colors hover:bg-white/[0.08]"
             style={{
               fontFamily: fontData,
-              fontSize: "0.7rem",
+              fontSize: "0.8rem",
               fontWeight: 700,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
+              letterSpacing: "0.04em",
               color: "rgba(255,255,255,0.62)",
               border: "1px solid rgba(255,255,255,0.14)",
               background: "rgba(255,255,255,0.03)",
@@ -256,7 +302,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="no-scrollbar overflow-x-auto">
           <table className="w-full text-left" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.03)" }}>
@@ -266,10 +312,9 @@ export default function Dashboard() {
                     style={{
                       padding: "1rem 1.25rem",
                       fontFamily: fontData,
-                      fontSize: "0.65rem",
+                      fontSize: "0.8rem",
                       fontWeight: 700,
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
                       color: "rgba(255,255,255,0.45)",
                       lineHeight: 1.5,
                       verticalAlign: "bottom",
@@ -325,13 +370,13 @@ export default function Dashboard() {
                     <td style={{ padding: "1.1rem 1.25rem", verticalAlign: "top" }}>
                       <div className="flex flex-wrap gap-2">
                         {st === OrderStatus.PENDING_PAYMENT && (
-                          <ActionBtn label="Confirm pay" onClick={() => onTransition(o.id, OrderStatus.PAID)} tone="primary" />
+                          <ActionBtn label="Confirm Pay" onClick={() => onTransition(o.id, OrderStatus.PAID)} tone="primary" />
                         )}
                         {st === OrderStatus.PAID && (
-                          <ActionBtn label="Accept order" onClick={() => onTransition(o.id, OrderStatus.PREPARING)} tone="ghost" />
+                          <ActionBtn label="Accept Order" onClick={() => onTransition(o.id, OrderStatus.PREPARING)} tone="ghost" />
                         )}
                         {st === OrderStatus.PREPARING && (
-                          <ActionBtn label="Mark ready" onClick={() => onTransition(o.id, OrderStatus.READY)} tone="ghost" />
+                          <ActionBtn label="Mark Ready" onClick={() => onTransition(o.id, OrderStatus.READY)} tone="ghost" />
                         )}
                         {st === OrderStatus.READY && (
                           <ActionBtn label="Dispatch" onClick={() => onTransition(o.id, OrderStatus.OUT_FOR_DELIVERY)} tone="warn" />
@@ -343,10 +388,56 @@ export default function Dashboard() {
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ padding: "4rem 1.5rem", textAlign: "center" }}>
-                    <p style={{ margin: 0, fontStyle: "italic", color: "rgba(255,255,255,0.35)", fontSize: "0.95rem" }}>
-                      Waiting for new orders…
-                    </p>
+                  <td colSpan={5} style={{ padding: 0, border: "none" }}>
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        minHeight: 320,
+                        width: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "3rem clamp(1rem, 4vw, 2.5rem)",
+                        gap: "1.125rem",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 88,
+                          height: 88,
+                          borderRadius: "1.25rem",
+                          background: "rgba(189, 35, 32, 0.14)",
+                          border: "1px solid rgba(189, 35, 32, 0.32)",
+                          boxShadow: "0 12px 40px rgba(189, 35, 32, 0.12)",
+                        }}
+                      >
+                        <PackageOpen
+                          className="h-11 w-11"
+                          strokeWidth={1.75}
+                          style={{ color: "#BD2320" }}
+                          aria-hidden
+                        />
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          letterSpacing: "-0.01em",
+                          color: "#BD2320",
+                          lineHeight: 1.45,
+                          textAlign: "center",
+                        }}
+                      >
+                        Waiting for new orders
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -371,8 +462,7 @@ function ActionBtn({
     fontFamily: fontData,
     fontSize: "0.62rem",
     fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
+    letterSpacing: "0.04em",
     padding: "0.5rem 0.9rem",
     borderRadius: 12,
     border: "none",
@@ -465,10 +555,9 @@ function StatCard({
       <div className="relative pr-14">
         <div
           style={{
-            fontSize: "0.7rem",
+            fontSize: "0.84rem",
             fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            letterSpacing: "0.03em",
             color: "rgba(255,255,255,0.48)",
             lineHeight: 1.5,
             marginBottom: "0.65rem",
@@ -514,8 +603,7 @@ function StatusBadge({ status }: { status: string }) {
         fontFamily: fontData,
         fontSize: "0.62rem",
         fontWeight: 800,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
+        letterSpacing: "0.03em",
         padding: "0.35rem 0.65rem",
         borderRadius: 999,
         background: s.bg,

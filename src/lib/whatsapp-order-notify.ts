@@ -152,6 +152,21 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       ]);
       break;
     }
+    case OrderStatus.CANCELLED: {
+      const short = order.id.slice(0, 8).toUpperCase();
+      await postWhatsApp({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          body:
+            `Your order *#${short}…* has been *cancelled* as you requested.\n\n` +
+            `If anything looks wrong or you were charged in error, reply here and we’ll help.`,
+        },
+      });
+      break;
+    }
     default:
       break;
   }

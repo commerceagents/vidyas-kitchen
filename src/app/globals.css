@@ -132,9 +132,32 @@ body {
   animation: fadeIn 0.6s ease forwards;
 }
 
-/* Hide scrollbar for category pill rows */
+/* Hide scrollbar for category pill rows + main mobile feed */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.vk-scroll-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.vk-scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Dashboard route: hide viewport scrollbars (class toggled in dashboard/layout.tsx) */
+html.vk-dashboard-viewport,
+body.vk-dashboard-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html.vk-dashboard-viewport::-webkit-scrollbar,
+body.vk-dashboard-viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 
 /*
  * Mobile UI font override — beats the global * selector above.

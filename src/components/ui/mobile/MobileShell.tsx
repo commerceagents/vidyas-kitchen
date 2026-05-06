@@ -455,7 +455,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
               )}
               {paymentFeedback.kind !== "success" ? (
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#fff" }}>
-                  {paymentFeedback.kind === "error" ? "Payment failed" : "Payment cancelled"}
+                  {paymentFeedback.kind === "error" ? "Payment failed" : "Checkout closed"}
                 </h2>
               ) : null}
               <p
@@ -472,7 +472,10 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                 ) : paymentFeedback.kind === "error" ? (
                   <>Something went wrong completing payment. Your cart is unchanged — try again from checkout.</>
                 ) : (
-                  <>You closed or cancelled the payment. You can return to checkout to try again.</>
+                  <>
+                    You left the payment screen before paying — <span style={{ color: "rgba(255,255,255,0.85)" }}>no order was placed</span> in the
+                    kitchen. Your cart is still here; open checkout when you’re ready.
+                  </>
                 )}
               </p>
               <motion.button

@@ -42,12 +42,21 @@ export function canTransitionOrderStatus(from: string, to: string): boolean {
   return Array.isArray(next) && next.includes(t);
 }
 
+/** Title-case a snake_case or space-separated status fragment for display. */
+function titleizeWords(s: string): string {
+  return s
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 /** Human label for kitchen dashboard badge. */
 export function kitchenLabelForStatus(status: string): string {
   const s = normalizeOrderStatus(status);
   switch (s) {
     case OrderStatus.PENDING_PAYMENT:
-      return "Pending pay";
+      return "Pending Pay";
     case OrderStatus.PAID:
       return "New";
     case OrderStatus.PREPARING:
@@ -61,6 +70,6 @@ export function kitchenLabelForStatus(status: string): string {
     case OrderStatus.CANCELLED:
       return "Cancelled";
     default:
-      return s.replace(/_/g, " ");
+      return titleizeWords(s);
   }
 }

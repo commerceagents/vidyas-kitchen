@@ -132,6 +132,21 @@ const content = {
 export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [activeSection, setActiveSection] = useState<string>("");
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  /** Terms/legal is often opened from the app; ensure name-edit or other locks don’t trap scroll. */
+  useEffect(() => {
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+  }, []);
 
   useEffect(() => {
     const skipSplash = () => localStorage.setItem('skip_splash', 'true');
@@ -168,6 +183,14 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
     { id: "refund", label: "Refund Policy" },
   ];
 
+  const scrollToSectionId = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const offset = narrow ? 96 : 120;
+    const top = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset) - offset;
+    window.scrollTo({ top, behavior: "smooth" });
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -188,7 +211,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       {/* FIXED Top Header */}
       <header style={{
         borderBottom: '1px solid rgba(255,255,255,0.05)',
-        padding: '24px 48px',
+        padding: narrow ? '16px 20px' : '24px 48px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -199,7 +222,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         top: 0,
         left: 0,
         right: 0,
-        height: '81px'
+        minHeight: narrow ? '64px' : '81px',
+        height: narrow ? 'auto' : '81px',
       }}>
         <motion.div
           transition={{ duration: 0.2 }}
@@ -226,18 +250,66 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </Link>
         </motion.div>
         <div style={{ 
-          fontSize: '10px', 
+          fontSize: narrow ? '9px' : '10px', 
           fontWeight: '900', 
-          letterSpacing: '0.4em', 
+          letterSpacing: narrow ? '0.2em' : '0.4em', 
           color: 'rgba(255,255,255,0.2)', 
           textTransform: 'uppercase',
-          textAlign: 'right'
+          textAlign: 'right',
+          maxWidth: narrow ? '45%' : 'none',
+          lineHeight: 1.3,
         }}>
-          Vidya&apos;s Kitchen Legal
+          {narrow ? 'Legal' : "Vidya's Kitchen Legal"}
         </div>
       </header>
 
-      {/* FIXED Left Sidebar */}
+      {narrow && (
+        <nav
+          className="hide-scrollbar"
+          style={{
+            position: 'fixed',
+            top: '64px',
+            left: 0,
+            right: 0,
+            zIndex: 900,
+            backgroundColor: 'rgba(0,0,0,0.92)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            padding: '10px 16px',
+            display: 'flex',
+            gap: 10,
+            overflowX: 'auto',
+          }}
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                borderRadius: 999,
+                border: `1px solid ${activeTab === tab.id ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)'}`,
+                background: activeTab === tab.id ? 'rgba(255,255,255,0.12)' : 'transparent',
+                color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
+                fontSize: '11px',
+                fontWeight: 800,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {tab.id === 'terms' ? 'Terms' : tab.id === 'privacy' ? 'Privacy' : 'Refunds'}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {!narrow && (
+        <>
       <aside style={{
         width: '320px',
         borderRight: '1px solid rgba(255,255,255,0.05)',
@@ -313,11 +385,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                   href={`#${item.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    const el = document.getElementById(item.id);
-                    if (el) {
-                      const top = el.getBoundingClientRect().top + window.pageYOffset - 120;
-                      window.scrollTo({ top, behavior: 'smooth' });
-                    }
+                    scrollToSectionId(item.id);
                   }}
                   style={{
                     fontSize: '11px',
@@ -337,13 +405,16 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           </ul>
         </nav>
       </aside>
+        </>
+      )}
 
       {/* Main Content Area - Flows Naturally */}
       <main style={{
-        marginLeft: '320px',
-        marginRight: '320px',
-        padding: '160px 100px 100px',
+        marginLeft: narrow ? 0 : '320px',
+        marginRight: narrow ? 0 : '320px',
+        padding: narrow ? '132px 20px 56px' : '160px 100px 100px',
         minHeight: '100vh',
+        touchAction: narrow ? 'pan-y' : undefined,
       }}>
         <motion.div
           key={activeTab}
@@ -368,16 +439,16 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             alignItems: 'center'
           }}>
             <h1 style={{
-              fontSize: '56px',
+              fontSize: narrow ? 'clamp(28px, 7vw, 42px)' : '56px',
               fontWeight: '900',
               letterSpacing: '-0.02em',
-              lineHeight: '1',
+              lineHeight: narrow ? 1.15 : '1',
               marginBottom: '20px',
               color: '#FFFFFF',
               textAlign: 'center',
               width: '100%',
               display: 'block',
-              whiteSpace: 'nowrap'
+              whiteSpace: narrow ? 'normal' : 'nowrap'
             }}>
               {content[activeTab].title}
             </h1>
@@ -394,7 +465,55 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             </p>
           </div>
           
-          <div style={{ color: 'rgba(255,255,255,0.55)', lineHeight: '2.2', fontSize: '18px', width: '100%' }}>
+          {narrow && (
+            <details
+              style={{
+                width: '100%',
+                marginBottom: 28,
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 14,
+                padding: '12px 16px',
+                background: 'rgba(255,255,255,0.03)',
+              }}
+            >
+              <summary
+                style={{
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.8)',
+                  listStyle: 'none',
+                }}
+              >
+                On this page
+              </summary>
+              <ul style={{ listStyle: 'none', padding: '14px 0 0', margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {content[activeTab].toc.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => scrollToSectionId(item.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        textAlign: 'left',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <div style={{ color: 'rgba(255,255,255,0.55)', lineHeight: '2.2', fontSize: narrow ? '16px' : '18px', width: '100%' }}>
             {content[activeTab].body}
           </div>
 

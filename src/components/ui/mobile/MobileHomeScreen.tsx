@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, RefObject, useCallback, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
@@ -101,7 +102,18 @@ const NAV_ITEMS = [
 function HomeIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={s}
+      strokeWidth={active ? 2.5 : 2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", transform: "translate(0, -0.5px)" }}
+    >
       <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
     </svg>
   );
@@ -109,7 +121,18 @@ function HomeIcon({ active }: { active: boolean }) {
 function OrdersIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={s}
+      strokeWidth={active ? 2.5 : 2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", transform: "translate(0.5px, -1px)" }}
+    >
       <path d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
     </svg>
   );
@@ -117,7 +140,18 @@ function OrdersIcon({ active }: { active: boolean }) {
 function AccountIcon({ active }: { active: boolean }) {
   const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={active ? 2.5 : 2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={s}
+      strokeWidth={active ? 2.5 : 2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", transform: "translate(-0.5px, -1px)" }}
+    >
       <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
   );
@@ -187,27 +221,6 @@ function listMsrpRupees(salePrice: number, id: string): number {
   return Math.min(2499, Math.ceil((salePrice + bump) / 50) * 50);
 }
 
-const FAVORITES_LS = "vk_favorite_dish_ids";
-
-function readFavoriteIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(FAVORITES_LS);
-    const j = raw ? JSON.parse(raw) : [];
-    return Array.isArray(j) ? j.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteIds(ids: string[]) {
-  try {
-    localStorage.setItem(FAVORITES_LS, JSON.stringify(ids));
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Short, plain description from dish name and category. */
 function simpleDishDescription(cleanName: string, category: string) {
   const n = cleanName.toLowerCase();
@@ -272,6 +285,9 @@ function pairingSuggestion(cleanName: string, category: string): string {
   }
   return `A hearty ${cat} — add rice or bread and you’ve got a full plate.`;
 }
+
+/** Popular / Favorites segment control — spring slide on the pill. */
+const FEED_TAB_SPRING = { type: "spring" as const, stiffness: 320, damping: 24, mass: 0.88 };
 
 const fadeUp = (delay = 0) => ({
   initial:    { opacity: 0, y: 16 },
@@ -873,6 +889,7 @@ function trackingLineForStatus(status: string): string {
   if (s === "ready") return "Food is packed — waiting for the rider.";
   if (s === "out" || s === "out_for_delivery") return "Out for delivery — watch for the rider.";
   if (s === "delivered") return "Delivered — enjoy your meal!";
+  if (s === "cancelled") return "This order has been cancelled.";
   return status ? `Status: ${status.replace(/_/g, " ")}` : "Fetching latest update…";
 }
 
@@ -936,8 +953,36 @@ export function MobileHomeScreen({
   const bestSellingIdSet = useMemo(() => new Set(bestFive.map((d) => d.id)), [bestFive]);
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [homeDishFeedTab, setHomeDishFeedTab] = useState<"popular" | "favorites">("popular");
+  const feedTabRowRef = useRef<HTMLDivElement>(null);
+  const [feedTabPill, setFeedTabPill] = useState({ w: 0, shift: 0 });
+
+  useLayoutEffect(() => {
+    const host = feedTabRowRef.current;
+    if (!host) return;
+    const measure = () => {
+      const padX = 8;
+      const gap = 4;
+      const inner = host.clientWidth - padX;
+      if (inner <= 0) return;
+      const w = (inner - gap) / 2;
+      setFeedTabPill({ w, shift: w + gap });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, []);
+
   useEffect(() => {
-    setFavoriteIds(readFavoriteIds());
+    const sync = () => setFavoriteIds(readFavoriteIds());
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener(VK_FAVORITES_UPDATED, sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(VK_FAVORITES_UPDATED, sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -1153,7 +1198,7 @@ export function MobileHomeScreen({
   useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
 
   useEffect(() => {
-    if (activeNav === "orders") setLocationOpen(false);
+    if (activeNav === "orders" || activeNav === "account") setLocationOpen(false);
   }, [activeNav]);
 
   // Close location panel on outside click
@@ -1253,6 +1298,30 @@ export function MobileHomeScreen({
               }}
             >
               Your Orders
+            </h1>
+          </div>
+        ) : activeNav === "account" ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 48,
+              paddingBottom: 8,
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: "0.03em",
+                color: C.white,
+                textAlign: "center",
+                fontFamily: C.mono,
+              }}
+            >
+              Account
             </h1>
           </div>
         ) : (
@@ -1445,18 +1514,20 @@ export function MobileHomeScreen({
       </div>
 
       <div 
-        className="vk-scroll-container"
+        className="vk-scroll-container no-scrollbar"
         style={{
           position: "relative", zIndex: 1,
           flex: 1,
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
           gap: sp(3), // Reduced from sp(4)
-          padding: `0 ${sp(2.5)}px`,
+          padding: `0 ${sp(2)}px`,
           paddingTop: sp(2),
           overflowY: "auto",
-          paddingBottom: 130, // Spacer for the floating nav bar
+          paddingBottom: 130,
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
         }}
       >
         {activeNav === "home" && (
@@ -1483,104 +1554,173 @@ export function MobileHomeScreen({
           </h2>
         </motion.div>
 
-        {/* ── YOUR FAVORITES (saved on this device) ─────────────────────── */}
-        {!loading && favoriteItems.length > 0 && (
-          <motion.div {...fadeUp(0.08)} style={{ marginBottom: 0 }}>
-            <p style={{
-              margin: "0 0 12px",
-              fontSize: 14,
-              color: "rgba(255,255,255,0.35)",
-              fontWeight: 600,
-              letterSpacing: "0",
-            }}>
-              Your favorites
-            </p>
+        {/* ── Popular / Favorites ───────────────────────────────────────── */}
+        <motion.div {...fadeUp(0.08)} style={{ marginBottom: 0 }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
             <div
-              className="no-scrollbar"
+              ref={feedTabRowRef}
+              role="tablist"
+              aria-label="Show popular or favorite dishes"
               style={{
-                display: "flex", gap: 12,
-                overflowX: "auto",
-                paddingBottom: 8,
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                WebkitOverflowScrolling: "touch",
+                position: "relative",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                alignItems: "stretch",
+                gap: 4,
+                padding: 4,
+                borderRadius: 999,
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                width: "100%",
+                maxWidth: 272,
               }}
             >
-              {favoriteItems.map((item, i) => (
-                <BestSellingCard
-                  key={item.id}
-                  item={item}
-                  index={i}
-                  qty={cart[item.id] || 0}
-                  showMsrp={bestSellingIdSet.has(item.id)}
-                  onOpenDetail={() => {
-                    setLocationOpen(false);
-                    setDishDetailItem(item);
-                  }}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── BEST SELLING DISHES ────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.1)} style={{ marginBottom: 0 }}>
-          <button
-            type="button"
-            onClick={() => {
-              if (bestFive[0]) {
-                setLocationOpen(false);
-                setDishDetailItem(bestFive[0]);
-              }
-            }}
-            style={{
-              margin: "0 0 12px",
-              padding: 0,
-              border: "none",
-              background: "none",
-              cursor: bestFive.length ? "pointer" : "default",
-              display: "block",
-              textAlign: "left",
-              width: "100%",
-            }}
-          >
-            <p style={{
-              margin: 0, fontSize: 14,
-              color: "rgba(255,255,255,0.35)",
-              fontWeight: 600,
-              letterSpacing: "0",
-            }}>
-              Best Selling Dishes
-            </p>
-          </button>
-
-          <div 
-            className="no-scrollbar"
-            style={{
-              display: "flex", gap: 12,
-              overflowX: "auto",
-              paddingBottom: 8,
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
-            {loading
-              ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
-              : bestFive.map((item, i) => (
-                  <BestSellingCard 
-                    key={item.id} 
-                    item={item} 
-                    index={i} 
-                    qty={cart[item.id] || 0}
-                    showMsrp
-                    onOpenDetail={() => {
-                      setLocationOpen(false);
-                      setDishDetailItem(item);
+              <motion.div
+                aria-hidden
+                initial={false}
+                animate={{ x: homeDishFeedTab === "favorites" ? feedTabPill.shift : 0 }}
+                transition={FEED_TAB_SPRING}
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  bottom: 4,
+                  left: 4,
+                  width: feedTabPill.w > 0 ? feedTabPill.w : "calc((100% - 12px) / 2)",
+                  borderRadius: 999,
+                  background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                  border: `1px solid ${C.redBorder}`,
+                  boxShadow: `0 2px 20px ${C.redGlow}, 0 0 0 1px rgba(255,255,255,0.06) inset`,
+                  zIndex: 0,
+                  pointerEvents: "none",
+                  willChange: "transform",
+                }}
+              />
+              {(["popular", "favorites"] as const).map((tab) => {
+                const active = homeDishFeedTab === tab;
+                return (
+                  <motion.button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setHomeDishFeedTab(tab)}
+                    style={{
+                      position: "relative",
+                      zIndex: 1,
+                      padding: "9px 14px",
+                      borderRadius: 999,
+                      border: "none",
+                      cursor: "pointer",
+                      fontFamily: C.mono,
+                      fontSize: 13,
+                      fontWeight: 800,
+                      letterSpacing: "0.02em",
+                      background: "transparent",
+                      WebkitTapHighlightColor: "transparent",
                     }}
-                  />
-                ))}
+                  >
+                    <motion.span
+                      style={{ display: "block" }}
+                      animate={{ color: active ? C.white : "rgba(255,255,255,0.45)" }}
+                      transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      {tab === "popular" ? "Popular" : "Favorites"}
+                    </motion.span>
+                  </motion.button>
+                );
+              })}
+            </div>
           </div>
+
+          {(() => {
+            const carouselItems = homeDishFeedTab === "popular" ? bestFive : favoriteItems;
+            const title = homeDishFeedTab === "popular" ? "Best selling dishes" : "Your favorites";
+            const showPopularSkeleton = loading && homeDishFeedTab === "popular";
+            const showFavoritesSkeleton = loading && homeDishFeedTab === "favorites" && items.length === 0;
+            const showFavoritesEmpty = !loading && homeDishFeedTab === "favorites" && favoriteItems.length === 0;
+            const canOpenFirst = carouselItems.length > 0;
+            return (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (carouselItems[0]) {
+                      setLocationOpen(false);
+                      setDishDetailItem(carouselItems[0]);
+                    }
+                  }}
+                  style={{
+                    margin: "0 0 12px",
+                    padding: 0,
+                    border: "none",
+                    background: "none",
+                    cursor: canOpenFirst ? "pointer" : "default",
+                    display: "block",
+                    textAlign: "left",
+                    width: "100%",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.35)",
+                      fontWeight: 600,
+                      letterSpacing: "0",
+                    }}
+                  >
+                    {title}
+                  </p>
+                </button>
+
+                <div
+                  className="no-scrollbar"
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    overflowX: "auto",
+                    paddingBottom: 8,
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {showPopularSkeleton || showFavoritesSkeleton
+                    ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
+                    : showFavoritesEmpty
+                      ? (
+                          <p
+                            style={{
+                              margin: 0,
+                              padding: "12px 4px 24px",
+                              fontSize: 14,
+                              lineHeight: 1.55,
+                              color: "rgba(255,255,255,0.45)",
+                              fontWeight: 600,
+                              flex: 1,
+                            }}
+                          >
+                            No favorites yet. Tap the heart on a dish or in details to save it here — same list as in Account.
+                          </p>
+                        )
+                      : carouselItems.map((item, i) => (
+                          <BestSellingCard
+                            key={item.id}
+                            item={item}
+                            index={i}
+                            qty={cart[item.id] || 0}
+                            showMsrp={homeDishFeedTab === "popular" || bestSellingIdSet.has(item.id)}
+                            onOpenDetail={() => {
+                              setLocationOpen(false);
+                              setDishDetailItem(item);
+                            }}
+                          />
+                        ))}
+                </div>
+              </>
+            );
+          })()}
         </motion.div>
 
         {/* ── BROWSE FULL MENU CTA ───────────────────────────────────────── */}
@@ -1642,9 +1782,10 @@ export function MobileHomeScreen({
         )}
 
         {activeNav === "orders" && (
-          <div style={{ margin: `0 -${sp(2.5)}px`, flex: 1, alignSelf: "stretch" }}>
+          <div style={{ margin: `0 -${sp(2)}px`, flex: 1, alignSelf: "stretch" }}>
             <OrderTrackingPanel
               trackingOrderId={trackingOrderId}
+              customerPhone={customerPhone}
               trackSnap={trackSnap}
               trackErr={trackErr}
               trackBanner={trackBanner}
@@ -1660,7 +1801,6 @@ export function MobileHomeScreen({
         )}
 
         {activeNav === "account" && (
-          <div style={{ paddingLeft: sp(2.5), paddingRight: sp(2.5), flex: 1, alignSelf: "stretch", overflowY: "auto" }}>
             <AccountTabPanel
               displayName={displayName}
               customerPhone={customerPhone}
@@ -1672,56 +1812,104 @@ export function MobileHomeScreen({
               <p
                 style={{
                   margin: "0 0 8px",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: "0.16em",
-                  color: "rgba(255,255,255,0.38)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  color: "rgba(255,255,255,0.4)",
                 }}
               >
-                SAVED DISHES
+                Favorites
               </p>
               {favoriteItems.length === 0 ? (
-                <p style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
-                  Tap the heart on a dish to save it here — stored on this device only.
+                <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.55, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                  Tap the heart on a dish or in details to save it here — same list as Home (Favorites). Stored on this device only.
                 </p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
                   {favoriteItems.map((item) => {
                     const { cleanName } = parseRecipeTag(item.name);
                     return (
-                      <motion.button
+                      <div
                         key={item.id}
-                        type="button"
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setDishDetailItem(item)}
                         style={{
-                          textAlign: "left",
-                          padding: "14px 16px",
-                          borderRadius: 16,
-                          border: `1px solid ${C.border}`,
-                          background: C.surfaceDeep,
-                          cursor: "pointer",
-                          fontFamily: C.mono,
+                          display: "flex",
+                          alignItems: "stretch",
+                          gap: 10,
+                          borderBottom: `1px solid ${C.border}`,
                         }}
                       >
-                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.white }}>{toTitleCase(cleanName)}</p>
-                        <p style={{ margin: "6px 0 0", fontSize: 14, fontWeight: 800, color: C.red }}>
-                          ₹{item.price.toLocaleString("en-IN")}
-                          {bestSellingIdSet.has(item.id) && (
-                            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
-                              ₹{listMsrpRupees(item.price, item.id).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                        </p>
-                      </motion.button>
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setDishDetailItem(item)}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            textAlign: "left",
+                            padding: "12px 0",
+                            border: "none",
+                            background: "transparent",
+                            borderRadius: 0,
+                            cursor: "pointer",
+                            fontFamily: C.mono,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>{toTitleCase(cleanName)}</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 800, color: C.red }}>
+                            ₹{item.price.toLocaleString("en-IN")}
+                            {bestSellingIdSet.has(item.id) && (
+                              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
+                                ₹{listMsrpRupees(item.price, item.id).toLocaleString("en-IN")}
+                              </span>
+                            )}
+                          </p>
+                        </motion.button>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${toTitleCase(cleanName)} from favorites`}
+                          onClick={() => toggleFavorite(item.id)}
+                          style={{
+                            alignSelf: "center",
+                            flexShrink: 0,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 12,
+                            border: `1px solid rgba(189,35,32,0.38)`,
+                            background: "rgba(189,35,32,0.14)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M18 6 6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
               )}
             </AccountTabPanel>
-          </div>
         )}
       </div>
+
+      {(activeNav === "orders" || activeNav === "account") && !dishDetailItem ? (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "clamp(108px, 24dvh, 188px)",
+            pointerEvents: "none",
+            zIndex: 42,
+            background: `linear-gradient(to top, ${C.bg} 0%, ${C.bg} 18%, rgba(10,10,10,0.92) 38%, rgba(10,10,10,0.55) 62%, rgba(10,10,10,0.12) 82%, transparent 100%)`,
+          }}
+        />
+      ) : null}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1740,6 +1928,7 @@ export function MobileHomeScreen({
             cart={cart}
             updateQty={updateQty}
             onCheckout={goCheckout}
+            onOpenDishDetail={(item) => setDishDetailItem(item)}
           />
         )}
       </AnimatePresence>
@@ -1796,11 +1985,10 @@ export function MobileHomeScreen({
                 key={id}
                 onClick={() => handleNav(id)}
                 whileTap={{ scale: 0.85 }}
-                /* Spring-expand from circle to pill */
                 animate={{
                   width: isActive ? activeWidth : NAV_CIRCLE,
-                  paddingLeft: isActive ? 16 : 0,
-                  paddingRight: isActive ? 16 : 0,
+                  paddingLeft: 0,
+                  paddingRight: isActive ? 12 : 0,
                   background: isActive
                     ? "rgba(189,35,32,0.14)"
                     : "rgba(14,14,14,0.78)",
@@ -1819,8 +2007,9 @@ export function MobileHomeScreen({
                   boxSizing: "border-box",
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
-                  display: "flex", alignItems: "center",
-                  justifyContent: isActive ? "flex-start" : "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
                   cursor: "pointer",
                   outline: "none",
                   position: "relative",
@@ -1829,20 +2018,27 @@ export function MobileHomeScreen({
                   flexShrink: 0,
                 }}
               >
-                {/* Fixed-width Icon Container — Anchors the icon from sliding */}
-                <div style={{
-                  width: isActive ? 44 : "100%",
-                  height: "100%",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                  position: "relative", zIndex: 1,
-                }}>
+                {/* Icon stays in a fixed left square — never reflows when the pill width springs */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: NAV_CIRCLE,
+                    height: NAV_CIRCLE,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                    zIndex: 1,
+                  }}
+                >
                   {id === "orders" && ordersNavBadge > 0 ? (
                     <span
                       style={{
                         position: "absolute",
                         top: 4,
-                        right: isActive ? 6 : 8,
+                        right: 6,
                         minWidth: 18,
                         height: 18,
                         padding: "0 5px",
@@ -1863,7 +2059,6 @@ export function MobileHomeScreen({
                       {ordersNavBadge}
                     </span>
                   ) : null}
-                  {/* Ripple ring effect */}
                   <AnimatePresence>
                     {showRipple && (
                       <motion.div
@@ -1874,8 +2069,10 @@ export function MobileHomeScreen({
                         transition={{ duration: 0.6, ease: "easeOut" }}
                         style={{
                           position: "absolute",
-                          top: "50%", left: "50%",
-                          width: NAV_CIRCLE, height: NAV_CIRCLE,
+                          top: "50%",
+                          left: "50%",
+                          width: NAV_CIRCLE,
+                          height: NAV_CIRCLE,
                           borderRadius: "50%",
                           border: "2px solid rgba(189,35,32,0.6)",
                           transform: "translate(-50%, -50%)",
@@ -1885,37 +2082,41 @@ export function MobileHomeScreen({
                       />
                     )}
                   </AnimatePresence>
-
-                  <motion.span
-                    animate={{ scale: isActive ? 1.15 : 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 28 }}
+                  <span
                     style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      width: 26,
+                      height: 26,
                       lineHeight: 0,
+                      flexShrink: 0,
                     }}
                   >
                     <Icon active={isActive} />
-                  </motion.span>
+                  </span>
                 </div>
 
-                {/* Label — only visible when active, expanding softly right */}
                 <AnimatePresence>
                   {isActive && (
                     <motion.span
                       key={`lbl-${id}`}
-                      initial={{ opacity: 0, x: -6 }}
+                      initial={{ opacity: 0, x: -4 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30, delay: 0.05 }}
+                      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                      transition={{ type: "spring", stiffness: 520, damping: 34 }}
                       style={{
-                        fontSize: 14, fontWeight: 800,
+                        marginLeft: NAV_CIRCLE,
+                        height: NAV_CIRCLE,
+                        display: "flex",
+                        alignItems: "center",
+                        fontSize: 14,
+                        fontWeight: 800,
                         letterSpacing: "0.05em",
                         color: C.red,
                         whiteSpace: "nowrap",
-                        position: "relative", zIndex: 1,
-                        paddingLeft: 0, paddingRight: 18,
+                        position: "relative",
+                        zIndex: 1,
                       }}
                     >
                       {navLabel}
@@ -1983,12 +2184,13 @@ function MuttonIcon({ active }: { active: boolean }) {
   );
 }
 
-function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout }: { 
+function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenDishDetail }: { 
   onBack: () => void, 
   allItems: MenuItem[],
   cart: Record<string, number>,
   updateQty: (id: string, delta: number) => void,
   onCheckout?: () => void,
+  onOpenDishDetail: (item: MenuItem) => void,
 }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -2160,6 +2362,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout }: {
                   item={item}
                   qty={cart[item.id] || 0}
                   onUpdate={(d) => updateQty(item.id, d)}
+                  onOpenDetail={() => onOpenDishDetail(item)}
                 />
               ))}
             </div>
@@ -2217,14 +2420,16 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout }: {
   );
 }
 
-function MenuGridCard({ item, qty, onUpdate }: {
+function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
   item: MenuItem;
   qty: number;
   onUpdate: (d: number) => void;
+  onOpenDetail: () => void;
 }) {
   const imgSrc = getItemImage(item.name, item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
+  const open = onOpenDetail;
 
   return (
     <motion.div
@@ -2244,12 +2449,48 @@ function MenuGridCard({ item, qty, onUpdate }: {
         padding: "10px",
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "65%", marginBottom: 12, overflow: "hidden", borderRadius: 22 }}>
-        <Image src={imgSrc} alt={item.name} fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
-      </div>
+      <motion.button
+        type="button"
+        whileTap={{ scale: 0.98 }}
+        onClick={open}
+        aria-label={`View details for ${toTitleCase(cleanName)}`}
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "65%",
+          marginBottom: 12,
+          overflow: "hidden",
+          borderRadius: 22,
+          border: "none",
+          padding: 0,
+          background: "transparent",
+          cursor: "pointer",
+          display: "block",
+        }}
+      >
+        <Image src={imgSrc} alt="" fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
+      </motion.button>
       
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div style={{ height: 52, display: "flex", flexDirection: "column", gap: 4 }}>
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.99 }}
+          onClick={open}
+          aria-label={`View details for ${toTitleCase(cleanName)}`}
+          style={{
+            height: 52,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            textAlign: "left",
+            font: "inherit",
+            color: "inherit",
+          }}
+        >
           <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {toTitleCase(cleanName)}
           </h4>
@@ -2262,12 +2503,29 @@ function MenuGridCard({ item, qty, onUpdate }: {
               {tag}
             </span>
           )}
-        </div>
+        </motion.button>
         
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: C.white }}>₹{item.price.toLocaleString("en-IN")}</span>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            onClick={open}
+            aria-label={`View details, ₹${item.price}`}
+            style={{
+              fontSize: 16,
+              fontWeight: 900,
+              color: C.white,
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            ₹{item.price.toLocaleString("en-IN")}
+          </motion.button>
           
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
             <AnimatePresence mode="wait">
               {qty === 0 ? (
                 <motion.button
