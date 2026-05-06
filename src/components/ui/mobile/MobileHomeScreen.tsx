@@ -4,22 +4,9 @@ import { useState, useEffect, useRef, RefObject, useCallback, useMemo } from "re
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-
-// ─── Design Tokens ─────────────────────────────────────────────────────────
-const C = {
-  bg:           "#0a0a0a",
-  surface:      "rgba(14,14,14,0.75)",
-  surfaceDeep:  "rgba(12,12,12,0.92)",
-  glass:        "rgba(255,255,255,0.04)",
-  border:       "rgba(255,255,255,0.08)",
-  borderFaint:  "rgba(255,255,255,0.05)",
-  red:          "#BD2320",
-  redGlow:      "rgba(189,35,32,0.35)",
-  redFaint:     "rgba(189,35,32,0.12)",
-  redBorder:    "rgba(189,35,32,0.25)",
-  white:        "#ffffff",
-  mono:         "var(--font-outfit), system-ui, -apple-system, sans-serif",
-};
+import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
+import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
+import { C } from "@/components/ui/mobile/mobile-design-tokens";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -63,7 +50,12 @@ function getItemImage(name: string, fallbackUrl?: string | null) {
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────
-interface LocationLite { label: string; inRange: boolean; }
+interface LocationLite {
+  label: string;
+  lat: number;
+  lng: number;
+  inRange: boolean;
+}
 
 interface MenuItem {
   id: string;
@@ -79,15 +71,24 @@ interface MobileHomeScreenProps {
   onChangeLocation?: () => void;
   /** Pass dish id when opening checkout from Dish Details so back can reopen it. */
   onCheckout?: (resumeDishId?: string | null) => void;
-  /** After checkout back — open this dish’s detail once (nonce changes each time). */
+  /** After checkout back — open this dish's detail once (nonce changes each time). */
   resumeDishDetail?: { id: string; nonce: number } | null;
   onResumeDishDetailConsumed?: () => void;
-  /** Increment from shell so “Add more” opens Browse Menu. */
+  /** Increment from shell so "Add more" opens Browse Menu. */
   openBrowseMenuSignal?: number;
+  /** When set, Browse Menu back returns to checkout instead of home. */
+  browseMenuExitToCheckout?: () => void;
   items: MenuItem[];
   setItems: (items: MenuItem[]) => void;
   cart: Record<string, number>;
   updateQty: (id: string, delta: number) => void;
+  /** Set when Razorpay returns ?status=success&orderId=… */
+  trackingOrderId?: string | null;
+  customerPhone?: string;
+  onDismissOrderTracking?: () => void;
+  /** Sign out — clear session and return to login (shell). */
+  onSignOut?: () => void;
+  onProfileNameSave?: (name: string) => void;
 }
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
@@ -864,6 +865,17 @@ function DishDetailView({
   );
 }
 
+function trackingLineForStatus(status: string): string {
+  const s = (status || "").toLowerCase();
+  if (s === "pending_payment") return "Waiting for payment.";
+  if (s === "paid") return "Payment received — the kitchen will accept soon.";
+  if (s === "confirmed" || s === "preparing" || s === "prepping") return "Your meal is being prepared.";
+  if (s === "ready") return "Food is packed — waiting for the rider.";
+  if (s === "out" || s === "out_for_delivery") return "Out for delivery — watch for the rider.";
+  if (s === "delivered") return "Delivered — enjoy your meal!";
+  return status ? `Status: ${status.replace(/_/g, " ")}` : "Fetching latest update…";
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 export function MobileHomeScreen({
   displayName,
@@ -873,10 +885,16 @@ export function MobileHomeScreen({
   resumeDishDetail,
   onResumeDishDetailConsumed,
   openBrowseMenuSignal = 0,
+  browseMenuExitToCheckout,
   items,
   setItems,
   cart,
   updateQty,
+  trackingOrderId = null,
+  customerPhone = "",
+  onDismissOrderTracking,
+  onSignOut,
+  onProfileNameSave,
 }: MobileHomeScreenProps) {
   const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
   const [loading,        setLoading]        = useState(items.length === 0);
@@ -884,6 +902,30 @@ export function MobileHomeScreen({
   const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
   const [locationOpen,   setLocationOpen]   = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
+  const [trackSnap, setTrackSnap] = useState<{
+    status: string;
+    deliveryAddress?: string | null;
+    deliverySlot?: string | null;
+    deliverySlotKind?: string | null;
+    ratingStars?: number | null;
+    ratingComment?: string | null;
+    totalAmount?: number | null;
+    lines?: { name: string; quantity: number; unitPrice: number }[];
+    breakdown?: {
+      itemsSubtotal: number;
+      packaging: number;
+      delivery: number;
+      gst: number;
+      computedTotal: number;
+      adjustment: number;
+    } | null;
+  } | null>(null);
+  const [trackErr, setTrackErr] = useState<string | null>(null);
+  const [trackBanner, setTrackBanner] = useState<string | null>(null);
+  const [ratingCommentDraft, setRatingCommentDraft] = useState("");
+  const [ratingSending, setRatingSending] = useState(false);
+  const openedOrdersForTrack = useRef(false);
+  const prevTrackStatus = useRef<string | null>(null);
 
   const bestFive = items
     .filter(d => d.name.toUpperCase().includes("RECIPE"))
@@ -897,6 +939,146 @@ export function MobileHomeScreen({
   useEffect(() => {
     setFavoriteIds(readFavoriteIds());
   }, []);
+
+  useEffect(() => {
+    if (!trackingOrderId) {
+      setTrackSnap(null);
+      setTrackErr(null);
+      setTrackBanner(null);
+      prevTrackStatus.current = null;
+      openedOrdersForTrack.current = false;
+      return;
+    }
+    const phone = customerPhone.trim();
+    if (phone.length < 10) {
+      setTrackErr("Sign in with phone to track this order.");
+      return;
+    }
+    if (!openedOrdersForTrack.current) {
+      setActiveNav("orders");
+      openedOrdersForTrack.current = true;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const q = new URLSearchParams({ orderId: trackingOrderId, phone });
+        const res = await fetch(`/api/orders/status?${q}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          status?: string;
+          deliveryAddress?: string | null;
+          deliverySlot?: string | null;
+          deliverySlotKind?: string | null;
+          ratingStars?: number | null;
+          ratingComment?: string | null;
+          totalAmount?: number | null;
+          lines?: { name: string; quantity: number; unitPrice: number }[];
+          breakdown?: {
+            itemsSubtotal: number;
+            packaging: number;
+            delivery: number;
+            gst: number;
+            computedTotal: number;
+            adjustment: number;
+          } | null;
+        };
+        if (!res.ok) throw new Error(data.error || "Could not load order");
+        if (!cancelled) {
+          setTrackSnap({
+            status: data.status || "",
+            deliveryAddress: data.deliveryAddress,
+            deliverySlot: data.deliverySlot,
+            deliverySlotKind: data.deliverySlotKind,
+            ratingStars: data.ratingStars ?? null,
+            ratingComment: data.ratingComment ?? null,
+            totalAmount: data.totalAmount != null ? Number(data.totalAmount) : null,
+            lines: Array.isArray(data.lines) ? data.lines : [],
+            breakdown: data.breakdown && typeof data.breakdown === "object" ? data.breakdown : undefined,
+          });
+          setTrackErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) setTrackErr(e instanceof Error ? e.message : "Update failed");
+      }
+    };
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [trackingOrderId, customerPhone]);
+
+  useEffect(() => {
+    if (!trackSnap?.status) return;
+    const cur = trackSnap.status;
+    if (prevTrackStatus.current !== null && prevTrackStatus.current !== cur) {
+      setTrackBanner(trackingLineForStatus(cur));
+      const tid = window.setTimeout(() => setTrackBanner(null), 4200);
+      return () => window.clearTimeout(tid);
+    }
+    prevTrackStatus.current = cur;
+  }, [trackSnap?.status]);
+
+  const submitOrderRating = useCallback(
+    async (stars: number) => {
+      if (!trackingOrderId || customerPhone.trim().length < 10) return;
+      setRatingSending(true);
+      try {
+        const res = await fetch("/api/orders/rating", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: trackingOrderId,
+            phone: customerPhone.trim(),
+            stars,
+            comment: ratingCommentDraft.trim(),
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Could not save");
+        const q = new URLSearchParams({ orderId: trackingOrderId, phone: customerPhone.trim() });
+        const snap = await fetch(`/api/orders/status?${q}`);
+        const j = (await snap.json().catch(() => ({}))) as {
+          status?: string;
+          deliveryAddress?: string | null;
+          deliverySlot?: string | null;
+          deliverySlotKind?: string | null;
+          ratingStars?: number | null;
+          ratingComment?: string | null;
+          totalAmount?: number | null;
+          lines?: { name: string; quantity: number; unitPrice: number }[];
+          breakdown?: {
+            itemsSubtotal: number;
+            packaging: number;
+            delivery: number;
+            gst: number;
+            computedTotal: number;
+            adjustment: number;
+          } | null;
+        };
+        if (snap.ok) {
+          setTrackSnap({
+            status: j.status || "",
+            deliveryAddress: j.deliveryAddress,
+            deliverySlot: j.deliverySlot,
+            deliverySlotKind: j.deliverySlotKind,
+            ratingStars: j.ratingStars ?? null,
+            ratingComment: j.ratingComment ?? null,
+            totalAmount: j.totalAmount != null ? Number(j.totalAmount) : null,
+            lines: Array.isArray(j.lines) ? j.lines : [],
+            breakdown: j.breakdown && typeof j.breakdown === "object" ? j.breakdown : undefined,
+          });
+        }
+      } catch (e) {
+        setTrackErr(e instanceof Error ? e.message : "Rating failed");
+      } finally {
+        setRatingSending(false);
+      }
+    },
+    [trackingOrderId, customerPhone, ratingCommentDraft],
+  );
 
   const toggleFavorite = useCallback((id: string) => {
     setFavoriteIds((prev) => {
@@ -937,6 +1119,14 @@ export function MobileHomeScreen({
     setRippleKey((k) => k + 1);
   }
 
+  /** One active in-flight order pill on the Order tab (hide once delivered). */
+  const ordersNavBadge = useMemo(() => {
+    if (!trackingOrderId) return 0;
+    if (!trackSnap?.status) return 1;
+    if (String(trackSnap.status).toLowerCase() === "delivered") return 0;
+    return 1;
+  }, [trackingOrderId, trackSnap?.status]);
+
   const locationRef = useRef<HTMLDivElement>(null);
   const label     = location?.label?.trim() || "Set delivery location";
   const inRange   = location?.inRange ?? true;
@@ -961,6 +1151,10 @@ export function MobileHomeScreen({
   }, []);
 
   useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
+
+  useEffect(() => {
+    if (activeNav === "orders") setLocationOpen(false);
+  }, [activeNav]);
 
   // Close location panel on outside click
   useEffect(() => {
@@ -1037,189 +1231,217 @@ export function MobileHomeScreen({
           background: `linear-gradient(to bottom, ${C.bg} 72%, transparent)`,
         }}
       >
-        {/* Location pill — matches LocationScreen top bar exactly */}
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setLocationOpen((v) => !v)}
-          style={{
-            width: "100%",
-            background: C.surface,
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-            borderRadius: 22,
-            border: `1px solid ${locationOpen ? C.redBorder : C.border}`,
-            padding: "12px 16px",
-            display: "flex", alignItems: "center", gap: 10,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
-            cursor: "pointer",
-            transition: "border-color 0.2s",
-            fontFamily: C.mono,
-          }}
-        >
-          <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: "rgba(189,35,32,0.12)",
-            border: "1px solid rgba(189,35,32,0.25)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-            </svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
-            <p style={DELIVERING_TO_STYLE}>
-              Delivering to
-            </p>
-            <p style={{
-              margin: 0, fontSize: 15, color: C.white,
-              fontWeight: 700, letterSpacing: "0.02em",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>
-              {label}
-            </p>
-          </div>
-          <motion.svg
-            animate={{ rotate: locationOpen ? 180 : 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 28 }}
-            width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="rgba(255,255,255,0.3)" strokeWidth="2.5"
-            strokeLinecap="round" strokeLinejoin="round"
-            style={{ flexShrink: 0 }}
+        {activeNav === "orders" ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 48,
+              paddingBottom: 8,
+            }}
           >
-            <path d="M6 9l6 6 6-6"/>
-          </motion.svg>
-        </motion.button>
-
-        {/* Location dropdown — now absolute to avoid content push */}
-        <AnimatePresence>
-          {locationOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ type: "spring", stiffness: 420, damping: 34 }}
+            <h1
               style={{
-                position: "absolute",
-                top: "100%",
-                left: sp(2), right: sp(2),
-                marginTop: 0,
-                background: C.surfaceDeep,
-                backdropFilter: "blur(40px)",
-                WebkitBackdropFilter: "blur(40px)",
-                borderRadius: 20,
-                border: `1px solid ${C.borderFaint}`,
-                padding: "20px 18px",
-                boxShadow: "0 16px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
-                zIndex: 100,
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: "0.03em",
+                color: C.white,
                 textAlign: "center",
+                fontFamily: C.mono,
               }}
             >
-              <p style={DELIVERING_TO_STYLE}>
-                Delivering to
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: 20, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
-                {label}
-              </p>
-              <div style={{
-                marginTop: sp(2), display: "flex", alignItems: "center", gap: 8,
-                background: C.glass, border: `1px solid ${C.borderFaint}`,
-                borderRadius: 12, padding: "10px 12px",
-              }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                  background: inRange ? "#4ade80" : "#f59e0b",
-                  boxShadow: inRange ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(245,158,11,0.4)",
-                }} />
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
-                  {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
-                </span>
-              </div>
-              {onChangeLocation && (
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { setLocationOpen(false); onChangeLocation(); }}
-                  style={{
-                    marginTop: sp(2), width: "100%",
-                    background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                    border: "none", borderRadius: 16, padding: "16px",
-                    color: C.white, fontSize: 14, fontWeight: 800,
-                    letterSpacing: "0.02em",
-                    cursor: "pointer",
-                    boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
-                    fontFamily: C.mono, position: "relative" as const, overflow: "hidden",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  <motion.div
-                    initial={{ x: "-100%" }}
-                    animate={{ x: "100%" }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
-                    style={{
-                      position: "absolute", inset: 0,
-                      background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
-                    }}
-                  />
-                  Change Address
-                </motion.button>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Proximity alert */}
-        <AnimatePresence>
-          {!inRange && proximityAlert && !locationOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              Your Orders
+            </h1>
+          </div>
+        ) : (
+          <>
+            {/* Location pill — matches LocationScreen top bar exactly */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setLocationOpen((v) => !v)}
               style={{
-                marginTop: 8,
-                background: "rgba(189,35,32,0.08)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                border: "1px solid rgba(189,35,32,0.2)",
-                borderRadius: 16, padding: "12px 14px",
-                display: "flex", alignItems: "center", gap: 12,
+                width: "100%",
+                background: C.surface,
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                borderRadius: 22,
+                border: `1px solid ${locationOpen ? C.redBorder : C.border}`,
+                padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 10,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+                cursor: "pointer",
+                transition: "border-color 0.2s",
+                fontFamily: C.mono,
               }}
             >
               <div style={{
                 width: 32, height: 32, borderRadius: 10,
-                background: C.redFaint, border: `1px solid ${C.redBorder}`,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                background: "rgba(189,35,32,0.12)",
+                border: "1px solid rgba(189,35,32,0.25)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
               }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke={C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                 </svg>
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 12, color: C.white, fontWeight: 700, lineHeight: 1.3 }}>
-                  Is this the right address?
+              <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
+                <p style={DELIVERING_TO_STYLE}>
+                  Delivering to
                 </p>
-                <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>
-                  It looks a little far from you.
+                <p style={{
+                  margin: 0, fontSize: 15, color: C.white,
+                  fontWeight: 700, letterSpacing: "0.02em",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {label}
                 </p>
               </div>
-              <button
-                onClick={() => setProximityAlert(false)}
-                style={{
-                  background: "rgba(255,255,255,0.08)", border: "none",
-                  borderRadius: 8, width: 28, height: 28,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "rgba(255,255,255,0.4)",
-                  fontSize: 18, flexShrink: 0,
-                }}
+              <motion.svg
+                animate={{ rotate: locationOpen ? 180 : 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(255,255,255,0.3)" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ flexShrink: 0 }}
               >
-                ×
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <path d="M6 9l6 6 6-6"/>
+              </motion.svg>
+            </motion.button>
+
+            {/* Location dropdown — now absolute to avoid content push */}
+            <AnimatePresence>
+              {locationOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: sp(2), right: sp(2),
+                    marginTop: 0,
+                    background: C.surfaceDeep,
+                    backdropFilter: "blur(40px)",
+                    WebkitBackdropFilter: "blur(40px)",
+                    borderRadius: 20,
+                    border: `1px solid ${C.borderFaint}`,
+                    padding: "20px 18px",
+                    boxShadow: "0 16px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+                    zIndex: 100,
+                    textAlign: "center",
+                  }}
+                >
+                  <p style={DELIVERING_TO_STYLE}>
+                    Delivering to
+                  </p>
+                  <p style={{ margin: "8px 0 0", fontSize: 20, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
+                    {label}
+                  </p>
+                  <div style={{
+                    marginTop: sp(2), display: "flex", alignItems: "center", gap: 8,
+                    background: C.glass, border: `1px solid ${C.borderFaint}`,
+                    borderRadius: 12, padding: "10px 12px",
+                  }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                      background: inRange ? "#4ade80" : "#f59e0b",
+                      boxShadow: inRange ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(245,158,11,0.4)",
+                    }} />
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                      {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
+                    </span>
+                  </div>
+                  {onChangeLocation && (
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => { setLocationOpen(false); onChangeLocation(); }}
+                      style={{
+                        marginTop: sp(2), width: "100%",
+                        background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                        border: "none", borderRadius: 16, padding: "16px",
+                        color: C.white, fontSize: 14, fontWeight: 800,
+                        letterSpacing: "0.02em",
+                        cursor: "pointer",
+                        boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
+                        fontFamily: C.mono, position: "relative" as const, overflow: "hidden",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      <motion.div
+                        initial={{ x: "-100%" }}
+                        animate={{ x: "100%" }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                        style={{
+                          position: "absolute", inset: 0,
+                          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+                        }}
+                      />
+                      Change Address
+                    </motion.button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Proximity alert */}
+            <AnimatePresence>
+              {!inRange && proximityAlert && !locationOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                  style={{
+                    marginTop: 8,
+                    background: "rgba(189,35,32,0.08)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: "1px solid rgba(189,35,32,0.2)",
+                    borderRadius: 16, padding: "12px 14px",
+                    display: "flex", alignItems: "center", gap: 12,
+                  }}
+                >
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 10,
+                    background: C.redFaint, border: `1px solid ${C.redBorder}`,
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke={C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: C.white, fontWeight: 700, lineHeight: 1.3 }}>
+                      Is this the right address?
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>
+                      It looks a little far from you.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setProximityAlert(false)}
+                    style={{
+                      background: "rgba(255,255,255,0.08)", border: "none",
+                      borderRadius: 8, width: 28, height: 28,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", color: "rgba(255,255,255,0.4)",
+                      fontSize: 18, flexShrink: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
 
       <div 
@@ -1420,59 +1642,84 @@ export function MobileHomeScreen({
         )}
 
         {activeNav === "orders" && (
-          <motion.div {...fadeUp(0.05)} style={{ paddingTop: sp(1), paddingBottom: sp(2) }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.01em" }}>Order</h2>
-            <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.5, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>
-              Live order tracking will show up here soon. For now, confirm and pay from checkout, or chat with us on WhatsApp for updates.
-            </p>
-          </motion.div>
+          <div style={{ margin: `0 -${sp(2.5)}px`, flex: 1, alignSelf: "stretch" }}>
+            <OrderTrackingPanel
+              trackingOrderId={trackingOrderId}
+              trackSnap={trackSnap}
+              trackErr={trackErr}
+              trackBanner={trackBanner}
+              location={location}
+              onDismiss={onDismissOrderTracking}
+              onEditAddress={onChangeLocation}
+              ratingCommentDraft={ratingCommentDraft}
+              setRatingCommentDraft={setRatingCommentDraft}
+              ratingSending={ratingSending}
+              submitOrderRating={submitOrderRating}
+            />
+          </div>
         )}
 
         {activeNav === "account" && (
-          <motion.div {...fadeUp(0.05)} style={{ paddingTop: sp(1), paddingBottom: sp(2), flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.01em" }}>Account</h2>
-            <p style={{ margin: "8px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
-              Saved dishes · stored on this device only
-            </p>
-            {favoriteItems.length === 0 ? (
-              <p style={{ margin: "20px 0 0", fontSize: 14, lineHeight: 1.55, color: "rgba(255,255,255,0.5)" }}>
-                Tap the heart on any dish (Dish Details) to add it here. Your list appears on Home as &quot;Your favorites&quot; and in this tab—no login required.
+          <div style={{ paddingLeft: sp(2.5), paddingRight: sp(2.5), flex: 1, alignSelf: "stretch", overflowY: "auto" }}>
+            <AccountTabPanel
+              displayName={displayName}
+              customerPhone={customerPhone}
+              onEditName={(name) => onProfileNameSave?.(name)}
+              onSavedAddresses={() => onChangeLocation?.()}
+              onOpenOrders={() => handleNav("orders")}
+              onSignOut={onSignOut}
+            >
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.16em",
+                  color: "rgba(255,255,255,0.38)",
+                }}
+              >
+                SAVED DISHES
               </p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-                {favoriteItems.map((item) => {
-                  const { cleanName } = parseRecipeTag(item.name);
-                  return (
-                    <motion.button
-                      key={item.id}
-                      type="button"
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setDishDetailItem(item)}
-                      style={{
-                        textAlign: "left",
-                        padding: "14px 16px",
-                        borderRadius: 16,
-                        border: `1px solid ${C.border}`,
-                        background: C.surfaceDeep,
-                        cursor: "pointer",
-                        fontFamily: C.mono,
-                      }}
-                    >
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.white }}>{toTitleCase(cleanName)}</p>
-                      <p style={{ margin: "6px 0 0", fontSize: 14, fontWeight: 800, color: C.red }}>
-                        ₹{item.price.toLocaleString("en-IN")}
-                        {bestSellingIdSet.has(item.id) && (
-                          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
-                            ₹{listMsrpRupees(item.price, item.id).toLocaleString("en-IN")}
-                          </span>
-                        )}
-                      </p>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            )}
-          </motion.div>
+              {favoriteItems.length === 0 ? (
+                <p style={{ margin: "0 0 16px", fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                  Tap the heart on a dish to save it here — stored on this device only.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                  {favoriteItems.map((item) => {
+                    const { cleanName } = parseRecipeTag(item.name);
+                    return (
+                      <motion.button
+                        key={item.id}
+                        type="button"
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setDishDetailItem(item)}
+                        style={{
+                          textAlign: "left",
+                          padding: "14px 16px",
+                          borderRadius: 16,
+                          border: `1px solid ${C.border}`,
+                          background: C.surfaceDeep,
+                          cursor: "pointer",
+                          fontFamily: C.mono,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.white }}>{toTitleCase(cleanName)}</p>
+                        <p style={{ margin: "6px 0 0", fontSize: 14, fontWeight: 800, color: C.red }}>
+                          ₹{item.price.toLocaleString("en-IN")}
+                          {bestSellingIdSet.has(item.id) && (
+                            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
+                              ₹{listMsrpRupees(item.price, item.id).toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </p>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+            </AccountTabPanel>
+          </div>
         )}
       </div>
           </motion.div>
@@ -1483,7 +1730,13 @@ export function MobileHomeScreen({
         {activeScreen === "menu" && (
           <MenuBrowseView 
             allItems={items} 
-            onBack={() => setActiveScreen("home")} 
+            onBack={() => {
+              if (browseMenuExitToCheckout) {
+                browseMenuExitToCheckout();
+                return;
+              }
+              setActiveScreen("home");
+            }} 
             cart={cart}
             updateQty={updateQty}
             onCheckout={goCheckout}
@@ -1584,6 +1837,32 @@ export function MobileHomeScreen({
                   flexShrink: 0,
                   position: "relative", zIndex: 1,
                 }}>
+                  {id === "orders" && ordersNavBadge > 0 ? (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 4,
+                        right: isActive ? 6 : 8,
+                        minWidth: 18,
+                        height: 18,
+                        padding: "0 5px",
+                        borderRadius: 999,
+                        background: C.red,
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 900,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `2px solid ${C.bg}`,
+                        boxSizing: "border-box",
+                        zIndex: 2,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {ordersNavBadge}
+                    </span>
+                  ) : null}
                   {/* Ripple ring effect */}
                   <AnimatePresence>
                     {showRipple && (

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createPaymentLink } from "@/lib/payments";
-
-const PACKAGING = 20;
-const DELIVERY = 35;
-const GST_RATE = 0.05;
+import {
+  isSlotBookable,
+  isValidIstYmd,
+  isValidSlotKind,
+  slotStartIsoFor,
+} from "@/lib/delivery-slots";
+import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 
 type LineInput = { menuItemId: string; quantity: number };
 
@@ -18,6 +21,8 @@ export async function POST(request: Request) {
       phone?: string;
       customerName?: string;
       deliveryAddress?: string;
+      deliveryDate?: string;
+      deliverySlot?: string;
       lines?: LineInput[];
       paymentMethod?: string;
     };
@@ -25,6 +30,8 @@ export async function POST(request: Request) {
     const phone = String(body.phone || "").trim();
     const customerName = String(body.customerName || "Customer").trim() || "Customer";
     const deliveryAddress = String(body.deliveryAddress || "").trim();
+    const deliveryDate = String(body.deliveryDate || "").trim();
+    const deliverySlotRaw = String(body.deliverySlot || "").trim().toLowerCase();
     const lines = Array.isArray(body.lines) ? body.lines : [];
     const paymentMethod = String(body.paymentMethod || "upi").toLowerCase();
 
@@ -36,6 +43,19 @@ export async function POST(request: Request) {
     }
     if (!deliveryAddress) {
       return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
+    }
+    if (!isValidIstYmd(deliveryDate)) {
+      return NextResponse.json({ error: "Choose a valid delivery date." }, { status: 400 });
+    }
+    if (!isValidSlotKind(deliverySlotRaw)) {
+      return NextResponse.json({ error: "Choose breakfast, lunch, or dinner." }, { status: 400 });
+    }
+    const slotStartIso = slotStartIsoFor(deliveryDate, deliverySlotRaw);
+    if (!isSlotBookable(slotStartIso)) {
+      return NextResponse.json(
+        { error: "That slot needs at least 24 hours notice. Pick another date or meal time." },
+        { status: 400 },
+      );
     }
     if (lines.length === 0) {
       return NextResponse.json({ error: "Cart is empty." }, { status: 400 });
@@ -76,8 +96,7 @@ export async function POST(request: Request) {
       resolved.push({ menuItemId: l.menuItemId, quantity: qty, unitPrice: p });
     }
 
-    const tax = Math.round(itemTotal * GST_RATE);
-    const grandTotal = Math.round((itemTotal + PACKAGING + DELIVERY + tax) * 100) / 100;
+    const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal);
 
     const { data: order, error: orderErr } = await supabase
       .from("orders")
@@ -86,7 +105,8 @@ export async function POST(request: Request) {
         total_amount: grandTotal,
         status: "pending_payment",
         delivery_address: deliveryAddress,
-        delivery_slot: null,
+        delivery_slot: slotStartIso,
+        delivery_slot_kind: deliverySlotRaw,
       })
       .select("id")
       .single();

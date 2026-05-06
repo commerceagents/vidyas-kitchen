@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { transitionOrderStatus } from "@/app/actions/order-transition";
+import { OrderStatus } from "@/lib/order-status";
+import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { 
   MapPin, 
   Phone, 
@@ -32,6 +35,7 @@ interface Order {
     full_name: string;
     phone_number: string;
   };
+  delivery_slot_kind?: string | null;
 }
 
 export default function DriverDashboard() {
@@ -62,14 +66,16 @@ export default function DriverDashboard() {
       // Get orders for today/tomorrow that are confirmed, prepping, or out
       const { data, error } = await supabase
         .from("orders")
-        .select(`
+        .select(
+          `
           *,
           users:customer_id (
             full_name,
             phone_number
           )
-        `)
-        .in("status", ["confirmed", "prepping", "out"])
+        `,
+        )
+        .in("status", [OrderStatus.OUT_FOR_DELIVERY, "out"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -84,14 +90,9 @@ export default function DriverDashboard() {
   async function markAsDelivered(orderId: string) {
     setUpdating(orderId);
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "delivered" })
-        .eq("id", orderId);
-
-      if (error) throw error;
-      // Optimistic update
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+      const r = await transitionOrderStatus(orderId, OrderStatus.DELIVERED);
+      if (!r.ok) throw new Error(r.error);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
       console.error("Error updating status:", err);
     } finally {
@@ -167,11 +168,15 @@ export default function DriverDashboard() {
                         Order #{order.id.slice(0, 8)}
                       </p>
                     </div>
-                    <div className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                      order.status === 'out' ? "bg-orange-500/20 text-orange-400 border border-orange-500/20" : "bg-blue-500/20 text-blue-400 border border-blue-500/20"
-                    )}>
-                      {order.status}
+                    <div
+                      className={cn(
+                        "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                        order.status === OrderStatus.OUT_FOR_DELIVERY || order.status === "out"
+                          ? "bg-orange-500/20 text-orange-400 border border-orange-500/20"
+                          : "bg-blue-500/20 text-blue-400 border border-blue-500/20",
+                      )}
+                    >
+                      {order.status === "out" ? "out for delivery" : order.status.replace(/_/g, " ")}
                     </div>
                   </div>
 
@@ -189,7 +194,10 @@ export default function DriverDashboard() {
                         <Clock className="w-4 h-4 text-blue-400" />
                       </div>
                       <p className="text-sm text-white/70 font-medium">
-                        Expected: {new Date(order.delivery_slot).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        Slot:{" "}
+                        {order.delivery_slot
+                          ? formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind)
+                          : "—"}
                       </p>
                     </div>
                   </div>

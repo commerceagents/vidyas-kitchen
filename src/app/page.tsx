@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { DesktopLanding } from "@/components/ui/DesktopLanding";
 import { MobileShell } from "@/components/ui/mobile/MobileShell";
@@ -10,19 +10,25 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [isDesktop, setIsDesktop] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [instantShellEnter, setInstantShellEnter] = useState(false);
   const [prefilledPhone, setPrefilledPhone] = useState<string | undefined>();
   const [prefilledName, setPrefilledName] = useState<string | undefined>();
 
-  useEffect(() => {
+  /** Before paint: skip logo splash when returning from Razorpay so success modal shows immediately. */
+  useLayoutEffect(() => {
     setMounted(true);
-
-    // Extract ?phone= param from WhatsApp bot link
     const params = new URLSearchParams(window.location.search);
+    if (params.get("status") === "success" && params.get("orderId")) {
+      setShowSplash(false);
+      setInstantShellEnter(true);
+    }
     const phoneParam = params.get("phone");
     const nameParam = params.get("name");
     if (phoneParam) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
+  }, []);
 
+  useEffect(() => {
     // Skip splash when returning from in-app legal pages (LegalHub sets skip_splash)
     const shouldSkip = localStorage.getItem("skip_splash") === "true";
     if (shouldSkip) {
@@ -46,9 +52,9 @@ export default function Home() {
         ) : (
           <motion.div
             key={isDesktop ? "desktop" : "mobile"}
-            initial={{ opacity: 0 }}
+            initial={{ opacity: instantShellEnter ? 1 : 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: instantShellEnter ? 0 : 0.45 }}
             className="w-full h-full"
           >
             {isDesktop ? (

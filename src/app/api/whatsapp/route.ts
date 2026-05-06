@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { VidyaAgent, HelpListRow, MenuItem, Message } from "@/lib/ai/agent";
 import { ORDER_CUTOFF_REMINDER } from "@/lib/whatsapp-copy";
 import { publicSiteOrigin } from "@/lib/site-url";
+import { createServerSupabase } from "@/lib/supabase-server";
+import { decodeOrderRatingButtonId } from "@/lib/whatsapp-order-notify";
+import { saveOrderRatingByPhone } from "@/lib/order-rating";
 
 /**
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
@@ -135,7 +138,21 @@ export async function POST(req: Request) {
             else if (reply.id === "call_us") text = "call us";
             else if (reply.id === "quick_reorder") text = "Quick Reorder";
             else if (reply.id === "restart") text = "hi";
-            else text = reply.title;
+            else {
+              const dec = decodeOrderRatingButtonId(reply.id);
+              if (dec) {
+                const supabase = createServerSupabase();
+                const r = await saveOrderRatingByPhone(supabase, dec.orderId, dec.stars, from);
+                await sendWhatsAppMessage(
+                  from,
+                  r.ok
+                    ? "Thank you for your rating! 🙏"
+                    : "We couldn't save that rating. Please open the app and try again.",
+                );
+                return NextResponse.json({ status: "success" });
+              }
+              text = reply.title;
+            }
           } else if (interactive.type === "list_reply") {
             const listReply = interactive.list_reply;
             const rowId = listReply.id;

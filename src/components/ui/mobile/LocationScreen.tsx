@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
 import { House, Briefcase, MapPin as MapPinIcon } from "@phosphor-icons/react";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LocationData {
@@ -12,14 +13,6 @@ interface LocationData {
   lat: number;
   lng: number;
   inRange: boolean;
-}
-
-interface SavedPlace {
-  id: string;
-  label: "Home" | "Work" | "Other";
-  address: string;
-  lat: number;
-  lng: number;
 }
 
 interface GeoFeature {
@@ -37,7 +30,6 @@ const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
 const MAX_DISTANCE_KM = 15;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
-const LS_SAVED_PLACES = "vk_saved_places";
 
 /** Insets passed with the camera so the map never paints “unpadded” then snaps when overlays mount. */
 const MAP_PAD_TOP = 80;
@@ -58,13 +50,6 @@ function easeOutCubic(t: number) {
   return 1 - (1 - t) ** 3;
 }
 
-const DEFAULT_PLACES: SavedPlace[] = [
-  { id: "home", label: "Home", address: "Add home address", lat: 0, lng: 0 },
-  { id: "work", label: "Work", address: "Add work address", lat: 0, lng: 0 },
-  { id: "other", label: "Other", address: "Add other address", lat: 0, lng: 0 },
-];
-
-
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -76,21 +61,6 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function loadSavedPlaces(): SavedPlace[] {
-  try {
-    const raw = localStorage.getItem(LS_SAVED_PLACES);
-    if (raw) {
-      const parsed = JSON.parse(raw) as SavedPlace[];
-      return DEFAULT_PLACES.map((base) => parsed.find((p) => p.id === base.id) || base);
-    }
-  } catch {}
-  return DEFAULT_PLACES;
-}
-
-function savePlaces(places: SavedPlace[]) {
-  try { localStorage.setItem(LS_SAVED_PLACES, JSON.stringify(places)); } catch {}
 }
 
 // ─── Spring variants ──────────────────────────────────────────────────────────
@@ -306,7 +276,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_PLACES);
+  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_SAVED_PLACES);
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
@@ -450,12 +420,22 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
     if (val.length < 3) { setSuggestions([]); return; }
     searchDebounce.current = setTimeout(async () => {
+      if (!MAPBOX_TOKEN) {
+        setSuggestions([]);
+        return;
+      }
       try {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&country=IN&limit=5&proximity=${SIVAKASI_CENTER.lng},${SIVAKASI_CENTER.lat}`;
         const res = await fetch(url);
+        if (!res.ok) {
+          setSuggestions([]);
+          return;
+        }
         const data = await res.json();
         setSuggestions(data.features || []);
-      } catch {}
+      } catch {
+        setSuggestions([]);
+      }
     }, 350);
   }, []);
 
@@ -464,6 +444,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     try {
       const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi,place,neighborhood&limit=1`;
       const res = await fetch(url);
+      if (!res.ok) return "Pinned location";
       const data = await res.json();
       const feature = data?.features?.[0];
       return feature?.place_name?.trim() || "Pinned location";

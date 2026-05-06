@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { markOrderPaidAndNotify } from "@/lib/order-transition";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -26,19 +27,12 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL("/?status=error", request.url));
       }
 
-      // 2. Update order to 'paid'
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({ 
-          status: "paid",
-          payment_id: paymentId,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", order.id);
+      const paid = await markOrderPaidAndNotify(supabase, order.id as string, paymentId);
+      if (!paid.ok) {
+        console.error("markOrderPaidAndNotify:", paid.error);
+        return NextResponse.redirect(new URL("/?status=error", request.url));
+      }
 
-      if (updateError) throw updateError;
-
-      // 3. Redirect to success page
       return NextResponse.redirect(new URL(`/?status=success&orderId=${order.id}`, request.url));
       
     } catch (err) {
