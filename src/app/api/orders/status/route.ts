@@ -33,6 +33,8 @@ export async function GET(request: Request) {
       .select(
         `
         id, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
+        delivery_lat, delivery_lng,
+        driver_last_lat, driver_last_lng, driver_location_at,
         order_items (
           quantity,
           unit_price,
@@ -78,6 +80,11 @@ export async function GET(request: Request) {
       ratingStars: row.rating_stars,
       ratingComment: row.rating_comment,
       totalAmount,
+      deliveryLat: (row as { delivery_lat?: number | null }).delivery_lat ?? null,
+      deliveryLng: (row as { delivery_lng?: number | null }).delivery_lng ?? null,
+      driverLastLat: (row as { driver_last_lat?: number | null }).driver_last_lat ?? null,
+      driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
+      driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
       lines,
       breakdown: {
         itemsSubtotal: breakdown.itemsSubtotal,

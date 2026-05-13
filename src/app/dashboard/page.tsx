@@ -379,7 +379,22 @@ export default function Dashboard() {
                           <ActionBtn label="Mark Ready" onClick={() => onTransition(o.id, OrderStatus.READY)} tone="ghost" />
                         )}
                         {st === OrderStatus.READY && (
-                          <ActionBtn label="Dispatch" onClick={() => onTransition(o.id, OrderStatus.OUT_FOR_DELIVERY)} tone="warn" />
+                          <span
+                            style={{
+                              fontFamily: fontData,
+                              fontSize: "0.62rem",
+                              fontWeight: 800,
+                              letterSpacing: "0.04em",
+                              padding: "0.5rem 0.9rem",
+                              borderRadius: 12,
+                              background: "rgba(245, 158, 11, 0.12)",
+                              color: "rgba(251, 191, 36, 0.95)",
+                              border: "1px solid rgba(245, 158, 11, 0.28)",
+                              display: "inline-block",
+                            }}
+                          >
+                            Driver pickup (WhatsApp sent)
+                          </span>
                         )}
                       </div>
                     </td>

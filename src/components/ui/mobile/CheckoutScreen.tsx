@@ -67,6 +67,9 @@ interface CheckoutScreenProps {
   onAddMore: () => void;
   phone: string;
   customerName: string;
+  /** Pin saved at location step — stored on order for driver proximity + map. */
+  deliveryLat?: number;
+  deliveryLng?: number;
 }
 
 export function CheckoutScreen({
@@ -80,6 +83,8 @@ export function CheckoutScreen({
   onAddMore,
   phone,
   customerName,
+  deliveryLat,
+  deliveryLng,
 }: CheckoutScreenProps) {
   const [paymentMethod, setPaymentMethod] = useState("upi");
   const [placing, setPlacing] = useState(false);
@@ -89,11 +94,10 @@ export function CheckoutScreen({
   const [deliveryDateYmd, setDeliveryDateYmd] = useState(() => dayOptions[0]?.istYmd ?? "");
   const [slotKind, setSlotKind] = useState<DeliverySlotKind | null>(null);
 
+  /** Changing day clears slot so the user must explicitly pick a meal window. */
   useEffect(() => {
-    const row = dayOptions.find((d) => d.istYmd === deliveryDateYmd);
-    const firstAvail = row?.cards.find((c) => c.available);
-    setSlotKind(firstAvail ? firstAvail.kind : null);
-  }, [deliveryDateYmd, dayOptions]);
+    setSlotKind(null);
+  }, [deliveryDateYmd]);
 
   const slotCards = useMemo(() => slotCardsForIstDate(deliveryDateYmd), [deliveryDateYmd]);
 
@@ -118,6 +122,7 @@ export function CheckoutScreen({
   const deliveryFee  = 35;
   const tax          = Math.round(itemTotal * 0.05); // 5% GST
   const grandTotal   = itemTotal + packagingFee + deliveryFee + tax;
+  const orderCtaDisabled = placing || slotKind == null;
 
   const handlePlaceOrder = async () => {
     if (paymentMethod === "cod") {
@@ -147,6 +152,12 @@ export function CheckoutScreen({
           deliverySlot: slotKind,
           paymentMethod,
           lines: cartItems.map((it) => ({ menuItemId: it.id, quantity: cart[it.id] })),
+          ...(typeof deliveryLat === "number" &&
+          typeof deliveryLng === "number" &&
+          Number.isFinite(deliveryLat) &&
+          Number.isFinite(deliveryLng)
+            ? { deliveryLat, deliveryLng }
+            : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; paymentUrl?: string };
@@ -542,16 +553,26 @@ export function CheckoutScreen({
           </p>
         )}
         <motion.button
-          whileTap={{ scale: placing ? 1 : 0.96 }}
+          whileTap={{ scale: orderCtaDisabled ? 1 : 0.96 }}
           onClick={handlePlaceOrder}
-          disabled={placing}
+          disabled={orderCtaDisabled}
           style={{
             width: "100%", height: 60, borderRadius: 20,
-            background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
-            border: "none", color: "white", fontSize: 17, fontWeight: 900,
-            letterSpacing: "0.02em", cursor: placing ? "wait" : "pointer",
-            opacity: placing ? 0.92 : 1,
-            boxShadow: `0 8px 30px ${C.redGlow}, 0 2px 0 rgba(255,255,255,0.1) inset`,
+            background: placing
+              ? "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)"
+              : slotKind == null
+                ? "rgba(255,255,255,0.08)"
+                : "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
+            border: slotKind == null && !placing ? "1.5px solid rgba(255,255,255,0.12)" : "none",
+            color: slotKind == null && !placing ? "rgba(255,255,255,0.38)" : "white",
+            fontSize: 17, fontWeight: 900,
+            letterSpacing: "0.02em",
+            cursor: placing ? "wait" : slotKind == null ? "not-allowed" : "pointer",
+            opacity: placing ? 0.92 : slotKind == null ? 0.85 : 1,
+            boxShadow:
+              slotKind == null && !placing
+                ? "none"
+                : `0 8px 30px ${C.redGlow}, 0 2px 0 rgba(255,255,255,0.1) inset`,
             display: "flex", alignItems: "center", justifyContent: "center", gap: placing ? 0 : 12,
             position: "relative",
           }}
@@ -575,7 +596,7 @@ export function CheckoutScreen({
           ) : (
             <>
               Place Order • ₹{grandTotal}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
+import { WhatsappLogo } from "@phosphor-icons/react";
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
@@ -112,7 +113,7 @@ function HomeIcon({ active }: { active: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      style={{ display: "block", transform: "translate(0, -0.5px)" }}
+      style={{ display: "block" }}
     >
       <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
     </svg>
@@ -131,7 +132,9 @@ function OrdersIcon({ active }: { active: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      style={{ display: "block", transform: "translate(0.5px, -1px)" }}
+      style={{
+        display: "block",
+      }}
     >
       <path d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
     </svg>
@@ -150,7 +153,9 @@ function AccountIcon({ active }: { active: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      style={{ display: "block", transform: "translate(-0.5px, -1px)" }}
+      style={{
+        display: "block",
+      }}
     >
       <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
@@ -160,9 +165,10 @@ function AccountIcon({ active }: { active: boolean }) {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 21) return "Good evening";
+  return "Good night";
 }
 function formatFirstName(raw: string) {
   const s = raw.trim().split(/\s+/)[0];
@@ -257,7 +263,7 @@ function dishSocialTrendTag(weekly: number, highly: boolean, rating: number): st
   if (highly) return "Customer favourite";
   if (weekly >= 170) return "Trending now";
   if (rating >= 4.5) return "Top rated";
-  if (weekly >= 110) return "Popular pick";
+  if (weekly >= 110) return "Best Selling";
   return "Well loved";
 }
 
@@ -286,7 +292,7 @@ function pairingSuggestion(cleanName: string, category: string): string {
   return `A hearty ${cat} — add rice or bread and you’ve got a full plate.`;
 }
 
-/** Popular / Favorites segment control — spring slide on the pill. */
+/** Best Selling / Favorites segment control — spring slide on the pill. */
 const FEED_TAB_SPRING = { type: "spring" as const, stiffness: 320, damping: 24, mass: 0.88 };
 
 const fadeUp = (delay = 0) => ({
@@ -927,6 +933,11 @@ export function MobileHomeScreen({
     ratingStars?: number | null;
     ratingComment?: string | null;
     totalAmount?: number | null;
+    deliveryLat?: number | null;
+    deliveryLng?: number | null;
+    driverLastLat?: number | null;
+    driverLastLng?: number | null;
+    driverLocationAt?: string | null;
     lines?: { name: string; quantity: number; unitPrice: number }[];
     breakdown?: {
       itemsSubtotal: number;
@@ -953,7 +964,7 @@ export function MobileHomeScreen({
   const bestSellingIdSet = useMemo(() => new Set(bestFive.map((d) => d.id)), [bestFive]);
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
-  const [homeDishFeedTab, setHomeDishFeedTab] = useState<"popular" | "favorites">("popular");
+  const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
   const feedTabRowRef = useRef<HTMLDivElement>(null);
   const [feedTabPill, setFeedTabPill] = useState({ w: 0, shift: 0 });
 
@@ -1018,6 +1029,11 @@ export function MobileHomeScreen({
           ratingStars?: number | null;
           ratingComment?: string | null;
           totalAmount?: number | null;
+          deliveryLat?: number | null;
+          deliveryLng?: number | null;
+          driverLastLat?: number | null;
+          driverLastLng?: number | null;
+          driverLocationAt?: string | null;
           lines?: { name: string; quantity: number; unitPrice: number }[];
           breakdown?: {
             itemsSubtotal: number;
@@ -1038,6 +1054,11 @@ export function MobileHomeScreen({
             ratingStars: data.ratingStars ?? null,
             ratingComment: data.ratingComment ?? null,
             totalAmount: data.totalAmount != null ? Number(data.totalAmount) : null,
+            deliveryLat: data.deliveryLat ?? null,
+            deliveryLng: data.deliveryLng ?? null,
+            driverLastLat: data.driverLastLat ?? null,
+            driverLastLng: data.driverLastLng ?? null,
+            driverLocationAt: data.driverLocationAt ?? null,
             lines: Array.isArray(data.lines) ? data.lines : [],
             breakdown: data.breakdown && typeof data.breakdown === "object" ? data.breakdown : undefined,
           });
@@ -1093,6 +1114,11 @@ export function MobileHomeScreen({
           ratingStars?: number | null;
           ratingComment?: string | null;
           totalAmount?: number | null;
+          deliveryLat?: number | null;
+          deliveryLng?: number | null;
+          driverLastLat?: number | null;
+          driverLastLng?: number | null;
+          driverLocationAt?: string | null;
           lines?: { name: string; quantity: number; unitPrice: number }[];
           breakdown?: {
             itemsSubtotal: number;
@@ -1112,6 +1138,11 @@ export function MobileHomeScreen({
             ratingStars: j.ratingStars ?? null,
             ratingComment: j.ratingComment ?? null,
             totalAmount: j.totalAmount != null ? Number(j.totalAmount) : null,
+            deliveryLat: j.deliveryLat ?? null,
+            deliveryLng: j.deliveryLng ?? null,
+            driverLastLat: j.driverLastLat ?? null,
+            driverLastLng: j.driverLastLng ?? null,
+            driverLocationAt: j.driverLocationAt ?? null,
             lines: Array.isArray(j.lines) ? j.lines : [],
             breakdown: j.breakdown && typeof j.breakdown === "object" ? j.breakdown : undefined,
           });
@@ -1152,7 +1183,13 @@ export function MobileHomeScreen({
   }, [onCheckout, dishDetailItem]);
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
-  const NAV_CIRCLE = 56;  // circle size
+  const NAV_CIRCLE = 56;  // outer diameter (border box width when tab is inactive)
+  const NAV_BORDER = 1.5; // `border` on motion.button — padding box is already inside this
+  /** Inner width/height of the circle (padding box). Abs children use padding edge as origin — do NOT offset by NAV_BORDER. */
+  const NAV_PAD = 53; // Fixed value for 56 - 2*1.5
+  /** Even-sized flex cell (52×52) centered in NAV_PAD so glyph center lands on whole pixels, not 26.5px. */
+  const NAV_ICON_CELL = 52;
+  const NAV_ICON_INSET = 0.5; // Still 0.5... let's change logic to flex centering.
   const [rippleKey,    setRippleKey]    = useState(0);
   const [rippleTarget, setRippleTarget] = useState("home");
 
@@ -1554,13 +1591,115 @@ export function MobileHomeScreen({
           </h2>
         </motion.div>
 
-        {/* ── Popular / Favorites ───────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.08)} style={{ marginBottom: 0 }}>
+        {/* ── CTA CARDS ─────────────────────────────────────────────────── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: -4 }}>
+          {/* WhatsApp Bot Card */}
+          <motion.div {...fadeUp(0.12)}>
+            <motion.a
+              href={`https://wa.me/917550028179?text=Hi!+I'd+like+to+order+from+today's+menu.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileTap={{ scale: 0.97 }}
+              style={{
+                width: "100%",
+                background: "rgba(37, 211, 102, 0.08)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                border: "1.5px solid rgba(37, 211, 102, 0.2)",
+                borderRadius: 22,
+                padding: "20px 22px",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                cursor: "pointer",
+                boxShadow: "0 4px 28px rgba(0,0,0,0.35)",
+                position: "relative" as const, overflow: "hidden",
+                fontFamily: C.mono,
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: 16, color: "#25D366", fontWeight: 800, letterSpacing: "0.01em" }}>
+                  Order with Vidya Bot
+                </p>
+                <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(37, 211, 102, 0.6)", fontWeight: 600 }}>
+                  Fast & instant via WhatsApp
+                </p>
+              </div>
+              <div style={{
+                width: 46, height: 46, borderRadius: "50%",
+                background: "#25D366",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 18px rgba(37, 211, 102, 0.4)",
+                flexShrink: 0,
+              }}>
+                <WhatsappLogo size={24} weight="fill" color="white" />
+              </div>
+            </motion.a>
+          </motion.div>
+
+          {/* Browse Full Menu CTA */}
+          <motion.div {...fadeUp(0.16)}>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setDishDetailItem(null);
+                setActiveScreen("menu");
+              }}
+              style={{
+                width: "100%",
+                background: C.surfaceDeep,
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                border: `1.5px solid ${C.border}`,
+                borderRadius: 22,
+                padding: "20px 22px",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                cursor: "pointer",
+                boxShadow: "0 4px 28px rgba(0,0,0,0.45)",
+                position: "relative" as const, overflow: "hidden",
+                fontFamily: C.mono,
+              }}
+            >
+              {/* Shimmer */}
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ repeat: Infinity, duration: 2.6, ease: "linear", repeatDelay: 4 }}
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)",
+                }}
+              />
+              <div style={{ textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
+                  Explore Full Menu
+                </p>
+                <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                  {loading ? "Loading…" : `${items.length} dishes available`}
+                </p>
+              </div>
+              <div style={{
+                width: 46, height: 46, borderRadius: "50%",
+                background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: `0 4px 18px ${C.redGlow}`,
+                flexShrink: 0,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </motion.button>
+          </motion.div>
+        </div>
+
+        {/* ── Favorites Section ─────────────────────────────────────────── */}
+        <motion.div {...fadeUp(0.2)}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
             <div
               ref={feedTabRowRef}
               role="tablist"
-              aria-label="Show popular or favorite dishes"
+              aria-label="Show best selling or favorite dishes"
               style={{
                 position: "relative",
                 display: "grid",
@@ -1595,7 +1734,7 @@ export function MobileHomeScreen({
                   willChange: "transform",
                 }}
               />
-              {(["popular", "favorites"] as const).map((tab) => {
+              {(["bestSelling", "favorites"] as const).map((tab) => {
                 const active = homeDishFeedTab === tab;
                 return (
                   <motion.button
@@ -1625,7 +1764,7 @@ export function MobileHomeScreen({
                       animate={{ color: active ? C.white : "rgba(255,255,255,0.45)" }}
                       transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      {tab === "popular" ? "Popular" : "Favorites"}
+                      {tab === "bestSelling" ? "Best Selling" : "Favorites"}
                     </motion.span>
                   </motion.button>
                 );
@@ -1633,150 +1772,67 @@ export function MobileHomeScreen({
             </div>
           </div>
 
-          {(() => {
-            const carouselItems = homeDishFeedTab === "popular" ? bestFive : favoriteItems;
-            const title = homeDishFeedTab === "popular" ? "Best selling dishes" : "Your favorites";
-            const showPopularSkeleton = loading && homeDishFeedTab === "popular";
-            const showFavoritesSkeleton = loading && homeDishFeedTab === "favorites" && items.length === 0;
-            const showFavoritesEmpty = !loading && homeDishFeedTab === "favorites" && favoriteItems.length === 0;
-            const canOpenFirst = carouselItems.length > 0;
-            return (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (carouselItems[0]) {
-                      setLocationOpen(false);
-                      setDishDetailItem(carouselItems[0]);
-                    }
-                  }}
-                  style={{
-                    margin: "0 0 12px",
-                    padding: 0,
-                    border: "none",
-                    background: "none",
-                    cursor: canOpenFirst ? "pointer" : "default",
-                    display: "block",
-                    textAlign: "left",
-                    width: "100%",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 14,
-                      color: "rgba(255,255,255,0.35)",
-                      fontWeight: 600,
-                      letterSpacing: "0",
-                    }}
-                  >
-                    {title}
-                  </p>
-                </button>
-
-                <div
-                  className="no-scrollbar"
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    overflowX: "auto",
-                    paddingBottom: 8,
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                    WebkitOverflowScrolling: "touch",
-                  }}
-                >
-                  {showPopularSkeleton || showFavoritesSkeleton
-                    ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
-                    : showFavoritesEmpty
-                      ? (
-                          <p
-                            style={{
-                              margin: 0,
-                              padding: "12px 4px 24px",
-                              fontSize: 14,
-                              lineHeight: 1.55,
-                              color: "rgba(255,255,255,0.45)",
-                              fontWeight: 600,
-                              flex: 1,
-                            }}
-                          >
-                            No favorites yet. Tap the heart on a dish or in details to save it here — same list as in Account.
-                          </p>
-                        )
-                      : carouselItems.map((item, i) => (
-                          <BestSellingCard
-                            key={item.id}
-                            item={item}
-                            index={i}
-                            qty={cart[item.id] || 0}
-                            showMsrp={homeDishFeedTab === "popular" || bestSellingIdSet.has(item.id)}
-                            onOpenDetail={() => {
-                              setLocationOpen(false);
-                              setDishDetailItem(item);
-                            }}
-                          />
-                        ))}
-                </div>
-              </>
-            );
-          })()}
-        </motion.div>
-
-        {/* ── BROWSE FULL MENU CTA ───────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.16)} style={{ marginTop: -8 }}>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => {
-              setDishDetailItem(null);
-              setActiveScreen("menu");
-            }}
-            style={{
-              width: "100%",
-              background: C.surfaceDeep,
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: `1.5px solid ${C.border}`,
-              borderRadius: 22,
-              padding: "20px 22px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              cursor: "pointer",
-              boxShadow: "0 4px 28px rgba(0,0,0,0.45)",
-              position: "relative" as const, overflow: "hidden",
-              fontFamily: C.mono,
-            }}
-          >
-            {/* Shimmer */}
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: "100%" }}
-              transition={{ repeat: Infinity, duration: 2.6, ease: "linear", repeatDelay: 4 }}
-              style={{
-                position: "absolute", inset: 0,
-                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)",
-              }}
-            />
-            <div style={{ textAlign: "left" }}>
-              <p style={{ margin: 0, fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
-                Browse Full Menu
+          {homeDishFeedTab === "favorites" && (
+            <>
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 14,
+                  color: "rgba(255,255,255,0.35)",
+                  fontWeight: 600,
+                  letterSpacing: "0",
+                }}
+              >
+                Your favorites
               </p>
-              <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
-                {loading ? "Loading…" : `${items.length} dishes available`}
-              </p>
-            </div>
-            <div style={{
-              width: 46, height: 46, borderRadius: "50%",
-              background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 4px 18px ${C.redGlow}`,
-              flexShrink: 0,
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
-            </div>
-          </motion.button>
+
+              <div
+                className="no-scrollbar"
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  overflowX: "auto",
+                  paddingBottom: 8,
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                {loading && items.length === 0
+                  ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
+                  : favoriteItems.length === 0
+                    ? (
+                        <p
+                          style={{
+                            margin: 0,
+                            padding: "12px 4px 24px",
+                            fontSize: 14,
+                            lineHeight: 1.55,
+                            color: "rgba(255,255,255,0.45)",
+                            fontWeight: 600,
+                            flex: 1,
+                          }}
+                        >
+                          No favorites yet. Tap the heart on a dish to save it here.
+                        </p>
+                      )
+                    : favoriteItems.map((item, i) => (
+                        <BestSellingCard
+                          key={item.id}
+                          item={item}
+                          index={i}
+                          qty={cart[item.id] || 0}
+                          showMsrp={bestSellingIdSet.has(item.id)}
+                          onOpenDetail={() => {
+                            setLocationOpen(false);
+                            setDishDetailItem(item);
+                          }}
+                        />
+                      ))
+                }
+              </div>
+            </>
+          )}
         </motion.div>
           </>
         )}
@@ -2037,8 +2093,8 @@ export function MobileHomeScreen({
                     <span
                       style={{
                         position: "absolute",
-                        top: 4,
-                        right: 6,
+                        top: 2,
+                        right: 2,
                         minWidth: 18,
                         height: 18,
                         padding: "0 5px",
@@ -2071,8 +2127,8 @@ export function MobileHomeScreen({
                           position: "absolute",
                           top: "50%",
                           left: "50%",
-                          width: NAV_CIRCLE,
-                          height: NAV_CIRCLE,
+                          width: NAV_ICON_CELL,
+                          height: NAV_ICON_CELL,
                           borderRadius: "50%",
                           border: "2px solid rgba(189,35,32,0.6)",
                           transform: "translate(-50%, -50%)",
@@ -2087,8 +2143,8 @@ export function MobileHomeScreen({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 26,
-                      height: 26,
+                      width: 20,
+                      height: 20,
                       lineHeight: 0,
                       flexShrink: 0,
                     }}
@@ -2106,7 +2162,7 @@ export function MobileHomeScreen({
                       exit={{ opacity: 0, transition: { duration: 0.12 } }}
                       transition={{ type: "spring", stiffness: 520, damping: 34 }}
                       style={{
-                        marginLeft: NAV_CIRCLE,
+                        marginLeft: 48,
                         height: NAV_CIRCLE,
                         display: "flex",
                         alignItems: "center",

@@ -25,6 +25,8 @@ export async function POST(request: Request) {
       deliverySlot?: string;
       lines?: LineInput[];
       paymentMethod?: string;
+      deliveryLat?: number;
+      deliveryLng?: number;
     };
 
     const phone = String(body.phone || "").trim();
@@ -34,6 +36,12 @@ export async function POST(request: Request) {
     const deliverySlotRaw = String(body.deliverySlot || "").trim().toLowerCase();
     const lines = Array.isArray(body.lines) ? body.lines : [];
     const paymentMethod = String(body.paymentMethod || "upi").toLowerCase();
+    const latRaw = body.deliveryLat;
+    const lngRaw = body.deliveryLng;
+    const deliveryLat =
+      typeof latRaw === "number" && Number.isFinite(latRaw) && Math.abs(latRaw) <= 90 ? latRaw : null;
+    const deliveryLng =
+      typeof lngRaw === "number" && Number.isFinite(lngRaw) && Math.abs(lngRaw) <= 180 ? lngRaw : null;
 
     if (paymentMethod === "cod") {
       return NextResponse.json({ error: "Cash on delivery is not enabled for online checkout yet." }, { status: 400 });
@@ -107,6 +115,9 @@ export async function POST(request: Request) {
         delivery_address: deliveryAddress,
         delivery_slot: slotStartIso,
         delivery_slot_kind: deliverySlotRaw,
+        ...(deliveryLat != null && deliveryLng != null
+          ? { delivery_lat: deliveryLat, delivery_lng: deliveryLng }
+          : {}),
       })
       .select("id")
       .single();

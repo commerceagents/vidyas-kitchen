@@ -314,6 +314,8 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
               }}
               phone={phone}
               customerName={name}
+              deliveryLat={location.lat}
+              deliveryLng={location.lng}
               cart={cart}
               items={items}
               updateQty={updateQty}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canTransitionOrderStatus, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
-import { notifyWhatsAppOrderEvent } from "@/lib/whatsapp-order-notify";
+import { notifyWhatsAppOrderEvent, notifyWhatsAppDriverNewDeliveryReady } from "@/lib/whatsapp-order-notify";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
@@ -30,6 +30,12 @@ export async function transitionOrderStatusInDb(
     .eq("id", orderId);
 
   if (upErr) return { ok: false, error: upErr.message };
+
+  if (next === OrderStatus.READY) {
+    void notifyWhatsAppDriverNewDeliveryReady(supabase, orderId).catch((e) =>
+      console.error("[order-transition] driver WhatsApp", e),
+    );
+  }
 
   try {
     await notifyWhatsAppOrderEvent({

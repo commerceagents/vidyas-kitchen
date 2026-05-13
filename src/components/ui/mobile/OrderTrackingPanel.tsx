@@ -63,6 +63,11 @@ export type OrderTrackSnap = {
   ratingStars?: number | null;
   ratingComment?: string | null;
   totalAmount?: number | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  driverLastLat?: number | null;
+  driverLastLng?: number | null;
+  driverLocationAt?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number }[];
   breakdown?: {
     itemsSubtotal: number;
@@ -116,7 +121,7 @@ function statusCopy(status: string): { title: string; description: string } {
   if (s === "ready")
     return { title: "Packed and ready for pickup", description: "Your boxes are sealed; the rider will collect them shortly." };
   if (s === "out_for_delivery")
-    return { title: "Driver is on the way", description: "Watch for the door — your meal should arrive in the chosen window." };
+    return { title: "Driver is on the way", description: "Your driver has picked up your order and is heading to you." };
   if (s === "delivered") return { title: "Enjoy your meal", description: "Thank you for choosing Vidya’s Kitchen today." };
   if (s === "cancelled")
     return {
@@ -427,12 +432,27 @@ const STEP_LABELS = ["Paid", "Prep", "Ready", "Out", "Done"];
 /** Subtle pulse ring for the active tracking step (not for completed checkmarks). */
 const STEP_ACTIVE_RING_COLOR = "rgba(189,35,32,0.42)";
 
-function mapStaticUrl(userLat: number, userLng: number, token: string): string {
-  const dLng = 0.01;
-  const dLat = 0.008;
-  const rLng = userLng + dLng;
-  const rLat = userLat + dLat;
-  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-s+BD2320(${userLng},${userLat}),pin-s+FFFFFF(${rLng},${rLat})/auto/640x240@2x?padding=60&access_token=${encodeURIComponent(token)}`;
+function mapStaticUrl(
+  userLat: number,
+  userLng: number,
+  token: string,
+  driverLat?: number | null,
+  driverLng?: number | null,
+): string {
+  const pins: string[] = [`pin-s+BD2320(${userLng},${userLat})`];
+  if (
+    driverLat != null &&
+    driverLng != null &&
+    Number.isFinite(driverLat) &&
+    Number.isFinite(driverLng)
+  ) {
+    pins.push(`pin-s+FFFFFF(${driverLng},${driverLat})`);
+  } else {
+    const dLng = 0.01;
+    const dLat = 0.008;
+    pins.push(`pin-s+FFFFFF(${userLng + dLng},${userLat + dLat})`);
+  }
+  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${pins.join(",")}/auto/640x240@2x?padding=60&access_token=${encodeURIComponent(token)}`;
 }
 
 function waHelpUrl(orderId: string) {
@@ -1027,12 +1047,21 @@ export function OrderTrackingPanel({
                   }}
                 >
                   <img
-                    src={mapStaticUrl(location.lat, location.lng, mapToken)}
+                    src={mapStaticUrl(
+                      location.lat,
+                      location.lng,
+                      mapToken,
+                      trackSnap.driverLastLat,
+                      trackSnap.driverLastLng,
+                    )}
                     alt="Delivery map"
                     style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
                   />
                   <div style={{ padding: "12px 14px", background: C.glass, fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.45 }}>
-                    Red pin: your address · White pin: driver (approx.) · Live GPS next
+                    Red pin: your address · White pin: driver
+                    {trackSnap.driverLastLat != null && trackSnap.driverLastLng != null
+                      ? " (live)"
+                      : " (last known when available)"}
                   </div>
                 </div>
               ) : outForDelivery ? (

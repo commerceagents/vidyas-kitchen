@@ -1,6 +1,7 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { OrderStatus } from "@/lib/order-status";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function logGraph(data: unknown) {
   const err = (data as { error?: { message?: string; code?: number } })?.error;
@@ -129,7 +130,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     case OrderStatus.OUT_FOR_DELIVERY: {
       await sendButtons(
         to,
-        "🛵 Your order is on the way! The driver is heading to you.",
+        "🛵 Your driver has picked up your order! They’re on the way to you.",
         [
           { id: "track_order", title: "Track order" },
         ],
@@ -139,14 +140,14 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     case OrderStatus.DELIVERED: {
       await sendButtons(
         to,
-        "🍽️ Your order has been delivered! Enjoy your meal.\n\nRate us (second message has ⭐2 and ⭐1):",
+        "🍽️ *Your order has been delivered!*\n\nHow was everything? Tap a rating below.",
         [
           { id: encodeOrderRatingButtonId(5, order.id), title: "⭐ 5" },
           { id: encodeOrderRatingButtonId(4, order.id), title: "⭐ 4" },
           { id: encodeOrderRatingButtonId(3, order.id), title: "⭐ 3" },
         ],
       );
-      await sendButtons(to, "Tap your rating:", [
+      await sendButtons(to, "More ratings:", [
         { id: encodeOrderRatingButtonId(2, order.id), title: "⭐ 2" },
         { id: encodeOrderRatingButtonId(1, order.id), title: "⭐ 1" },
       ]);
@@ -170,4 +171,77 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     default:
       break;
   }
+}
+
+type OrderItemRow = {
+  quantity?: number | null;
+  menu_items?: { name?: string | null } | null;
+};
+
+/**
+ * Kitchen marked order READY — notify driver with deep link to driver app.
+ * Set `DRIVER_WHATSAPP_PHONE` in env (same digit rules as customer numbers).
+ */
+export async function notifyWhatsAppDriverNewDeliveryReady(
+  supabase: SupabaseClient,
+  orderId: string,
+): Promise<void> {
+  const driverRaw = process.env.DRIVER_WHATSAPP_PHONE;
+  if (!driverRaw?.trim()) {
+    console.warn("[whatsapp-order-notify] Skipped driver notify: set DRIVER_WHATSAPP_PHONE");
+    return;
+  }
+  const to = toWhatsAppRecipient(driverRaw);
+  if (!to) {
+    console.warn("[whatsapp-order-notify] Invalid DRIVER_WHATSAPP_PHONE");
+    return;
+  }
+
+  const { data: row, error } = await supabase
+    .from("orders")
+    .select(
+      `
+      id,
+      delivery_address,
+      users:customer_id ( full_name ),
+      order_items ( quantity, menu_items ( name ) )
+    `,
+    )
+    .eq("id", orderId)
+    .single();
+
+  if (error || !row) {
+    console.error("[whatsapp-order-notify] driver fetch", error?.message);
+    return;
+  }
+
+  const r = row as {
+    id: string;
+    delivery_address?: string | null;
+    users?: { full_name?: string | null } | null;
+    order_items?: OrderItemRow[] | null;
+  };
+
+  const customerName = r.users?.full_name?.trim() || "Customer";
+  const items = Array.isArray(r.order_items) ? r.order_items : [];
+  const first = items[0];
+  let itemLine = "See kitchen list";
+  if (first) {
+    const nm = String(first.menu_items?.name || "Item");
+    const q = Math.max(1, Math.floor(Number(first.quantity) || 1));
+    if (items.length === 1) {
+      itemLine = `${nm} × ${q}`;
+    } else {
+      itemLine = `${nm} × ${q} +${items.length - 1} more`;
+    }
+  }
+
+  const body =
+    `🍱 *New delivery ready!*\n\n` +
+    `Customer: ${customerName}\n` +
+    `Item: ${itemLine}\n` +
+    `Address: ${r.delivery_address || "—"}`;
+
+  const url = `${publicSiteOrigin()}/driver/order/${encodeURIComponent(orderId)}`;
+  await sendCtaUrl(to, body, url, "View & Pick Up");
 }
