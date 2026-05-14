@@ -1772,67 +1772,77 @@ export function MobileHomeScreen({
             </div>
           </div>
 
-          {homeDishFeedTab === "favorites" && (
-            <>
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: 14,
-                  color: "rgba(255,255,255,0.35)",
-                  fontWeight: 600,
-                  letterSpacing: "0",
-                }}
-              >
-                Your favorites
-              </p>
+          {(() => {
+            const carouselItems = homeDishFeedTab === "bestSelling" ? bestFive : favoriteItems;
+            const showSkeleton = loading && carouselItems.length === 0;
+            const isEmpty = !loading && carouselItems.length === 0;
+            
+            return (
+              <>
+                {homeDishFeedTab === "favorites" && (
+                  <p
+                    style={{
+                      margin: "0 0 12px",
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.35)",
+                      fontWeight: 600,
+                      letterSpacing: "0",
+                    }}
+                  >
+                    Your favorites
+                  </p>
+                )}
 
-              <div
-                className="no-scrollbar"
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  overflowX: "auto",
-                  paddingBottom: 8,
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                {loading && items.length === 0
-                  ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
-                  : favoriteItems.length === 0
-                    ? (
-                        <p
-                          style={{
-                            margin: 0,
-                            padding: "12px 4px 24px",
-                            fontSize: 14,
-                            lineHeight: 1.55,
-                            color: "rgba(255,255,255,0.45)",
-                            fontWeight: 600,
-                            flex: 1,
-                          }}
-                        >
-                          No favorites yet. Tap the heart on a dish to save it here.
-                        </p>
-                      )
-                    : favoriteItems.map((item, i) => (
-                        <BestSellingCard
-                          key={item.id}
-                          item={item}
-                          index={i}
-                          qty={cart[item.id] || 0}
-                          showMsrp={bestSellingIdSet.has(item.id)}
-                          onOpenDetail={() => {
-                            setLocationOpen(false);
-                            setDishDetailItem(item);
-                          }}
-                        />
-                      ))
-                }
-              </div>
-            </>
-          )}
+                <div
+                  className="no-scrollbar"
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    overflowX: "auto",
+                    paddingBottom: 8,
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {showSkeleton
+                    ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
+                    : isEmpty
+                      ? (
+                          <p
+                            style={{
+                              margin: 0,
+                              padding: "12px 4px 24px",
+                              fontSize: 14,
+                              lineHeight: 1.55,
+                              color: "rgba(255,255,255,0.45)",
+                              fontWeight: 600,
+                              flex: 1,
+                            }}
+                          >
+                            {homeDishFeedTab === "favorites" 
+                              ? "No favorites yet. Tap the heart on a dish to save it here." 
+                              : "No best selling dishes available."}
+                          </p>
+                        )
+                      : carouselItems.map((item, i) => (
+                          <BestSellingCard
+                            key={item.id}
+                            item={item}
+                            index={i}
+                            qty={cart[item.id] || 0}
+                            showMsrp={bestSellingIdSet.has(item.id)}
+                            onOpenDetail={() => {
+                              setLocationOpen(false);
+                              setDishDetailItem(item);
+                            }}
+                          />
+                        ))
+                  }
+                </div>
+              </>
+            );
+          })()}
         </motion.div>
           </>
         )}
