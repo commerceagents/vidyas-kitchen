@@ -1183,13 +1183,11 @@ export function MobileHomeScreen({
   }, [onCheckout, dishDetailItem]);
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
-  const NAV_CIRCLE = 56;  // outer diameter (border box width when tab is inactive)
-  const NAV_BORDER = 1.5; // `border` on motion.button — padding box is already inside this
-  /** Inner width/height of the circle (padding box). Abs children use padding edge as origin — do NOT offset by NAV_BORDER. */
-  const NAV_PAD = 53; // Fixed value for 56 - 2*1.5
-  /** Even-sized flex cell (52×52) centered in NAV_PAD so glyph center lands on whole pixels, not 26.5px. */
-  const NAV_ICON_CELL = 52;
-  const NAV_ICON_INSET = 0.5; // Still 0.5... let's change logic to flex centering.
+  const NAV_CIRCLE = 48;  // Smaller for the pill look
+  const NAV_BORDER = 1;
+  const NAV_PAD = 46;
+  const NAV_ICON_CELL = 44;
+  const NAV_ICON_INSET = 1;
   const [rippleKey,    setRippleKey]    = useState(0);
   const [rippleTarget, setRippleTarget] = useState("home");
 
@@ -1591,107 +1589,6 @@ export function MobileHomeScreen({
           </h2>
         </motion.div>
 
-        {/* ── CTA CARDS ─────────────────────────────────────────────────── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: -4 }}>
-          {/* WhatsApp Bot Card */}
-          <motion.div {...fadeUp(0.12)}>
-            <motion.a
-              href={`https://wa.me/917550028179?text=Hi!+I'd+like+to+order+from+today's+menu.`}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileTap={{ scale: 0.97 }}
-              style={{
-                width: "100%",
-                background: "rgba(37, 211, 102, 0.08)",
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
-                border: "1.5px solid rgba(37, 211, 102, 0.2)",
-                borderRadius: 22,
-                padding: "20px 22px",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                cursor: "pointer",
-                boxShadow: "0 4px 28px rgba(0,0,0,0.35)",
-                position: "relative" as const, overflow: "hidden",
-                fontFamily: C.mono,
-                textDecoration: "none",
-              }}
-            >
-              <div style={{ textAlign: "left" }}>
-                <p style={{ margin: 0, fontSize: 16, color: "#25D366", fontWeight: 800, letterSpacing: "0.01em" }}>
-                  Order with Vidya Bot
-                </p>
-                <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(37, 211, 102, 0.6)", fontWeight: 600 }}>
-                  Fast & instant via WhatsApp
-                </p>
-              </div>
-              <div style={{
-                width: 46, height: 46, borderRadius: "50%",
-                background: "#25D366",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 18px rgba(37, 211, 102, 0.4)",
-                flexShrink: 0,
-              }}>
-                <WhatsappLogo size={24} weight="fill" color="white" />
-              </div>
-            </motion.a>
-          </motion.div>
-
-          {/* Browse Full Menu CTA */}
-          <motion.div {...fadeUp(0.16)}>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                setDishDetailItem(null);
-                setActiveScreen("menu");
-              }}
-              style={{
-                width: "100%",
-                background: C.surfaceDeep,
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
-                border: `1.5px solid ${C.border}`,
-                borderRadius: 22,
-                padding: "20px 22px",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                cursor: "pointer",
-                boxShadow: "0 4px 28px rgba(0,0,0,0.45)",
-                position: "relative" as const, overflow: "hidden",
-                fontFamily: C.mono,
-              }}
-            >
-              {/* Shimmer */}
-              <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
-                transition={{ repeat: Infinity, duration: 2.6, ease: "linear", repeatDelay: 4 }}
-                style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)",
-                }}
-              />
-              <div style={{ textAlign: "left" }}>
-                <p style={{ margin: 0, fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
-                  Explore Full Menu
-                </p>
-                <p style={{ margin: "3px 0 0", fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
-                  {loading ? "Loading…" : `${items.length} dishes available`}
-                </p>
-              </div>
-              <div style={{
-                width: 46, height: 46, borderRadius: "50%",
-                background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: `0 4px 18px ${C.redGlow}`,
-                flexShrink: 0,
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                  stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </div>
-            </motion.button>
-          </motion.div>
-        </div>
 
         {/* ── Favorites Section ─────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.2)}>
@@ -1844,6 +1741,101 @@ export function MobileHomeScreen({
             );
           })()}
         </motion.div>
+
+        {/* ── CTA CARDS (SIDE BY SIDE) ───────────────────────────────────── */}
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "1fr 1fr", 
+          gap: 12, 
+          marginTop: 12 
+        }}>
+          {/* WhatsApp Bot Card */}
+          <motion.div {...fadeUp(0.24)}>
+            <motion.a
+              href={`https://wa.me/917550028179?text=Hi!+I'd+like+to+order+from+today's+menu.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileTap={{ scale: 0.95 }}
+              style={{
+                width: "100%",
+                height: 110,
+                background: "rgba(255,255,255,0.03)",
+                backdropFilter: "blur(32px)",
+                WebkitBackdropFilter: "blur(32px)",
+                border: `1px solid ${C.border}`,
+                borderRadius: 24,
+                padding: "16px",
+                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                cursor: "pointer",
+                position: "relative" as const, overflow: "hidden",
+                fontFamily: C.mono,
+                textDecoration: "none",
+              }}
+            >
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: "#25D366",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(37, 211, 102, 0.3)",
+              }}>
+                <WhatsappLogo size={18} weight="fill" color="white" />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>
+                  Vidya Bot
+                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                  Fast WhatsApp
+                </p>
+              </div>
+            </motion.a>
+          </motion.div>
+
+          {/* Explore Menu CTA */}
+          <motion.div {...fadeUp(0.28)}>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setDishDetailItem(null);
+                setActiveScreen("menu");
+              }}
+              style={{
+                width: "100%",
+                height: 110,
+                background: C.surfaceDeep,
+                backdropFilter: "blur(32px)",
+                WebkitBackdropFilter: "blur(32px)",
+                border: `1px solid ${C.border}`,
+                borderRadius: 24,
+                padding: "16px",
+                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                cursor: "pointer",
+                position: "relative" as const, overflow: "hidden",
+                fontFamily: C.mono,
+              }}
+            >
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: `0 4px 12px ${C.redGlow}`,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </div>
+              <div style={{ textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: 14, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>
+                  Explore Menu
+                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                  {loading ? "..." : `${items.length} Dishes`}
+                </p>
+              </div>
+            </motion.button>
+          </motion.div>
+        </div>
           </>
         )}
 
@@ -2050,29 +2042,22 @@ export function MobileHomeScreen({
               <motion.button
                 key={id}
                 onClick={() => handleNav(id)}
-                whileTap={{ scale: 0.85 }}
+                whileTap={{ scale: 0.9 }}
                 animate={{
-                  width: isActive ? activeWidth : NAV_CIRCLE,
-                  paddingLeft: 0,
-                  paddingRight: isActive ? 12 : 0,
+                  width: isActive ? activeWidth - 10 : NAV_CIRCLE,
                   background: isActive
-                    ? "rgba(189,35,32,0.14)"
-                    : "rgba(14,14,14,0.78)",
+                    ? "rgba(189,35,32,0.18)" // Muted brand red for the pill
+                    : "transparent",
                   borderColor: isActive
-                    ? "rgba(189,35,32,0.32)"
-                    : "rgba(255,255,255,0.09)",
-                  boxShadow: isActive
-                    ? "0 0 28px rgba(189,35,32,0.32), 0 4px 20px rgba(0,0,0,0.4)"
-                    : "0 4px 20px rgba(0,0,0,0.4)",
+                    ? "rgba(189,35,32,0.3)"
+                    : "transparent",
                 }}
-                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 style={{
                   height: NAV_CIRCLE,
-                  borderRadius: 28,
-                  border: "1.5px solid",
+                  borderRadius: 24,
+                  border: "1px solid",
                   boxSizing: "border-box",
-                  backdropFilter: "blur(24px)",
-                  WebkitBackdropFilter: "blur(24px)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "flex-start",
@@ -2082,6 +2067,7 @@ export function MobileHomeScreen({
                   overflow: "hidden",
                   fontFamily: C.mono,
                   flexShrink: 0,
+                  background: "transparent", // Base state is transparent
                 }}
               >
                 {/* Icon stays in a fixed left square — never reflows when the pill width springs */}
@@ -2167,18 +2153,18 @@ export function MobileHomeScreen({
                   {isActive && (
                     <motion.span
                       key={`lbl-${id}`}
-                      initial={{ opacity: 0, x: -4 }}
+                      initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                      transition={{ type: "spring", stiffness: 520, damping: 34 }}
+                      exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       style={{
-                        marginLeft: 48,
+                        marginLeft: 40,
                         height: NAV_CIRCLE,
                         display: "flex",
                         alignItems: "center",
-                        fontSize: 14,
-                        fontWeight: 800,
-                        letterSpacing: "0.05em",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
                         color: C.red,
                         whiteSpace: "nowrap",
                         position: "relative",
