@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Check, X, WarningCircle } from "@phosphor-icons/react";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
@@ -11,13 +12,7 @@ import type { SavedPlace } from "@/lib/vk-saved-places";
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  image_url: string | null;
-}
+import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 
 interface LocationData {
   label: string;
@@ -43,10 +38,41 @@ type PaymentFeedback =
   | { kind: "cancelled" };
 
 export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps) {
-  const [step, setStep] = useState<MobileStep>("login");
-  const [phone, setPhone] = useState(prefilledPhone || "");
-  const [name, setName] = useState(prefilledName || "");
-  const [location, setLocation] = useState<LocationData | null>(null);
+  // ── Sync Initial State from Storage ──────────────────────────────────────
+  const [initialData] = useState(() => {
+    if (typeof window === "undefined") return { step: "login" as MobileStep, phone: "", name: "", location: null as LocationData | null };
+    
+    const savedPhone = localStorage.getItem("vk_phone");
+    const savedLocation = localStorage.getItem("vk_location");
+    const savedName = localStorage.getItem(LS_NAME);
+    
+    let step: MobileStep = "login";
+    let loc: LocationData | null = null;
+    
+    if (savedPhone) {
+      if (savedLocation) {
+        try { loc = JSON.parse(savedLocation); step = "home"; } 
+        catch { step = "location"; }
+      } else {
+        step = "location";
+      }
+    } else if (prefilledPhone) {
+      step = "location";
+    }
+
+    return { 
+      step, 
+      phone: savedPhone || prefilledPhone || "", 
+      name: savedName || prefilledName || "", 
+      location: loc 
+    };
+  });
+
+  const [step, setStep] = useState<MobileStep>(initialData.step);
+  const [phone, setPhone] = useState(initialData.phone);
+  const [name, setName] = useState(initialData.name);
+  const [location, setLocation] = useState<LocationData | null>(initialData.location);
+  
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [paymentFeedback, setPaymentFeedback] = useState<PaymentFeedback>(null);
@@ -61,11 +87,18 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   /** True after “Add more” from checkout — Browse Menu back should return to checkout. */
   const [returnToCheckoutAfterBrowse, setReturnToCheckoutAfterBrowse] = useState(false);
 
-  const updateQty = (id: string, delta: number) => {
+  const updateQty = (key: string, delta: number) => {
     setCart(prev => {
-      const current = prev[id] || 0;
+      const current = prev[key] || 0;
       const next = Math.max(0, current + delta);
-      return { ...prev, [id]: next };
+      
+      const copy = { ...prev };
+      if (next === 0) {
+        delete copy[key];
+      } else {
+        copy[key] = next;
+      }
+      return copy;
     });
   };
 
@@ -390,15 +423,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                       justifyContent: "center",
                     }}
                   >
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path
-                        d="M5 13l4 4L19 7"
-                        stroke="#22c55e"
-                        strokeWidth="2.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <Check size={28} weight="bold" color="#22c55e" />
                   </motion.div>
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
@@ -431,9 +456,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                     justifyContent: "center",
                   }}
                 >
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
+                  <X size={40} weight="bold" color="#f87171" />
                 </div>
               ) : (
                 <div
@@ -449,10 +472,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                     justifyContent: "center",
                   }}
                 >
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 8v4M12 16h.01" />
-                  </svg>
+                  <WarningCircle size={40} weight="bold" color="#fbbf24" />
                 </div>
               )}
               {paymentFeedback.kind !== "success" ? (

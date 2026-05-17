@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@phosphor-icons/react": "^2.1.10",
+    "@phosphor-icons/react": "2.1.10",
     "@supabase/supabase-js": "^2.97.0",
     "@tailwindcss/postcss": "^4.0.0",
     "autoprefixer": "^10.4.24",

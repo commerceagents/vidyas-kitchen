@@ -5,6 +5,7 @@ import { publicSiteOrigin } from "@/lib/site-url";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { decodeOrderRatingButtonId } from "@/lib/whatsapp-order-notify";
 import { saveOrderRatingByPhone } from "@/lib/order-rating";
+import { isOrderingWindowOpen, getEarliestBookableSlot } from "@/lib/delivery-slots";
 
 /**
  * OFFICIAL META WHATSAPP WEBHOOK HANDLER
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
       if (message) {
         const from = message.from;
         const profileName = value?.contacts?.[0]?.profile?.name || "";
+        const windowOpen = isOrderingWindowOpen();
         let text = "";
 
         // Handle native WhatsApp catalog order (customer taps "Send order" in cart)
@@ -77,7 +79,10 @@ export async function POST(req: Request) {
           const catalogId = order?.catalog_id;
           const items: { product_retailer_id: string; quantity: number; item_price: number; currency: string }[] =
             order?.product_items ?? [];
-          console.log(`[WHATSAPP] Order received from ${from}:`, JSON.stringify(items));
+          if (!windowOpen) {
+            await sendWhatsAppMessage(from, "We accept orders only between 6 AM and 6 PM. See you then!");
+            return NextResponse.json({ status: "success" });
+          }
 
           if (items.length > 0) {
             const agent = new VidyaAgent();
@@ -98,7 +103,10 @@ export async function POST(req: Request) {
             });
 
             const total = orderItems.reduce((sum, i) => sum + i.price_at_order * i.quantity, 0);
-            const deliverySlot = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString();
+            
+            // Rule 2: 24h advance
+            const earliest = getEarliestBookableSlot();
+            const deliverySlot = earliest.startTime;
             const orderData = await agent.createOrder(from, orderItems, total, deliverySlot);
             if (orderData && orderData.paymentLink) {
               const lines = items.map(
@@ -199,6 +207,15 @@ export async function POST(req: Request) {
               "Open app"
             );
             return NextResponse.json({ status: "success" });
+          }
+
+          // Menu & Order initiation: Rule 1 window check
+          if ((shouldShowMenu || shouldShowButtons) && !windowOpen) {
+            const isMenuIntent = shouldShowMenu || (buttons && buttons.some(b => b.id === "view_menu" || b.id === "bestsellers"));
+            if (isMenuIntent) {
+              await sendWhatsAppMessage(from, "We accept orders only between 6 AM and 6 PM. See you then!");
+              return NextResponse.json({ status: "success" });
+            }
           }
 
           // Help & Support — list message (5 options; reply buttons max 3)

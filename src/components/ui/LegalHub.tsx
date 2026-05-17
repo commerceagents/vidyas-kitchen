@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Phone } from "@phosphor-icons/react";
+import { ArrowLeft } from "@phosphor-icons/react";
+
 import Link from "next/link";
 import Image from "next/image";
 
@@ -245,7 +246,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             }}
             className="back-link"
           >
-            <ArrowLeft size={18} weight="bold" />
+            <ArrowLeft size={18} weight="bold" color="currentColor" />
+
             Back to Home
           </Link>
         </motion.div>

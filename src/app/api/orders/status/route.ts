@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       .select(
         `
         id, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
-        delivery_lat, delivery_lng,
+        delivery_lat, delivery_lng, cancellation_deadline,
         driver_last_lat, driver_last_lng, driver_location_at,
         order_items (
           quantity,
@@ -85,6 +85,7 @@ export async function GET(request: Request) {
       driverLastLat: (row as { driver_last_lat?: number | null }).driver_last_lat ?? null,
       driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
       driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
+      cancellationDeadline: (row as { cancellation_deadline?: string | null }).cancellation_deadline ?? null,
       lines,
       breakdown: {
         itemsSubtotal: breakdown.itemsSubtotal,

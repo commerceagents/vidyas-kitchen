@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
-import { House, Briefcase, MapPin as MapPinIcon } from "@phosphor-icons/react";
+import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle } from "@phosphor-icons/react";
+
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
 
@@ -99,72 +100,42 @@ const topBarReveal = {
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function HomeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-    </svg>
-  );
+  return <House size={16} weight="regular" color="currentColor" />;
 }
 
 function WorkIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.25 2.25 0 0 0-2.25-2.25H5.625a2.25 2.25 0 0 0-2.25 2.25m16.5 0v-2.25A2.25 2.25 0 0 0 18 7.5H6a2.25 2.25 0 0 0-2.25 2.25v2.25m16.5 0a2.25 2.25 0 0 1-2.25 2.25H5.625a2.25 2.25 0 0 1-2.25-2.25m10.875-12a1.125 1.125 0 0 1 1.125 1.125v1.5a1.125 1.125 0 0 1-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a1.125 1.125 0 0 1 1.125-1.125h4.5Z" />
-    </svg>
-  );
+  return <Briefcase size={16} weight="regular" color="currentColor" />;
 }
 
 function OtherIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-      <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-    </svg>
-  );
+  return <PhMapPin size={16} weight="regular" color="currentColor" />;
 }
 
 function DeleteIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <path d="M3 6h18M8 6V4h8v2M9 10v7M15 10v7M6 6l1 14h10l1-14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Trash size={14} weight="regular" color="currentColor" />;
+}
+
+function GPSIcon() {
+  return <NavigationArrow size={18} weight="regular" color="currentColor" />;
+}
+
+function SearchIcon() {
+  return <MagnifyingGlass size={16} weight="regular" color="currentColor" />;
+}
+
+function RecenterIcon() {
+  return <Crosshair size={18} weight="regular" color="currentColor" />;
 }
 
 function PinIcon({ color = "#BD2320" }: { color?: string }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.8" />
-      <circle cx="12" cy="9" r="2.5" fill={color} />
+      <path d="M5 9.923c0 4.852 4.244 8.864 6.123 10.402c.27.22.405.332.606.388c.156.044.386.044.542 0c.201-.056.336-.167.606-.388C14.756 18.787 19 14.775 19 9.923a6.9 6.9 0 0 0-2.05-4.895A7.04 7.04 0 0 0 12 3a7.04 7.04 0 0 0-4.95 2.028A6.88 6.88 0 0 0 5 9.923" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="1.8" />
+      <circle cx="12" cy="9.9" r="2.5" fill={color} />
     </svg>
   );
 }
 
-function GPSIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-    </svg>
-  );
-}
-
-function RecenterIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 // ─── Map Pin Marker — neon glow ───────────────────────────────────────────────
 function MapPin() {
@@ -280,6 +251,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [outOfRangeModal, setOutOfRangeModal] = useState(false);
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -464,22 +437,36 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
-    if (!navigator.geolocation) { setIsDetecting(false); return; }
+    setGpsError(null);
+    if (!navigator.geolocation) {
+      setGpsError("GPS not supported on this browser.");
+      setIsDetecting(false);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setPinCoords({ lat: latitude, lng: longitude });
         setSelectedSaved(null);
         setSearchText("Locating address...");
-        
         animateCameraRoute(longitude, latitude);
-        
         const addr = await resolveAddress(latitude, longitude);
         setSearchText(addr);
         setIsDetecting(false);
       },
-      () => setIsDetecting(false),
-      { enableHighAccuracy: true, timeout: 8000 }
+      (err) => {
+        setIsDetecting(false);
+        if (err.code === 1) {
+          setGpsError("Location access denied. Please allow it in your browser settings.");
+        } else if (err.code === 2) {
+          setGpsError("Unable to detect location. Try searching your area instead.");
+        } else if (err.code === 3) {
+          setGpsError("Location timed out. Please try again or search manually.");
+        } else {
+          setGpsError("Could not get your location. Try searching manually.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
   }, [animateCameraRoute, resolveAddress]);
 
@@ -589,16 +576,15 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   };
 
   const handleConfirm = () => {
+    const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, SIVAKASI_CENTER.lat, SIVAKASI_CENTER.lng);
+    if (dist > MAX_DISTANCE_KM) {
+      setOutOfRangeModal(true);
+      return;
+    }
     const label = selectedSaved
       ? savedPlaces.find((p) => p.id === selectedSaved)?.label || "Saved Location"
       : searchText.trim() || "Current Location";
-    const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, SIVAKASI_CENTER.lat, SIVAKASI_CENTER.lng);
-    onLocationSet({
-      label,
-      lat: pinCoords.lat,
-      lng: pinCoords.lng,
-      inRange: dist <= MAX_DISTANCE_KM,
-    });
+    onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange: true });
   };
 
   const handleSkip = () => {
@@ -608,6 +594,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const hasToken = MAPBOX_TOKEN.length > 0;
 
   return (
+    <>
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", overflow: "hidden" }}>
       {/* Floating status tooltip (small, cute, bottom-centered) */}
       <AnimatePresence>
@@ -843,10 +830,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-            <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-          </svg>
+          <MapPin size={16} weight="fill" color="#BD2320" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
@@ -1074,7 +1058,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     }}
                   >
                     <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
-                      {place.label === "Home" ? <House size={18} weight="duotone" /> : place.label === "Work" ? <Briefcase size={18} weight="duotone" /> : <MapPinIcon size={18} weight="duotone" />}
+                      {place.label === "Home" ? (
+                        <HomeIcon />
+                      ) : place.label === "Work" ? (
+                        <WorkIcon />
+                      ) : (
+                        <OtherIcon />
+                      )}
                     </span>
                     <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                       <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
@@ -1167,6 +1157,30 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           </motion.button>
         </div>
 
+        {/* GPS Error Banner */}
+        <AnimatePresence>
+          {gpsError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              style={{
+                margin: "0 20px 12px",
+                padding: "10px 14px",
+                borderRadius: 12,
+                background: "rgba(189,35,32,0.1)",
+                border: "1px solid rgba(189,35,32,0.3)",
+                display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              <WarningCircle size={14} weight="bold" color="#BD2320" style={{ flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 600, lineHeight: 1.4 }}>{gpsError}</p>
+              <button onClick={() => setGpsError(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", padding: 0, marginLeft: "auto", fontSize: 16, flexShrink: 0 }}>×</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Confirm / Save CTA (Fixed at bottom) */}
         <motion.div
           custom={4}
@@ -1241,5 +1255,76 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         </motion.div>
       </motion.div>
     </div>
+
+      {/* ── Out-of-range delivery modal ──────────────────── */}
+      <AnimatePresence>
+        {outOfRangeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed", inset: 0, zIndex: 9999,
+              background: "rgba(0,0,0,0.75)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              display: "flex", alignItems: "flex-end", justifyContent: "center",
+              padding: "0 16px 32px",
+            }}
+            onClick={() => setOutOfRangeModal(false)}
+          >
+            <motion.div
+              initial={{ y: 80, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 80, opacity: 0, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%", maxWidth: 400,
+                background: "rgba(14,14,14,0.98)",
+                backdropFilter: "blur(40px)",
+                WebkitBackdropFilter: "blur(40px)",
+                borderRadius: 28,
+                border: "1px solid rgba(189,35,32,0.25)",
+                padding: "28px 24px 24px",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+                fontFamily: "var(--font-jetbrains-mono), monospace",
+              }}
+            >
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: "rgba(189,35,32,0.12)", border: "1px solid rgba(189,35,32,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+                <PhMapPin size={24} weight="fill" color="#BD2320" />
+              </div>
+              <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em" }}>Outside delivery area</h2>
+              <p style={{ margin: "0 0 6px", fontSize: 13, color: "rgba(255,255,255,0.55)", fontWeight: 600, lineHeight: 1.55 }}>
+                We currently only deliver within <span style={{ color: "#fff", fontWeight: 700 }}>Sivakasi, Tamil Nadu</span> — within 15 km of our kitchen.
+              </p>
+              <p style={{ margin: "0 0 24px", fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>The location you picked is outside our delivery zone.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    setOutOfRangeModal(false);
+                    setSearchText("");
+                    setSuggestions([]);
+                    setPinCoords(SIVAKASI_CENTER);
+                    animateCameraTo(SIVAKASI_CENTER.lng, SIVAKASI_CENTER.lat, 1400);
+                  }}
+                  style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)", border: "none", borderRadius: 14, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 16px rgba(189,35,32,0.4)" }}
+                >
+                  Search in Sivakasi
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setOutOfRangeModal(false)}
+                  style={{ width: "100%", padding: "13px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Change location
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

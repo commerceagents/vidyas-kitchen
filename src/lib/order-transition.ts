@@ -24,9 +24,26 @@ export async function transitionOrderStatusInDb(
     return { ok: false, error: `Invalid transition ${cur} → ${next}` };
   }
 
+  const upFields: Record<string, any> = {
+    status: next,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (next === OrderStatus.CANCELLED) {
+    upFields.cancelled_at = new Date().toISOString();
+    upFields.refund_status = "initiated";
+    upFields.cancellable = false;
+  } else if (
+    next === OrderStatus.READY ||
+    next === OrderStatus.OUT_FOR_DELIVERY ||
+    next === OrderStatus.DELIVERED
+  ) {
+    upFields.cancellable = false;
+  }
+
   const { error: upErr } = await supabase
     .from("orders")
-    .update({ status: next, updated_at: new Date().toISOString() })
+    .update(upFields)
     .eq("id", orderId);
 
   if (upErr) return { ok: false, error: upErr.message };

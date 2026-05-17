@@ -4,9 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
-import { WhatsappLogo } from "@phosphor-icons/react";
 
-import { Phone } from "@phosphor-icons/react";
 import { ChefSpecialVector } from "./vectors/ChefSpecialVector";
 import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 
@@ -644,7 +642,11 @@ export function DesktopLanding() {
               transition={{ duration: 0.3 }}
               style={{ display: 'flex', alignItems: 'center' }}
             >
-              <WhatsappLogo size={24} weight="fill" />
+              {/* WhatsApp SVG — brand icon, inline */}
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
+                <path d="M16.004 3.2C9.04 3.2 3.2 9.04 3.2 16.004c0 2.276.614 4.424 1.684 6.28L3.2 28.8l6.7-1.664A12.74 12.74 0 0 0 16.004 28.8c6.964 0 12.796-5.84 12.796-12.796C28.8 9.04 22.968 3.2 16.004 3.2zm6.26 18.032c-.264.732-1.54 1.396-2.1 1.448-.56.052-1.08.268-3.64-.76-3.1-1.24-5.064-4.408-5.22-4.612-.156-.204-1.248-1.664-1.248-3.176 0-1.512.792-2.26 1.072-2.568.28-.308.612-.384.816-.384l.584.012c.188.008.44-.072.688.524.256.612.872 2.112.948 2.268.076.156.128.34.028.548-.1.208-.152.336-.3.516-.148.18-.312.4-.444.54-.148.148-.304.308-.132.604.172.296.764 1.26 1.64 2.04 1.128 1.004 2.076 1.316 2.372 1.464.296.148.468.124.64-.076.172-.2.736-.856.932-1.152.196-.296.392-.248.66-.148.268.1 1.704.804 2 .948.296.148.492.22.564.34.072.12.072.7-.192 1.432z"/>
+              </svg>
+
             </motion.div>
             Order with Vidya Bot
           </motion.a>

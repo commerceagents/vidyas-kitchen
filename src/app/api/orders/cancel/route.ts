@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const supabase = createServerSupabase();
     const { data: row, error: fetchErr } = await supabase
       .from("orders")
-      .select("id, phone_number")
+      .select("id, phone_number, status, cancellation_deadline")
       .eq("id", orderId)
       .single();
 
@@ -46,6 +46,12 @@ export async function POST(request: Request) {
 
     if (phoneKey(String(row.phone_number || "")) !== phoneKey(phone)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const now = Date.now();
+    const deadline = row.cancellation_deadline ? new Date(row.cancellation_deadline).getTime() : 0;
+    if (deadline > 0 && now >= deadline) {
+      return NextResponse.json({ error: "Cancellation window has closed (12 hours before slot)." }, { status: 400 });
     }
 
     const result = await transitionOrderStatusInDb(supabase, orderId, OrderStatus.CANCELLED);

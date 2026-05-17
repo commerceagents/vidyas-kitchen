@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, CSSProperties, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Check, CaretLeft } from "@phosphor-icons/react";
 import Image from "next/image";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
@@ -857,15 +858,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                         justifyContent: "center",
                       }}
                     >
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-                        <path
-                          d="M5 13l4 4L19 7"
-                          stroke={C.green}
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                      <Check size={28} weight="bold" color={C.green} />
                     </motion.div>
                     <div
                       style={{
@@ -988,9 +981,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             <div style={S.legalHeader}>
               <button onClick={() => setShowLegal(false)}
                 style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.6)", fontFamily: C.mono, fontSize: 11, letterSpacing: "0.04em" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 19l-7-7 7-7" />
-                </svg>
+                <CaretLeft size={18} weight="bold" color="currentColor" />
                 Back
               </button>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", letterSpacing: "0.04em", fontFamily: C.mono }}>

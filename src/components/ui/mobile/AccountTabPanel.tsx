@@ -4,6 +4,17 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } 
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  MapPin, 
+  ClockCounterClockwise, 
+  ForkKnife, 
+  Bell, 
+  Phone, 
+  Star, 
+  ShieldCheck, 
+  CaretRight,
+  PencilSimple
+} from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { loadSavedPlaces } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
@@ -44,49 +55,23 @@ function AccountRowIcon({ children }: { children: ReactNode }) {
 }
 
 function IconMapPin() {
-  return (
-    <svg {...svgBase}>
-      <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-      <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-    </svg>
-  );
+  return <MapPin size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconHistory() {
-  return (
-    <svg {...svgBase}>
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.39 0 0 0-1.5.12" />
-      <path d="M3 3v6h6" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
+  return <ClockCounterClockwise size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconUtensils() {
-  return (
-    <svg {...svgBase}>
-      <path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2" />
-      <path d="M7 2v20" />
-      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-    </svg>
-  );
+  return <ForkKnife size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconBell() {
-  return (
-    <svg {...svgBase}>
-      <path d="M10.268 21a2 2 0 0 0 3.464 0" />
-      <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
-    </svg>
-  );
+  return <Bell size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconPhone() {
-  return (
-    <svg {...svgBase}>
-      <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
-    </svg>
-  );
+  return <Phone size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconWhatsApp() {
@@ -101,27 +86,15 @@ function IconWhatsApp() {
 }
 
 function IconStar() {
-  return (
-    <svg {...svgBase}>
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </svg>
-  );
+  return <Star size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconShield() {
-  return (
-    <svg {...svgBase}>
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-    </svg>
-  );
+  return <ShieldCheck size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function ChevronRight() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
+  return <CaretRight size={16} weight="bold" color="rgba(255,255,255,0.25)" />;
 }
 
 function formatInPhone(phone: string) {
@@ -474,9 +447,7 @@ export function AccountTabPanel({
             }}
           >
             Edit
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m5 12 7-7 7 7M12 19V5" />
-            </svg>
+            <PencilSimple size={12} weight="bold" color="currentColor" />
           </motion.button>
         )}
       </div>

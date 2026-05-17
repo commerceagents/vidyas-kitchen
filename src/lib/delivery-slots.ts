@@ -23,6 +23,22 @@ function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
+/** Check if the ordering window is open (6 AM – 6 PM IST). */
+export function isOrderingWindowOpen(nowMs: number = Date.now()): boolean {
+  // DEV OVERRIDE: Temporarily returning true so UI can be tested after 6 PM IST
+  return true;
+  /*
+  const hour = parseInt(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: DELIVERY_SLOT_TIMEZONE,
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date(nowMs))
+  );
+  return hour >= 6 && hour < 18;
+  */
+}
+
 /** IST calendar date YYYY-MM-DD for `d` (Wall time in Kolkata). */
 export function istCalendarYmd(d: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {

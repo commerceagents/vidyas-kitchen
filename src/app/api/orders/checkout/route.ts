@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createPaymentLink } from "@/lib/payments";
 import {
+  isOrderingWindowOpen,
   isSlotBookable,
   isValidIstYmd,
   isValidSlotKind,
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
     }
     if (!deliveryAddress) {
       return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
+    }
+    if (!isOrderingWindowOpen()) {
+      return NextResponse.json({ error: "Ordering is open 6 AM – 6 PM. Come back tomorrow!" }, { status: 400 });
     }
     if (!isValidIstYmd(deliveryDate)) {
       return NextResponse.json({ error: "Choose a valid delivery date." }, { status: 400 });
@@ -106,6 +110,8 @@ export async function POST(request: Request) {
 
     const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal);
 
+    const cancellationDeadline = new Date(new Date(slotStartIso).getTime() - 12 * 60 * 60 * 1000).toISOString();
+
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .insert({
@@ -115,6 +121,10 @@ export async function POST(request: Request) {
         delivery_address: deliveryAddress,
         delivery_slot: slotStartIso,
         delivery_slot_kind: deliverySlotRaw,
+        ordering_window_open: true, // We check it above
+        slot_start_time: slotStartIso,
+        cancellation_deadline: cancellationDeadline,
+        cancellable: true, // Rule 2 ensures it starts as cancellable (at least 12h window)
         ...(deliveryLat != null && deliveryLng != null
           ? { delivery_lat: deliveryLat, delivery_lng: deliveryLng }
           : {}),

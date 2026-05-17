@@ -3,12 +3,15 @@
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
-import { WhatsappLogo } from "@phosphor-icons/react";
+import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Minus } from "@phosphor-icons/react";
+
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
+import { isOrderingWindowOpen } from "@/lib/delivery-slots";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { MENU_BY_CATEGORY, MenuItem } from "@/components/ui/mobile/mobileMenuData";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -28,10 +31,10 @@ const sp = (n: number) => n * 8;
 const ITEM_IMAGES: Record<string, string> = {
   "Black Pepper Chicken Gravy":              "/menu-images/chk-pepper-gravy.jpg",
   "Chilly Chicken Gravy":                    "/menu-images/chk-chilly-gravy.jpg",
-  "Chicken Gravy (Mom's Recipe)":            "/menu-images/chk-mom-gravy.jpg",
-  "Chicken Gravy Sister's Recipe":           "/menu-images/chk-sis-gravy.jpg",
+  "Mom's Recipe - Chicken Gravy":            "/menu-images/chk-mom-gravy.jpg",
+  "Sister's Recipe - Chicken Gravy":           "/menu-images/chk-sis-gravy.jpg",
   "Idli Special Chicken Gravy":              "/menu-images/chk-idli-gravy.jpg",
-  "Pepper Chicken (Sister-In-Law's Recipe)": "/menu-images/chk-pepper-sil.jpg",
+  "Sister-in-law's Recipe - Pepper Chicken": "/menu-images/chk-pepper-sil.jpg",
   "Chicken Wings":                           "/menu-images/chk-wings.jpg",
   "Chilly Chicken (Dry)":                    "/menu-images/chk-chilly-dry.jpg",
   "Fresh Cream Mutton Curry":                "/menu-images/mut-cream-curry.jpg",
@@ -59,13 +62,7 @@ interface LocationLite {
   inRange: boolean;
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  image_url: string | null;
-}
+
 
 interface MobileHomeScreenProps {
   displayName: string;
@@ -95,80 +92,58 @@ interface MobileHomeScreenProps {
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 138 },
-  { id: "orders",  label: "Order",   icon: OrdersIcon,  activeWidth: 138 },
-  { id: "account", label: "Account", icon: AccountIcon, activeWidth: 162 },
+  { id: "home",    label: "Home",    icon: HomeIcon,    activeWidth: 104 },
+  { id: "orders",  label: "Orders",  icon: OrdersIcon,  activeWidth: 114 },
+  { id: "account", label: "Account", icon: AccountIcon, activeWidth: 122 },
 ];
 
 function HomeIcon({ active }: { active: boolean }) {
-  const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={s}
-      strokeWidth={active ? 2.5 : 2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <House
+      size={22}
+      weight={active ? "fill" : "regular"}
+      color={active ? C.red : "rgba(255,255,255,0.35)"}
       aria-hidden
-      style={{ display: "block" }}
-    >
-      <path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-    </svg>
+    />
   );
 }
 function OrdersIcon({ active }: { active: boolean }) {
-  const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={s}
-      strokeWidth={active ? 2.5 : 2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <Receipt
+      size={22}
+      weight={active ? "fill" : "regular"}
+      color={active ? C.red : "rgba(255,255,255,0.35)"}
       aria-hidden
-      style={{
-        display: "block",
-      }}
-    >
-      <path d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-    </svg>
+    />
   );
 }
 function AccountIcon({ active }: { active: boolean }) {
-  const s = active ? C.red : "rgba(255,255,255,0.35)";
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={s}
-      strokeWidth={active ? 2.5 : 2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <User
+      size={22}
+      weight={active ? "fill" : "regular"}
+      color={active ? C.red : "rgba(255,255,255,0.35)"}
       aria-hidden
-      style={{
-        display: "block",
-      }}
-    >
-      <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-    </svg>
+    />
   );
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function getGreeting() {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "Good morning";
-  if (h >= 12 && h < 17) return "Good afternoon";
-  if (h >= 17 && h < 21) return "Good evening";
-  return "Good night";
+  const pools = {
+    morning: ["Breakfast calling...", "Hungry morning?", "Rise and dine!", "Morning fuel?", "Good morning!"],
+    afternoon: ["Lunch o'clock!", "Midday feast?", "Lunch calling...", "Feed the hunger!", "Lunch vibes!"],
+    evening: ["Dinner dreams?", "Starving yet?", "Time for dinner?", "Sunset supper?", "Dinner's ready!"],
+    night: ["Midnight feast?", "Night owl meals", "Late night cravings?", "Cravings active!", "Still awake? Eat!"],
+  };
+
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+
+  if (h >= 5 && h < 12) return pick(pools.morning);
+  if (h >= 12 && h < 17) return pick(pools.afternoon);
+  if (h >= 17 && h < 21) return pick(pools.evening);
+  return pick(pools.night);
 }
 function formatFirstName(raw: string) {
   const s = raw.trim().split(/\s+/)[0];
@@ -187,16 +162,9 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 function parseRecipeTag(name: string) {
-  // Catch (MOM'S RECIPE), SISTER'S RECIPE, etc. specifically to avoid swallowing the dish name
-  const regex = /[\(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[\)]?/i;
-  const match = name.match(regex);
-  if (match) {
-    const tag = match[1].trim();
-    const cleanName = name.replace(match[0], "").trim();
-    // If name starts with "Special", "Idli Special", etc, we keep those but the tag is extracted
-    return { cleanName, tag };
-  }
-  return { cleanName: name, tag: null };
+  // Convert standard dash to em-dash for better typography as requested
+  const cleanName = name.replace(" - ", " — ");
+  return { cleanName, tag: null };
 }
 
 /** Deterministic pseudo-random for demo stats (replace with real analytics later). */
@@ -302,10 +270,11 @@ const fadeUp = (delay = 0) => ({
 });
 
 function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: MenuItem; index: number; qty: number; onOpenDetail: () => void; showMsrp?: boolean }) {
-  const imgSrc = getItemImage(item.name, item.image_url);
+  const windowOpen = isOrderingWindowOpen();
+  const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
-  const msrp = showMsrp ? listMsrpRupees(item.price, item.id) : null;
+  const msrp = showMsrp ? listMsrpRupees(item.variants[0].price, item.id) : null;
 
   return (
     <motion.div
@@ -376,23 +345,7 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
         </motion.div>
 
         {/* Glass Tag — top left */}
-        {tag && (
-          <div style={{
-            position: "absolute",
-            top: 10, left: 10, // Perfectly aligned with text below
-            background: "rgba(12,12,12,0.45)",
-            backdropFilter: "blur(10px) saturate(140%)",
-            WebkitBackdropFilter: "blur(10px) saturate(140%)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 8,
-            padding: "5px 12px",
-            zIndex: 10,
-          }}>
-            <span style={{ fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              {tag}
-            </span>
-          </div>
-        )}
+
         {qty > 0 && (
           <div style={{
             position: "absolute", top: 10, right: 10, zIndex: 12,
@@ -408,36 +361,33 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
 
       {/* ── INFO SECTION ────────────────────────────────────────────────── */}
       <div style={{ 
-        width: "100%", paddingLeft: 10, // Matched tag offset
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        width: "100%", paddingLeft: 10, paddingRight: 10, // Matched tag offset
+        display: "flex", alignItems: "flex-end", justifyContent: "space-between",
         gap: 12
       }}>
         <div style={{ textAlign: "left", flex: 1 }}>
-          <h3 style={{
-            margin: 0, fontSize: 18, fontWeight: 700, // Boosted size and weight
-            color: C.white, lineHeight: 1.2,
-            marginBottom: 4,
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-          }}>
-            {toTitleCase(cleanName)}
-          </h3>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <p style={{
-              margin: 0, fontSize: 18, fontWeight: 900,
-              color: C.white,
-              letterSpacing: "0.02em",
+          <div style={{ height: 44, marginBottom: 4 }}>
+            <h3 style={{
+              margin: 0, fontSize: 15, fontWeight: 600,
+              color: C.white, lineHeight: "22px",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
             }}>
-              ₹{item.price.toLocaleString("en-IN")}
-            </p>
+              {cleanName}
+            </h3>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", lineHeight: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.55)" }}>From</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: C.white }}>
+              ₹{item.variants[0].price.toLocaleString("en-IN")}
+            </span>
             {msrp != null && (
-              <p style={{
-                margin: 0, fontSize: 13, fontWeight: 600,
+              <span style={{
+                fontSize: 13, fontWeight: 400,
                 color: "rgba(255,255,255,0.35)",
                 textDecoration: "line-through",
-                letterSpacing: "0.02em",
               }}>
                 ₹{msrp.toLocaleString("en-IN")}
-              </p>
+              </span>
             )}
           </div>
         </div>
@@ -450,10 +400,7 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
           boxShadow: `0 4px 15px rgba(189,35,32,0.4)`,
           flexShrink: 0,
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-            stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 17L17 7M17 7H7M17 7v10" />
-          </svg>
+          <ArrowRight size={18} weight="bold" color="white" />
         </div>
       </div>
 
@@ -496,35 +443,42 @@ function CardSkeleton() {
 function DishDetailView({
   item,
   onClose,
-  qty,
   updateQty,
   cartTotalItems,
   onCheckout,
   bestSellingIds,
   isFavorite,
   onToggleFavorite,
+  cart,
 }: {
   item: MenuItem;
   onClose: () => void;
-  qty: number;
-  updateQty: (id: string, delta: number) => void;
+  updateQty: (key: string, delta: number) => void;
   cartTotalItems: number;
   onCheckout?: () => void;
   bestSellingIds: Set<string>;
   isFavorite: boolean;
   onToggleFavorite: () => void;
+  cart: Record<string, number>;
 }) {
-  const imgSrc = getItemImage(item.name, item.image_url);
+  const [selectedWeight, setSelectedWeight] = useState<string | null>(null);
+  const qty = selectedWeight ? (cart[`${item.id}:${selectedWeight}`] || 0) : 0;
+
+  const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const { rating, weekly, reviews } = dishStatsFromId(item.id);
   const highly = weekly >= 160;
   const isBest = bestSellingIds.has(item.id);
-  const msrp = isBest ? listMsrpRupees(item.price, item.id) : null;
-  const desc = simpleDishDescription(cleanName, item.category);
-  const pairing = pairingSuggestion(cleanName, item.category);
+  const msrp = isBest ? listMsrpRupees(item.variants[0].price, item.id) : null;
+  const desc = item.description || simpleDishDescription(cleanName, item.category || "");
+  const pairing = pairingSuggestion(cleanName, item.category || "");
   const socialTrend = dishSocialTrendTag(weekly, highly, rating);
-  const lineSaleTotal = qty < 1 ? item.price : item.price * qty;
-  const lineMsrpTotal = msrp != null ? (qty < 1 ? msrp : msrp * qty) : null;
+  
+  const selectedVariant = item.variants?.find(v => v.weight === selectedWeight);
+  const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
+  
+  const lineSaleTotal = qty < 1 ? currentPrice : currentPrice * qty;
+  const lineMsrpTotal = msrp != null ? (qty < 1 ? listMsrpRupees(currentPrice, item.id) : listMsrpRupees(currentPrice, item.id) * qty) : null;
 
   const iconBtn = {
     width: 44,
@@ -554,6 +508,8 @@ function DishDetailView({
         flexDirection: "column",
         fontFamily: C.mono,
         color: C.white,
+        filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9)",
+        transition: "filter 0.5s ease",
       }}
     >
       <div
@@ -569,9 +525,7 @@ function DishDetailView({
         }}
       >
         <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={onClose} style={iconBtn} aria-label="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
+          <ArrowLeft size={20} weight="bold" color="white" />
         </motion.button>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.01em", textAlign: "center" }}>Dish Details</h2>
         <div style={{ width: 44 }} aria-hidden />
@@ -582,7 +536,7 @@ function DishDetailView({
           flex: 1,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          padding: `0 ${sp(2.5)}px 168px`,
+          padding: `0 ${sp(2.5)}px ${isOrderingWindowOpen() ? "168px" : "240px"}`,
         }}
         className="no-scrollbar"
       >
@@ -655,7 +609,7 @@ function DishDetailView({
                   lineHeight: 1.15,
                 }}
               >
-                {toTitleCase(cleanName)}
+                {cleanName}
               </h1>
               {highly && (
                 <span
@@ -700,9 +654,11 @@ function DishDetailView({
               }}
               aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={isFavorite ? C.red : "none"} stroke={isFavorite ? C.red : "rgba(255,255,255,0.85)"} strokeWidth="2">
-                <path d="M12 21s-6.716-4.435-9-8.941C1.433 9.243 3.756 5 7.56 5c2.065 0 3.492 1.212 4.44 2.709C13.948 6.212 15.375 5 17.44 5 21.244 5 23.567 9.243 21 12.059 18.716 16.565 12 21 12 21Z" strokeLinejoin="round" />
-              </svg>
+              <Heart
+                size={22}
+                weight={isFavorite ? "fill" : "regular"}
+                color={isFavorite ? C.red : "rgba(255,255,255,0.85)"}
+              />
             </motion.button>
           </div>
         </div>
@@ -761,6 +717,43 @@ function DishDetailView({
             </p>
           </div>
         </div>
+
+        {/* ── Weight Selector (Rule 1) ───────────────────────────────────── */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            {item.variants?.map((v) => {
+              const active = selectedWeight === v.weight;
+              return (
+                <motion.button
+                  key={v.weight}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setSelectedWeight(v.weight)}
+                  style={{
+                    flex: 1,
+                    padding: "16px 12px",
+                    borderRadius: 20,
+                    background: active ? C.red : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${active ? C.red : "rgba(255,255,255,0.08)"}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    boxShadow: active ? "0 8px 24px rgba(189,35,32,0.25)" : "none",
+                  }}
+                >
+                  <span style={{ fontSize: 16, fontWeight: 900, color: active ? "white" : "rgba(255,255,255,0.9)" }}>
+                    {v.label}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: active ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)" }}>
+                    ₹{v.price}
+                  </span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div
@@ -772,10 +765,22 @@ function DishDetailView({
           zIndex: 12,
           padding: `14px ${sp(2.5)}px max(20px, env(safe-area-inset-bottom))`,
           background: `linear-gradient(to top, ${C.bg} 92%, transparent)`,
-          borderTop: `1px solid ${C.borderFaint}`,
+          display: isOrderingWindowOpen() ? "block" : "none",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+        {false && !isOrderingWindowOpen() ? (
+          <div style={{ 
+            marginBottom: 10, padding: "12px 16px", borderRadius: 16, 
+            background: "rgba(189,35,32,0.08)", border: "1px solid rgba(189,35,32,0.2)",
+            textAlign: "center"
+          }}>
+            <p style={{ margin: 0, fontSize: 14, color: "#fca5a5", fontWeight: 800 }}>
+              Ordering is open 6 AM – 6 PM IST.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 26, fontWeight: 900, color: C.white, letterSpacing: "-0.02em" }}>
@@ -795,8 +800,9 @@ function DishDetailView({
               )}
             </div>
             <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)" }}>
-              {qty <= 0 ? "Price for 1 serving" : `₹${item.price.toLocaleString("en-IN")} × ${qty}`}
+              {qty <= 0 ? "Price for 1 serving" : `₹${currentPrice.toLocaleString("en-IN")} × ${qty}`}
             </p>
+
           </div>
           <div
             style={{
@@ -811,12 +817,14 @@ function DishDetailView({
               width: 144,
               flexShrink: 0,
               boxSizing: "border-box",
+              opacity: selectedWeight ? 1 : 0.3,
+              pointerEvents: selectedWeight ? "auto" : "none",
             }}
           >
             <motion.button
               type="button"
               whileTap={{ scale: qty <= 0 ? 1 : 0.9 }}
-              onClick={() => qty > 0 && updateQty(item.id, -1)}
+              onClick={() => qty > 0 && updateQty(`${item.id}:${selectedWeight}`, -1)}
               disabled={qty <= 0}
               style={{
                 width: 40,
@@ -837,7 +845,7 @@ function DishDetailView({
             <motion.button
               type="button"
               whileTap={{ scale: 0.9 }}
-              onClick={() => updateQty(item.id, 1)}
+              onClick={() => updateQty(`${item.id}:${selectedWeight}`, 1)}
               style={{
                 width: 40,
                 height: 40,
@@ -857,31 +865,44 @@ function DishDetailView({
         </div>
         <motion.button
           type="button"
-          whileTap={{ scale: 0.97 }}
+          whileTap={{ scale: selectedWeight ? 0.97 : 1 }}
           onClick={() => {
-            if (qty <= 0) updateQty(item.id, 1);
+            if (!selectedWeight) return;
+            if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
             else onCheckout?.();
           }}
-          disabled={qty <= 0 ? false : cartTotalItems <= 0}
+          disabled={!selectedWeight}
           style={{
             width: "100%",
             height: 56,
-            borderRadius: 18,
+            borderRadius: 20,
+            background: !selectedWeight ? "rgba(255,255,255,0.05)" : qty <= 0 ? C.red : "white",
+            color: !selectedWeight ? "rgba(255,255,255,0.2)" : qty <= 0 ? "white" : C.bg,
             border: "none",
-            cursor: qty <= 0 || cartTotalItems > 0 ? "pointer" : "not-allowed",
             fontSize: 16,
             fontWeight: 900,
-            color: "#fff",
-            background:
-              qty <= 0 || cartTotalItems > 0
-                ? `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`
-                : "rgba(255,255,255,0.12)",
-            boxShadow: qty <= 0 || cartTotalItems > 0 ? `0 8px 28px ${C.redGlow}` : undefined,
-            opacity: qty <= 0 || cartTotalItems > 0 ? 1 : 0.5,
+            cursor: selectedWeight ? "pointer" : "not-allowed",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            boxShadow: (selectedWeight && qty <= 0) ? `0 12px 32px ${C.redGlow}` : "none",
+            opacity: !selectedWeight ? 0.5 : 1,
           }}
         >
-          {qty <= 0 ? "Add to cart" : "Checkout"}
+          {!selectedWeight ? (
+            "Select a size to add"
+          ) : qty <= 0 ? (
+            `Add ${selectedVariant?.label} to cart — ₹${currentPrice}`
+          ) : (
+            <>
+              Checkout ({cartTotalItems} items)
+              <ArrowRight size={20} weight="bold" />
+            </>
+          )}
         </motion.button>
+          </>
+        )}
       </div>
     </motion.div>
   );
@@ -958,7 +979,7 @@ export function MobileHomeScreen({
   const bestFive = items
     .filter(d => d.name.toUpperCase().includes("RECIPE"))
     .concat(items.filter(d => !d.name.toUpperCase().includes("RECIPE")))
-    .sort((a, b) => a.price - b.price)
+    .sort((a, b) => a.variants[0].price - b.variants[0].price)
     .slice(0, 5);
 
   const bestSellingIdSet = useMemo(() => new Set(bestFive.map((d) => d.id)), [bestFive]);
@@ -1182,6 +1203,16 @@ export function MobileHomeScreen({
     onCheckout?.(resumeId);
   }, [onCheckout, dishDetailItem]);
 
+  const [previewClosed, setPreviewClosed] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("preview_closed") === "1") setPreviewClosed(true);
+    }
+  }, []);
+
+  const windowOpen = isOrderingWindowOpen() && !previewClosed;
+
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
   const NAV_BORDER = 1;
@@ -1210,24 +1241,15 @@ export function MobileHomeScreen({
   const locationRef = useRef<HTMLDivElement>(null);
   const label     = location?.label?.trim() || "Set delivery location";
   const inRange   = location?.inRange ?? true;
-  const greeting  = getGreeting();
+  const greeting  = useMemo(() => getGreeting(), []);
   const firstName = formatFirstName(displayName);
 
-  // Fetch from Supabase
+  // Load local menu data with variants
   useEffect(() => {
-    (async () => {
-      if (items.length === 0) {
-        setLoading(true);
-        const { data } = await supabase
-          .from("menu_items")
-          .select("id, name, price, category, image_url")
-          .eq("is_available", true);
-        if (data) {
-          setItems(data as MenuItem[]);
-        }
-        setLoading(false);
-      }
-    })();
+    if (items.length === 0) {
+      const allDishes = Object.values(MENU_BY_CATEGORY).flat();
+      setItems(allDishes as any);
+    }
   }, []);
 
   useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
@@ -1309,6 +1331,8 @@ export function MobileHomeScreen({
           paddingBottom: 12,
           paddingLeft: sp(2), paddingRight: sp(2),
           background: `linear-gradient(to bottom, ${C.bg} 72%, transparent)`,
+          filter: windowOpen ? "none" : "grayscale(0.9)",
+          transition: "filter 0.5s ease",
         }}
       >
         {activeNav === "orders" ? (
@@ -1361,6 +1385,8 @@ export function MobileHomeScreen({
           </div>
         ) : (
           <>
+            {/* Ordering Window Banner (Rule 1) — MOVED TO BOTTOM NAVBAR */}
+
             {/* Location pill — matches LocationScreen top bar exactly */}
             <motion.button
               type="button"
@@ -1388,10 +1414,7 @@ export function MobileHomeScreen({
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
               }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BD2320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                </svg>
+                <MapPin size={16} weight="fill" color="#BD2320" />
               </div>
               <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
                 <p style={DELIVERING_TO_STYLE}>
@@ -1516,10 +1539,7 @@ export function MobileHomeScreen({
                     background: C.redFaint, border: `1px solid ${C.redBorder}`,
                     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                      stroke={C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/>
-                    </svg>
+                    <Warning size={15} color={C.red} weight="fill" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 12, color: C.white, fontWeight: 700, lineHeight: 1.3 }}>
@@ -1559,10 +1579,12 @@ export function MobileHomeScreen({
           padding: `0 ${sp(2)}px`,
           paddingTop: sp(2),
           overflowY: "auto",
-          paddingBottom: 130,
+          paddingBottom: 180, // Increased to clear floating warning
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
+          filter: windowOpen ? "none" : "grayscale(0.9)",
+          transition: "filter 0.5s ease",
         }}
       >
         {activeNav === "home" && (
@@ -1592,7 +1614,7 @@ export function MobileHomeScreen({
 
         {/* ── Favorites Section ─────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.2)}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 12, marginBottom: 24 }}>
             <div
               ref={feedTabRowRef}
               role="tablist"
@@ -1676,19 +1698,7 @@ export function MobileHomeScreen({
             
             return (
               <>
-                {homeDishFeedTab === "favorites" && (
-                  <p
-                    style={{
-                      margin: "0 0 12px",
-                      fontSize: 14,
-                      color: "rgba(255,255,255,0.35)",
-                      fontWeight: 600,
-                      letterSpacing: "0",
-                    }}
-                  >
-                    Your favorites
-                  </p>
-                )}
+                {/* Removed 'Your favorites' text as requested */}
 
                 <div
                   className="no-scrollbar"
@@ -1706,21 +1716,27 @@ export function MobileHomeScreen({
                     ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
                     : isEmpty
                       ? (
-                          <p
-                            style={{
-                              margin: 0,
-                              padding: "12px 4px 24px",
-                              fontSize: 14,
-                              lineHeight: 1.55,
-                              color: "rgba(255,255,255,0.45)",
-                              fontWeight: 600,
-                              flex: 1,
-                            }}
-                          >
-                            {homeDishFeedTab === "favorites" 
-                              ? "No favorites yet. Tap the heart on a dish to save it here." 
-                              : "No best selling dishes available."}
-                          </p>
+                          <div style={{
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                            padding: "80px 20px 40px", width: "100%", gap: 16,
+                          }}>
+                            <div style={{
+                              width: 64, height: 64, borderRadius: "50%",
+                              background: "rgba(255,255,255,0.03)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              border: "1px solid rgba(255,255,255,0.06)"
+                            }}>
+                              <Heart size={32} weight="thin" color="rgba(255,255,255,0.2)" />
+                            </div>
+                            <p style={{
+                              margin: 0, fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.35)",
+                              textAlign: "center", lineHeight: 1.4, maxWidth: 220
+                            }}>
+                              {homeDishFeedTab === "favorites" 
+                                ? "No favorites yet. Tap the heart on a dish to save it here." 
+                                : "No best selling dishes available."}
+                            </p>
+                          </div>
                         )
                       : carouselItems.map((item, i) => (
                           <BestSellingCard
@@ -1742,96 +1758,100 @@ export function MobileHomeScreen({
           })()}
         </motion.div>
 
-        {/* ── CTA CARDS (SIDE BY SIDE) ───────────────────────────────────── */}
+        {/* ── CTA CARDS (OPTION C — Full-width pill rows) ──────────────────── */}
         <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "1fr 1fr", 
-          gap: 12, 
-          marginTop: 12 
+          display: homeDishFeedTab === "favorites" ? "none" : "flex", 
+          flexDirection: "column", gap: 10, marginTop: -4 
         }}>
-          {/* WhatsApp Bot Card */}
+
+          {/* WhatsApp Bot Row */}
           <motion.div {...fadeUp(0.24)}>
             <motion.a
               href={`https://wa.me/917550028179?text=Hi!+I'd+like+to+order+from+today's+menu.`}
               target="_blank"
               rel="noopener noreferrer"
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.97 }}
               style={{
                 width: "100%",
-                height: 110,
-                background: "rgba(255,255,255,0.03)",
-                backdropFilter: "blur(32px)",
-                WebkitBackdropFilter: "blur(32px)",
+                background: "rgba(255,255,255,0.04)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
                 border: `1px solid ${C.border}`,
                 borderRadius: 24,
-                padding: "16px",
-                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 14,
                 cursor: "pointer",
-                position: "relative" as const, overflow: "hidden",
-                fontFamily: C.mono,
                 textDecoration: "none",
+                fontFamily: C.mono,
               }}
             >
+              {/* Text */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <p style={{ margin: 0, fontSize: 15, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>Vidya Bot</p>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center",
+                    padding: "2px 6px", borderRadius: 999,
+                    background: "rgba(37,211,102,0.15)",
+                    border: "1px solid rgba(37,211,102,0.35)",
+                    boxShadow: "0 0 8px rgba(37,211,102,0.25)",
+                    fontSize: 8, fontWeight: 900, color: "#4ade80",
+                    letterSpacing: "0.04em", textTransform: "uppercase" as const,
+                  }}>⚡ Instant</span>
+                </div>
+                <p style={{ margin: "2px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Order via our bot</p>
+              </div>
+              {/* WhatsApp Icon on right */}
               <div style={{
-                width: 34, height: 34, borderRadius: "50%",
+                width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
                 background: "#25D366",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(37, 211, 102, 0.3)",
+                boxShadow: "0 4px 12px rgba(37,211,102,0.35)",
               }}>
-                <WhatsappLogo size={18} weight="fill" color="white" />
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 14, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>
-                  Vidya Bot
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
-                  Fast WhatsApp
-                </p>
+                <svg width="20" height="20" viewBox="0 0 32 32" fill="white">
+                  <path d="M16.004 3.2C9.04 3.2 3.2 9.04 3.2 16.004c0 2.276.614 4.424 1.684 6.28L3.2 28.8l6.7-1.664A12.74 12.74 0 0 0 16.004 28.8c6.964 0 12.796-5.84 12.796-12.796C28.8 9.04 22.968 3.2 16.004 3.2zm6.26 18.032c-.264.732-1.54 1.396-2.1 1.448-.56.052-1.08.268-3.64-.76-3.1-1.24-5.064-4.408-5.22-4.612-.156-.204-1.248-1.664-1.248-3.176 0-1.512.792-2.26 1.072-2.568.28-.308.612-.384.816-.384l.584.012c.188.008.44-.072.688.524.256.612.872 2.112.948 2.268.076.156.128.34.028.548-.1.208-.152.336-.3.516-.148.18-.312.4-.444.54-.148.148-.304.308-.132.604.172.296.764 1.26 1.64 2.04 1.128 1.004 2.076 1.316 2.372 1.464.296.148.468.124.64-.076.172-.2.736-.856.932-1.152.196-.296.392-.248.66-.148.268.1 1.704.804 2 .948.296.148.492.22.564.34.072.12.072.7-.192 1.432z"/>
+                </svg>
               </div>
             </motion.a>
           </motion.div>
 
-          {/* Explore Menu CTA */}
+          {/* Explore Menu Row */}
           <motion.div {...fadeUp(0.28)}>
             <motion.button
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => {
                 setDishDetailItem(null);
                 setActiveScreen("menu");
               }}
               style={{
                 width: "100%",
-                height: 110,
-                background: C.surfaceDeep,
-                backdropFilter: "blur(32px)",
-                WebkitBackdropFilter: "blur(32px)",
+                background: "rgba(255,255,255,0.04)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
                 border: `1px solid ${C.border}`,
                 borderRadius: 24,
-                padding: "16px",
-                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 14,
                 cursor: "pointer",
-                position: "relative" as const, overflow: "hidden",
                 fontFamily: C.mono,
+                textAlign: "left",
               }}
             >
+              {/* Text */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 15, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>Explore Menu</p>
+                <p style={{ margin: "2px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
+                  {loading ? "Loading…" : `${items.length} dishes to explore`}
+                </p>
+              </div>
+              {/* Arrow Icon on right */}
               <div style={{
-                width: 34, height: 34, borderRadius: "50%",
+                width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
                 background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 boxShadow: `0 4px 12px ${C.redGlow}`,
               }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </div>
-              <div style={{ textAlign: "left" }}>
-                <p style={{ margin: 0, fontSize: 14, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>
-                  Explore Menu
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
-                  {loading ? "..." : `${items.length} Dishes`}
-                </p>
+                <ArrowRight size={16} weight="bold" color="white" />
               </div>
             </motion.button>
           </motion.div>
@@ -1912,19 +1932,19 @@ export function MobileHomeScreen({
                             fontFamily: C.mono,
                           }}
                         >
-                          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>{toTitleCase(cleanName)}</p>
+                          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>{cleanName}</p>
                           <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 800, color: C.red }}>
-                            ₹{item.price.toLocaleString("en-IN")}
+                            From ₹{item.variants[0].price.toLocaleString("en-IN")}
                             {bestSellingIdSet.has(item.id) && (
                               <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
-                                ₹{listMsrpRupees(item.price, item.id).toLocaleString("en-IN")}
+                                ₹{listMsrpRupees(item.variants[0].price, item.id).toLocaleString("en-IN")}
                               </span>
                             )}
                           </p>
                         </motion.button>
                         <button
                           type="button"
-                          aria-label={`Remove ${toTitleCase(cleanName)} from favorites`}
+                          aria-label={`Remove ${cleanName} from favorites`}
                           onClick={() => toggleFavorite(item.id)}
                           style={{
                             alignSelf: "center",
@@ -1940,9 +1960,7 @@ export function MobileHomeScreen({
                             justifyContent: "center",
                           }}
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M18 6 6 18M6 6l12 12" />
-                          </svg>
+                          <X size={20} weight="bold" color={C.red} aria-hidden />
                         </button>
                       </div>
                     );
@@ -1997,7 +2015,7 @@ export function MobileHomeScreen({
             key={dishDetailItem.id}
             item={dishDetailItem}
             onClose={() => setDishDetailItem(null)}
-            qty={cart[dishDetailItem.id] || 0}
+            cart={cart}
             updateQty={updateQty}
             cartTotalItems={cartTotalItems}
             onCheckout={goCheckout}
@@ -2008,176 +2026,215 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
+      {/* ── Bottom Vignette ──────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0, left: 0, right: 0,
+          height: 220,
+          background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
+          pointerEvents: "none",
+          zIndex: 115,
+        }}
+      />
+
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{
-          opacity: dishDetailItem ? 0 : 1,
-          y: dishDetailItem ? 24 : 0,
+          opacity: (!windowOpen || !dishDetailItem) ? 1 : 0,
+          y: (!windowOpen || !dishDetailItem) ? 0 : 24,
         }}
         transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
         style={{
           position: "fixed",
-          bottom: 0, left: 0, right: 0,
-          zIndex: 60,
+          bottom: 32, left: 16, right: 16,
+          zIndex: 120,
           display: "flex", justifyContent: "center",
-          paddingBottom: "max(24px, env(safe-area-inset-bottom))",
-          paddingTop: sp(1),
-          background: `linear-gradient(to top, ${C.bg} 60%, transparent)`,
+          paddingBottom: "env(safe-area-inset-bottom)",
           pointerEvents: "none",
         }}
       >
         <div
           style={{
-            display: "flex", gap: 14, alignItems: "center",
+            display: "flex", gap: 8, alignItems: "center",
+            flex: windowOpen ? 0 : 1,
+            justifyContent: windowOpen ? "flex-start" : "center",
+            padding: windowOpen ? "8px" : "16px 24px",
+            background: windowOpen ? "rgba(14, 14, 14, 0.75)" : "rgba(189, 35, 32, 0.18)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            borderRadius: 999,
+            border: `1px solid ${windowOpen ? "rgba(255,255,255,0.06)" : "rgba(189, 35, 32, 0.35)"}`,
+            boxShadow: windowOpen ? "0 12px 40px rgba(0,0,0,0.5)" : "0 12px 32px rgba(189,35,32,0.2)",
             pointerEvents: dishDetailItem ? "none" : "auto",
+            transition: "all 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          {NAV_ITEMS.map((item) => {
-            const { id, label: navLabel, icon: Icon, activeWidth } = item;
-            const isActive   = activeNav === id;
-            const showRipple = rippleTarget === id;
+          {!windowOpen ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ 
+                width: 36, height: 36, borderRadius: "50%", 
+                background: "rgba(189,35,32,0.2)", 
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <Warning size={20} color="#f87171" weight="bold" />
+              </div>
+              <span style={{ 
+                fontSize: 14, color: "#fca5a5", fontWeight: 800, 
+                letterSpacing: "0.01em", fontFamily: C.mono 
+              }}>
+                Ordering is open daily from 6 AM to 6 PM. See you then!
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              {NAV_ITEMS.map((item) => {
+                const { id, label: navLabel, icon: Icon, activeWidth } = item;
+                const isActive   = activeNav === id;
+                const showRipple = rippleTarget === id;
 
-            return (
-              <motion.button
-                key={id}
-                onClick={() => handleNav(id)}
-                whileTap={{ scale: 0.9 }}
-                animate={{
-                  width: isActive ? activeWidth - 10 : NAV_CIRCLE,
-                  background: isActive
-                    ? "rgba(189,35,32,0.18)" // Muted brand red for the pill
-                    : "transparent",
-                  borderColor: isActive
-                    ? "rgba(189,35,32,0.3)"
-                    : "transparent",
-                }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                style={{
-                  height: NAV_CIRCLE,
-                  borderRadius: 24,
-                  border: "1px solid",
-                  boxSizing: "border-box",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  cursor: "pointer",
-                  outline: "none",
-                  position: "relative",
-                  overflow: "hidden",
-                  fontFamily: C.mono,
-                  flexShrink: 0,
-                  background: "transparent", // Base state is transparent
-                }}
-              >
-                {/* Icon stays in a fixed left square — never reflows when the pill width springs */}
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: NAV_CIRCLE,
-                    height: NAV_CIRCLE,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                    zIndex: 1,
-                  }}
-                >
-                  {id === "orders" && ordersNavBadge > 0 ? (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        minWidth: 18,
-                        height: 18,
-                        padding: "0 5px",
-                        borderRadius: 999,
-                        background: C.red,
-                        color: "#fff",
-                        fontSize: 10,
-                        fontWeight: 900,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: `2px solid ${C.bg}`,
-                        boxSizing: "border-box",
-                        zIndex: 2,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {ordersNavBadge}
-                    </span>
-                  ) : null}
-                  <AnimatePresence>
-                    {showRipple && (
-                      <motion.div
-                        key={rippleKey}
-                        initial={{ scale: 0.4, opacity: 1 }}
-                        animate={{ scale: 3, opacity: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        style={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          width: NAV_ICON_CELL,
-                          height: NAV_ICON_CELL,
-                          borderRadius: "50%",
-                          border: "2px solid rgba(189,35,32,0.6)",
-                          transform: "translate(-50%, -50%)",
-                          pointerEvents: "none",
-                          zIndex: 0,
-                        }}
-                      />
-                    )}
-                  </AnimatePresence>
-                  <span
+                return (
+                  <motion.button
+                    key={id}
+                    onClick={() => handleNav(id)}
+                    whileTap={{ scale: 0.94 }}
+                    animate={{
+                      width: isActive ? activeWidth : NAV_CIRCLE,
+                      background: isActive
+                        ? "rgba(189,35,32,0.12)"
+                        : "rgba(189,35,32,0)",
+                      borderColor: isActive
+                        ? "rgba(189,35,32,0.25)"
+                        : "rgba(189,35,32,0)",
+                    }}
+                    transition={{ type: "spring", stiffness: 450, damping: 32 }}
                     style={{
+                      height: NAV_CIRCLE,
+                      borderRadius: 999,
+                      border: "1px solid",
+                      boxSizing: "border-box",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      width: 20,
-                      height: 20,
-                      lineHeight: 0,
+                      justifyContent: "center", 
+                      gap: 6,
+                      cursor: "pointer",
+                      outline: "none",
+                      position: "relative",
+                      overflow: "hidden",
+                      fontFamily: C.mono,
                       flexShrink: 0,
+                      background: "transparent",
+                      padding: 0,
                     }}
                   >
-                    <Icon active={isActive} />
-                  </span>
-                </div>
-
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.span
-                      key={`lbl-${id}`}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, transition: { duration: 0.1 } }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    <div
                       style={{
-                        marginLeft: 40,
+                        position: "relative",
+                        width: 24,
                         height: NAV_CIRCLE,
                         display: "flex",
                         alignItems: "center",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        letterSpacing: "0.02em",
-                        color: C.red,
-                        whiteSpace: "nowrap",
-                        position: "relative",
+                        justifyContent: "center",
+                        pointerEvents: "none",
                         zIndex: 1,
                       }}
                     >
-                      {navLabel}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            );
-          })}
+                      {id === "orders" && ordersNavBadge > 0 ? (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            right: 2,
+                            minWidth: 18,
+                            height: 18,
+                            padding: "0 5px",
+                            borderRadius: 999,
+                            background: C.red,
+                            color: "#fff",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: `2px solid ${C.bg}`,
+                            boxSizing: "border-box",
+                            zIndex: 2,
+                            pointerEvents: "none",
+                          }}
+                        >
+                          {ordersNavBadge}
+                        </span>
+                      ) : null}
+                      <AnimatePresence>
+                        {showRipple && (
+                          <motion.div
+                            key={rippleKey}
+                            initial={{ scale: 0.4, opacity: 1 }}
+                            animate={{ scale: 3, opacity: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.6, ease: "easeOut" }}
+                            style={{
+                              position: "absolute",
+                              top: "50%",
+                              left: "50%",
+                              width: NAV_ICON_CELL,
+                              height: NAV_ICON_CELL,
+                              borderRadius: "50%",
+                              border: "2px solid rgba(189,35,32,0.6)",
+                              transform: "translate(-50%, -50%)",
+                              pointerEvents: "none",
+                              zIndex: 0,
+                            }}
+                          />
+                        )}
+                      </AnimatePresence>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 20,
+                          height: 20,
+                          lineHeight: 0,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon active={isActive} />
+                      </span>
+                    </div>
+
+                    <AnimatePresence>
+                      {isActive && (
+                        <motion.span
+                          key={`lbl-${id}`}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          style={{
+                            height: NAV_CIRCLE,
+                            display: "flex",
+                            alignItems: "center",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: "0.01em",
+                            color: C.red,
+                            whiteSpace: "nowrap",
+                            position: "relative",
+                            zIndex: 1,
+                          }}
+                        >
+                          {navLabel}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -2249,13 +2306,16 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
   const carouselRef               = useRef<HTMLDivElement>(null);
   
   const filtered = allItems
-    .filter(i => i.category.toLowerCase() === activeCat.toLowerCase())
-    .sort((a, b) => a.price - b.price); // Low to High sorting
+    .filter(i => (i.category || "").toLowerCase() === activeCat.toLowerCase())
+    .sort((a, b) => a.variants[0].price - b.variants[0].price); 
   const totalCards = filtered.length;
   
-  const totalPrice = Object.entries(cart).reduce((acc, [id, q]) => {
+  const totalPrice = Object.entries(cart).reduce((acc, [key, q]) => {
+    const [id, weight] = key.split(":");
     const item = allItems.find(it => it.id === id);
-    return acc + (item ? item.price * q : 0);
+    if (!item) return acc;
+    const variant = item.variants.find(v => v.weight === weight);
+    return acc + (variant?.price || 0) * q;
   }, 0);
   
   // Reset to first card when category changes
@@ -2292,6 +2352,8 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
         zIndex: 100,
         overflow: "hidden",
         display: "flex", flexDirection: "column",
+        filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9)",
+        transition: "filter 0.5s ease",
       }}
     >
       {/* Sticky Header */}
@@ -2314,9 +2376,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             zIndex: 2,
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
+          <ArrowLeft size={20} weight="bold" color="white" />
         </motion.button>
         <h2 style={{ 
           fontSize: 22, fontWeight: 800, margin: 0, 
@@ -2338,7 +2398,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
         {categories.map((cat) => {
           const active = activeCat === cat.id;
           const count  = allItems
-            .filter(i => i.category.toLowerCase() === cat.id.toLowerCase())
+            .filter(i => i.category?.toLowerCase() === cat.id.toLowerCase())
             .reduce((acc, cur) => acc + (cart[cur.id] || 0), 0);
 
           return (
@@ -2397,7 +2457,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
           style={{
             height: "100%",
             overflowY: "auto",
-            padding: "20px 16px 110px", // Reduced bottom gap
+            padding: `20px 16px ${isOrderingWindowOpen() ? "110px" : "180px"}`, 
             scrollbarWidth: "none",
           }}
           className="no-scrollbar"
@@ -2435,7 +2495,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
 
       {/* Cart Summary Bar */}
       <AnimatePresence>
-        {Object.values(cart).some(q => q > 0) && (
+        {isOrderingWindowOpen() && Object.values(cart).some(q => q > 0) && (
           <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -2461,9 +2521,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 800, fontSize: 16, color: "white" }}>Checkout</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
+              <ArrowRight size={20} weight="bold" color="white" />
             </div>
           </motion.div>
         )}
@@ -2478,7 +2536,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
   onUpdate: (d: number) => void;
   onOpenDetail: () => void;
 }) {
-  const imgSrc = getItemImage(item.name, item.image_url);
+  const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
   const open = onOpenDetail;
@@ -2505,7 +2563,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
         type="button"
         whileTap={{ scale: 0.98 }}
         onClick={open}
-        aria-label={`View details for ${toTitleCase(cleanName)}`}
+        aria-label={`View details for ${cleanName}`}
         style={{
           position: "relative",
           width: "100%",
@@ -2528,7 +2586,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           type="button"
           whileTap={{ scale: 0.99 }}
           onClick={open}
-          aria-label={`View details for ${toTitleCase(cleanName)}`}
+          aria-label={`View details for ${cleanName}`}
           style={{
             height: 52,
             display: "flex",
@@ -2544,7 +2602,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           }}
         >
           <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {toTitleCase(cleanName)}
+            {cleanName}
           </h4>
           {tag && (
             <span style={{ 
@@ -2562,7 +2620,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
             type="button"
             whileTap={{ scale: 0.98 }}
             onClick={open}
-            aria-label={`View details, ₹${item.price}`}
+            aria-label={`View details, from ₹${Math.min(...item.variants.map(v => v.price))}`}
             style={{
               fontSize: 16,
               fontWeight: 900,
@@ -2574,58 +2632,25 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
               fontFamily: "inherit",
             }}
           >
-            ₹{item.price.toLocaleString("en-IN")}
+            ₹<span style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, marginRight: 2, verticalAlign: "middle" }}>from</span>{Math.min(...item.variants.map(v => v.price)).toLocaleString("en-IN")}
           </motion.button>
           
           <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
-            <AnimatePresence mode="wait">
-              {qty === 0 ? (
-                <motion.button
-                  key="add"
-                  initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                  whileTap={{ scale: 0.8 }}
-                  onClick={() => onUpdate(1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: "50%",
-                    background: C.red, border: "none",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "0 4px 10px rgba(189,35,32,0.3)",
-                    cursor: "pointer"
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                </motion.button>
-              ) : (
-                <motion.div
-                  key="stepper"
-                  initial={{ width: 32, opacity: 0 }}
-                  animate={{ width: 80, opacity: 1 }}
-                  exit={{ width: 32, opacity: 0 }}
-                  style={{
-                    height: 32, borderRadius: 16,
-                    background: C.red, display: "flex",
-                    alignItems: "center", justifyContent: "space-between",
-                    padding: "0 4px",
-                    boxShadow: "0 4px 12px rgba(189,35,32,0.4)",
-                    overflow: "hidden"
-                  }}
-                >
-                  <button onClick={() => onUpdate(-1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "white" }}>{qty}</span>
-                  <button onClick={() => onUpdate(1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <motion.button
+              whileTap={{ scale: isOrderingWindowOpen() ? 0.8 : 1 }}
+              onClick={() => isOrderingWindowOpen() && open()}
+              style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: isOrderingWindowOpen() ? C.red : "rgba(255,255,255,0.08)", 
+                border: "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: isOrderingWindowOpen() ? "0 4px 10px rgba(189,35,32,0.3)" : "none",
+                cursor: isOrderingWindowOpen() ? "pointer" : "not-allowed",
+                opacity: isOrderingWindowOpen() ? 1 : 0.5,
+              }}
+            >
+              <Plus size={14} weight="bold" color="white" />
+            </motion.button>
           </div>
         </div>
       </div>

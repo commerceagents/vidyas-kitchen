@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Lightning, CreditCard, Money } from "@phosphor-icons/react";
+import { ArrowLeft, Minus, Plus, MapPin, Lightning, CreditCard, Banknotes, ArrowRight } from "@phosphor-icons/react";
+
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
 import {
   type DeliverySlotKind,
   iterDeliveryDateOptions,
   slotCardsForIstDate,
+  isOrderingWindowOpen,
 } from "@/lib/delivery-slots";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
@@ -49,11 +51,7 @@ function parseRecipeTag(name: string) {
   return { cleanName: name, tag: null };
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-}
+import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 
 interface CheckoutScreenProps {
   onBack: () => void;
@@ -113,16 +111,35 @@ export function CheckoutScreen({
     return () => window.removeEventListener("focus", refreshSavedPlaces);
   }, [refreshSavedPlaces]);
 
-  // Filter items that are in cart
-  const cartItems = items.filter(it => cart[it.id] > 0);
-  const itemTotal = cartItems.reduce((acc, it) => acc + it.price * cart[it.id], 0);
+  // Filter items that are in cart with variant support
+  const cartEntries = useMemo(() => {
+    return Object.entries(cart).map(([key, qty]) => {
+      const [id, weight] = key.split(":");
+      const item = items.find(i => i.id === id);
+      if (!item) return null;
+      const variant = item.variants?.find(v => v.weight === weight);
+      if (!variant) return null;
+      return { 
+        key, // item.id:weight
+        id: item.id,
+        variantId: variant.id,
+        name: item.name,
+        price: variant.price,
+        weight: variant.weight,
+        weightLabel: variant.label,
+        quantity: qty 
+      };
+    }).filter(Boolean) as { key: string; id: string; variantId: string; name: string; price: number; weight: string; weightLabel: string; quantity: number }[];
+  }, [cart, items]);
+
+  const itemTotal = cartEntries.reduce((acc, it) => acc + it.price * it.quantity, 0);
   
   // Static charges as discussed
   const packagingFee = 20;
   const deliveryFee  = 35;
   const tax          = Math.round(itemTotal * 0.05); // 5% GST
   const grandTotal   = itemTotal + packagingFee + deliveryFee + tax;
-  const orderCtaDisabled = placing || slotKind == null;
+  const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen();
 
   const handlePlaceOrder = async () => {
     if (paymentMethod === "cod") {
@@ -135,6 +152,10 @@ export function CheckoutScreen({
     }
     if (!slotKind) {
       setCheckoutError("Choose an available delivery slot.");
+      return;
+    }
+    if (!isOrderingWindowOpen()) {
+      setCheckoutError("Ordering is only open between 6 AM and 6 PM IST.");
       return;
     }
     setCheckoutError(null);
@@ -151,7 +172,7 @@ export function CheckoutScreen({
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
           paymentMethod,
-          lines: cartItems.map((it) => ({ menuItemId: it.id, quantity: cart[it.id] })),
+          lines: cartEntries.map((it) => ({ menuItemId: it.variantId, quantity: it.quantity, variant: it.weight, weightLabel: it.weightLabel })),
           ...(typeof deliveryLat === "number" &&
           typeof deliveryLng === "number" &&
           Number.isFinite(deliveryLat) &&
@@ -185,7 +206,9 @@ export function CheckoutScreen({
     <div style={{
       position: "fixed", inset: 0, background: C.bg, zIndex: 200,
       display: "flex", flexDirection: "column", color: C.white,
-      fontFamily: C.mono, overflow: "hidden"
+      fontFamily: C.mono, overflow: "hidden",
+      filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9) opacity(0.6)",
+      transition: "filter 0.5s ease, opacity 0.5s ease",
     }}>
       {/* ── Header (centered title, back balances width) ─────────────────── */}
       <div style={{
@@ -207,9 +230,7 @@ export function CheckoutScreen({
             cursor: "pointer",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
+          <ArrowLeft size={20} weight="bold" color="white" />
         </motion.button>
         <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", textAlign: "center" }}>Checkout</h2>
         <div style={{ width: 44 }} aria-hidden />
@@ -234,22 +255,27 @@ export function CheckoutScreen({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {cartItems.map((item) => {
+            {cartEntries.map((item) => {
               const { cleanName, tag } = parseRecipeTag(item.name);
               return (
-              <div key={item.id} style={{
+              <div key={item.key} style={{
                 background: "rgba(255,255,255,0.03)", borderRadius: 18,
                 padding: "12px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                 gap: 12,
                 border: "1px solid rgba(255,255,255,0.05)"
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{toTitleCase(cleanName)}</p>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{toTitleCase(cleanName)}</p>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.4)", fontFamily: C.mono }}>
+                      ({item.weightLabel})
+                    </span>
+                  </div>
                   {tag ? (
                     <span
                       style={{
                         display: "inline-block",
-                        marginTop: 6,
+                        marginTop: 4,
                         padding: "3px 9px",
                         borderRadius: 8,
                         fontSize: 10,
@@ -274,16 +300,12 @@ export function CheckoutScreen({
                   boxShadow: "0 4px 12px rgba(189,35,32,0.4)", width: 80, flexShrink: 0,
                   alignSelf: "center",
                 }}>
-                  <button onClick={() => updateQty(item.id, -1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14" />
-                    </svg>
+                  <button onClick={() => updateQty(item.key, -1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Minus size={12} weight="bold" color="white" />
                   </button>
-                  <span style={{ fontSize: 13, fontWeight: 900 }}>{cart[item.id]}</span>
-                  <button onClick={() => updateQty(item.id, 1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+                  <span style={{ fontSize: 13, fontWeight: 900 }}>{item.quantity}</span>
+                  <button onClick={() => updateQty(item.key, 1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={12} weight="bold" color="white" />
                   </button>
                 </div>
               </div>
@@ -304,10 +326,7 @@ export function CheckoutScreen({
               width: 40, height: 40, borderRadius: 12, background: "rgba(189,35,32,0.12)",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-              </svg>
+              <MapPin size={20} weight="fill" color={C.red} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{locationLabel}</p>
@@ -496,22 +515,27 @@ export function CheckoutScreen({
                 {
                   id: "upi",
                   label: "UPI (GPay/PhonePe)",
-                  Icon: Lightning,
+                  icon: (
+                    <Lightning size={26} weight="fill" color="rgba(255,255,255,0.92)" />
+                  ),
                 },
                 {
                   id: "card",
                   label: "Debit/Credit Card",
-                  Icon: CreditCard,
+                  icon: (
+                    <CreditCard size={26} weight="regular" color="rgba(255,255,255,0.92)" />
+                  ),
                 },
                 {
                   id: "cod",
                   label: "Cash on Delivery",
-                  Icon: Money,
+                  icon: (
+                    <Banknotes size={26} weight="regular" color="rgba(255,255,255,0.92)" />
+                  ),
                   disabled: true,
                 },
               ] as const
             ).map((p) => {
-              const Ico = p.Icon;
               const disabled = "disabled" in p && p.disabled;
               return (
                 <button
@@ -528,7 +552,7 @@ export function CheckoutScreen({
                     cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s"
                   }}
                 >
-                  <Ico size={26} weight="duotone" color="rgba(255,255,255,0.92)" />
+                  {p.icon}
                   <span style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.2 }}>{p.label}</span>
                 </button>
               );
@@ -593,16 +617,78 @@ export function CheckoutScreen({
                 flexShrink: 0,
               }}
             />
+          ) : !isOrderingWindowOpen() ? (
+            "Ordering is closed (6 AM – 6 PM)"
           ) : (
             <>
               Place Order • ₹{grandTotal}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
+              <ArrowRight size={20} weight="bold" color="currentColor" aria-hidden />
             </>
           )}
         </motion.button>
       </div>
+
+      {/* ── Bottom Vignette ──────────────────────────────────────────────── */}
+      {!isOrderingWindowOpen() && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0, left: 0, right: 0,
+            height: 220,
+            background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
+            pointerEvents: "none",
+            zIndex: 205,
+          }}
+        />
+      )}
+
+      {/* ── Floating Warning Pill (Rule 1) ─────────────────────────────── */}
+      {!isOrderingWindowOpen() && (
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
+          style={{
+            position: "fixed",
+            bottom: 32, left: 16, right: 16,
+            zIndex: 210,
+            display: "flex", justifyContent: "center",
+            paddingBottom: "env(safe-area-inset-bottom)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              display: "flex", gap: 14, alignItems: "center",
+              flex: 1,
+              justifyContent: "center",
+              padding: "16px 24px",
+              background: "rgba(189, 35, 32, 0.18)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              borderRadius: 999,
+              border: "1px solid rgba(189, 35, 32, 0.35)",
+              boxShadow: "0 12px 32px rgba(189,35,32,0.2)",
+              pointerEvents: "auto",
+            }}
+          >
+            <div style={{ 
+              width: 36, height: 36, borderRadius: "50%", 
+              background: "rgba(189,35,32,0.2)", 
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <ArrowLeft size={20} weight="bold" color="#f87171" style={{ transform: "rotate(90deg)" }} />
+            </div>
+            <span style={{ 
+              fontSize: 14, color: "#fca5a5", fontWeight: 800, 
+              letterSpacing: "0.01em", fontFamily: C.mono 
+            }}>
+              Ordering is open daily from 6 AM to 6 PM. See you then!
+            </span>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

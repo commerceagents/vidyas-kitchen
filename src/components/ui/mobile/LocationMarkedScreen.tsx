@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { Check } from "@phosphor-icons/react";
 
 const HOLD_MS = 1700;
 const GREEN = "#22c55e";
@@ -79,15 +80,7 @@ export function LocationMarkedScreen({ label, onDone }: LocationMarkedScreenProp
             justifyContent: "center",
           }}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M5 13l4 4L19 7"
-              stroke={GREEN}
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Check size={28} weight="bold" color={GREEN} />
         </motion.div>
 
         <div

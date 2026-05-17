@@ -14,19 +14,29 @@ export default function Home() {
   const [prefilledPhone, setPrefilledPhone] = useState<string | undefined>();
   const [prefilledName, setPrefilledName] = useState<string | undefined>();
 
-  /** Before paint: skip logo splash when returning from Razorpay so success modal shows immediately. */
+  /** Before paint: skip logo splash when returning from Razorpay or on refresh (session persistence). */
   useLayoutEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
-    if (params.get("status") === "success" && params.get("orderId")) {
+    const isSuccess = params.get("status") === "success" && params.get("orderId");
+    const sessionSplashDone = sessionStorage.getItem("splash_shown") === "true";
+
+    if (isSuccess || sessionSplashDone) {
       setShowSplash(false);
       setInstantShellEnter(true);
     }
+
     const phoneParam = params.get("phone");
     const nameParam = params.get("name");
     if (phoneParam) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
   }, []);
+
+  useEffect(() => {
+    if (!showSplash) {
+      sessionStorage.setItem("splash_shown", "true");
+    }
+  }, [showSplash]);
 
   useEffect(() => {
     // Skip splash when returning from in-app legal pages (LegalHub sets skip_splash)

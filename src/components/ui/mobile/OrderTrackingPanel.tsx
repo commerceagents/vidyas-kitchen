@@ -4,6 +4,19 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_DEFS, DELIVERY_SLOT_TIMEZONE, isValidSlotKind } from "@/lib/delivery-slots";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
+import { 
+  Clock, 
+  Flame, 
+  Package, 
+  Motorcycle, 
+  House, 
+  XCircle, 
+  Sun, 
+  ForkKnife, 
+  Moon, 
+  CookingPot, 
+  Check 
+} from "@phosphor-icons/react";
 import { C, C_ICON, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 
@@ -68,6 +81,7 @@ export type OrderTrackSnap = {
   driverLastLat?: number | null;
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
+  cancellationDeadline?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number }[];
   breakdown?: {
     itemsSubtotal: number;
@@ -133,46 +147,17 @@ function statusCopy(status: string): { title: string; description: string } {
 
 function statusIconSvg(kind: "clock" | "flame" | "package" | "bike" | "home", strokeColor?: string) {
   const stroke = strokeColor ?? C_ICON;
-  const common = { width: 24 as const, height: 24 as const, viewBox: "0 0 24 24" as const, fill: "none" as const, stroke, strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   switch (kind) {
     case "clock":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3 2" />
-        </svg>
-      );
+      return <Clock size={24} weight="regular" color={stroke} />;
     case "flame":
-      return (
-        <svg {...common}>
-          <path d="M8.5 16.5a4.5 4.5 0 0 0 7 0c0-2-2-3-2-6 0-1.5-1-3-3.5-5.5C7 10.5 6 12 6 14c0 1 .5 1.8 1 2.5Z" />
-        </svg>
-      );
+      return <Flame size={24} weight="regular" color={stroke} />;
     case "package":
-      return (
-        <svg {...common}>
-          <path d="m7.5 4.27 9 5.15" />
-          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-          <path d="m3.3 7 8.7 5 8.7-5" />
-          <path d="M12 22V12" />
-        </svg>
-      );
+      return <Package size={24} weight="regular" color={stroke} />;
     case "bike":
-      return (
-        <svg {...common}>
-          <circle cx="5.5" cy="17.5" r="3.5" />
-          <circle cx="18.5" cy="17.5" r="3.5" />
-          <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3 2-3.5 7.5L9 9" />
-          <path d="m9 18 2.5-4.5L15 18" />
-        </svg>
-      );
+      return <Motorcycle size={24} weight="regular" color={stroke} />;
     case "home":
-      return (
-        <svg {...common}>
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-          <path d="M9 22V12h6v10" />
-        </svg>
-      );
+      return <House size={24} weight="regular" color={stroke} />;
   }
 }
 
@@ -180,12 +165,7 @@ function statusPrimaryIcon(status: string, strokeColor?: string) {
   const n = normalizeTrackStatus(status);
   if (n === "cancelled") {
     const stroke = strokeColor ?? C_TEXT_MUTED;
-    return (
-      <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="9" stroke={stroke} strokeWidth={2} />
-        <path d="m15 9-6 6M9 9l6 6" stroke={stroke} strokeWidth={2} strokeLinecap="round" />
-      </svg>
-    );
+    return <XCircle size={24} weight="regular" color={stroke} />;
   }
   if (n === "pending_payment" || n === "paid") return statusIconSvg("clock", strokeColor);
   if (n === "preparing") return statusIconSvg("flame", strokeColor);
@@ -197,7 +177,7 @@ function statusPrimaryIcon(status: string, strokeColor?: string) {
 
 function canCustomerCancelStatus(status: string): boolean {
   const s = normalizeTrackStatus(status);
-  return ["pending_payment", "paid", "preparing", "ready", "out_for_delivery"].includes(s);
+  return ["paid", "preparing"].includes(s);
 }
 
 function tryNotifyOrderCancelled(orderRef: string) {
@@ -214,47 +194,12 @@ function tryNotifyOrderCancelled(orderRef: string) {
 }
 
 function SlotKindIcon({ kind, size = 20 }: { kind: string | null | undefined; size?: number }) {
-  const g = HIGHLY_REORDERED_GREEN;
-  const common = {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24" as const,
-    fill: "none" as const,
-    stroke: g,
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
+  const stroke = HIGHLY_REORDERED_GREEN;
   const k = (kind || "").toLowerCase();
-  if (k === "breakfast")
-    return (
-      <svg {...common} aria-hidden>
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-      </svg>
-    );
-  if (k === "lunch")
-    return (
-      <svg {...common} aria-hidden>
-        <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z" />
-        <path d="M6 1v3" />
-        <path d="M10 1v3" />
-        <path d="M14 1v3" />
-      </svg>
-    );
-  if (k === "dinner")
-    return (
-      <svg {...common} aria-hidden>
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-      </svg>
-    );
-  return (
-    <svg {...common} aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
+  if (k === "breakfast") return <Sun size={size} weight="bold" color={stroke} />;
+  if (k === "lunch") return <ForkKnife size={size} weight="bold" color={stroke} />;
+  if (k === "dinner") return <Moon size={size} weight="bold" color={stroke} />;
+  return <Clock size={size} weight="bold" color={stroke} />;
 }
 
 /** Parsed slot for tracking card (readable date + time, avoids cramped single-line chip). */
@@ -346,85 +291,11 @@ const STEP_ICON_PX = 18;
 
 /** Compact stroke icons (24×24 viewBox) — readable at small sizes in the stepper. */
 const STEP_ICONS = [
-  (active: boolean) => {
-    const s = active ? C.red : C_TEXT_MUTED;
-    return (
-      <svg width={STEP_ICON_PX} height={STEP_ICON_PX} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M20 6 9 17l-5-5" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  },
-  /* PREP — cooking / pot (clearer than tiny flame path) */
-  (active: boolean) => {
-    const s = active ? C.red : C_TEXT_MUTED;
-    return (
-      <svg width={STEP_ICON_PX} height={STEP_ICON_PX} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M4 10.5c0 5 4 8.5 8 8.5s8-3.5 8-8.5"
-          stroke={s}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M4 10.5V9c0-1.1.9-2 2-2h2" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M20 10.5V9c0-1.1-.9-2-2-2h-2" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M10 7V5a2 2 0 1 1 4 0v2" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  },
-  /* READY — package (Lucide-aligned strokes) */
-  (active: boolean) => {
-    const s = active ? C.red : C_TEXT_MUTED;
-    return (
-      <svg width={STEP_ICON_PX} height={STEP_ICON_PX} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M12 22v-10" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path
-          d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
-          stroke={s}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="m3.3 7 8.7 4.98 8.7-4.98" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m7.5 4.21 9 5.14" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  },
-  /* OUT — delivery truck */
-  (active: boolean) => {
-    const s = active ? C.red : C_TEXT_MUTED;
-    return (
-      <svg width={STEP_ICON_PX} height={STEP_ICON_PX} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M14 18V8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a1 1 0 0 0 1 1h1.5"
-          stroke={s}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M15 18h2" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path
-          d="M17 18h2.5a1 1 0 0 0 1-1v-3.42a1 1 0 0 0-.26-.68l-2.89-3.22A1 1 0 0 0 16.76 9H15"
-          stroke={s}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="7.5" cy="18" r="2.5" stroke={s} strokeWidth={2} />
-        <circle cx="17.5" cy="18" r="2.5" stroke={s} strokeWidth={2} />
-      </svg>
-    );
-  },
-  /* DONE — home delivered */
-  (active: boolean) => {
-    const s = active ? C.red : C_TEXT_MUTED;
-    return (
-      <svg width={STEP_ICON_PX} height={STEP_ICON_PX} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M9 22V12h6v10" stroke={s} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  },
+  (active: boolean) => <Check size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
+  (active: boolean) => <CookingPot size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
+  (active: boolean) => <Package size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
+  (active: boolean) => <Motorcycle size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
+  (active: boolean) => <House size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
 ];
 
 const STEP_LABELS = ["Paid", "Prep", "Ready", "Out", "Done"];
@@ -516,7 +387,14 @@ export function OrderTrackingPanel({
     !!trackingOrderId &&
     !!trackSnap &&
     customerPhone.trim().replace(/\D/g, "").length >= 10 &&
-    canCustomerCancelStatus(trackSnap.status);
+    canCustomerCancelStatus(trackSnap.status) &&
+    (!trackSnap.cancellationDeadline || Date.now() < new Date(trackSnap.cancellationDeadline).getTime());
+
+  const cancellationWindowClosed = 
+    !!trackSnap && 
+    canCustomerCancelStatus(trackSnap.status) && 
+    !!trackSnap.cancellationDeadline && 
+    Date.now() >= new Date(trackSnap.cancellationDeadline).getTime();
 
   const handleConfirmCancel = async () => {
     if (!trackingOrderId) return;
@@ -745,9 +623,7 @@ export function OrderTrackingPanel({
                             }}
                           >
                             {done ? (
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
+                              <Check size={16} weight="bold" color="#ffffff" />
                             ) : (
                               IconFn(current)
                             )}
@@ -842,21 +718,7 @@ export function OrderTrackingPanel({
                     flexShrink: 0,
                   }}
                 >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={C.red}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                    style={{ display: "block" }}
-                  >
-                    <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                  </svg>
+                  <MapPin size={22} weight="regular" color={C.red} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={TYPO.eyebrow}>Deliver to</p>
@@ -894,21 +756,7 @@ export function OrderTrackingPanel({
                         lineHeight: 0,
                       }}
                     >
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke={C_TEXT_SEC}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                        style={{ display: "block", transform: "translate(-0.5px, -1px)" }}
-                      >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
+                      <PencilSimple size={18} weight="bold" color={C_TEXT_SEC} />
                     </span>
                   </motion.button>
                 ) : null}
@@ -1169,6 +1017,16 @@ export function OrderTrackingPanel({
                   >
                     Cancel order
                   </motion.button>
+                </div>
+              ) : cancellationWindowClosed ? (
+                <div style={{ 
+                  marginBottom: 16, padding: "14px 18px", borderRadius: 16, 
+                  background: "rgba(189,35,32,0.06)", border: `1px dashed ${C.border}`,
+                  textAlign: "center"
+                }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.45)", fontFamily: fontUi }}>
+                    Cancellation window has closed
+                  </p>
                 </div>
               ) : null}
             </>
