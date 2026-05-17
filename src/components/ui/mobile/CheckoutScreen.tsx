@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Minus, Plus, MapPin, Lightning, CreditCard, Banknotes, ArrowRight } from "@phosphor-icons/react";
+import { ArrowLeft, Minus, Plus, MapPin, Lightning, CreditCard, Money, ArrowRight } from "@phosphor-icons/react";
 
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
 import {
@@ -530,7 +530,7 @@ export function CheckoutScreen({
                   id: "cod",
                   label: "Cash on Delivery",
                   icon: (
-                    <Banknotes size={26} weight="regular" color="rgba(255,255,255,0.92)" />
+                    <Money size={26} weight="regular" color="rgba(255,255,255,0.92)" />
                   ),
                   disabled: true,
                 },
