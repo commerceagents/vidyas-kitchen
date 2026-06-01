@@ -1,10 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { createServerSupabase } from "@/lib/supabase-server";
 
 const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -22,6 +17,8 @@ export async function POST(req: NextRequest) {
     if (!orderId || !driverPhone) {
       return NextResponse.json({ error: "orderId and driverPhone required" }, { status: 400 });
     }
+
+    const supabaseAdmin = createServerSupabase();
 
     const { data: row, error } = await supabaseAdmin
       .from("orders")
