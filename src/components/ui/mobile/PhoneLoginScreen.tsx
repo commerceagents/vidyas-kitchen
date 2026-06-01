@@ -7,6 +7,7 @@ import Image from "next/image";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
+import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
 const SQUIRCLE_MASK = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 25C0 5.5 5.5 0 25 0h50c19.5 0 25 5.5 25 25v50c0 19.5-5.5 25-25 25H25c-19.5 0-25-5.5-25-25V25z' /%3E%3C/svg%3E")`;
@@ -36,16 +37,17 @@ const T = {
 };
 
 const C = {
-  bg: "#0a0a0a",
-  surface: "#161616",
-  surfaceHigh: "#1e1e1e",
-  border: "rgba(255,255,255,0.09)",
+  bg: "#F5F5F7",
+  surface: "rgba(255,255,255,0.72)",
+  surfaceHigh: "rgba(255,255,255,0.88)",
+  border: "rgba(0,0,0,0.08)",
   red: "#BD2320",
   green: "#22c55e",
   white: "#ffffff",
-  muted: "#A0A0A0",
-  faint: "#A0A0A0",
-  mono: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+  text: "#1A1A1A",
+  muted: "#777777",
+  faint: "#999999",
+  mono: "var(--font-outfit), system-ui, -apple-system, sans-serif",
 };
 
 // ─── Legal content ────────────────────────────────────────────────
@@ -72,7 +74,7 @@ const legalContent: Record<LegalTab, { title: string; sections: { heading: strin
   refund: {
     title: "Refund Policy",
     sections: [
-      { heading: "1. Order Cancellation", text: "Cancellations are only permitted within 15 minutes of placing the order. Once food preparation has started, we cannot accept cancellations." },
+      { heading: "1. Order Cancellation", text: "Cancellations are permitted up to 12 hours before your scheduled delivery slot. Once food preparation has started, we cannot accept cancellations." },
       { heading: "2. Refund Eligibility", text: "Refunds are issued if the delivered food is spoiled, wrong items were delivered, or the order was not delivered due to our error." },
       { heading: "3. Refund Process", text: "To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days." },
     ],
@@ -87,7 +89,7 @@ const formatDisplay = (val: string) =>
 const S: Record<string, CSSProperties> = {
   root: {
     position: "fixed", inset: 0,
-    background: "#0a0a0a",
+    background: "#F5F5F7",
     fontFamily: C.mono,
     display: "flex", flexDirection: "column",
     overflowY: "auto", overscrollBehavior: "contain",
@@ -98,7 +100,7 @@ const S: Record<string, CSSProperties> = {
     position: "absolute", top: -80, left: "50%",
     transform: "translateX(-50%)",
     width: 340, height: 340,
-    background: C.red, opacity: 0.07,
+    background: C.red, opacity: 0.04,
     filter: "blur(100px)", borderRadius: "50%",
     pointerEvents: "none",
   },
@@ -107,7 +109,7 @@ const S: Record<string, CSSProperties> = {
     position: "absolute", bottom: 0, left: "50%",
     transform: "translateX(-50%)",
     width: 260, height: 200,
-    background: C.red, opacity: 0.04,
+    background: C.red, opacity: 0.02,
     filter: "blur(80px)", borderRadius: "50%",
     pointerEvents: "none",
   },
@@ -127,12 +129,18 @@ const S: Record<string, CSSProperties> = {
     border: "2px solid rgba(189,35,32,0.35)",
     position: "relative" as const,
     zIndex: 2,
+    clipPath: "circle(50% at 50% 50%)",
+    WebkitClipPath: "circle(50% at 50% 50%)",
+  },
+  logoImg: {
+    objectFit: "cover" as const,
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    display: "block",
   },
   greeting: {
-    fontSize: 36, fontWeight: 800,
-    lineHeight: 1.1,
-    letterSpacing: "-0.5px",
-    color: C.white,
+    ...TYPO.display,
     margin: 0, marginBottom: T.sp1,
     textAlign: "center",
     display: "flex",
@@ -143,16 +151,13 @@ const S: Record<string, CSSProperties> = {
   },
   greetingAccent: { color: C.red, fontWeight: 800 },
   subtitle: {
-    fontSize: 15, fontWeight: 600,
-    color: "rgba(255,255,255,0.55)",
-    letterSpacing: "0.02em",
+    ...TYPO.subtitle,
     margin: 0, marginBottom: T.sp5,
     textAlign: "center",
   },
   label: {
-    display: "block", fontSize: 12,
-    color: "rgba(255,255,255,0.45)",
-    fontWeight: 600,
+    ...TYPO.label,
+    display: "block",
     marginBottom: 10,
     alignSelf: "flex-start",
   },
@@ -164,24 +169,22 @@ const S: Record<string, CSSProperties> = {
   },
   flagText: { fontSize: 16, lineHeight: 1 },
   codeText: {
-    color: "rgba(255,255,255,0.75)",
-    fontSize: 15, fontWeight: 700,
+    color: "rgba(0,0,0,0.6)",
+    fontSize: 17, fontWeight: 700,
     letterSpacing: "0.06em",
     fontFamily: C.mono,
   },
   vDivider: {
     width: 1, height: 20,
-    background: "rgba(255,255,255,0.08)",
+    background: "rgba(0,0,0,0.08)",
     flexShrink: 0,
   },
   phoneInput: {
+    ...TYPO.input,
     flex: 1, background: "transparent",
     border: "none", outline: "none",
-    color: C.white, fontSize: 17,
     padding: `0 12px`,
     letterSpacing: "0.06em",
-    fontFamily: C.mono,
-    fontWeight: 600,
   },
   hint: {
     fontSize: 10, color: "rgba(189,35,32,0.7)", marginTop: 8, paddingLeft: 2,
@@ -195,13 +198,15 @@ const S: Record<string, CSSProperties> = {
     width: "100%",
   },
   termsText: {
-    fontSize: 11, color: "rgba(255,255,255,0.2)",
-    letterSpacing: "0.02em", lineHeight: 1.8,
-    fontFamily: C.mono, cursor: "pointer",
+    ...TYPO.legalFinePrint,
+    cursor: "pointer",
     background: "none", border: "none",
-    fontWeight: 400,
   },
-  termsAccent: { color: "rgba(189,35,32,0.6)", cursor: "pointer" },
+  termsAccent: {
+    ...TYPO.legalLink,
+    cursor: "pointer",
+    background: "none", border: "none",
+  },
   backdrop: {
     position: "fixed", inset: 0,
     background: "rgba(0,0,0,0.75)",
@@ -232,14 +237,13 @@ const S: Record<string, CSSProperties> = {
     marginBottom: T.sp4,
   },
   sheetTitle: {
-    fontSize: 20, fontWeight: 800,
-    color: C.white, margin: 0,
+    ...TYPO.titleSm,
+    margin: 0,
     marginBottom: 6,
-    letterSpacing: "0.02em",
   },
   sheetSub: {
-    fontSize: 12, color: "rgba(255,255,255,0.4)",
-    marginBottom: T.sp4, letterSpacing: "0.02em",
+    ...TYPO.bodySm,
+    marginBottom: T.sp4,
   },
   otpRow: {
     display: "flex", flexWrap: "wrap" as const,
@@ -251,20 +255,20 @@ const S: Record<string, CSSProperties> = {
   legalSheet: {
     position: "fixed", inset: 0,
     zIndex: 60,
-    background: "#0a0a0a",
+    background: "#F5F5F7",
     fontFamily: C.mono,
     display: "flex", flexDirection: "column",
   },
   legalHeader: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: `${T.sp2}px ${T.sp3}px`,
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    borderBottom: "1px solid rgba(0,0,0,0.06)",
     flexShrink: 0,
   },
   legalTabBar: {
     display: "flex", gap: T.sp1,
     padding: `${T.sp1}px ${T.sp3}px`,
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    borderBottom: "1px solid rgba(0,0,0,0.06)",
     flexShrink: 0,
     overflowX: "auto" as const,
   },
@@ -278,8 +282,8 @@ const S: Record<string, CSSProperties> = {
 const D = {
   nameRow: (valid: boolean, active: boolean): CSSProperties => ({
     display: "flex", alignItems: "center",
-    background: "rgba(255,255,255,0.05)",
-    border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
+    background: "rgba(0,0,0,0.03)",
+    border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(0,0,0,0.08)"}`,
     borderRadius: 16,
     height: 56,
     paddingLeft: 14,
@@ -293,8 +297,8 @@ const D = {
   }),
   inputRow: (valid: boolean, active: boolean): CSSProperties => ({
     display: "flex", alignItems: "center",
-    background: "rgba(255,255,255,0.05)",
-    border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
+    background: "rgba(0,0,0,0.03)",
+    border: `1.5px solid ${valid ? C.green : active ? "rgba(189,35,32,0.6)" : "rgba(0,0,0,0.08)"}`,
     borderRadius: 16,
     height: 62,
     paddingRight: 16,
@@ -314,11 +318,11 @@ const D = {
     cursor: active ? "pointer" : "not-allowed",
     background: active
       ? "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)"
-      : "rgba(255,255,255,0.06)",
-    color: active ? C.white : "rgba(255,255,255,0.2)",
+      : "rgba(0,0,0,0.04)",
+    color: active ? C.white : "rgba(0,0,0,0.2)",
     transition: "all 0.2s",
     marginTop: mt,
-    boxShadow: active ? "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset" : "none",
+    boxShadow: active ? "0 4px 20px rgba(189,35,32,0.25)" : "none",
     position: "relative",
     overflow: "hidden",
   }),
@@ -329,7 +333,7 @@ const D = {
     fontFamily: C.mono, fontSize: 11, fontWeight: 700,
     letterSpacing: "0.03em",
     background: active ? C.red : "transparent",
-    color: active ? C.white : "rgba(255,255,255,0.58)",
+    color: active ? C.white : "rgba(0,0,0,0.5)",
     whiteSpace: "nowrap",
     transition: "all 0.18s",
   }),
@@ -602,7 +606,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 width: 96,
                 height: 96,
                 borderRadius: "50%",
-                border: "1px solid rgba(189,35,32,0.45)",
+                border: "1px solid rgba(189,35,32,0.3)",
                 pointerEvents: "none",
               }}
               animate={{
@@ -617,10 +621,16 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               }}
             />
           ))}
-          <div style={{ ...S.logoWrap, width: 96, height: 96 }}>
-            <Image src="/VK_Logo.webp" alt="Vidya's Kitchen" width={96} height={96}
-              style={{ objectFit: "cover", width: "100%", height: "100%" }} />
-          </div>
+          <motion.div style={S.logoWrap}>
+            <Image
+              src="/VK_Logo.webp"
+              alt="Vidya's Kitchen"
+              width={96}
+              height={96}
+              className="vk-logo-circle"
+              style={S.logoImg}
+            />
+          </motion.div>
         </motion.div>
 
         {/* Greeting — flex + tight gap so monospace doesn’t add a huge space after “Hey,” */}
@@ -632,7 +642,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         >
           {greetingFirst ? (
             <>
-              <span style={{ color: C.white }}>Hey,</span>
+              <span style={{ color: C.text }}>Hey,</span>
               <span style={S.greetingAccent}>{greetingFirst}.</span>
             </>
           ) : (
@@ -669,8 +679,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               onFocus={() => setNameFocused(true)}
               onBlur={() => setNameFocused(false)}
               style={{
+                ...TYPO.input,
                 flex: 1, background: "transparent", border: "none", outline: "none",
-                color: C.white, fontSize: 16, fontWeight: 600, fontFamily: C.mono,
               }}
             />
           </div>
@@ -687,7 +697,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           <div style={D.inputRow(rawPhone.length === 10, focused && rawPhone.length !== 10)}>
             {/* 🇮🇳 +91 */}
             <div style={S.countryChip}>
-              <div style={{ width: 24, height: 17, borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
+              <div style={{ width: 24, height: 17, borderRadius: 3, overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
                 <img src="https://flagcdn.com/in.svg" alt="IN" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
               <span style={S.codeText}>+91</span>
@@ -763,11 +773,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         >
           <p style={S.termsText}>
             By continuing, you agree to our{" "}
-            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
+            <button style={S.termsAccent} onClick={() => { setLegalTab("terms"); setShowLegal(true); }}>
               terms of service
             </button>
             {" "}and{" "}
-            <button style={{ ...S.termsText, ...S.termsAccent }} onClick={() => { setLegalTab("privacy"); setShowLegal(true); }}>
+            <button style={S.termsAccent} onClick={() => { setLegalTab("privacy"); setShowLegal(true); }}>
               privacy policy
             </button>
           </p>
@@ -796,7 +806,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                   <p style={{ ...S.sheetTitle, textAlign: "center" }}>Enter the OTP</p>
                   <p style={{ ...S.sheetSub, textAlign: "center", marginBottom: 10 }}>
                     Sent to{" "}
-                    <span style={{ color: "rgba(255,255,255,0.75)" }}>
+                    <span style={{ color: "rgba(0,0,0,0.6)" }}>
                       +91 {formatDisplay(rawPhone)}
                     </span>
                   </p>
@@ -847,33 +857,16 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: "50%",
-                        background: "rgba(34,197,94,0.14)",
-                        border: "1.5px solid rgba(34,197,94,0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      style={SUCCESS_STATUS.iconRing}
                     >
-                      <Check size={28} weight="bold" color={C.green} />
+                      <Check size={28} weight="bold" color={SUCCESS_STATUS.green} />
                     </motion.div>
-                    <div
-                      style={{
-                        padding: "10px 22px",
-                        borderRadius: 999,
-                        background: "rgba(18,18,18,0.96)",
-                        border: "1px solid rgba(34,197,94,0.45)",
-                        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-                      }}
-                    >
-                      <p style={{ margin: 0, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em", fontFamily: C.mono }}>
+                    <div style={SUCCESS_STATUS.chip}>
+                      <p style={SUCCESS_STATUS.chipText}>
                         OTP verified
                       </p>
                     </div>
-                    <p style={{ margin: 0, color: "rgba(255,255,255,0.38)", fontSize: 12, fontWeight: 600, fontFamily: C.mono }}>
+                    <p style={SUCCESS_STATUS.hint}>
                       Taking you to the map…
                     </p>
                   </motion.div>
@@ -919,9 +912,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                           style={{
                             width: 46, height: 56,
                             textAlign: "center", fontSize: 26, fontWeight: 800,
-                            color: C.white,
-                            background: "rgba(255,255,255,0.05)",
-                            border: `1.5px solid ${otpError ? "rgba(189,35,32,0.5)" : digit ? "rgba(189,35,32,0.6)" : "rgba(255,255,255,0.08)"}`,
+                            color: C.text,
+                            background: "rgba(0,0,0,0.03)",
+                            border: `1.5px solid ${otpError ? "rgba(189,35,32,0.5)" : digit ? "rgba(189,35,32,0.6)" : "rgba(0,0,0,0.08)"}`,
                             borderRadius: 16,
                             outline: "none",
                             caretColor: C.red,
@@ -953,10 +946,10 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
                     {!canResend && (
                       <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
-                        <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
+                        <p style={{ color: "rgba(0,0,0,0.25)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
                           Resend in{" "}
                           <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                            style={{ color: "rgba(255,255,255,0.55)" }}>
+                            style={{ color: "rgba(0,0,0,0.5)" }}>
                             {resendTimer}s
                           </motion.span>
                         </p>
@@ -980,11 +973,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             {/* Header */}
             <div style={S.legalHeader}>
               <button onClick={() => setShowLegal(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.6)", fontFamily: C.mono, fontSize: 11, letterSpacing: "0.04em" }}>
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "rgba(0,0,0,0.5)", fontFamily: C.mono, fontSize: 11, letterSpacing: "0.04em" }}>
                 <CaretLeft size={18} weight="bold" color="currentColor" />
                 Back
               </button>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", letterSpacing: "0.04em", fontFamily: C.mono }}>
+              <span style={{ fontSize: 11, color: "rgba(0,0,0,0.5)", letterSpacing: "0.04em", fontFamily: C.mono }}>
                 Legal Hub
               </span>
             </div>
@@ -1003,20 +996,20 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               <motion.div key={legalTab} style={S.legalBody}
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: "0.01em", marginBottom: T.sp3 }}>
+                <h1 style={{ ...TYPO.legalTitle, marginBottom: T.sp3 }}>
                   {legalContent[legalTab].title}
                 </h1>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", letterSpacing: "0.03em", marginBottom: T.sp6 }}>
+                <p style={{ ...TYPO.legalMeta, marginBottom: T.sp6 }}>
                   Last updated: March 23, 2026
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: T.sp6 }}>
                   {legalContent[legalTab].sections.map((sec, i) => (
                     <section key={i}>
-                      <h2 style={{ fontSize: 13, fontWeight: 800, color: C.white, letterSpacing: "0.02em", marginBottom: T.sp2 }}>
+                      <h2 style={{ ...TYPO.legalSection, marginBottom: T.sp2 }}>
                         {sec.heading}
                       </h2>
-                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.9, letterSpacing: "0.015em" }}>
+                      <p style={TYPO.legalBody}>
                         {sec.text}
                       </p>
                     </section>
@@ -1024,8 +1017,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 </div>
 
                 {/* Footer */}
-                <div style={{ marginTop: T.sp8, paddingTop: T.sp4, borderTop: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
-                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "0.03em" }}>
+                <div style={{ marginTop: T.sp8, paddingTop: T.sp4, borderTop: "1px solid rgba(0,0,0,0.06)", textAlign: "center" }}>
+                  <p style={TYPO.legalMeta}>
                     © 2026 Vidya&apos;s Kitchen. All rights reserved.
                   </p>
                 </div>

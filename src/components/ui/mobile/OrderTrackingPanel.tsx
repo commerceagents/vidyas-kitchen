@@ -15,9 +15,12 @@ import {
   ForkKnife, 
   Moon, 
   CookingPot, 
-  Check 
+  Check,
+  MapPin,
+  PencilSimple 
 } from "@phosphor-icons/react";
 import { C, C_ICON, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
+import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 
 /** Green slot icon tile — matches “Highly reordered” accent. */
@@ -36,27 +39,11 @@ const ORDER_CARD_ICON_BOX = {
 
 const fontUi = C.mono;
 
-/** Matches Home / Account: eyebrows, titles, body (readable on OLED). */
 const TYPO = {
-  eyebrow: {
-    margin: 0,
-    fontSize: 15,
-    fontWeight: 800,
-    letterSpacing: "0.04em",
-    color: "rgba(255,255,255,0.4)",
-    fontFamily: fontUi,
-  },
-  heroId: {
-    margin: "8px 0 0",
-    fontSize: 30,
-    fontWeight: 800,
-    color: C.white,
-    fontFamily: fontUi,
-    letterSpacing: "-0.02em",
-    lineHeight: 1.12,
-  },
-  cardTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: C.white, fontFamily: fontUi, lineHeight: 1.35 },
-  body: { fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.45)", lineHeight: 1.55, fontFamily: fontUi },
+  eyebrow: { ...TypeScale.bodyMedium, margin: 0, fontWeight: 800, letterSpacing: "0.04em", color: "rgba(0,0,0,0.38)", fontFamily: fontUi },
+  heroId: { ...TypeScale.hero, margin: "8px 0 0", fontFamily: fontUi },
+  cardTitle: { ...TypeScale.cardTitle, margin: 0, fontWeight: 800, fontFamily: fontUi },
+  body: { ...TypeScale.bodyMedium, fontFamily: fontUi, color: "rgba(0,0,0,0.42)" },
 } as const;
 
 function shortOrderRef(orderId: string): string {
@@ -97,7 +84,7 @@ type Loc = { label: string; lat: number; lng: number } | null;
 
 function normalizeTrackStatus(s: string): string {
   const x = (s || "").toLowerCase();
-  if (x === "confirmed" || x === "prepping") return "preparing";
+  if (x === "prepping") return "preparing";
   if (x === "out") return "out_for_delivery";
   return x;
 }
@@ -111,14 +98,16 @@ function mainTrackStep(status: string): number {
       return -1;
     case "paid":
       return 0;
-    case "preparing":
+    case "confirmed":
       return 1;
-    case "ready":
+    case "preparing":
       return 2;
-    case "out_for_delivery":
+    case "ready":
       return 3;
-    case "delivered":
+    case "out_for_delivery":
       return 4;
+    case "delivered":
+      return 5;
     default:
       return -1;
   }
@@ -128,6 +117,8 @@ function statusCopy(status: string): { title: string; description: string } {
   const s = normalizeTrackStatus(status);
   if (s === "pending_payment")
     return { title: "Waiting for payment", description: "Complete checkout to send your order to the kitchen." };
+  if (s === "confirmed")
+    return { title: "Order confirmed", description: "Kitchen has acknowledged your order. We\u2019ll start cooking closer to your slot." };
   if (s === "paid")
     return { title: "Kitchen will accept soon", description: "Payment is in — we’re lining up your meal with the next prep wave." };
   if (s === "preparing")
@@ -168,6 +159,7 @@ function statusPrimaryIcon(status: string, strokeColor?: string) {
     return <XCircle size={24} weight="regular" color={stroke} />;
   }
   if (n === "pending_payment" || n === "paid") return statusIconSvg("clock", strokeColor);
+  if (n === "confirmed") return <Check size={24} weight="regular" color={strokeColor ?? C_ICON} />;
   if (n === "preparing") return statusIconSvg("flame", strokeColor);
   if (n === "ready") return statusIconSvg("package", strokeColor);
   if (n === "out_for_delivery") return statusIconSvg("bike", strokeColor);
@@ -177,7 +169,7 @@ function statusPrimaryIcon(status: string, strokeColor?: string) {
 
 function canCustomerCancelStatus(status: string): boolean {
   const s = normalizeTrackStatus(status);
-  return ["paid", "preparing"].includes(s);
+  return ["paid", "confirmed"].includes(s);
 }
 
 function tryNotifyOrderCancelled(orderRef: string) {
@@ -264,7 +256,7 @@ function OrderSlotCard({
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ ...TYPO.eyebrow, margin: 0 }}>Delivery slot</p>
-        <p style={{ margin: "6px 0 0", fontSize: 18, fontWeight: 800, color: C.white, fontFamily: fontUi, lineHeight: 1.3 }}>
+        <p style={{ margin: "6px 0 0", fontSize: 18, fontWeight: 800, color: C.text, fontFamily: fontUi, lineHeight: 1.3 }}>
           {parsed.kindLabel}
         </p>
         <p
@@ -278,7 +270,7 @@ function OrderSlotCard({
           }}
         >
           {parsed.datePart}
-          <span style={{ color: "rgba(255,255,255,0.35)", margin: "0 0.35em" }}>·</span>
+          <span style={{ color: "rgba(0,0,0,0.25)", margin: "0 0.35em" }}>·</span>
           {parsed.timePart}
           <span style={{ color: C_TEXT_MUTED, fontWeight: 700, fontSize: 13, marginLeft: 6 }}>IST</span>
         </p>
@@ -292,13 +284,14 @@ const STEP_ICON_PX = 18;
 /** Compact stroke icons (24×24 viewBox) — readable at small sizes in the stepper. */
 const STEP_ICONS = [
   (active: boolean) => <Check size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
+  (active: boolean) => <Check size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
   (active: boolean) => <CookingPot size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
   (active: boolean) => <Package size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
   (active: boolean) => <Motorcycle size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
   (active: boolean) => <House size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
 ];
 
-const STEP_LABELS = ["Paid", "Prep", "Ready", "Out", "Done"];
+const STEP_LABELS = ["Paid", "Confirmed", "Prep", "Ready", "Out", "Done"];
 
 /** Subtle pulse ring for the active tracking step (not for completed checkmarks). */
 const STEP_ACTIVE_RING_COLOR = "rgba(189,35,32,0.42)";
@@ -323,7 +316,7 @@ function mapStaticUrl(
     const dLat = 0.008;
     pins.push(`pin-s+FFFFFF(${userLng + dLng},${userLat + dLat})`);
   }
-  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${pins.join(",")}/auto/640x240@2x?padding=60&access_token=${encodeURIComponent(token)}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins.join(",")}/auto/640x240@2x?padding=60&access_token=${encodeURIComponent(token)}`;
 }
 
 function waHelpUrl(orderId: string) {
@@ -470,7 +463,7 @@ export function OrderTrackingPanel({
             borderRadius: 14,
             background: C.redFaint,
             border: `1px solid ${C.redBorder}`,
-            color: C.white,
+            color: C.text,
             fontSize: 15,
             fontWeight: 700,
             lineHeight: 1.55,
@@ -542,7 +535,7 @@ export function OrderTrackingPanel({
               >
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 0 }}>
                   {STEP_LABELS.map((lbl, i) => {
-                    const done = stepIdx > i || (delivered && i < 5);
+                    const done = stepIdx > i || (delivered && i < 6);
                     const current = stepIdx === i;
                     const IconFn = STEP_ICONS[i]!;
                     const node = 34;
@@ -787,7 +780,7 @@ export function OrderTrackingPanel({
                           color: C_TEXT_SEC,
                         }}
                       >
-                        <span style={{ fontFamily: fontUi, fontWeight: 700, lineHeight: 1.4, flex: 1, fontSize: 16, color: C.white }}>
+                        <span style={{ fontFamily: fontUi, fontWeight: 700, lineHeight: 1.4, flex: 1, fontSize: 16, color: C.text }}>
                           {l.quantity}× {toTitleCaseLine(l.name)}
                         </span>
                         <span style={{ fontFamily: fontUi, fontWeight: 800, color: C.red, fontSize: 16 }}>₹{Math.round(l.quantity * l.unitPrice)}</span>
@@ -940,7 +933,7 @@ export function OrderTrackingPanel({
                     </p>
                   ) : (
                     <>
-                      <p style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 800, color: C.white, fontFamily: fontUi, lineHeight: 1.35 }}>Rate this meal</p>
+                      <p style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 800, color: C.text, fontFamily: fontUi, lineHeight: 1.35 }}>Rate this meal</p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {[1, 2, 3, 4, 5].map((n) => (
                           <motion.button
@@ -954,7 +947,7 @@ export function OrderTrackingPanel({
                               borderRadius: 12,
                               border: `1px solid ${C.border}`,
                               background: C.glass,
-                              color: C.white,
+                              color: C.text,
                               fontSize: 16,
                               fontWeight: 800,
                               cursor: ratingSending ? "wait" : "pointer",
@@ -976,7 +969,7 @@ export function OrderTrackingPanel({
                           borderRadius: 12,
                           border: `1px solid ${C.border}`,
                           background: C.glass,
-                          color: C.white,
+                          color: C.text,
                           padding: 12,
                           fontSize: 15,
                           fontFamily: fontUi,
@@ -1024,7 +1017,7 @@ export function OrderTrackingPanel({
                   background: "rgba(189,35,32,0.06)", border: `1px dashed ${C.border}`,
                   textAlign: "center"
                 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.45)", fontFamily: fontUi }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.42)", fontFamily: fontUi }}>
                     Cancellation window has closed
                   </p>
                 </div>
@@ -1120,7 +1113,7 @@ export function OrderTrackingPanel({
               position: "fixed",
               inset: 0,
               zIndex: 200,
-              background: "rgba(0,0,0,0.88)",
+              background: "rgba(0,0,0,0.45)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1143,7 +1136,7 @@ export function OrderTrackingPanel({
                 padding: "26px 22px",
                 background: C.surfaceDeep,
                 border: `1px solid ${C.border}`,
-                boxShadow: "0 24px 48px rgba(0,0,0,0.65)",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
               }}
             >
               <h2
@@ -1152,7 +1145,7 @@ export function OrderTrackingPanel({
                   margin: 0,
                   fontSize: 20,
                   fontWeight: 800,
-                  color: C.white,
+                  color: C.text,
                   fontFamily: fontUi,
                   lineHeight: 1.3,
                   textAlign: "center",

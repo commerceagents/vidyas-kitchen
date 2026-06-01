@@ -7,6 +7,7 @@ import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
+import { TYPO } from "@/components/ui/mobile/mobile-typography";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LocationData {
@@ -30,7 +31,60 @@ type TipTone = "info" | "warn" | "success";
 const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
 const MAX_DISTANCE_KM = 15;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
+const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
+
+/** Location screen typography — shared scale */
+const LOC = {
+  tip: { ...TYPO.caption, color: "#1A1A1A", letterSpacing: "0.01em", textAlign: "center" as const },
+  eyebrow: { ...TYPO.caption, margin: 0, fontSize: 11, color: "rgba(0,0,0,0.45)", letterSpacing: "0.02em", lineHeight: 1.25 },
+  placeName: {
+    ...TYPO.bodyMedium,
+    margin: 0,
+    color: "#1A1A1A",
+    letterSpacing: "0.02em",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
+  searchInput: { ...TYPO.input, flex: 1, background: "transparent", border: "none", outline: "none" },
+  suggestTitle: { ...TYPO.caption, margin: 0, color: "#1A1A1A" },
+  suggestSub: {
+    ...TYPO.eyebrow,
+    margin: 0,
+    fontSize: 11,
+    letterSpacing: "0.02em",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+  },
+  sectionEyebrow: {
+    ...TYPO.micro,
+    margin: "0 0 10px",
+    color: "rgba(0,0,0,0.4)",
+    letterSpacing: "0.1em",
+    textTransform: "uppercase" as const,
+  },
+  savedLabel: { ...TYPO.chip, margin: 0 },
+  savedSub: {
+    ...TYPO.micro,
+    margin: 0,
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+    maxWidth: "100px",
+  },
+  gpsTitle: { ...TYPO.caption, margin: 0, color: "#1A1A1A", fontWeight: 700 },
+  gpsSub: { ...TYPO.eyebrow, margin: 0, fontSize: 11, color: "rgba(0,0,0,0.4)" },
+  error: { ...TYPO.eyebrow, margin: 0, fontSize: 11, color: "rgba(0,0,0,0.65)", lineHeight: 1.4 },
+  cta: { ...TYPO.bodySm, color: "#fff", fontWeight: 800, letterSpacing: "0.02em" },
+  modalTitle: { ...TYPO.cardTitle, margin: "0 0 8px", fontWeight: 900 },
+  modalBody: { ...TYPO.caption, margin: "0 0 6px", color: "rgba(0,0,0,0.55)", lineHeight: 1.55 },
+  modalSub: { ...TYPO.chip, margin: "0 0 24px", color: "rgba(0,0,0,0.4)", fontWeight: 600 },
+  modalBtnPrimary: { ...TYPO.caption, color: "#fff", fontWeight: 800 },
+  modalBtnSecondary: { ...TYPO.caption, color: "rgba(0,0,0,0.6)", fontWeight: 700 },
+} as const;
 
 /** Insets passed with the camera so the map never paints “unpadded” then snaps when overlays mount. */
 const MAP_PAD_TOP = 80;
@@ -116,7 +170,7 @@ function DeleteIcon() {
 }
 
 function GPSIcon() {
-  return <NavigationArrow size={18} weight="regular" color="currentColor" />;
+  return <NavigationArrow size={18} weight="fill" color="currentColor" />;
 }
 
 function SearchIcon() {
@@ -196,7 +250,7 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       position: "absolute", inset: 0,
-      background: "linear-gradient(160deg, #0d0d0d 0%, #111 40%, #0a0a0a 100%)",
+      background: "linear-gradient(160deg, #F5F5F7 0%, #EEEEF0 40%, #F5F5F7 100%)",
       overflow: "hidden",
     }}>
       <div style={{
@@ -208,10 +262,10 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
         backgroundSize: "40px 40px",
       }} />
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
-        <path d="M0 300 Q100 280 200 300 T400 290" stroke="rgba(255,255,255,0.06)" strokeWidth="8" fill="none" />
-        <path d="M0 450 Q150 430 400 460" stroke="rgba(255,255,255,0.04)" strokeWidth="12" fill="none" />
-        <path d="M180 0 Q190 200 185 400 T175 800" stroke="rgba(255,255,255,0.06)" strokeWidth="8" fill="none" />
-        <path d="M280 0 Q290 150 285 300 T275 800" stroke="rgba(255,255,255,0.04)" strokeWidth="5" fill="none" />
+        <path d="M0 300 Q100 280 200 300 T400 290" stroke="rgba(0,0,0,0.06)" strokeWidth="8" fill="none" />
+        <path d="M0 450 Q150 430 400 460" stroke="rgba(0,0,0,0.04)" strokeWidth="12" fill="none" />
+        <path d="M180 0 Q190 200 185 400 T175 800" stroke="rgba(0,0,0,0.06)" strokeWidth="8" fill="none" />
+        <path d="M280 0 Q290 150 285 300 T275 800" stroke="rgba(0,0,0,0.04)" strokeWidth="5" fill="none" />
         <path d="M0 200 Q200 180 400 210" stroke="rgba(189,35,32,0.12)" strokeWidth="6" fill="none" />
         <path d="M0 550 Q180 530 400 560" stroke="rgba(189,35,32,0.08)" strokeWidth="4" fill="none" />
       </svg>
@@ -595,7 +649,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
 
   return (
     <>
-    <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#F5F5F7", overflow: "hidden" }}>
       {/* Floating status tooltip (small, cute, bottom-centered) */}
       <AnimatePresence>
         {floatingTip && (
@@ -616,7 +670,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               zIndex: 9999,
               padding: "10px 20px",
               borderRadius: 24,
-              background: "rgba(18,18,18,0.96)",
+              background: "rgba(255,255,255,0.96)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
               border: `1px solid ${
@@ -624,14 +678,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   ? "rgba(189,35,32,0.6)"
                   : floatingTip.tone === "success"
                   ? "rgba(34,197,94,0.5)"
-                  : "rgba(255,255,255,0.15)"
+                  : "rgba(0,0,0,0.1)"
               }`,
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: "0.01em",
-              textAlign: "center",
-              boxShadow: "0 8px 28px rgba(0,0,0,0.55)",
+              color: "#1A1A1A",
+              ...LOC.tip,
+              boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
               pointerEvents: "none",
               display: "flex",
               alignItems: "center",
@@ -654,7 +705,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   ? "rgba(189,35,32,0.95)"
                   : floatingTip.tone === "success"
                   ? "rgba(34,197,94,0.95)"
-                  : "rgba(255,255,255,0.9)";
+                  : "rgba(0,0,0,0.5)";
               return (
                 <motion.span
                   key={`dot-${floatingTip.id}-${i}`}
@@ -740,13 +791,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                         ["linear"],
                         ["get", "height"],
                         0,
-                        "#121212",
+                        "#E8E8EA",
                         60,
-                        "#1a1214",
+                        "#E0DDE0",
                         140,
-                        "#231416",
+                        "#D8D4D6",
                         280,
-                        "#2e1719",
+                        "#D0CACC",
                       ],
                       "fill-extrusion-height": ["get", "height"],
                       "fill-extrusion-base": ["get", "min_height"],
@@ -789,7 +840,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           zIndex: 4,
           pointerEvents: "none",
           background:
-            "radial-gradient(circle at 50% 42%, rgba(189,35,32,0.08) 0%, rgba(0,0,0,0) 48%), linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.48) 100%)",
+            "radial-gradient(circle at 50% 42%, rgba(189,35,32,0.05) 0%, rgba(255,255,255,0) 48%), linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.35) 100%)",
         }}
       />
 
@@ -797,7 +848,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0,
         height: "45%",
-        background: "linear-gradient(to top, #0a0a0a 20%, transparent 100%)",
+        background: "linear-gradient(to top, #F5F5F7 20%, transparent 100%)",
         pointerEvents: "none",
         zIndex: 5,
       }} />
@@ -811,16 +862,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           position: "absolute",
           top: 16, left: 16, right: 16,
           zIndex: 20,
-          background: "rgba(14,14,14,0.75)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          background: "rgba(255,255,255,0.82)",
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
           borderRadius: 22,
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: "1px solid rgba(0,0,0,0.06)",
           padding: "12px 16px",
           display: "flex",
           alignItems: "center",
           gap: 10,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
         }}
       >
         <div style={{
@@ -830,22 +881,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
         }}>
-          <MapPin size={16} weight="fill" color="#BD2320" />
+          <PhMapPin size={16} weight="fill" color="#BD2320" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            margin: 0,
-            fontSize: 11,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.55)",
-            letterSpacing: "0.02em",
-            lineHeight: 1.25,
-            fontFamily: "var(--font-outfit), system-ui, -apple-system, sans-serif",
-            WebkitFontSmoothing: "antialiased",
-          }}>
+          <p style={LOC.eyebrow}>
             Delivering to
           </p>
-          <p style={{ margin: 0, fontSize: 15, color: "#fff", fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={LOC.placeName}>
             {searchText || "Set your location"}
           </p>
         </div>
@@ -863,16 +905,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           right: 18,
           bottom: sheetHeight + 14,
           zIndex: 25,
-          background: "rgba(14,14,14,0.85)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.85)",
+          backdropFilter: "blur(16px) saturate(180%)",
+          WebkitBackdropFilter: "blur(16px) saturate(180%)",
+          border: "1px solid rgba(0,0,0,0.06)",
           borderRadius: 14,
           width: 44, height: 44,
           display: "flex", alignItems: "center", justifyContent: "center",
           cursor: "pointer",
-          color: "rgba(255,255,255,0.7)",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          color: "rgba(0,0,0,0.6)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         }}
       >
         <RecenterIcon />
@@ -888,13 +930,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           position: "absolute",
           bottom: 0, left: 0, right: 0,
           zIndex: 20,
-          background: "rgba(12,12,12,0.88)",
-          backdropFilter: "blur(40px)",
-          WebkitBackdropFilter: "blur(40px)",
+          background: "rgba(255,255,255,0.85)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
           borderRadius: "28px 28px 0 0",
-          border: "1px solid rgba(255,255,255,0.07)",
+          border: "1px solid rgba(0,0,0,0.06)",
           borderBottom: "none",
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
           padding: "20px 0 36px",
           display: "flex",
           flexDirection: "column",
@@ -903,7 +945,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         {/* Drag handle */}
         <div style={{
           width: 36, height: 4, borderRadius: 2,
-          background: "rgba(255,255,255,0.12)",
+          background: "rgba(0,0,0,0.12)",
           margin: "0 auto 20px",
           flexShrink: 0,
         }} />
@@ -920,15 +962,15 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             <div
               style={{
                 display: "flex", alignItems: "center", gap: 10,
-                background: "rgba(255,255,255,0.05)",
-                border: `1.5px solid ${searchFocused ? "rgba(189,35,32,0.5)" : "rgba(255,255,255,0.08)"}`,
+                background: "rgba(0,0,0,0.03)",
+                border: `1.5px solid ${searchFocused ? "rgba(189,35,32,0.5)" : "rgba(0,0,0,0.08)"}`,
                 borderRadius: suggestions.length > 0 ? "16px 16px 0 0" : 16,
                 padding: "12px 14px",
                 transition: "border-color 0.2s",
                 boxShadow: searchFocused ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
               }}
             >
-              <span style={{ color: "rgba(255,255,255,0.3)", display: "flex", flexShrink: 0 }}>
+              <span style={{ color: "rgba(0,0,0,0.35)", display: "flex", flexShrink: 0 }}>
                 <SearchIcon />
               </span>
               <input
@@ -939,8 +981,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setTimeout(() => setSearchFocused(false), 180)}
                 style={{
-                  flex: 1, background: "transparent", border: "none", outline: "none",
-                  color: "#fff", fontSize: 14, fontWeight: 500,
+                  ...LOC.searchInput,
                   letterSpacing: "0.01em",
                 }}
               />
@@ -952,10 +993,10 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     exit={{ opacity: 0, scale: 0.7 }}
                     onClick={() => { setSearchText(""); setSuggestions([]); }}
                     style={{
-                      background: "rgba(255,255,255,0.08)", border: "none",
+                      background: "rgba(0,0,0,0.06)", border: "none",
                       borderRadius: 10, width: 26, height: 26,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 18,
+                      cursor: "pointer", color: "rgba(0,0,0,0.4)", fontSize: 18,
                       flexShrink: 0,
                     }}
                   >
@@ -973,7 +1014,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   style={{
-                    background: "rgba(18,18,18,0.98)",
+                    background: "rgba(255,255,255,0.98)",
                     border: "1.5px solid rgba(189,35,32,0.25)",
                     borderTop: "none",
                     borderRadius: "0 0 16px 16px",
@@ -987,7 +1028,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         width: "100%", background: "none", border: "none",
-                        borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                        borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
                         padding: "11px 14px",
                         cursor: "pointer",
                         textAlign: "left",
@@ -997,10 +1038,10 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                         <PinIcon color="#BD2320" />
                       </span>
                       <div>
-                        <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 600 }}>
+                        <p style={LOC.suggestTitle}>
                           {f.place_name.split(",")[0]}
                         </p>
-                        <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p style={LOC.suggestSub}>
                           {f.place_name.split(",").slice(1).join(",").trim()}
                         </p>
                       </div>
@@ -1019,11 +1060,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             animate="show"
             style={{ marginBottom: 20 }}
           >
-            <p style={{
-              margin: "0 0 10px", fontSize: 10,
-              color: "rgba(255,255,255,0.35)",
-              letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700,
-            }}>
+            <p style={LOC.sectionEyebrow}>
               Saved Places
             </p>
             <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
@@ -1043,11 +1080,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     style={{
                       flex: "0 0 160px",
                       background: isAdding
-                        ? "rgba(189,35,32,0.1)"
+                        ? "rgba(189,35,32,0.08)"
                         : isSelected
-                        ? "rgba(189,35,32,0.12)"
-                        : "rgba(255,255,255,0.04)",
-                      border: `1.5px solid ${isAdding ? "rgba(189,35,32,0.5)" : isSelected ? "rgba(189,35,32,0.4)" : "rgba(255,255,255,0.07)"}`,
+                        ? "rgba(189,35,32,0.08)"
+                        : "rgba(0,0,0,0.03)",
+                      border: `1.5px solid ${isAdding ? "rgba(189,35,32,0.5)" : isSelected ? "rgba(189,35,32,0.4)" : "rgba(0,0,0,0.07)"}`,
                       borderRadius: 14,
                       padding: "10px 12px",
                       cursor: "pointer",
@@ -1057,7 +1094,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                       position: "relative",
                     }}
                   >
-                    <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(255,255,255,0.4)", display: "flex" }}>
+                    <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(0,0,0,0.4)", display: "flex" }}>
                       {place.label === "Home" ? (
                         <HomeIcon />
                       ) : place.label === "Work" ? (
@@ -1067,17 +1104,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                       )}
                     </span>
                     <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                      <p style={{ margin: 0, fontSize: 12, color: isAdding || isSelected ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: 700 }}>
+                      <p style={{ ...LOC.savedLabel, color: isAdding || isSelected ? "#1A1A1A" : "rgba(0,0,0,0.7)" }}>
                         {place.label}
                       </p>
                       <p style={{ 
-                        margin: 0, 
-                        fontSize: 10, 
-                        color: isAdding ? "rgba(189,35,32,0.8)" : isUnset ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.3)", 
-                        overflow: "hidden", 
-                        textOverflow: "ellipsis", 
-                        whiteSpace: "nowrap",
-                        maxWidth: "100px"
+                        ...LOC.savedSub,
+                        color: isAdding ? "rgba(189,35,32,0.8)" : isUnset ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.4)", 
                       }}>
                         {isAdding ? "Setting location…" : isUnset ? "Tap to add" : place.address}
                       </p>
@@ -1093,9 +1125,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                           width: 28,
                           height: 28,
                           borderRadius: 9,
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          background: "rgba(255,255,255,0.06)",
-                          color: "rgba(255,255,255,0.5)",
+                          border: "1px solid rgba(0,0,0,0.08)",
+                          background: "rgba(0,0,0,0.04)",
+                          color: "rgba(0,0,0,0.4)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1123,8 +1155,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             onClick={handleGPS}
             style={{
               width: "100%",
-              background: "rgba(255,255,255,0.04)",
-              border: "1.5px solid rgba(255,255,255,0.07)",
+              background: "rgba(0,0,0,0.03)",
+              border: "1.5px solid rgba(0,0,0,0.07)",
               borderRadius: 14,
               padding: "12px 14px",
               cursor: "pointer",
@@ -1148,12 +1180,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               </motion.span>
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
-              <p style={{ margin: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>
+              <p style={LOC.gpsTitle}>
                 {isDetecting ? "Detecting location…" : "Use current location"}
               </p>
-              <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Detect via GPS</p>
+              <p style={LOC.gpsSub}>Detect via GPS</p>
             </div>
-            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 18 }}>›</span>
+            <span style={{ color: "rgba(0,0,0,0.25)", fontSize: 18 }}>›</span>
           </motion.button>
         </div>
 
@@ -1175,8 +1207,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               }}
             >
               <WarningCircle size={14} weight="bold" color="#BD2320" style={{ flexShrink: 0 }} />
-              <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 600, lineHeight: 1.4 }}>{gpsError}</p>
-              <button onClick={() => setGpsError(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", padding: 0, marginLeft: "auto", fontSize: 16, flexShrink: 0 }}>×</button>
+              <p style={LOC.error}>{gpsError}</p>
+              <button onClick={() => setGpsError(null)} style={{ background: "none", border: "none", color: "rgba(0,0,0,0.35)", cursor: "pointer", padding: 0, marginLeft: "auto", fontSize: 16, flexShrink: 0 }}>×</button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1187,7 +1219,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           variants={springReveal}
           initial="hidden"
           animate="show"
-          style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.04)" }}
+          style={{ padding: "12px 20px 0", flexShrink: 0 }}
         >
           {addingPlace ? (
             <motion.button
@@ -1199,8 +1231,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 border: "none", borderRadius: 16,
                 padding: "16px",
                 cursor: "pointer",
-                color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.02em",
+                color: "#fff", ...LOC.cta,
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 12,
@@ -1230,8 +1261,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 border: "none", borderRadius: 16,
                 padding: "16px",
                 cursor: "pointer",
-                color: "#fff", fontSize: 14, fontWeight: 800,
-                letterSpacing: "0.02em",
+                color: "#fff", ...LOC.cta,
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 24,
@@ -1265,7 +1295,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             exit={{ opacity: 0 }}
             style={{
               position: "fixed", inset: 0, zIndex: 9999,
-              background: "rgba(0,0,0,0.75)",
+              background: "rgba(0,0,0,0.4)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
               display: "flex", alignItems: "flex-end", justifyContent: "center",
@@ -1281,24 +1311,24 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "100%", maxWidth: 400,
-                background: "rgba(14,14,14,0.98)",
-                backdropFilter: "blur(40px)",
-                WebkitBackdropFilter: "blur(40px)",
+                background: "rgba(255,255,255,0.98)",
+                backdropFilter: "blur(40px) saturate(180%)",
+                WebkitBackdropFilter: "blur(40px) saturate(180%)",
                 borderRadius: 28,
-                border: "1px solid rgba(189,35,32,0.25)",
+                border: "1px solid rgba(189,35,32,0.2)",
                 padding: "28px 24px 24px",
-                boxShadow: "0 24px 60px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
                 fontFamily: "var(--font-jetbrains-mono), monospace",
               }}
             >
               <div style={{ width: 52, height: 52, borderRadius: 16, background: "rgba(189,35,32,0.12)", border: "1px solid rgba(189,35,32,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
                 <PhMapPin size={24} weight="fill" color="#BD2320" />
               </div>
-              <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em" }}>Outside delivery area</h2>
-              <p style={{ margin: "0 0 6px", fontSize: 13, color: "rgba(255,255,255,0.55)", fontWeight: 600, lineHeight: 1.55 }}>
-                We currently only deliver within <span style={{ color: "#fff", fontWeight: 700 }}>Sivakasi, Tamil Nadu</span> — within 15 km of our kitchen.
+              <h2 style={LOC.modalTitle}>Outside delivery area</h2>
+              <p style={LOC.modalBody}>
+                We currently only deliver within <span style={{ color: "#1A1A1A", fontWeight: 700 }}>Sivakasi, Tamil Nadu</span> — within 15 km of our kitchen.
               </p>
-              <p style={{ margin: "0 0 24px", fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>The location you picked is outside our delivery zone.</p>
+              <p style={LOC.modalSub}>The location you picked is outside our delivery zone.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -1309,14 +1339,14 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     setPinCoords(SIVAKASI_CENTER);
                     animateCameraTo(SIVAKASI_CENTER.lng, SIVAKASI_CENTER.lat, 1400);
                   }}
-                  style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)", border: "none", borderRadius: 14, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 16px rgba(189,35,32,0.4)" }}
+                  style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)", border: "none", borderRadius: 14, ...LOC.modalBtnPrimary, cursor: "pointer", boxShadow: "0 4px 16px rgba(189,35,32,0.4)" }}
                 >
                   Search in Sivakasi
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setOutOfRangeModal(false)}
-                  style={{ width: "100%", padding: "13px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                  style={{ width: "100%", padding: "13px", background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 14, ...LOC.modalBtnSecondary, cursor: "pointer" }}
                 >
                   Change location
                 </motion.button>

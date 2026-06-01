@@ -46,7 +46,8 @@ export async function POST(request: Request) {
   const dlng = row.delivery_lng as number | null | undefined;
   if (dlat != null && dlng != null && Number.isFinite(Number(dlat)) && Number.isFinite(Number(dlng))) {
     const m = haversineMeters(lat, lng, Number(dlat), Number(dlng));
-    if (m > MAX_METRES) {
+    // Skip proximity check in development
+    if (m > MAX_METRES && process.env.NODE_ENV !== 'development') {
       return NextResponse.json(
         { error: `Too far from drop-off (~${Math.round(m)}m). Move within about 100m to complete.` },
         { status: 400 },

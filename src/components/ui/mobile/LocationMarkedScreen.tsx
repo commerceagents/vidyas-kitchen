@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Check } from "@phosphor-icons/react";
+import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
 
 const HOLD_MS = 1700;
-const GREEN = "#22c55e";
 
 interface LocationMarkedScreenProps {
   /** Saved place name or resolved address line. */
@@ -40,7 +40,7 @@ export function LocationMarkedScreen({ label, onDone }: LocationMarkedScreenProp
       style={{
         position: "fixed",
         inset: 0,
-        background: "#0a0a0a",
+        background: "#F5F5F7",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -69,48 +69,22 @@ export function LocationMarkedScreen({ label, onDone }: LocationMarkedScreenProp
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: "rgba(34,197,94,0.14)",
-            border: "1.5px solid rgba(34,197,94,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={SUCCESS_STATUS.iconRing}
         >
-          <Check size={28} weight="bold" color={GREEN} />
+          <Check size={28} weight="bold" color={SUCCESS_STATUS.green} />
         </motion.div>
 
-        <div
-          style={{
-            padding: "10px 22px",
-            borderRadius: 999,
-            background: "rgba(18,18,18,0.96)",
-            border: "1px solid rgba(34,197,94,0.45)",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-          }}
-        >
-          <p style={{ margin: 0, color: "#fff", fontSize: 15, fontWeight: 700, letterSpacing: "0.02em" }}>
+        <div style={SUCCESS_STATUS.chip}>
+          <p style={SUCCESS_STATUS.chipText}>
             Location marked
           </p>
         </div>
 
-        <p
-          style={{
-            margin: 0,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.42)",
-            lineHeight: 1.5,
-            maxWidth: 300,
-          }}
-        >
+        <p style={{ ...TYPO.body, margin: 0, maxWidth: 300 }}>
           {label}
         </p>
 
-        <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+        <p style={SUCCESS_STATUS.hint}>
           Taking you to your menu…
         </p>
 

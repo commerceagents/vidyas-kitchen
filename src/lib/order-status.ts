@@ -5,11 +5,13 @@
 export const OrderStatus = {
   PENDING_PAYMENT: "pending_payment",
   PAID: "paid",
+  CONFIRMED: "confirmed",
   PREPARING: "preparing",
   READY: "ready",
   OUT_FOR_DELIVERY: "out_for_delivery",
   DELIVERED: "delivered",
   CANCELLED: "cancelled",
+  REJECTED: "rejected",
 } as const;
 
 export type OrderStatusValue = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -17,18 +19,19 @@ export type OrderStatusValue = (typeof OrderStatus)[keyof typeof OrderStatus];
 /** Allowed monotonic transitions (kitchen / driver / payment). */
 const EDGES: Record<string, string[]> = {
   [OrderStatus.PENDING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED],
-  [OrderStatus.PAID]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.REJECTED],
+  [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
   [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
   [OrderStatus.READY]: [OrderStatus.OUT_FOR_DELIVERY],
   [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
+  [OrderStatus.REJECTED]: [],
 };
 
 /** Legacy DB values → normalize for transition checks. */
 export function normalizeOrderStatus(raw: string): string {
   const s = String(raw || "").toLowerCase().trim();
-  if (s === "confirmed") return OrderStatus.PREPARING;
   if (s === "prepping") return OrderStatus.PREPARING;
   if (s === "out") return OrderStatus.OUT_FOR_DELIVERY;
   if (s === "completed") return OrderStatus.DELIVERED;
@@ -59,8 +62,10 @@ export function kitchenLabelForStatus(status: string): string {
       return "Pending Pay";
     case OrderStatus.PAID:
       return "New";
+    case OrderStatus.CONFIRMED:
+      return "Confirmed";
     case OrderStatus.PREPARING:
-      return "Accepted";
+      return "Cooking";
     case OrderStatus.READY:
       return "Ready";
     case OrderStatus.OUT_FOR_DELIVERY:
@@ -69,6 +74,8 @@ export function kitchenLabelForStatus(status: string): string {
       return "Delivered";
     case OrderStatus.CANCELLED:
       return "Cancelled";
+    case OrderStatus.REJECTED:
+      return "Rejected";
     default:
       return titleizeWords(s);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo, type CSSProperties } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Minus } from "@phosphor-icons/react";
@@ -11,28 +11,100 @@ import { isOrderingWindowOpen } from "@/lib/delivery-slots";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MENU_BY_CATEGORY, MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import {
+  discountChipDisplay,
+  listPriceForVariant,
+  mergeMenuDiscountOverrides,
+  type DishDiscountRow,
+} from "@/lib/menu/discount-pricing";
+import { useActiveFestival } from "./festival-pricing-context";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
+  ...TYPO.caption,
   margin: 0,
-  fontSize: 11,
-  fontWeight: 600,
-  color: "rgba(255,255,255,0.55)",
-  letterSpacing: "0.02em",
-  lineHeight: 1.25,
-  fontFamily: C.mono,
   WebkitFontSmoothing: "antialiased" as const,
 };
 
+/** Home screen text — derived from shared scale */
+const HT = {
+  chipPrice: {
+    padding: "5px 11px",
+    borderRadius: 12,
+    fontFamily: C.mono,
+    fontSize: 13,
+    fontWeight: 800,
+    color: C.text,
+    background: "#fff",
+    fontVariantNumeric: "tabular-nums" as const,
+    letterSpacing: "-0.02em",
+  },
+  chipBadge: { ...TYPO.micro, letterSpacing: "0.02em" },
+  qtyBadge: { ...TYPO.chip, fontWeight: 900, color: "#fff" },
+  cardName: { ...TYPO.dishName, margin: 0 },
+  cardNameClamp: {
+    ...TYPO.dishName,
+    margin: 0,
+    lineHeight: 1.2,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical" as const,
+    overflow: "hidden",
+  },
+  cardNameEllipsis: {
+    ...TYPO.dishName,
+    margin: 0,
+    lineHeight: "22px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  price: TYPO.price,
+  priceLg: TYPO.priceLg,
+  priceHero: TYPO.priceHero,
+  body: TYPO.body,
+  bodySm: TYPO.bodySm,
+  bodyMedium: TYPO.bodyMedium,
+  caption: TYPO.caption,
+  sectionTitle: TYPO.sectionTitle,
+  titleSm: TYPO.titleSm,
+  button: TYPO.button,
+  micro: TYPO.micro,
+  microTag: { ...TYPO.micro, color: C.red, textTransform: "uppercase" as const, opacity: 0.9 },
+  tileTitle: { ...TYPO.bodyMedium, margin: 0, fontWeight: 800, color: C.text, letterSpacing: "-0.01em" },
+  tileSub: { ...TYPO.caption, margin: "2px 0 0", color: "rgba(0,0,0,0.38)" },
+  greetingSub: { ...TYPO.subtitle, margin: 0, fontWeight: 500, color: "rgba(0,0,0,0.52)" },
+  homeGreeting: { ...TYPO.title, fontSize: 28, lineHeight: 1.12 },
+  subtitle: TYPO.subtitle,
+  eyebrow: TYPO.eyebrow,
+} as const;
+
 const sp = (n: number) => n * 8;
+
+function discountChipSurface(variant: "festival" | "normal"): CSSProperties {
+  if (variant === "festival") {
+    return {
+      background: "linear-gradient(135deg, #f59e0b 0%, #b45309 100%)",
+      color: "#fff",
+      boxShadow: "0 2px 14px rgba(217, 119, 6, 0.45)",
+      border: "1px solid rgba(251, 191, 36, 0.55)",
+    };
+  }
+  return {
+    background: C.red,
+    color: "#fff",
+    boxShadow: `0 2px 10px ${C.redGlow}`,
+  };
+}
 
 // ─── Image map — local /public/menu-images/ (fixes broken Supabase URLs) ──
 const ITEM_IMAGES: Record<string, string> = {
   "Black Pepper Chicken Gravy":              "/menu-images/chk-pepper-gravy.jpg",
   "Chilly Chicken Gravy":                    "/menu-images/chk-chilly-gravy.jpg",
   "Mom's Recipe - Chicken Gravy":            "/menu-images/chk-mom-gravy.jpg",
-  "Sister's Recipe - Chicken Gravy":           "/menu-images/chk-sis-gravy.jpg",
+  "Sister's Recipe - Chicken Gravy":         "/menu-images/chk-sis-gravy.jpg",
   "Idli Special Chicken Gravy":              "/menu-images/chk-idli-gravy.jpg",
   "Sister-in-law's Recipe - Pepper Chicken": "/menu-images/chk-pepper-sil.jpg",
   "Chicken Wings":                           "/menu-images/chk-wings.jpg",
@@ -102,7 +174,7 @@ function HomeIcon({ active }: { active: boolean }) {
     <House
       size={22}
       weight={active ? "fill" : "regular"}
-      color={active ? C.red : "rgba(255,255,255,0.35)"}
+      color={active ? "#fff" : "rgba(0,0,0,0.35)"}
       aria-hidden
     />
   );
@@ -112,7 +184,7 @@ function OrdersIcon({ active }: { active: boolean }) {
     <Receipt
       size={22}
       weight={active ? "fill" : "regular"}
-      color={active ? C.red : "rgba(255,255,255,0.35)"}
+      color={active ? "#fff" : "rgba(0,0,0,0.35)"}
       aria-hidden
     />
   );
@@ -122,7 +194,7 @@ function AccountIcon({ active }: { active: boolean }) {
     <User
       size={22}
       weight={active ? "fill" : "regular"}
-      color={active ? C.red : "rgba(255,255,255,0.35)"}
+      color={active ? "#fff" : "rgba(0,0,0,0.35)"}
       aria-hidden
     />
   );
@@ -180,19 +252,6 @@ function dishStatsFromId(id: string) {
   const weekly = 72 + (stableHash(`${id}:wk`) % 140); // 72–211
   const reviews = 18 + (h % 220);
   return { rating, weekly, reviews };
-}
-
-/** Listed MRP for promos — “nice” rupee amounts (449–1199), above sale by ~₹200–500. */
-function listMsrpRupees(salePrice: number, id: string): number {
-  const h = stableHash(`${id}:msrpNice`);
-  const candidates = [
-    449, 499, 549, 599, 649, 699, 749, 799, 849, 899, 949, 999,
-    1049, 1099, 1149, 1199, 1249, 1299, 1349, 1399, 1449, 1499, 1549, 1599, 1699, 1799, 1899,
-  ];
-  const ok = candidates.filter((p) => p >= salePrice + 180 && p <= salePrice + 520);
-  if (ok.length) return ok[h % ok.length];
-  const bump = 250 + (h % 151);
-  return Math.min(2499, Math.ceil((salePrice + bump) / 50) * 50);
 }
 
 /** Short, plain description from dish name and category. */
@@ -269,12 +328,14 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: MenuItem; index: number; qty: number; onOpenDetail: () => void; showMsrp?: boolean }) {
-  const windowOpen = isOrderingWindowOpen();
+function BestSellingCard({ item, index, qty, onOpenDetail }: { item: MenuItem; index: number; qty: number; onOpenDetail: () => void }) {
+  const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
-  const { cleanName, tag } = parseRecipeTag(item.name);
+  const { cleanName } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
-  const msrp = showMsrp ? listMsrpRupees(item.variants[0].price, item.id) : null;
+
+  const minPrice = Math.min(...item.variants.map(v => v.price));
+  const chip = discountChipDisplay(item, new Date(), activeFestival);
 
   return (
     <motion.div
@@ -293,45 +354,42 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
       }}
       style={{
         flex: "0 0 72vw",
-        maxWidth: 270,
-        height: "82vw", // Reduced from 92vw
-        maxHeight: 340, // Reduced from 380
-        borderRadius: 30,
+        maxWidth: 290,
+        height: "82vw",
+        maxHeight: 328,
+        borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
         position: "relative",
-        boxShadow: "0 12px 45px rgba(0,0,0,0.6)",
-        background: "rgba(18,18,18,0.45)",
-        backdropFilter: "blur(32px) saturate(180%)",
-        WebkitBackdropFilter: "blur(32px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        boxSizing: "border-box",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+        background: "rgba(255,255,255,0.72)",
+        backdropFilter: "blur(16px) saturate(180%)",
+        WebkitBackdropFilter: "blur(16px) saturate(180%)",
+        border: "1px solid rgba(0,0,0,0.06)",
         display: "flex",
         flexDirection: "column",
-        padding: "10px", // Standardized
+        padding: "10px",
         cursor: "pointer",
       }}
     >
-      {/* ── IMAGE SECTION ────────────────────────────────────────────── */}
+      {/* ── IMAGE SECTION ───────────────────────────────────────── */}
       <div style={{
         position: "relative",
         width: "100%",
-        height: "76%", // Increased to make dish more prominent
-        marginBottom: 14, // Reduced to keep info section within fixed card height
+        flex: "1 1 0",
+        minHeight: 0,
+        marginBottom: 12,
       }}>
         <motion.div
-          animate={{
-            opacity: loaded ? 1 : 0,
-            scale: loaded ? 1 : 0.9,
-          }}
+          animate={{ opacity: loaded ? 1 : 0, scale: loaded ? 1 : 0.9 }}
           transition={{ duration: 0.6 }}
           style={{
-            position: "relative",
-            width: "100%",
-            height: "100%",
+            position: "absolute", inset: 0,
             borderRadius: 22,
             overflow: "hidden",
-            boxShadow: "0 8px 25px rgba(0,0,0,0.4)",
-            border: "1px solid rgba(255,255,255,0.05)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+            border: "1px solid rgba(0,0,0,0.04)",
           }}
         >
           <Image
@@ -344,13 +402,39 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
           />
         </motion.div>
 
-        {/* Glass Tag — top left */}
+        {/* Price chip — top-left of image */}
+        <div style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 11,
+          ...HT.chipPrice,
+          pointerEvents: "none",
+        }}>
+          ₹{minPrice.toLocaleString("en-IN")}
+        </div>
+
+        {chip.text && (
+          <div style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 11,
+            padding: "4px 8px",
+            borderRadius: 8,
+            ...HT.chipBadge,
+            pointerEvents: "none",
+            ...discountChipSurface(chip.variant),
+          }}>
+            {chip.text}
+          </div>
+        )}
 
         {qty > 0 && (
           <div style={{
-            position: "absolute", top: 10, right: 10, zIndex: 12,
+            position: "absolute", bottom: 10, right: 10, zIndex: 12,
             minWidth: 26, height: 26, padding: "0 8px", borderRadius: 13,
-            background: C.red, color: "#fff", fontSize: 12, fontWeight: 900,
+            background: C.red, ...HT.qtyBadge,
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: `0 4px 12px ${C.redGlow}`,
           }}>
@@ -359,51 +443,39 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
         )}
       </div>
 
-      {/* ── INFO SECTION ────────────────────────────────────────────────── */}
-      <div style={{ 
-        width: "100%", paddingLeft: 10, paddingRight: 10, // Matched tag offset
-        display: "flex", alignItems: "flex-end", justifyContent: "space-between",
-        gap: 12
+      {/* ── BOTTOM ROW: name + arrow ────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        paddingLeft: 4,
+        paddingRight: 4,
+        paddingBottom: 6,
+        minWidth: 0,
+        gap: 8,
       }}>
-        <div style={{ textAlign: "left", flex: 1 }}>
-          <div style={{ height: 44, marginBottom: 4 }}>
-            <h3 style={{
-              margin: 0, fontSize: 15, fontWeight: 600,
-              color: C.white, lineHeight: "22px",
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-            }}>
-              {cleanName}
-            </h3>
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", lineHeight: 1 }}>
-            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.55)" }}>From</span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: C.white }}>
-              ₹{item.variants[0].price.toLocaleString("en-IN")}
-            </span>
-            {msrp != null && (
-              <span style={{
-                fontSize: 13, fontWeight: 400,
-                color: "rgba(255,255,255,0.35)",
-                textDecoration: "line-through",
-              }}>
-                ₹{msrp.toLocaleString("en-IN")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Restore the red circle button */}
-        <div style={{
-          width: 44, height: 44, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 4px 15px rgba(189,35,32,0.4)`,
-          flexShrink: 0,
+        <h3 style={{
+          ...HT.cardNameEllipsis,
+          flex: "1 1 0",
+          minWidth: 0,
         }}>
-          <ArrowRight size={18} weight="bold" color="white" />
+          {cleanName}
+        </h3>
+
+        <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: C.red,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          boxShadow: `0 3px 10px ${C.redGlow}`,
+        }}>
+          <ArrowRight size={18} weight="bold" color="#fff" />
         </div>
       </div>
-
     </motion.div>
   );
 }
@@ -411,30 +483,33 @@ function BestSellingCard({ item, index, qty, onOpenDetail, showMsrp }: { item: M
 // ─── Skeleton ──────────────────────────────────────────────────────────────
 function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number }) {
   return (
-    <div style={{
+    <div className="vk-skeleton-shimmer" style={{
       width: w, height: h, borderRadius: r, flexShrink: 0,
-      background: "rgba(255,255,255,0.04)",
-      border: "1px solid rgba(255,255,255,0.05)",
+      border: "1px solid rgba(0,0,0,0.03)",
     }} />
   );
 }
 function CardSkeleton() {
   return (
     <div style={{
-      width: "72vw", maxWidth: 270, height: "82vw", maxHeight: 340, // Exact match to BestSellingCard
-      borderRadius: 30, flexShrink: 0,
-      background: "rgba(18,18,18,0.45)",
-      backdropFilter: "blur(24px)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      overflow: "hidden", display: "flex", flexDirection: "column"
+      width: "72vw", maxWidth: 290, height: "82vw", maxHeight: 328,
+      borderRadius: 28, flexShrink: 0,
+      background: "rgba(255,255,255,0.72)",
+      backdropFilter: "blur(16px) saturate(180%)",
+      WebkitBackdropFilter: "blur(16px) saturate(180%)",
+      border: "1px solid rgba(0,0,0,0.06)",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+      overflow: "hidden", display: "flex", flexDirection: "column",
+      boxSizing: "border-box",
+      padding: 10,
     }}>
-      <div style={{ height: "76%", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
-      <div style={{ flex: 1, padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ width: "70%", height: 14, borderRadius: 4, background: "rgba(255,255,255,0.04)" }} />
-          <div style={{ width: "40%", height: 18, borderRadius: 4, background: "rgba(255,255,255,0.04)", marginTop: 8 }} />
-        </div>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+      <div className="vk-skeleton-shimmer" style={{ flex: "1 1 0", minHeight: 0, borderRadius: 22, marginBottom: 12 }} />
+      <div style={{
+        flexShrink: 0, display: "flex", alignItems: "center",
+        paddingLeft: 4, paddingRight: 4, paddingBottom: 6, minWidth: 0, gap: 8,
+      }}>
+        <div className="vk-skeleton-shimmer" style={{ flex: "1 1 0", height: 14, borderRadius: 4 }} />
+        <div className="vk-skeleton-shimmer" style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0 }} />
       </div>
     </div>
   );
@@ -446,7 +521,6 @@ function DishDetailView({
   updateQty,
   cartTotalItems,
   onCheckout,
-  bestSellingIds,
   isFavorite,
   onToggleFavorite,
   cart,
@@ -456,29 +530,32 @@ function DishDetailView({
   updateQty: (key: string, delta: number) => void;
   cartTotalItems: number;
   onCheckout?: () => void;
-  bestSellingIds: Set<string>;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   cart: Record<string, number>;
 }) {
-  const [selectedWeight, setSelectedWeight] = useState<string | null>(null);
+  const activeFestival = useActiveFestival();
+  const [selectedWeight, setSelectedWeight] = useState<string | null>(item.variants?.[0]?.weight ?? null);
   const qty = selectedWeight ? (cart[`${item.id}:${selectedWeight}`] || 0) : 0;
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const { rating, weekly, reviews } = dishStatsFromId(item.id);
   const highly = weekly >= 160;
-  const isBest = bestSellingIds.has(item.id);
-  const msrp = isBest ? listMsrpRupees(item.variants[0].price, item.id) : null;
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
   const socialTrend = dishSocialTrendTag(weekly, highly, rating);
-  
+  const detailDiscountChip = discountChipDisplay(item, new Date(), activeFestival);
+
   const selectedVariant = item.variants?.find(v => v.weight === selectedWeight);
   const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
-  
+  const priceVariant = selectedVariant ?? item.variants?.[0];
+  const listUnitPrice = priceVariant
+    ? listPriceForVariant(item, priceVariant.id, priceVariant.price, new Date(), activeFestival)
+    : null;
+
   const lineSaleTotal = qty < 1 ? currentPrice : currentPrice * qty;
-  const lineMsrpTotal = msrp != null ? (qty < 1 ? listMsrpRupees(currentPrice, item.id) : listMsrpRupees(currentPrice, item.id) * qty) : null;
+  const lineMsrpTotal = listUnitPrice != null ? (qty < 1 ? listUnitPrice : listUnitPrice * qty) : null;
 
   const iconBtn = {
     width: 44,
@@ -507,7 +584,7 @@ function DishDetailView({
         display: "flex",
         flexDirection: "column",
         fontFamily: C.mono,
-        color: C.white,
+        color: C.text,
         filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9)",
         transition: "filter 0.5s ease",
       }}
@@ -525,9 +602,9 @@ function DishDetailView({
         }}
       >
         <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={onClose} style={iconBtn} aria-label="Back">
-          <ArrowLeft size={20} weight="bold" color="white" />
+          <ArrowLeft size={20} weight="bold" color={C.text} />
         </motion.button>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.01em", textAlign: "center" }}>Dish Details</h2>
+        <h2 style={{ ...TYPO.title, margin: 0, textAlign: "center" }}>Dish Details</h2>
         <div style={{ width: 44 }} aria-hidden />
       </div>
 
@@ -536,7 +613,7 @@ function DishDetailView({
           flex: 1,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          padding: `0 ${sp(2.5)}px ${isOrderingWindowOpen() ? "168px" : "240px"}`,
+          padding: `0 ${sp(2.5)}px 16px`,
         }}
         className="no-scrollbar"
       >
@@ -550,16 +627,34 @@ function DishDetailView({
             overflow: "hidden",
             marginBottom: 16,
             border: `1px solid ${C.borderFaint}`,
-            boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.06)",
           }}
         >
           <Image src={imgSrc} alt={item.name} fill sizes="100vw" style={{ objectFit: "cover" }} priority />
+          {detailDiscountChip.text && (
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: 10,
+                zIndex: 2,
+                padding: "4px 8px",
+                borderRadius: 8,
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.02em",
+                ...discountChipSurface(detailDiscountChip.variant),
+              }}
+            >
+              {detailDiscountChip.text}
+            </div>
+          )}
           {tag && (
             <div
               style={{
                 position: "absolute",
                 top: 12,
-                left: 12,
+                ...(detailDiscountChip.text ? { right: 12, left: "auto" as const } : { left: 12 }),
                 background: "rgba(12,12,12,0.55)",
                 backdropFilter: "blur(10px)",
                 borderRadius: 10,
@@ -599,14 +694,12 @@ function DishDetailView({
             >
               <h1
                 style={{
+                  ...TYPO.title,
                   margin: 0,
                   flex: "0 1 auto",
                   maxWidth: "100%",
                   textAlign: "left",
-                  fontSize: 24,
                   fontWeight: 900,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.15,
                 }}
               >
                 {cleanName}
@@ -644,7 +737,7 @@ function DishDetailView({
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                background: isFavorite ? "rgba(189,35,32,0.2)" : C.surface,
+                background: isFavorite ? "rgba(189,35,32,0.12)" : C.surface,
                 border: `1px solid ${isFavorite ? C.redBorder : C.border}`,
                 display: "flex",
                 alignItems: "center",
@@ -657,7 +750,7 @@ function DishDetailView({
               <Heart
                 size={22}
                 weight={isFavorite ? "fill" : "regular"}
-                color={isFavorite ? C.red : "rgba(255,255,255,0.85)"}
+                color={isFavorite ? C.red : "rgba(0,0,0,0.42)"}
               />
             </motion.button>
           </div>
@@ -670,33 +763,31 @@ function DishDetailView({
             background: C.surfaceDeep,
             border: `1px solid ${C.border}`,
             marginBottom: 16,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
           }}
         >
           <p
             style={{
               margin: "0 0 12px",
-              fontSize: 13,
-              fontWeight: 600,
+              ...HT.caption,
               lineHeight: 1.5,
-              color: "rgba(255,255,255,0.72)",
               letterSpacing: "0.01em",
             }}
           >
             <span style={{ color: "#fbbf24" }} aria-hidden>★</span>{" "}
-            <span style={{ color: C.white, fontWeight: 800 }}>{rating.toFixed(1)}</span>
-            <span style={{ color: "rgba(255,255,255,0.28)", margin: "0 6px" }}>·</span>
+            <span style={{ color: C.text, fontWeight: 800 }}>{rating.toFixed(1)}</span>
+            <span style={{ color: "rgba(0,0,0,0.42)", margin: "0 6px" }}>·</span>
             <span>{compactHumanCount(reviews)}+ from buyers</span>
-            <span style={{ color: "rgba(255,255,255,0.28)", margin: "0 6px" }}>·</span>
+            <span style={{ color: "rgba(0,0,0,0.42)", margin: "0 6px" }}>·</span>
             <span style={{ color: C.red, fontWeight: 800 }}>{socialTrend}</span>
           </p>
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>{desc}</p>
+          <p style={{ margin: 0, ...HT.bodySm, lineHeight: 1.6, color: "rgba(0,0,0,0.7)" }}>{desc}</p>
           <div
             style={{
               marginTop: 14,
               padding: "12px 14px",
               borderRadius: 14,
-              background: "rgba(255,255,255,0.035)",
+              background: "rgba(0,0,0,0.03)",
               border: `1px solid ${C.borderFaint}`,
             }}
           >
@@ -707,12 +798,12 @@ function DishDetailView({
                 fontWeight: 800,
                 letterSpacing: "0.04em",
                 textTransform: "none",
-                color: "rgba(255,255,255,0.48)",
+                color: "rgba(0,0,0,0.42)",
               }}
             >
               Serve with
             </p>
-            <p style={{ margin: "8px 0 0", fontSize: 16, lineHeight: 1.55, color: "rgba(255,255,255,0.82)", fontWeight: 600 }}>
+            <p style={{ margin: "8px 0 0", ...HT.subtitle, color: "rgba(0,0,0,0.7)", fontWeight: 600 }}>
               {pairing}
             </p>
           </div>
@@ -732,8 +823,8 @@ function DishDetailView({
                     flex: 1,
                     padding: "16px 12px",
                     borderRadius: 20,
-                    background: active ? C.red : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${active ? C.red : "rgba(255,255,255,0.08)"}`,
+                    background: active ? C.red : "rgba(0,0,0,0.03)",
+                    border: `1px solid ${active ? C.red : "rgba(0,0,0,0.06)"}`,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -743,10 +834,10 @@ function DishDetailView({
                     boxShadow: active ? "0 8px 24px rgba(189,35,32,0.25)" : "none",
                   }}
                 >
-                  <span style={{ fontSize: 16, fontWeight: 900, color: active ? "white" : "rgba(255,255,255,0.9)" }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: active ? "white" : C.text }}>
                     {v.label}
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: active ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: active ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.4)" }}>
                     ₹{v.price}
                   </span>
                 </motion.button>
@@ -758,151 +849,119 @@ function DishDetailView({
 
       <div
         style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 12,
-          padding: `14px ${sp(2.5)}px max(20px, env(safe-area-inset-bottom))`,
-          background: `linear-gradient(to top, ${C.bg} 92%, transparent)`,
-          display: isOrderingWindowOpen() ? "block" : "none",
+          flexShrink: 0,
+          padding: `12px ${sp(2.5)}px max(16px, env(safe-area-inset-bottom))`,
+          background: C.white,
+          display: isOrderingWindowOpen() ? "flex" : "none",
+          alignItems: "center",
+          gap: 12,
         }}
       >
-        {false && !isOrderingWindowOpen() ? (
-          <div style={{ 
-            marginBottom: 10, padding: "12px 16px", borderRadius: 16, 
-            background: "rgba(189,35,32,0.08)", border: "1px solid rgba(189,35,32,0.2)",
-            textAlign: "center"
-          }}>
-            <p style={{ margin: 0, fontSize: 14, color: "#fca5a5", fontWeight: 800 }}>
-              Ordering is open 6 AM – 6 PM IST.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 26, fontWeight: 900, color: C.white, letterSpacing: "-0.02em" }}>
-                ₹{lineSaleTotal.toLocaleString("en-IN")}
-              </span>
-              {lineMsrpTotal != null && (
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.38)",
-                    textDecoration: "line-through",
-                  }}
-                >
-                  ₹{lineMsrpTotal.toLocaleString("en-IN")}
-                </span>
-              )}
-            </div>
-            <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)" }}>
-              {qty <= 0 ? "Price for 1 serving" : `₹${currentPrice.toLocaleString("en-IN")} × ${qty}`}
-            </p>
-
-          </div>
-          <div
+        {/* Quantity stepper */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0,
+            padding: "4px 6px",
+            borderRadius: 999,
+            background: C.surfaceDeep,
+            border: `1px solid ${C.border}`,
+            height: 52,
+            flexShrink: 0,
+            boxSizing: "border-box",
+            opacity: selectedWeight ? 1 : 0.35,
+            pointerEvents: selectedWeight ? "auto" : "none",
+          }}
+        >
+          <motion.button
+            type="button"
+            whileTap={{ scale: qty <= 0 ? 1 : 0.9 }}
+            onClick={() => qty > 0 && updateQty(`${item.id}:${selectedWeight}`, -1)}
+            disabled={qty <= 0}
             style={{
+              width: 42,
+              height: 42,
+              borderRadius: "50%",
+              border: "none",
+              background: qty <= 0 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
+              color: qty <= 0 ? "rgba(0,0,0,0.2)" : C.text,
+              fontSize: 20,
+              fontWeight: 800,
+              cursor: qty <= 0 ? "default" : "pointer",
+              flexShrink: 0,
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              padding: "4px 6px",
-              borderRadius: 999,
-              background: C.surfaceDeep,
-              border: `1px solid ${C.border}`,
-              height: 48,
-              width: 144,
-              flexShrink: 0,
-              boxSizing: "border-box",
-              opacity: selectedWeight ? 1 : 0.3,
-              pointerEvents: selectedWeight ? "auto" : "none",
+              justifyContent: "center",
             }}
           >
-            <motion.button
-              type="button"
-              whileTap={{ scale: qty <= 0 ? 1 : 0.9 }}
-              onClick={() => qty > 0 && updateQty(`${item.id}:${selectedWeight}`, -1)}
-              disabled={qty <= 0}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                border: "none",
-                background: qty <= 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.1)",
-                color: qty <= 0 ? "rgba(255,255,255,0.2)" : "#fff",
-                fontSize: 20,
-                fontWeight: 800,
-                cursor: qty <= 0 ? "default" : "pointer",
-                flexShrink: 0,
-              }}
-            >
-              −
-            </motion.button>
-            <span style={{ fontSize: 16, fontWeight: 900, minWidth: 28, textAlign: "center", color: C.white, flex: 1 }}>{qty}</span>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.9 }}
-              onClick={() => updateQty(`${item.id}:${selectedWeight}`, 1)}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                border: "none",
-                background: C.red,
-                color: "#fff",
-                fontSize: 20,
-                fontWeight: 800,
-                cursor: "pointer",
-                flexShrink: 0,
-              }}
-            >
-              +
-            </motion.button>
-          </div>
+            <Minus size={18} weight="bold" />
+          </motion.button>
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 900,
+              minWidth: 32,
+              textAlign: "center",
+              color: C.text,
+              fontFamily: C.mono,
+            }}
+          >
+            {String(qty < 1 ? 1 : qty).padStart(2, "0")}
+          </span>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.9 }}
+            onClick={() => updateQty(`${item.id}:${selectedWeight}`, 1)}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: "50%",
+              border: "none",
+              background: C.text,
+              color: C.white,
+              fontSize: 20,
+              fontWeight: 800,
+              cursor: "pointer",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Plus size={18} weight="bold" />
+          </motion.button>
         </div>
+
+        {/* Checkout CTA */}
         <motion.button
           type="button"
           whileTap={{ scale: selectedWeight ? 0.97 : 1 }}
           onClick={() => {
             if (!selectedWeight) return;
             if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
-            else onCheckout?.();
+            onCheckout?.();
           }}
           disabled={!selectedWeight}
           style={{
-            width: "100%",
-            height: 56,
-            borderRadius: 20,
-            background: !selectedWeight ? "rgba(255,255,255,0.05)" : qty <= 0 ? C.red : "white",
-            color: !selectedWeight ? "rgba(255,255,255,0.2)" : qty <= 0 ? "white" : C.bg,
+            flex: 1,
+            height: 52,
+            borderRadius: 999,
+            background: selectedWeight ? C.red : "rgba(0,0,0,0.06)",
+            color: selectedWeight ? "#fff" : "rgba(0,0,0,0.25)",
             border: "none",
-            fontSize: 16,
+            ...HT.button,
             fontWeight: 900,
             cursor: selectedWeight ? "pointer" : "not-allowed",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
-            boxShadow: (selectedWeight && qty <= 0) ? `0 12px 32px ${C.redGlow}` : "none",
-            opacity: !selectedWeight ? 0.5 : 1,
+            gap: 8,
+            boxShadow: selectedWeight ? `0 8px 28px ${C.redGlow}` : "none",
           }}
         >
-          {!selectedWeight ? (
-            "Select a size to add"
-          ) : qty <= 0 ? (
-            `Add ${selectedVariant?.label} to cart — ₹${currentPrice}`
-          ) : (
-            <>
-              Checkout ({cartTotalItems} items)
-              <ArrowRight size={20} weight="bold" />
-            </>
-          )}
+          Checkout — ₹{lineSaleTotal.toLocaleString("en-IN")}
         </motion.button>
-          </>
-        )}
       </div>
     </motion.div>
   );
@@ -940,8 +999,9 @@ export function MobileHomeScreen({
   onSignOut,
   onProfileNameSave,
 }: MobileHomeScreenProps) {
+  const activeFestival = useActiveFestival();
   const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
-  const [loading,        setLoading]        = useState(items.length === 0);
+  const loading = items.length === 0;
   const [activeNav,      setActiveNav]      = useState("home");
   const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
   const [locationOpen,   setLocationOpen]   = useState(false);
@@ -982,8 +1042,6 @@ export function MobileHomeScreen({
     .sort((a, b) => a.variants[0].price - b.variants[0].price)
     .slice(0, 5);
 
-  const bestSellingIdSet = useMemo(() => new Set(bestFive.map((d) => d.id)), [bestFive]);
-
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
   const feedTabRowRef = useRef<HTMLDivElement>(null);
@@ -1016,6 +1074,48 @@ export function MobileHomeScreen({
       window.removeEventListener(VK_FAVORITES_UPDATED, sync);
     };
   }, []);
+
+  useEffect(() => {
+    if (!customerPhone || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+
+    async function registerPush() {
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const urlBase64 = vapidKey!.replace(/-/g, "+").replace(/_/g, "/");
+          const raw = atob(urlBase64);
+          const key = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: key,
+          });
+        }
+
+        const json = sub.toJSON();
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone_number: customerPhone,
+            endpoint: json.endpoint,
+            p256dh: json.keys?.p256dh,
+            auth: json.keys?.auth,
+          }),
+        });
+      } catch (err) {
+        console.warn("[push] Registration failed:", err);
+      }
+    }
+
+    void registerPush();
+  }, [customerPhone]);
 
   useEffect(() => {
     if (!trackingOrderId) {
@@ -1244,13 +1344,27 @@ export function MobileHomeScreen({
   const greeting  = useMemo(() => getGreeting(), []);
   const firstName = formatFirstName(displayName);
 
-  // Load local menu data with variants
+  // Load catalog: static menu + optional Supabase `dish_discount_settings` overrides
   useEffect(() => {
-    if (items.length === 0) {
-      const allDishes = Object.values(MENU_BY_CATEGORY).flat();
-      setItems(allDishes as any);
-    }
-  }, []);
+    let cancelled = false;
+    (async () => {
+      const base = Object.values(MENU_BY_CATEGORY).flat() as MenuItem[];
+      let merged: MenuItem[] = base;
+      try {
+        const res = await fetch("/api/menu/discount-settings", { cache: "no-store" });
+        const json = (await res.json()) as { rows?: DishDiscountRow[] };
+        if (Array.isArray(json.rows) && json.rows.length > 0) {
+          merged = mergeMenuDiscountOverrides(base, json.rows);
+        }
+      } catch {
+        /* keep base */
+      }
+      if (!cancelled) setItems(merged as MenuItem[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setItems]);
 
   useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
 
@@ -1293,7 +1407,7 @@ export function MobileHomeScreen({
         background: C.bg,
         overflow: "hidden", // Let sub-screens handle scrolling
         fontFamily: C.mono,
-        color: C.white,
+        color: C.text,
       }}
     >
       <AnimatePresence mode="wait">
@@ -1347,13 +1461,10 @@ export function MobileHomeScreen({
           >
             <h1
               style={{
+                ...TYPO.titleSm,
                 margin: 0,
-                fontSize: 20,
-                fontWeight: 800,
                 letterSpacing: "0.03em",
-                color: C.white,
                 textAlign: "center",
-                fontFamily: C.mono,
               }}
             >
               Your Orders
@@ -1371,13 +1482,10 @@ export function MobileHomeScreen({
           >
             <h1
               style={{
+                ...TYPO.titleSm,
                 margin: 0,
-                fontSize: 20,
-                fontWeight: 800,
                 letterSpacing: "0.03em",
-                color: C.white,
                 textAlign: "center",
-                fontFamily: C.mono,
               }}
             >
               Account
@@ -1401,7 +1509,7 @@ export function MobileHomeScreen({
                 border: `1px solid ${locationOpen ? C.redBorder : C.border}`,
                 padding: "12px 16px",
                 display: "flex", alignItems: "center", gap: 10,
-                boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
                 cursor: "pointer",
                 transition: "border-color 0.2s",
                 fontFamily: C.mono,
@@ -1421,7 +1529,7 @@ export function MobileHomeScreen({
                   Delivering to
                 </p>
                 <p style={{
-                  margin: 0, fontSize: 15, color: C.white,
+                  margin: 0, fontSize: 15, color: C.text,
                   fontWeight: 700, letterSpacing: "0.02em",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>
@@ -1432,7 +1540,7 @@ export function MobileHomeScreen({
                 animate={{ rotate: locationOpen ? 180 : 0 }}
                 transition={{ type: "spring", stiffness: 400, damping: 28 }}
                 width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(255,255,255,0.3)" strokeWidth="2.5"
+                stroke="rgba(0,0,0,0.3)" strokeWidth="2.5"
                 strokeLinecap="round" strokeLinejoin="round"
                 style={{ flexShrink: 0 }}
               >
@@ -1459,7 +1567,7 @@ export function MobileHomeScreen({
                     borderRadius: 20,
                     border: `1px solid ${C.borderFaint}`,
                     padding: "20px 18px",
-                    boxShadow: "0 16px 40px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
                     zIndex: 100,
                     textAlign: "center",
                   }}
@@ -1467,7 +1575,7 @@ export function MobileHomeScreen({
                   <p style={DELIVERING_TO_STYLE}>
                     Delivering to
                   </p>
-                  <p style={{ margin: "8px 0 0", fontSize: 20, color: C.white, fontWeight: 800, letterSpacing: "0.01em" }}>
+                  <p style={{ ...HT.tileTitle, margin: "8px 0 0" }}>
                     {label}
                   </p>
                   <div style={{
@@ -1480,7 +1588,7 @@ export function MobileHomeScreen({
                       background: inRange ? "#4ade80" : "#f59e0b",
                       boxShadow: inRange ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(245,158,11,0.4)",
                     }} />
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", fontWeight: 600 }}>
                       {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
                     </span>
                   </div>
@@ -1492,7 +1600,7 @@ export function MobileHomeScreen({
                         marginTop: sp(2), width: "100%",
                         background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
                         border: "none", borderRadius: 16, padding: "16px",
-                        color: C.white, fontSize: 14, fontWeight: 800,
+                        color: "#fff", fontSize: 14, fontWeight: 800,
                         letterSpacing: "0.02em",
                         cursor: "pointer",
                         boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
@@ -1542,20 +1650,20 @@ export function MobileHomeScreen({
                     <Warning size={15} color={C.red} weight="fill" />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 12, color: C.white, fontWeight: 700, lineHeight: 1.3 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: C.text, fontWeight: 700, lineHeight: 1.3 }}>
                       Is this the right address?
                     </p>
-                    <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>
+                    <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(0,0,0,0.38)", fontWeight: 500 }}>
                       It looks a little far from you.
                     </p>
                   </div>
                   <button
                     onClick={() => setProximityAlert(false)}
                     style={{
-                      background: "rgba(255,255,255,0.08)", border: "none",
+                      background: "rgba(0,0,0,0.06)", border: "none",
                       borderRadius: 8, width: 28, height: 28,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", color: "rgba(255,255,255,0.4)",
+                      cursor: "pointer", color: "rgba(0,0,0,0.38)",
                       fontSize: 18, flexShrink: 0,
                     }}
                   >
@@ -1591,17 +1699,12 @@ export function MobileHomeScreen({
           <>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
-          <p style={{
-            margin: 0, fontSize: 16,
-            color: "rgba(255,255,255,0.42)",
-            fontWeight: 500, // Reduced from 600
-            letterSpacing: "0.02em",
-          }}>
+          <p style={HT.greetingSub}>
             {greeting}
           </p>
           <h2 style={{
-            margin: 0, fontSize: 32, fontWeight: 900, // Increased from 26
-            color: C.white, marginTop: -2, letterSpacing: "-0.01em",
+            ...HT.homeGreeting,
+            margin: 0, marginTop: 6,
           }}>
             Hey, {firstName ? (
               <span style={{ color: C.red }}>{firstName}.</span>
@@ -1647,7 +1750,7 @@ export function MobileHomeScreen({
                   borderRadius: 999,
                   background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
                   border: `1px solid ${C.redBorder}`,
-                  boxShadow: `0 2px 20px ${C.redGlow}, 0 0 0 1px rgba(255,255,255,0.06) inset`,
+                  boxShadow: `0 2px 16px ${C.redGlow}`,
                   zIndex: 0,
                   pointerEvents: "none",
                   willChange: "transform",
@@ -1680,7 +1783,7 @@ export function MobileHomeScreen({
                   >
                     <motion.span
                       style={{ display: "block" }}
-                      animate={{ color: active ? C.white : "rgba(255,255,255,0.45)" }}
+                      animate={{ color: active ? "#fff" : "rgba(0,0,0,0.4)" }}
                       transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     >
                       {tab === "bestSelling" ? "Best Selling" : "Favorites"}
@@ -1722,14 +1825,14 @@ export function MobileHomeScreen({
                           }}>
                             <div style={{
                               width: 64, height: 64, borderRadius: "50%",
-                              background: "rgba(255,255,255,0.03)",
+                              background: "rgba(0,0,0,0.03)",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              border: "1px solid rgba(255,255,255,0.06)"
+                              border: "1px solid rgba(0,0,0,0.06)"
                             }}>
-                              <Heart size={32} weight="thin" color="rgba(255,255,255,0.2)" />
+                              <Heart size={32} weight="thin" color="rgba(0,0,0,0.15)" />
                             </div>
                             <p style={{
-                              margin: 0, fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.35)",
+                              margin: 0, fontSize: 15, fontWeight: 600, color: "rgba(0,0,0,0.35)",
                               textAlign: "center", lineHeight: 1.4, maxWidth: 220
                             }}>
                               {homeDishFeedTab === "favorites" 
@@ -1744,7 +1847,6 @@ export function MobileHomeScreen({
                             item={item}
                             index={i}
                             qty={cart[item.id] || 0}
-                            showMsrp={bestSellingIdSet.has(item.id)}
                             onOpenDetail={() => {
                               setLocationOpen(false);
                               setDishDetailItem(item);
@@ -1773,9 +1875,9 @@ export function MobileHomeScreen({
               whileTap={{ scale: 0.97 }}
               style={{
                 width: "100%",
-                background: "rgba(255,255,255,0.04)",
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
+                background: C.surface,
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
                 border: `1px solid ${C.border}`,
                 borderRadius: 24,
                 padding: "12px 16px",
@@ -1783,23 +1885,23 @@ export function MobileHomeScreen({
                 cursor: "pointer",
                 textDecoration: "none",
                 fontFamily: C.mono,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
               }}
             >
               {/* Text */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <p style={{ margin: 0, fontSize: 15, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>Vidya Bot</p>
+                  <p style={HT.tileTitle}>Vidya Bot</p>
                   <span style={{
-                    display: "inline-flex", alignItems: "center",
-                    padding: "2px 6px", borderRadius: 999,
-                    background: "rgba(37,211,102,0.15)",
-                    border: "1px solid rgba(37,211,102,0.35)",
-                    boxShadow: "0 0 8px rgba(37,211,102,0.25)",
-                    fontSize: 8, fontWeight: 900, color: "#4ade80",
-                    letterSpacing: "0.04em", textTransform: "uppercase" as const,
+                    display: "inline-flex", alignItems: "center", gap: 3,
+                    padding: "3px 8px", borderRadius: 999,
+                    background: "rgba(22,163,74,0.1)",
+                    border: "1px solid rgba(22,163,74,0.28)",
+                    fontSize: 10, fontWeight: 800, color: "#15803d",
+                    letterSpacing: "0.05em", textTransform: "uppercase" as const,
                   }}>⚡ Instant</span>
                 </div>
-                <p style={{ margin: "2px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Order via our bot</p>
+                <p style={{ ...HT.tileSub, margin: "2px 0 0" }}>Order via our bot</p>
               </div>
               {/* WhatsApp Icon on right */}
               <div style={{
@@ -1825,9 +1927,9 @@ export function MobileHomeScreen({
               }}
               style={{
                 width: "100%",
-                background: "rgba(255,255,255,0.04)",
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
+                background: C.surface,
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
                 border: `1px solid ${C.border}`,
                 borderRadius: 24,
                 padding: "12px 16px",
@@ -1835,12 +1937,13 @@ export function MobileHomeScreen({
                 cursor: "pointer",
                 fontFamily: C.mono,
                 textAlign: "left",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
               }}
             >
               {/* Text */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 15, color: C.white, fontWeight: 800, letterSpacing: "-0.01em" }}>Explore Menu</p>
-                <p style={{ margin: "2px 0 0", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
+                <p style={HT.tileTitle}>Explore Menu</p>
+                <p style={{ ...HT.tileSub, margin: "2px 0 0" }}>
                   {loading ? "Loading…" : `${items.length} dishes to explore`}
                 </p>
               </div>
@@ -1893,19 +1996,22 @@ export function MobileHomeScreen({
                   fontSize: 12,
                   fontWeight: 700,
                   letterSpacing: "0.04em",
-                  color: "rgba(255,255,255,0.4)",
+                  color: "rgba(0,0,0,0.38)",
                 }}
               >
                 Favorites
               </p>
               {favoriteItems.length === 0 ? (
-                <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.55, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                <p style={{ margin: "0 0 8px", ...HT.bodySm, lineHeight: 1.55, fontWeight: 600 }}>
                   Tap the heart on a dish or in details to save it here — same list as Home (Favorites). Stored on this device only.
                 </p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
                   {favoriteItems.map((item) => {
                     const { cleanName } = parseRecipeTag(item.name);
+                    const favMin = Math.min(...item.variants.map((v) => v.price));
+                    const favVar = item.variants.find((v) => v.price === favMin) ?? item.variants[0];
+                    const favList = listPriceForVariant(item, favVar.id, favMin, new Date(), activeFestival);
                     return (
                       <div
                         key={item.id}
@@ -1932,12 +2038,12 @@ export function MobileHomeScreen({
                             fontFamily: C.mono,
                           }}
                         >
-                          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>{cleanName}</p>
-                          <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 800, color: C.red }}>
-                            From ₹{item.variants[0].price.toLocaleString("en-IN")}
-                            {bestSellingIdSet.has(item.id) && (
-                              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.32)", textDecoration: "line-through" }}>
-                                ₹{listMsrpRupees(item.variants[0].price, item.id).toLocaleString("en-IN")}
+                          <p style={{ ...HT.cardName, margin: 0 }}>{cleanName}</p>
+                          <p style={{ margin: "6px 0 0", ...HT.bodyMedium, fontWeight: 800, color: C.red }}>
+                            From ₹{favMin.toLocaleString("en-IN")}
+                            {favList != null && (
+                              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.3)", textDecoration: "line-through" }}>
+                                ₹{favList.toLocaleString("en-IN")}
                               </span>
                             )}
                           </p>
@@ -1982,7 +2088,7 @@ export function MobileHomeScreen({
             height: "clamp(108px, 24dvh, 188px)",
             pointerEvents: "none",
             zIndex: 42,
-            background: `linear-gradient(to top, ${C.bg} 0%, ${C.bg} 18%, rgba(10,10,10,0.92) 38%, rgba(10,10,10,0.55) 62%, rgba(10,10,10,0.12) 82%, transparent 100%)`,
+            background: `linear-gradient(to top, ${C.bg} 0%, ${C.bg} 18%, rgba(245,245,247,0.92) 38%, rgba(245,245,247,0.55) 62%, rgba(245,245,247,0.12) 82%, transparent 100%)`,
           }}
         />
       ) : null}
@@ -2019,24 +2125,25 @@ export function MobileHomeScreen({
             updateQty={updateQty}
             cartTotalItems={cartTotalItems}
             onCheckout={goCheckout}
-            bestSellingIds={bestSellingIdSet}
             isFavorite={favoriteIdSet.has(dishDetailItem.id)}
             onToggleFavorite={() => toggleFavorite(dishDetailItem.id)}
           />
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette ──────────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0, left: 0, right: 0,
-          height: 220,
-          background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
-          pointerEvents: "none",
-          zIndex: 115,
-        }}
-      />
+      {/* ── Bottom Vignette (hidden when dish detail is open) ──────────── */}
+      {!dishDetailItem && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0, left: 0, right: 0,
+            height: 220,
+            background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
+            pointerEvents: "none",
+            zIndex: 115,
+          }}
+        />
+      )}
 
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
@@ -2061,12 +2168,12 @@ export function MobileHomeScreen({
             flex: windowOpen ? 0 : 1,
             justifyContent: windowOpen ? "flex-start" : "center",
             padding: windowOpen ? "8px" : "16px 24px",
-            background: windowOpen ? "rgba(14, 14, 14, 0.75)" : "rgba(189, 35, 32, 0.18)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
+            background: windowOpen ? "rgba(255,255,255,0.85)" : "rgba(189, 35, 32, 0.1)",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
             borderRadius: 999,
-            border: `1px solid ${windowOpen ? "rgba(255,255,255,0.06)" : "rgba(189, 35, 32, 0.35)"}`,
-            boxShadow: windowOpen ? "0 12px 40px rgba(0,0,0,0.5)" : "0 12px 32px rgba(189,35,32,0.2)",
+            border: `1px solid ${windowOpen ? "rgba(0,0,0,0.06)" : "rgba(189, 35, 32, 0.25)"}`,
+            boxShadow: windowOpen ? "0 4px 24px rgba(0,0,0,0.08)" : "0 4px 20px rgba(189,35,32,0.12)",
             pointerEvents: dishDetailItem ? "none" : "auto",
             transition: "all 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
@@ -2075,14 +2182,14 @@ export function MobileHomeScreen({
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ 
                 width: 36, height: 36, borderRadius: "50%", 
-                background: "rgba(189,35,32,0.2)", 
+                background: "rgba(189,35,32,0.1)", 
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
               }}>
-                <Warning size={20} color="#f87171" weight="bold" />
+                <Warning size={20} color={C.red} weight="bold" />
               </div>
               <span style={{ 
-                fontSize: 14, color: "#fca5a5", fontWeight: 800, 
+                fontSize: 14, color: C.red, fontWeight: 800, 
                 letterSpacing: "0.01em", fontFamily: C.mono 
               }}>
                 Ordering is open daily from 6 AM to 6 PM. See you then!
@@ -2103,11 +2210,11 @@ export function MobileHomeScreen({
                     animate={{
                       width: isActive ? activeWidth : NAV_CIRCLE,
                       background: isActive
-                        ? "rgba(189,35,32,0.12)"
-                        : "rgba(189,35,32,0)",
+                        ? C.red
+                        : "transparent",
                       borderColor: isActive
-                        ? "rgba(189,35,32,0.25)"
-                        : "rgba(189,35,32,0)",
+                        ? C.red
+                        : "transparent",
                     }}
                     transition={{ type: "spring", stiffness: 450, damping: 32 }}
                     style={{
@@ -2220,7 +2327,7 @@ export function MobileHomeScreen({
                             fontSize: 12,
                             fontWeight: 700,
                             letterSpacing: "0.01em",
-                            color: C.red,
+                            color: "#fff",
                             whiteSpace: "nowrap",
                             position: "relative",
                             zIndex: 1,
@@ -2262,7 +2369,7 @@ export function MobileHomeScreen({
 }
 
 function ChickenIcon({ active }: { active: boolean }) {
-  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  const s = active ? "#fff" : "rgba(0,0,0,0.4)";
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path d="M14 4a6 6 0 0 0-6 6c0 1.5 2 3 2 3l1 2s.5 2 1.5 2.5 4 .5 5-.5c1-1 .5-4 0-5.5a10 10 0 0 0-3.5-7.5z" stroke={s} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2273,7 +2380,7 @@ function ChickenIcon({ active }: { active: boolean }) {
 }
 
 function EggIcon({ active }: { active: boolean }) {
-  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  const s = active ? "#fff" : "rgba(0,0,0,0.4)";
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path d="M12 2C8 2 5 7 5 12s3 10 7 10 7-5 7-10-3-10-7-10z" stroke={s} strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round"/>
@@ -2283,7 +2390,7 @@ function EggIcon({ active }: { active: boolean }) {
 }
 
 function MuttonIcon({ active }: { active: boolean }) {
-  const s = active ? "#fff" : "rgba(255,255,255,0.4)";
+  const s = active ? "#fff" : "rgba(0,0,0,0.4)";
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path d="M4 12c0-4.4 3.6-8 8-8s8 3.6 8 8c0 2.2-.9 4.2-2.3 5.7L12 21l-5.7-3.3C4.9 16.2 4 14.2 4 12z" stroke={s} strokeWidth="2" strokeLinecap="round"/>
@@ -2376,12 +2483,13 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             zIndex: 2,
           }}
         >
-          <ArrowLeft size={20} weight="bold" color="white" />
+          <ArrowLeft size={20} weight="bold" color={C.text} />
         </motion.button>
         <h2 style={{ 
-          fontSize: 22, fontWeight: 800, margin: 0, 
+          ...TYPO.title,
+          margin: 0, 
           position: "absolute", left: "50%", transform: "translateX(-50%)",
-          color: C.white, whiteSpace: "nowrap",
+          whiteSpace: "nowrap",
           zIndex: 1
         }}>
           Browse Menu
@@ -2418,7 +2526,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
                 position: "relative",
               }}
             >
-              <span style={{ fontSize: 14, fontWeight: 800, color: active ? "#fff" : "rgba(255,255,255,0.4)" }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: active ? "#fff" : "rgba(0,0,0,0.4)" }}>
                 {cat.label}
               </span>
               {count > 0 && (
@@ -2431,8 +2539,8 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
                     width: 20, height: 20, borderRadius: "50%",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 10, fontWeight: 900,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                    border: "2px solid #0a0a0a"
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                    border: `2px solid ${C.bg}`
                   }}
                 >
                   {count}
@@ -2479,7 +2587,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
               ))}
             </div>
           ) : (
-            <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 40 }}>
+            <div style={{ color: "rgba(0,0,0,0.3)", textAlign: "center", marginTop: 40 }}>
               No dishes available.
             </div>
           )}
@@ -2516,11 +2624,11 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             onClick={onCheckout}
           >
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.06em" }}>TOTAL PRICE</span>
-              <span style={{ fontSize: 20, fontWeight: 900, color: "white" }}>₹{totalPrice.toLocaleString("en-IN")}</span>
+              <span style={{ ...HT.eyebrow, color: "rgba(255,255,255,0.8)", letterSpacing: "0.06em" }}>TOTAL PRICE</span>
+              <span style={{ ...HT.priceLg, color: "white" }}>₹{totalPrice.toLocaleString("en-IN")}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: 16, color: "white" }}>Checkout</span>
+              <span style={{ ...HT.cardName, fontWeight: 800, color: "white" }}>Checkout</span>
               <ArrowRight size={20} weight="bold" color="white" />
             </div>
           </motion.div>
@@ -2536,10 +2644,12 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
   onUpdate: (d: number) => void;
   onOpenDetail: () => void;
 }) {
+  const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
   const open = onOpenDetail;
+  const gridChip = discountChipDisplay(item, new Date(), activeFestival);
 
   return (
     <motion.div
@@ -2547,12 +2657,13 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       style={{
-        background: "rgba(18,18,18,0.45)", // Matched homepage
-        backdropFilter: "blur(32px) saturate(180%)", // Matched homepage
-        WebkitBackdropFilter: "blur(32px) saturate(180%)",
-        borderRadius: 30, // Matched homepage
-        overflow: "hidden",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.72)",
+        backdropFilter: "blur(16px) saturate(180%)",
+        WebkitBackdropFilter: "blur(16px) saturate(180%)",
+        borderRadius: 30,
+        overflow: "visible",
+        border: "1px solid rgba(0,0,0,0.06)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
         display: "flex",
         flexDirection: "column",
         height: 260, // Increased to accommodate taller image
@@ -2578,6 +2689,25 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           display: "block",
         }}
       >
+        {gridChip.text && (
+          <span
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              zIndex: 3,
+              padding: "4px 8px",
+              borderRadius: 8,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.02em",
+              pointerEvents: "none",
+              ...discountChipSurface(gridChip.variant),
+            }}
+          >
+            {gridChip.text}
+          </span>
+        )}
         <Image src={imgSrc} alt="" fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
       </motion.button>
       
@@ -2601,30 +2731,34 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
             color: "inherit",
           }}
         >
-          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <h4 style={HT.cardNameClamp}>
             {cleanName}
           </h4>
           {tag && (
-            <span style={{ 
-              fontSize: 10, fontWeight: 800, color: C.red, 
-              textTransform: "uppercase", letterSpacing: "0.04em",
-              opacity: 0.9 
-            }}>
+            <span style={HT.microTag}>
               {tag}
             </span>
           )}
         </motion.button>
         
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+        {/* Fake Notch matching background */}
+        <div style={{
+          position: "absolute",
+          bottom: -1, right: -1,
+          width: 52, height: 52,
+          borderRadius: "50%",
+          background: C.bg,
+          zIndex: 1,
+        }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, position: "relative", zIndex: 3 }}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.98 }}
             onClick={open}
             aria-label={`View details, from ₹${Math.min(...item.variants.map(v => v.price))}`}
             style={{
-              fontSize: 16,
-              fontWeight: 900,
-              color: C.white,
+              ...HT.price,
               background: "none",
               border: "none",
               padding: 0,
@@ -2635,13 +2769,14 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
             ₹<span style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, marginRight: 2, verticalAlign: "middle" }}>from</span>{Math.min(...item.variants.map(v => v.price)).toLocaleString("en-IN")}
           </motion.button>
           
-          <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+          {/* Plus Button inside notch */}
+          <div style={{ position: "absolute", bottom: -6, right: -6, zIndex: 2 }}>
             <motion.button
               whileTap={{ scale: isOrderingWindowOpen() ? 0.8 : 1 }}
-              onClick={() => isOrderingWindowOpen() && open()}
+              onClick={(e) => { e.stopPropagation(); isOrderingWindowOpen() && open(); }}
               style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: isOrderingWindowOpen() ? C.red : "rgba(255,255,255,0.08)", 
+                width: 42, height: 42, borderRadius: "50%",
+                background: isOrderingWindowOpen() ? C.red : "rgba(0,0,0,0.06)", 
                 border: "none",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 boxShadow: isOrderingWindowOpen() ? "0 4px 10px rgba(189,35,32,0.3)" : "none",
@@ -2649,7 +2784,7 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
                 opacity: isOrderingWindowOpen() ? 1 : 0.5,
               }}
             >
-              <Plus size={14} weight="bold" color="white" />
+              <Plus size={16} weight="bold" color="white" />
             </motion.button>
           </div>
         </div>

@@ -11,16 +11,18 @@ import {
   slotCardsForIstDate,
   isOrderingWindowOpen,
 } from "@/lib/delivery-slots";
+import { TYPO } from "@/components/ui/mobile/mobile-typography";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 const C = {
-  bg:           "#0a0a0a",
-  surface:      "rgba(14,14,14,0.75)",
-  glass:        "rgba(255,255,255,0.04)",
-  border:       "rgba(255,255,255,0.08)",
+  bg:           "#F5F5F7",
+  surface:      "rgba(255,255,255,0.72)",
+  glass:        "rgba(255,255,255,0.55)",
+  border:       "rgba(0,0,0,0.06)",
   red:          "#BD2320",
-  redGlow:      "rgba(189,35,32,0.35)",
+  redGlow:      "rgba(189,35,32,0.25)",
   white:        "#ffffff",
+  text:         "#1A1A1A",
   mono:         "var(--font-outfit), system-ui, -apple-system, sans-serif",
 };
 
@@ -205,7 +207,7 @@ export function CheckoutScreen({
   return (
     <div style={{
       position: "fixed", inset: 0, background: C.bg, zIndex: 200,
-      display: "flex", flexDirection: "column", color: C.white,
+      display: "flex", flexDirection: "column", color: C.text,
       fontFamily: C.mono, overflow: "hidden",
       filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9) opacity(0.6)",
       transition: "filter 0.5s ease, opacity 0.5s ease",
@@ -230,9 +232,9 @@ export function CheckoutScreen({
             cursor: "pointer",
           }}
         >
-          <ArrowLeft size={20} weight="bold" color="white" />
+          <ArrowLeft size={20} weight="bold" color={C.text} />
         </motion.button>
-        <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", textAlign: "center" }}>Checkout</h2>
+        <h2 style={{ ...TYPO.title, margin: 0, textAlign: "center" }}>Checkout</h2>
         <div style={{ width: 44 }} aria-hidden />
       </div>
 
@@ -241,11 +243,11 @@ export function CheckoutScreen({
         {/* ── Cart Items ──────────────────────────────────────────────────── */}
         <motion.section {...fadeUp} style={{ marginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, opacity: 0.6, letterSpacing: "0.01em" }}>Your Order</h3>
+            <h3 style={{ ...TYPO.sectionTitle, margin: 0, opacity: 0.72 }}>Your Order</h3>
             <button 
               onClick={onAddMore}
               style={{
-                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.08)",
                 borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700,
                 color: C.red, cursor: "pointer"
               }}
@@ -259,15 +261,16 @@ export function CheckoutScreen({
               const { cleanName, tag } = parseRecipeTag(item.name);
               return (
               <div key={item.key} style={{
-                background: "rgba(255,255,255,0.03)", borderRadius: 18,
+                background: C.surface, borderRadius: 18,
                 padding: "12px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                 gap: 12,
-                border: "1px solid rgba(255,255,255,0.05)"
+                border: `1px solid ${C.border}`,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{toTitleCase(cleanName)}</p>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.4)", fontFamily: C.mono }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.4)", fontFamily: C.mono }}>
                       ({item.weightLabel})
                     </span>
                   </div>
@@ -283,7 +286,7 @@ export function CheckoutScreen({
                         letterSpacing: "0.03em",
                         background: "rgba(189,35,32,0.14)",
                         border: "1px solid rgba(189,35,32,0.32)",
-                        color: "rgba(255,214,210,0.95)",
+                        color: C.red,
                         fontFamily: C.mono,
                         lineHeight: 1.3,
                       }}
@@ -291,7 +294,7 @@ export function CheckoutScreen({
                       {toTitleCase(tag)}
                     </span>
                   ) : null}
-                  <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800, color: C.white }}>₹{item.price}</p>
+                  <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800, color: C.text }}>₹{item.price}</p>
                 </div>
 
                 <div style={{
@@ -316,11 +319,12 @@ export function CheckoutScreen({
 
         {/* ── Address ─────────────────────────────────────────────────────── */}
         <motion.section {...fadeUp} style={{ transitionDelay: "0.1s", marginTop: 32 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 12px", opacity: 0.6, letterSpacing: "0.01em" }}>Delivery To</h3>
+          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Delivery To</h3>
           <div style={{
-            background: "rgba(255,255,255,0.03)", borderRadius: 18,
+            background: C.surface, borderRadius: 18,
             padding: "16px", display: "flex", alignItems: "center", gap: 14,
-            border: "1px solid rgba(255,255,255,0.05)"
+            border: `1px solid ${C.border}`,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
           }}>
             <div style={{
               width: 40, height: 40, borderRadius: 12, background: "rgba(189,35,32,0.12)",
@@ -330,7 +334,7 @@ export function CheckoutScreen({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{locationLabel}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 500 }}>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(0,0,0,0.4)", fontWeight: 500 }}>
                 Scheduled meal · pick your date & slot below
               </p>
             </div>
@@ -358,8 +362,8 @@ export function CheckoutScreen({
                     padding: "8px 14px",
                     borderRadius: 999,
                     border: `1px solid ${C.border}`,
-                    background: "rgba(255,255,255,0.04)",
-                    color: C.white,
+                    background: C.surface,
+                    color: C.text,
                     fontSize: 12,
                     fontWeight: 800,
                     cursor: "pointer",
@@ -375,7 +379,7 @@ export function CheckoutScreen({
 
         {/* ── Delivery date & slots (24h rule) ─────────────────────────────── */}
         <motion.section {...fadeUp} style={{ transitionDelay: "0.11s", marginTop: 28 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 10px", opacity: 0.6, letterSpacing: "0.01em" }}>
+          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 10px", opacity: 0.72 }}>
             Delivery day
           </h3>
           <div
@@ -401,9 +405,9 @@ export function CheckoutScreen({
                     flex: "0 0 auto",
                     padding: "10px 14px",
                     borderRadius: 14,
-                    border: `1.5px solid ${on ? C.red : "rgba(255,255,255,0.1)"}`,
-                    background: on ? "rgba(189,35,32,0.12)" : "rgba(255,255,255,0.03)",
-                    color: hasAny ? C.white : "rgba(255,255,255,0.35)",
+                    border: `1.5px solid ${on ? C.red : "rgba(0,0,0,0.08)"}`,
+                    background: on ? "rgba(189,35,32,0.08)" : C.surface,
+                    color: hasAny ? C.text : "rgba(0,0,0,0.35)",
                     fontSize: 12,
                     fontWeight: 800,
                     cursor: hasAny ? "pointer" : "not-allowed",
@@ -415,10 +419,10 @@ export function CheckoutScreen({
               );
             })}
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: "18px 0 8px", opacity: 0.6, letterSpacing: "0.01em" }}>
+          <h3 style={{ ...TYPO.sectionTitle, margin: "18px 0 8px", opacity: 0.72 }}>
             Meal time
           </h3>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "rgba(255,255,255,0.38)", fontWeight: 600, lineHeight: 1.45 }}>
+          <p style={{ margin: "0 0 12px", fontSize: 12, color: "rgba(0,0,0,0.4)", fontWeight: 600, lineHeight: 1.45 }}>
             Book at least 24 hours before the start of the window (IST).
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -435,13 +439,13 @@ export function CheckoutScreen({
                     textAlign: "left",
                     padding: "14px 16px",
                     borderRadius: 16,
-                    border: `1.5px solid ${disabled ? "rgba(255,255,255,0.06)" : on ? C.red : "rgba(255,255,255,0.1)"}`,
+                    border: `1.5px solid ${disabled ? "rgba(0,0,0,0.06)" : on ? C.red : "rgba(0,0,0,0.08)"}`,
                     background: disabled
-                      ? "rgba(255,255,255,0.02)"
+                      ? "rgba(0,0,0,0.02)"
                       : on
-                        ? "rgba(189,35,32,0.1)"
-                        : "rgba(255,255,255,0.03)",
-                    color: disabled ? "rgba(255,255,255,0.35)" : C.white,
+                        ? "rgba(189,35,32,0.08)"
+                        : C.surface,
+                    color: disabled ? "rgba(0,0,0,0.35)" : C.text,
                     fontSize: 14,
                     fontWeight: 800,
                     cursor: disabled ? "not-allowed" : "pointer",
@@ -455,7 +459,7 @@ export function CheckoutScreen({
                       <span style={{ opacity: 0.55, fontWeight: 700 }}>({c.rangeLabel})</span>
                     </span>
                     {disabled ? (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,200,200,0.75)", maxWidth: "46%" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(189,35,32,0.6)", maxWidth: "46%" }}>
                         Not available — order at least 24 hrs ahead
                       </span>
                     ) : (
@@ -463,7 +467,7 @@ export function CheckoutScreen({
                         style={{
                           fontSize: 10,
                           fontWeight: 900,
-                          color: "#86efac",
+                          color: "#16a34a",
                           letterSpacing: "0.04em",
                           textTransform: "uppercase",
                         }}
@@ -480,10 +484,11 @@ export function CheckoutScreen({
 
         {/* ── Bill Details ────────────────────────────────────────────────── */}
         <motion.section {...fadeUp} style={{ transitionDelay: "0.2s", marginTop: 32 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 12px", opacity: 0.6, letterSpacing: "0.01em" }}>Bill Details</h3>
+          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Bill Details</h3>
           <div style={{
-            background: "rgba(255,255,255,0.03)", borderRadius: 22,
-            padding: "20px", border: "1px solid rgba(255,255,255,0.05)",
+            background: C.surface, borderRadius: 22,
+            padding: "20px", border: `1px solid ${C.border}`,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
             display: "flex", flexDirection: "column", gap: 12
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
@@ -498,7 +503,7 @@ export function CheckoutScreen({
               <span style={{ opacity: 0.5 }}>Delivery Fee</span>
               <span style={{ fontWeight: 600 }}>₹{deliveryFee}</span>
             </div>
-            <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "4px 0" }} />
+            <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "4px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 900 }}>
               <span>Grand Total</span>
               <span>₹{grandTotal}</span>
@@ -508,7 +513,7 @@ export function CheckoutScreen({
 
         {/* ── Payment Mode ────────────────────────────────────────────────── */}
         <motion.section {...fadeUp} style={{ transitionDelay: "0.3s", marginTop: 32 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 12px", opacity: 0.6, letterSpacing: "0.01em" }}>Payment Mode</h3>
+          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Payment Mode</h3>
           <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} className="no-scrollbar">
             {(
               [
@@ -516,21 +521,21 @@ export function CheckoutScreen({
                   id: "upi",
                   label: "UPI (GPay/PhonePe)",
                   icon: (
-                    <Lightning size={26} weight="fill" color="rgba(255,255,255,0.92)" />
+                    <Lightning size={26} weight="fill" color="rgba(0,0,0,0.7)" />
                   ),
                 },
                 {
                   id: "card",
                   label: "Debit/Credit Card",
                   icon: (
-                    <CreditCard size={26} weight="regular" color="rgba(255,255,255,0.92)" />
+                    <CreditCard size={26} weight="regular" color="rgba(0,0,0,0.7)" />
                   ),
                 },
                 {
                   id: "cod",
                   label: "Cash on Delivery",
                   icon: (
-                    <Money size={26} weight="regular" color="rgba(255,255,255,0.92)" />
+                    <Money size={26} weight="regular" color="rgba(0,0,0,0.7)" />
                   ),
                   disabled: true,
                 },
@@ -546,8 +551,8 @@ export function CheckoutScreen({
                   style={{
                     flex: "0 0 140px", padding: "16px", borderRadius: 16,
                     opacity: disabled ? 0.45 : 1,
-                    background: paymentMethod === p.id ? "rgba(189,35,32,0.12)" : "rgba(255,255,255,0.03)",
-                    border: `1.5px solid ${paymentMethod === p.id ? C.red : "rgba(255,255,255,0.06)"}`,
+                    background: paymentMethod === p.id ? "rgba(189,35,32,0.08)" : C.surface,
+                    border: `1.5px solid ${paymentMethod === p.id ? C.red : "rgba(0,0,0,0.06)"}`,
                     display: "flex", flexDirection: "column", gap: 8, textAlign: "left",
                     cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s"
                   }}
@@ -571,7 +576,7 @@ export function CheckoutScreen({
           <p style={{
             margin: "0 0 12px", padding: "12px 14px", borderRadius: 14,
             background: "rgba(189,35,32,0.15)", border: "1px solid rgba(189,35,32,0.35)",
-            color: "#fecaca", fontSize: 13, fontWeight: 600, lineHeight: 1.4
+            color: C.red, fontSize: 13, fontWeight: 600, lineHeight: 1.4
           }}>
             {checkoutError}
           </p>
@@ -585,10 +590,10 @@ export function CheckoutScreen({
             background: placing
               ? "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)"
               : slotKind == null
-                ? "rgba(255,255,255,0.08)"
+                ? "rgba(0,0,0,0.06)"
                 : "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
-            border: slotKind == null && !placing ? "1.5px solid rgba(255,255,255,0.12)" : "none",
-            color: slotKind == null && !placing ? "rgba(255,255,255,0.38)" : "white",
+            border: slotKind == null && !placing ? "1.5px solid rgba(0,0,0,0.1)" : "none",
+            color: slotKind == null && !placing ? "rgba(0,0,0,0.35)" : "white",
             fontSize: 17, fontWeight: 900,
             letterSpacing: "0.02em",
             cursor: placing ? "wait" : slotKind == null ? "not-allowed" : "pointer",
@@ -596,7 +601,7 @@ export function CheckoutScreen({
             boxShadow:
               slotKind == null && !placing
                 ? "none"
-                : `0 8px 30px ${C.redGlow}, 0 2px 0 rgba(255,255,255,0.1) inset`,
+                : `0 8px 30px ${C.redGlow}, 0 2px 0 rgba(255,255,255,0.15) inset`,
             display: "flex", alignItems: "center", justifyContent: "center", gap: placing ? 0 : 12,
             position: "relative",
           }}
@@ -681,7 +686,7 @@ export function CheckoutScreen({
               <ArrowLeft size={20} weight="bold" color="#f87171" style={{ transform: "rotate(90deg)" }} />
             </div>
             <span style={{ 
-              fontSize: 14, color: "#fca5a5", fontWeight: 800, 
+              fontSize: 14, color: C.red, fontWeight: 800, 
               letterSpacing: "0.01em", fontFamily: C.mono 
             }}>
               Ordering is open daily from 6 AM to 6 PM. See you then!

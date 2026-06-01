@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canTransitionOrderStatus, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { notifyWhatsAppOrderEvent, notifyWhatsAppDriverNewDeliveryReady } from "@/lib/whatsapp-order-notify";
+import { refundPayment } from "@/lib/payments";
+import { sendOrderPushNotifications } from "@/lib/push-order-notify";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
@@ -11,7 +13,7 @@ export async function transitionOrderStatusInDb(
 ): Promise<TransitionResult> {
   const { data: row, error: fetchErr } = await supabase
     .from("orders")
-    .select("id, status, phone_number, delivery_slot, delivery_slot_kind")
+    .select("id, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, total_amount")
     .eq("id", orderId)
     .single();
 
@@ -33,6 +35,12 @@ export async function transitionOrderStatusInDb(
     upFields.cancelled_at = new Date().toISOString();
     upFields.refund_status = "initiated";
     upFields.cancellable = false;
+  } else if (next === OrderStatus.REJECTED) {
+    upFields.rejected_at = new Date().toISOString();
+    upFields.refund_status = "initiated";
+    upFields.cancellable = false;
+  } else if (next === OrderStatus.CONFIRMED) {
+    upFields.cancellable = true;
   } else if (
     next === OrderStatus.READY ||
     next === OrderStatus.OUT_FOR_DELIVERY ||
@@ -54,6 +62,22 @@ export async function transitionOrderStatusInDb(
     );
   }
 
+  if (next === OrderStatus.REJECTED) {
+    const paymentId = (row as { payment_id?: string | null }).payment_id;
+    const totalAmount = (row as { total_amount?: number | null }).total_amount;
+    if (paymentId && totalAmount != null && totalAmount > 0) {
+      const refResult = await refundPayment(paymentId, Number(totalAmount)).catch((e) => {
+        console.error("[order-transition] Razorpay refund error", e);
+        return { ok: false as const, error: "Refund exception" };
+      });
+      const refundStatus = refResult.ok ? "refunded" : "refund_failed";
+      await supabase
+        .from("orders")
+        .update({ refund_status: refundStatus, refund_amount: totalAmount })
+        .eq("id", orderId);
+    }
+  }
+
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
@@ -61,10 +85,19 @@ export async function transitionOrderStatusInDb(
       phone_number: row.phone_number as string | null,
       delivery_slot: row.delivery_slot as string | null,
       delivery_slot_kind: (row as { delivery_slot_kind?: string | null }).delivery_slot_kind ?? null,
+      total_amount: (row as { total_amount?: number | null }).total_amount ?? null,
     });
   } catch (e) {
     console.error("[order-transition] WhatsApp notify failed", e);
   }
+
+  void sendOrderPushNotifications(
+    supabase,
+    row.phone_number as string | null,
+    next,
+    row.id as string,
+    row.delivery_slot as string | null,
+  ).catch((e) => console.error("[order-transition] push notify failed", e));
 
   return { ok: true };
 }
@@ -86,6 +119,7 @@ export async function markOrderPaidAndNotify(
   const cur = normalizeOrderStatus(String(row.status));
   if (
     cur === OrderStatus.PAID ||
+    cur === OrderStatus.CONFIRMED ||
     cur === OrderStatus.PREPARING ||
     cur === OrderStatus.READY ||
     cur === OrderStatus.OUT_FOR_DELIVERY ||
@@ -116,6 +150,14 @@ export async function markOrderPaidAndNotify(
   } catch (e) {
     console.error("[markOrderPaidAndNotify] WhatsApp notify failed", e);
   }
+
+  void sendOrderPushNotifications(
+    supabase,
+    row.phone_number as string | null,
+    OrderStatus.PAID,
+    row.id as string,
+    row.delivery_slot as string | null,
+  ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e));
 
   return { ok: true };
 }

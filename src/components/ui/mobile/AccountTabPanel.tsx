@@ -16,6 +16,7 @@ import {
   PencilSimple
 } from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { loadSavedPlaces } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
 
@@ -94,7 +95,7 @@ function IconShield() {
 }
 
 function ChevronRight() {
-  return <CaretRight size={16} weight="bold" color="rgba(255,255,255,0.25)" />;
+  return <CaretRight size={16} weight="bold" color="rgba(0,0,0,0.25)" />;
 }
 
 function formatInPhone(phone: string) {
@@ -165,7 +166,7 @@ function NameEditOverlay({
             fontSize: 15,
             fontWeight: 800,
             letterSpacing: "0.03em",
-            color: "rgba(255,255,255,0.55)",
+            color: "rgba(0,0,0,0.45)",
           }}
         >
           Your name
@@ -190,7 +191,7 @@ function NameEditOverlay({
             border: `2px solid ${C.red}`,
             outline: "none",
             background: C.bg,
-            color: C.white,
+            color: C.text,
             fontSize: 17,
             fontWeight: 800,
             fontFamily: C.mono,
@@ -213,7 +214,7 @@ function NameEditOverlay({
           bottom: 0,
           zIndex: 2,
           padding: `12px ${sp(2)}px max(16px, env(safe-area-inset-bottom, 0px))`,
-          background: "linear-gradient(to top, rgba(10,10,10,0.94) 55%, transparent)",
+          background: "linear-gradient(to top, rgba(245,245,247,0.96) 55%, transparent)",
         }}
       >
         <motion.button
@@ -246,7 +247,7 @@ function NameEditOverlay({
             padding: "12px 10px",
             border: "none",
             background: "transparent",
-            color: "rgba(255,255,255,0.58)",
+            color: "rgba(0,0,0,0.5)",
             fontSize: 16,
             fontWeight: 800,
             cursor: "pointer",
@@ -362,11 +363,9 @@ export function AccountTabPanel({
   }, [editing, cancelNameEdit]);
 
   const sectionLabelStyle: CSSProperties = {
+    ...TYPO.eyebrow,
     margin: "0 0 8px",
-    fontSize: 12,
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(0,0,0,0.4)",
   };
 
   return (
@@ -408,15 +407,15 @@ export function AccountTabPanel({
         <div style={{ flex: 1, minWidth: 0 }}>
           {editing ? (
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>Editing your name</p>
-              <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)" }}>
+              <p style={{ ...TYPO.caption, margin: 0 }}>Editing your name</p>
+              <p style={{ ...TYPO.bodySm, margin: "4px 0 0" }}>
                 Tap Save changes when you’re done.
               </p>
             </div>
           ) : (
             <>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.white }}>{displayName.trim() || "Guest"}</p>
-              <p style={{ margin: "4px 0 0", fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.45)" }}>
+              <p style={{ ...TYPO.cardTitle, margin: 0 }}>{displayName.trim() || "Guest"}</p>
+              <p style={{ ...TYPO.bodySm, margin: "4px 0 0" }}>
                 {formatInPhone(customerPhone)}
               </p>
             </>
@@ -438,7 +437,7 @@ export function AccountTabPanel({
               borderRadius: 12,
               border: `1px solid ${C.border}`,
               background: "transparent",
-              color: "rgba(255,255,255,0.82)",
+              color: "rgba(0,0,0,0.7)",
               fontSize: 13,
               fontWeight: 800,
               cursor: "pointer",
@@ -500,8 +499,8 @@ export function AccountTabPanel({
             <IconBell />
           </AccountRowIcon>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.white }}>Notifications</p>
-            <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>WhatsApp · Order Updates</p>
+            <p style={{ ...TYPO.bodyMedium, margin: 0, color: C.text }}>Notifications</p>
+            <p style={{ ...TYPO.caption, margin: "4px 0 0" }}>WhatsApp · Order Updates</p>
           </div>
           <button
             type="button"
@@ -514,7 +513,7 @@ export function AccountTabPanel({
               borderRadius: 999,
               border: "none",
               padding: 3,
-              background: notifyOn ? C.red : "rgba(255,255,255,0.12)",
+              background: notifyOn ? C.red : "rgba(0,0,0,0.1)",
               cursor: "pointer",
               flexShrink: 0,
               display: "flex",
@@ -529,7 +528,7 @@ export function AccountTabPanel({
                 height: 22,
                 borderRadius: "50%",
                 background: C.white,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
               }}
             />
           </button>
@@ -626,7 +625,7 @@ export function AccountTabPanel({
           textAlign: "center",
           fontSize: 12,
           fontWeight: 600,
-          color: "rgba(255,255,255,0.28)",
+          color: "rgba(0,0,0,0.28)",
           letterSpacing: "0.02em",
         }}
       >
@@ -659,7 +658,7 @@ function Section({ title, titleStyle, children: ch }: { title: string; titleStyl
     fontSize: 12,
     fontWeight: 700,
     letterSpacing: "0.04em",
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(0,0,0,0.4)",
   };
   return (
     <div style={{ marginBottom: sp(1.5) }}>
@@ -688,8 +687,8 @@ function PressRow({
     <>
       {icon}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.white }}>{title}</p>
-        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>{subtitle}</p>
+        <p style={{ ...TYPO.bodyMedium, margin: 0, color: C.text }}>{title}</p>
+        <p style={{ ...TYPO.caption, margin: "4px 0 0" }}>{subtitle}</p>
       </div>
       {chevron ? <ChevronRight /> : null}
     </>

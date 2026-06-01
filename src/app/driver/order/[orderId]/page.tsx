@@ -17,6 +17,8 @@ import { haversineMeters } from "@/lib/geo";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 
+const YELLOW = "#F5C518";
+
 type MenuRef = { name?: string | null; image_url?: string | null } | null;
 type ItemRow = { quantity?: number | null; menu_items?: MenuRef };
 type UserRef = { full_name?: string | null; phone_number?: string | null } | null;
@@ -117,7 +119,7 @@ export default function DriverOrderDetailPage() {
   }, [hasDropPin, geoLat, geoLng, dropLat, dropLng]);
 
   const canMarkDelivered =
-    !hasDropPin || (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M);
+    !hasDropPin || (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M) || process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     if (!isOut || typeof window === "undefined") return;
@@ -206,9 +208,9 @@ export default function DriverOrderDetailPage() {
 
   if (loadErr) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 gap-4">
+      <div className="min-h-screen text-white flex flex-col items-center justify-center p-6 gap-4" style={{ background: "#000" }}>
         <p className="text-red-400 font-medium">{loadErr}</p>
-        <Link href="/driver" className="text-sm text-white/50 underline">
+        <Link href="/driver" className="text-sm underline" style={{ color: "rgba(245,197,24,0.7)" }}>
           Back to queue
         </Link>
       </div>
@@ -217,19 +219,23 @@ export default function DriverOrderDetailPage() {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
+      <div className="min-h-screen text-white flex flex-col items-center justify-center gap-3" style={{ background: "#000" }}>
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: YELLOW }} />
         <p className="text-white/40 text-sm">Loading order…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pb-28">
-      <header className="sticky top-0 z-20 bg-black/85 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center gap-3">
+    <div className="min-h-screen text-white pb-28" style={{ background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(245,197,24,0.06), transparent 55%), #000" }}>
+      <header
+        className="sticky top-0 z-20 border-b px-4 py-3 flex items-center gap-3"
+        style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.08)" }}
+      >
         <Link
           href="/driver"
-          className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+          className="p-2 rounded-xl border text-white/80 hover:bg-white/10"
+          style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}
           aria-label="Back"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -242,7 +248,7 @@ export default function DriverOrderDetailPage() {
 
       <main className="max-w-md mx-auto p-4 space-y-5">
         {/* Hero card */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/40 overflow-hidden">
+        <div className="rounded-2xl border overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
           <div className="aspect-[16/10] bg-zinc-800 relative">
             {dishImage ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -264,14 +270,13 @@ export default function DriverOrderDetailPage() {
               <p className="text-base font-semibold mt-0.5">{customerName}</p>
             </div>
             <div className="flex gap-2 items-start">
-              <MapPin className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <MapPin className="w-5 h-5 shrink-0 mt-0.5" style={{ color: YELLOW }} />
               <p className="text-sm text-white/70 leading-relaxed">{order.delivery_address || "—"}</p>
             </div>
             <p className="text-sm text-white/45">
               Slot:{" "}
               <span className="text-white/75 font-medium">
-                {formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined) ||
-                  "—"}
+                {formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined) || "—"}
               </span>
             </p>
           </div>
@@ -283,7 +288,8 @@ export default function DriverOrderDetailPage() {
             whileTap={{ scale: pickingUp ? 1 : 0.98 }}
             disabled={pickingUp}
             onClick={() => void handlePickup()}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-base shadow-lg shadow-red-900/30 disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl text-black font-bold text-base shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: YELLOW, boxShadow: "0 8px 24px rgba(245,197,24,0.25)" }}
           >
             {pickingUp ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
             I&apos;ve picked up the order
@@ -293,10 +299,10 @@ export default function DriverOrderDetailPage() {
         {isOut && (
           <>
             {geoErr && (
-              <p className="text-amber-400/90 text-sm px-1">{geoErr}</p>
+              <p className="text-sm px-1" style={{ color: "rgba(245,197,24,0.9)" }}>{geoErr}</p>
             )}
             {!hasDropPin && (
-              <p className="text-amber-300/80 text-sm px-1 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+              <p className="text-sm px-1 rounded-xl p-3 border" style={{ color: "rgba(245,197,24,0.8)", background: "rgba(245,197,24,0.06)", borderColor: "rgba(245,197,24,0.15)" }}>
                 No saved drop-off pin for this order — you can still complete delivery; the kitchen used a legacy address.
               </p>
             )}
@@ -317,7 +323,8 @@ export default function DriverOrderDetailPage() {
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-3.5 text-sm font-semibold"
+                  className="flex items-center justify-center gap-2 border rounded-xl py-3.5 text-sm font-semibold"
+                  style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}
                 >
                   <Navigation className="w-4 h-4" />
                   Google Maps
@@ -328,7 +335,8 @@ export default function DriverOrderDetailPage() {
               {callPhone ? (
                 <a
                   href={`tel:${callPhone.replace(/\s/g, "")}`}
-                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-3.5 text-sm font-semibold"
+                  className="flex items-center justify-center gap-2 border rounded-xl py-3.5 text-sm font-semibold"
+                  style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}
                 >
                   <Phone className="w-4 h-4" />
                   Call
@@ -349,8 +357,9 @@ export default function DriverOrderDetailPage() {
               className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 border ${
                 canMarkDelivered
                   ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
-                  : "bg-white/5 border-white/10 text-white/35 cursor-not-allowed"
+                  : "border-white/10 text-white/35 cursor-not-allowed"
               }`}
+              style={canMarkDelivered ? {} : { background: "rgba(255,255,255,0.05)" }}
             >
               <CheckCircle2 className="w-5 h-5" />
               Food delivered
@@ -361,7 +370,7 @@ export default function DriverOrderDetailPage() {
         {!isReady && !isOut && (
           <p className="text-center text-white/45 text-sm py-8">
             This order is no longer in the driver queue.{" "}
-            <Link href="/driver" className="text-red-400 underline">
+            <Link href="/driver" className="underline" style={{ color: "rgba(245,197,24,0.7)" }}>
               Back to list
             </Link>
           </p>
@@ -382,11 +391,12 @@ export default function DriverOrderDetailPage() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+              className="w-full max-w-sm rounded-2xl border p-6 shadow-2xl"
+              style={{ background: "#111", borderColor: "rgba(255,255,255,0.1)" }}
             >
               <p className="text-lg font-bold text-white">Confirm delivery?</p>
               <p className="text-sm text-white/50 mt-2 leading-relaxed">
-                Only tap yes after you’ve handed the food to the customer.
+                Only tap yes after you&apos;ve handed the food to the customer.
               </p>
               {completeErr && <p className="text-red-400 text-sm mt-3">{completeErr}</p>}
               <div className="flex gap-3 mt-6">
@@ -394,7 +404,8 @@ export default function DriverOrderDetailPage() {
                   type="button"
                   disabled={completing}
                   onClick={() => setCompleteOpen(false)}
-                  className="flex-1 py-3 rounded-xl border border-white/15 text-white/70 font-semibold text-sm"
+                  className="flex-1 py-3 rounded-xl border font-semibold text-sm"
+                  style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", background: "transparent" }}
                 >
                   Cancel
                 </button>

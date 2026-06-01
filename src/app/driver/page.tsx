@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 
+const YELLOW = "#F5C518";
+
 type Row = {
   id: string;
   status: string;
@@ -70,13 +72,16 @@ export default function DriverHubPage() {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans">
-      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 p-4">
+    <div
+      className="min-h-screen text-white font-sans"
+      style={{ background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(245,197,24,0.06), transparent 55%), #000" }}
+    >
+      <header className="sticky top-0 z-50 border-b p-4" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.08)" }}>
         <div className="max-w-md mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-            Driver Hub
+          <h1 className="text-xl font-bold" style={{ color: YELLOW }}>
+            VK Driver
           </h1>
-          <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)" }}>
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-xs font-medium text-white/50 uppercase tracking-widest">Live</span>
           </div>
@@ -86,7 +91,7 @@ export default function DriverHubPage() {
       <main className="max-w-md mx-auto p-4 pb-16 space-y-8">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: YELLOW }} />
             <p className="text-white/40 text-sm">Loading queue…</p>
           </div>
         ) : (
@@ -94,8 +99,8 @@ export default function DriverHubPage() {
             <section>
               <h2 className="text-sm font-bold uppercase tracking-wider text-white/40 mb-3">Pick up at kitchen</h2>
               {pickup.length === 0 ? (
-                <p className="text-white/35 text-sm py-6 text-center border border-dashed border-white/10 rounded-2xl">
-                  No bags waiting — you’ll get a WhatsApp when one is ready.
+                <p className="text-white/35 text-sm py-6 text-center border border-dashed rounded-2xl" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                  No bags waiting — you&apos;ll get a WhatsApp when one is ready.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -104,14 +109,15 @@ export default function DriverHubPage() {
                       <motion.div key={order.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                         <Link
                           href={`/driver/order/${order.id}`}
-                          className="block rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 hover:border-amber-500/45 transition-colors"
+                          className="block rounded-2xl border p-4 transition-colors"
+                          style={{ background: "rgba(245,197,24,0.06)", borderColor: "rgba(245,197,24,0.25)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                         >
                           <div className="flex justify-between items-start gap-2">
                             <div>
                               <p className="font-bold text-white">{order.users?.full_name || "Customer"}</p>
                               <p className="text-xs text-white/45 mt-1 font-mono">{lineSummary(order)}</p>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-amber-400 shrink-0" />
+                            <ChevronRight className="w-5 h-5 shrink-0" style={{ color: YELLOW }} />
                           </div>
                           <p className="text-xs text-white/35 mt-2">{formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined)}</p>
                         </Link>
@@ -125,7 +131,7 @@ export default function DriverHubPage() {
             <section>
               <h2 className="text-sm font-bold uppercase tracking-wider text-white/40 mb-3">On the road</h2>
               {enRoute.length === 0 ? (
-                <p className="text-white/35 text-sm py-6 text-center border border-dashed border-white/10 rounded-2xl">
+                <p className="text-white/35 text-sm py-6 text-center border border-dashed rounded-2xl" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
                   Nothing en route. After pickup, orders appear here.
                 </p>
               ) : (
@@ -134,15 +140,16 @@ export default function DriverHubPage() {
                     <Link
                       key={order.id}
                       href={`/driver/order/${order.id}`}
-                      className="flex rounded-2xl border border-white/10 bg-zinc-900/50 p-4 gap-3 hover:border-red-500/30 transition-colors"
+                      className="flex rounded-2xl border p-4 gap-3 transition-colors"
+                      style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                     >
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/10 h-fit">
-                        <MapPin className="w-5 h-5 text-red-500" />
+                      <div className="p-2 rounded-xl border h-fit" style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}>
+                        <MapPin className="w-5 h-5" style={{ color: YELLOW }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-white truncate">{order.users?.full_name || "Customer"}</p>
                         <p className="text-xs text-white/40 mt-0.5 truncate">{order.delivery_address || "—"}</p>
-                        <p className="text-xs text-orange-300/80 mt-2 font-semibold">Tap to open maps & complete</p>
+                        <p className="text-xs mt-2 font-semibold" style={{ color: "rgba(245,197,24,0.8)" }}>Tap to open maps & complete</p>
                       </div>
                       <Package className="w-5 h-5 text-white/25 shrink-0 self-center" />
                     </Link>

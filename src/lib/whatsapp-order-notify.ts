@@ -99,6 +99,7 @@ type NotifyOrderRow = {
   phone_number?: string | null;
   delivery_slot?: string | null;
   delivery_slot_kind?: string | null;
+  total_amount?: number | null;
 };
 
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
@@ -115,6 +116,16 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
         (slotLine ? `📅 *Slot:* ${slotLine}\n\n` : "") +
         `We’ve received your payment. The kitchen will start soon.`;
       await sendCtaUrl(to, body, trackUrl, "Track order");
+      break;
+    }
+    case OrderStatus.CONFIRMED: {
+      const short = order.id.slice(0, 8).toUpperCase();
+      const cancelUrl = `${publicSiteOrigin()}/?cancelOrder=${order.id}&phone=${encodeURIComponent(order.phone_number || "")}`;
+      const body =
+        `\u{1F389} *Order accepted!* (#${short}\u2026)\n\n` +
+        (slotLine ? `\u{1F4C5} *Slot:* ${slotLine}\n\n` : "") +
+        `Your order is confirmed. You can cancel up to 12 hours before your delivery slot.`;
+      await sendCtaUrl(to, body, cancelUrl, "Cancel Order");
       break;
     }
     case OrderStatus.PREPARING: {
@@ -164,6 +175,23 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
           body:
             `Your order *#${short}…* has been *cancelled* as you requested.\n\n` +
             `If anything looks wrong or you were charged in error, reply here and we’ll help.`,
+        },
+      });
+      break;
+    }
+    case OrderStatus.REJECTED: {
+      const short = order.id.slice(0, 8).toUpperCase();
+      const amt = order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "your payment";
+      await postWhatsApp({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          body:
+            `Sorry, your order *#${short}…* could not be accepted by the kitchen.\n\n` +
+            `A full refund of *${amt}* has been initiated — it should arrive within 5–7 working days.\n\n` +
+            `We apologise for the inconvenience. Reply here if you need help.`,
         },
       });
       break;

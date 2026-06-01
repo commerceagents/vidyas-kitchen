@@ -13,39 +13,36 @@ export default function Home() {
   const [instantShellEnter, setInstantShellEnter] = useState(false);
   const [prefilledPhone, setPrefilledPhone] = useState<string | undefined>();
   const [prefilledName, setPrefilledName] = useState<string | undefined>();
+  const [cancelOrderId, setCancelOrderId] = useState<string | undefined>();
+  const [cancelPhone, setCancelPhone] = useState<string | undefined>();
 
-  /** Before paint: skip logo splash when returning from Razorpay or on refresh (session persistence). */
+  /** Skip splash only when returning from Razorpay or legal hub back-nav. */
   useLayoutEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
     const isSuccess = params.get("status") === "success" && params.get("orderId");
-    const sessionSplashDone = sessionStorage.getItem("splash_shown") === "true";
+    const skipFromLegal = localStorage.getItem("skip_splash") === "true";
+    const cancelOrder = params.get("cancelOrder");
+    const cancelPhoneParam = params.get("phone");
 
-    if (isSuccess || sessionSplashDone) {
+    if (isSuccess || skipFromLegal || cancelOrder) {
       setShowSplash(false);
       setInstantShellEnter(true);
+      if (skipFromLegal) localStorage.removeItem("skip_splash");
+    }
+
+    if (cancelOrder) {
+      setCancelOrderId(cancelOrder);
+      if (cancelPhoneParam) setCancelPhone(cancelPhoneParam);
     }
 
     const phoneParam = params.get("phone");
     const nameParam = params.get("name");
-    if (phoneParam) setPrefilledPhone(phoneParam);
+    if (phoneParam && !cancelOrder) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
   }, []);
 
   useEffect(() => {
-    if (!showSplash) {
-      sessionStorage.setItem("splash_shown", "true");
-    }
-  }, [showSplash]);
-
-  useEffect(() => {
-    // Skip splash when returning from in-app legal pages (LegalHub sets skip_splash)
-    const shouldSkip = localStorage.getItem("skip_splash") === "true";
-    if (shouldSkip) {
-      setShowSplash(false);
-      localStorage.removeItem("skip_splash");
-    }
-
     const checkViewport = () => setIsDesktop(window.innerWidth > 1024);
     checkViewport();
     window.addEventListener("resize", checkViewport);
@@ -55,7 +52,7 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <main className={`fixed inset-0 bg-[#0a0a0a] ${isDesktop ? "overscroll-none touch-none overflow-hidden select-none" : ""}`}>
+    <main className={`fixed inset-0 ${isDesktop ? "bg-[#0a0a0a] overscroll-none touch-none overflow-hidden select-none" : "bg-[#F5F5F7]"}`}>
       <AnimatePresence mode="wait">
         {showSplash ? (
           <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
@@ -70,7 +67,7 @@ export default function Home() {
             {isDesktop ? (
               <DesktopLanding />
             ) : (
-              <MobileShell prefilledPhone={prefilledPhone} prefilledName={prefilledName} />
+              <MobileShell prefilledPhone={prefilledPhone} prefilledName={prefilledName} cancelOrderId={cancelOrderId} cancelPhone={cancelPhone} />
             )}
           </motion.div>
         )}

@@ -13,6 +13,8 @@ import type { SavedPlace } from "@/lib/vk-saved-places";
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import { FestivalPricingProvider } from "./festival-pricing-context";
+import { pickActiveFestival, type FestivalRow } from "@/lib/menu/discount-pricing";
 
 interface LocationData {
   label: string;
@@ -24,6 +26,8 @@ interface LocationData {
 interface MobileShellProps {
   prefilledPhone?: string;
   prefilledName?: string;
+  cancelOrderId?: string;
+  cancelPhone?: string;
 }
 
 const LS_NAME = "vk_display_name";
@@ -37,7 +41,7 @@ type PaymentFeedback =
   | { kind: "error" }
   | { kind: "cancelled" };
 
-export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps) {
+export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, cancelPhone }: MobileShellProps) {
   // ── Sync Initial State from Storage ──────────────────────────────────────
   const [initialData] = useState(() => {
     if (typeof window === "undefined") return { step: "login" as MobileStep, phone: "", name: "", location: null as LocationData | null };
@@ -87,6 +91,8 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   /** True after “Add more” from checkout — Browse Menu back should return to checkout. */
   const [returnToCheckoutAfterBrowse, setReturnToCheckoutAfterBrowse] = useState(false);
 
+  const [activeFestival, setActiveFestival] = useState<FestivalRow | null>(null);
+
   const updateQty = (key: string, delta: number) => {
     setCart(prev => {
       const current = prev[key] || 0;
@@ -101,6 +107,23 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
       return copy;
     });
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/menu/festivals", { cache: "no-store" });
+        const j = (await res.json()) as { rows?: FestivalRow[] };
+        const list = j.rows ?? [];
+        if (!cancelled) setActiveFestival(list.length ? pickActiveFestival(list) : null);
+      } catch {
+        if (!cancelled) setActiveFestival(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Restore session from localStorage
   useEffect(() => {
@@ -209,7 +232,17 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
 
     const track = sessionStorage.getItem(SS_TRACK_ORDER);
     if (track) setTrackingOrderId(track);
-  }, [prefilledPhone, prefilledName]);
+
+    if (cancelOrderId) {
+      sessionStorage.setItem(SS_TRACK_ORDER, cancelOrderId);
+      setTrackingOrderId(cancelOrderId);
+      if (cancelPhone) {
+        setPhone(cancelPhone);
+        localStorage.setItem("vk_phone", cancelPhone);
+      }
+      setStep("home");
+    }
+  }, [prefilledPhone, prefilledName, cancelOrderId, cancelPhone]);
 
   const clearOrderTracking = () => {
     sessionStorage.removeItem(SS_TRACK_ORDER);
@@ -254,7 +287,8 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] mobile-shell">
+    <FestivalPricingProvider active={activeFestival}>
+    <div className="fixed inset-0 bg-[#F5F5F7] mobile-shell">
       <AnimatePresence mode="wait">
         {step === "login" && (
           <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
@@ -383,7 +417,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
               position: "fixed",
               inset: 0,
               zIndex: 500,
-              background: "rgba(0,0,0,0.92)",
+              background: "rgba(0,0,0,0.5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -399,8 +433,8 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                 width: "100%",
                 borderRadius: 24,
                 padding: "28px 24px",
-                background: "rgba(18,18,18,0.98)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.97)",
+                border: "1px solid rgba(0,0,0,0.06)",
                 textAlign: "center",
                 fontFamily: "var(--font-outfit), system-ui, sans-serif",
               }}
@@ -434,12 +468,12 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                       display: "inline-block",
                       padding: "8px 18px",
                       borderRadius: 999,
-                      background: "rgba(18,18,18,0.96)",
+                      background: "rgba(255,255,255,0.96)",
                       border: "1px solid rgba(34,197,94,0.45)",
-                      boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                     }}
                   >
-                    <span style={{ color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>Payment successful</span>
+                    <span style={{ color: "#1A1A1A", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>Payment successful</span>
                   </motion.div>
                 </>
               ) : paymentFeedback.kind === "error" ? (
@@ -476,7 +510,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                 </div>
               )}
               {paymentFeedback.kind !== "success" ? (
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#fff" }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#1A1A1A" }}>
                   {paymentFeedback.kind === "error" ? "Payment failed" : "Checkout closed"}
                 </h2>
               ) : null}
@@ -485,7 +519,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                   margin: paymentFeedback.kind === "success" ? "16px 0 0" : "12px 0 0",
                   fontSize: 14,
                   lineHeight: 1.5,
-                  color: "rgba(255,255,255,0.55)",
+                  color: "rgba(0,0,0,0.55)",
                   fontWeight: 600,
                 }}
               >
@@ -495,7 +529,7 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
                   <>Something went wrong completing payment. Your cart is unchanged — try again from checkout.</>
                 ) : (
                   <>
-                    You left the payment screen before paying — <span style={{ color: "rgba(255,255,255,0.85)" }}>no order was placed</span> in the
+                    You left the payment screen before paying — <span style={{ color: "#1A1A1A" }}>no order was placed</span> in the
                     kitchen. Your cart is still here; open checkout when you’re ready.
                   </>
                 )}
@@ -529,5 +563,6 @@ export function MobileShell({ prefilledPhone, prefilledName }: MobileShellProps)
         )}
       </AnimatePresence>
     </div>
+    </FestivalPricingProvider>
   );
 }

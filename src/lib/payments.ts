@@ -41,6 +41,28 @@ export async function createPaymentLink(amount: number, orderId: string, custome
 }
 
 /**
+ * Initiate a full refund for a captured payment via Razorpay.
+ * `paymentId` is the `razorpay_payment_id` stored on the order row.
+ */
+export async function refundPayment(
+  paymentId: string,
+  amountInr: number,
+): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
+  try {
+    const refund = await razorpay.payments.refund(paymentId, {
+      amount: Math.round(amountInr * 100),
+      speed: "normal",
+      notes: { reason: "Order rejected by kitchen" },
+    });
+    return { ok: true, refundId: String((refund as { id?: string }).id ?? paymentId) };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Razorpay refund failed";
+    console.error("[refundPayment]", msg);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
  * Generates a standard UPI Deep Link for direct payments (Zero platform fees).
  */
 export function generateUPILink(amount: number, orderId: string) {

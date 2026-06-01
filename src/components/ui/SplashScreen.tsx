@@ -3,21 +3,18 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { TYPO } from "@/components/ui/mobile/mobile-typography";
 
 export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
-  const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [showPulse, setShowPulse] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    // ... rest of the timers ...
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
-    // Final exit at 4.8s
     const timer = setTimeout(() => {
       setIsVisible(false);
-      if (onComplete) setTimeout(onComplete, 800); 
+      if (onComplete) setTimeout(onComplete, 800);
     }, 4800);
     return () => {
       clearTimeout(pulseTimer);
@@ -25,7 +22,10 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
     };
   }, [onComplete]);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    const fallback = setTimeout(() => setImageLoaded(true), 400);
+    return () => clearTimeout(fallback);
+  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -39,7 +39,7 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             position: 'fixed',
             inset: 0,
             zIndex: 100000,
-            backgroundColor: '#0d0d0d', // Deep Matte Charcoal
+            backgroundColor: '#F5F5F7',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -101,10 +101,10 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
 
             {/* Logo Wrapper - Physical Object Style */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ 
-                opacity: imageLoaded ? 1 : 0, 
-                scale: imageLoaded ? 1 : 0.95 
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{
+                opacity: imageLoaded ? 1 : 0.35,
+                scale: imageLoaded ? 1 : 0.96,
               }}
               transition={{ 
                 duration: 1.5, 
@@ -115,39 +115,27 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 position: 'relative',
                 width: '120px',
                 height: '120px',
-                backgroundColor: '#111111', // Slightly off-black for depth
+                backgroundColor: 'transparent',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.8), inset 0 0 1px 1px rgba(255,255,255,0.05)', // Outer and Internal rim-light
                 overflow: 'hidden',
+                clipPath: 'circle(50% at 50% 50%)',
+                WebkitClipPath: 'circle(50% at 50% 50%)',
                 zIndex: 20,
-                border: '1px solid rgba(255,255,255,0.03)'
               }}
             >
-              {/* Shine Overlay Effect */}
-              <motion.div
-                animate={{ x: ['-200%', '200%'] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear", delay: 0.5 }}
-                style={{
-                  position: 'absolute',
-                  top: 0, left: 0, width: '100%', height: '100%',
-                  background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)',
-                  zIndex: 25, pointerEvents: 'none'
-                }}
+              <Image 
+                src="/VK_Logo.webp" 
+                alt="Vidya's Kitchen" 
+                fill
+                sizes="120px"
+                className="vk-logo-circle"
+                style={{ objectFit: 'cover', borderRadius: '50%' }} 
+                priority
+                onLoad={() => setImageLoaded(true)}
               />
-
-              <div style={{ position: 'relative', width: '80%', height: '80%', borderRadius: '50%', overflow: 'hidden' }}>
-                <Image 
-                  src="/VK_Logo.webp" 
-                  alt="Vidya's Kitchen" 
-                  fill
-                  style={{ objectFit: 'contain' }} 
-                  priority
-                  onLoad={() => setImageLoaded(true)}
-                />
-              </div>
             </motion.div>
           </div>
 
@@ -172,17 +160,13 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 backgroundPosition: { duration: 4, repeat: Infinity, ease: "linear" }
               }}
               style={{
-                fontSize: '11px',
-                fontWeight: '900',
-                letterSpacing: '0.8em',
-                textTransform: 'uppercase',
-                background: 'linear-gradient(90deg, #333333 0%, #ffffff 50%, #333333 100%)',
+                ...TYPO.loading,
+                background: 'linear-gradient(90deg, #cccccc 0%, #BD2320 50%, #cccccc 100%)',
                 backgroundSize: '200% auto',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 display: 'inline-block',
                 textAlign: 'center',
-                fontFamily: 'var(--font-jetbrains-mono)'
               }}
             >
               LOADING
