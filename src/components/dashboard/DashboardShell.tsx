@@ -12,7 +12,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <div
       style={{
         display: "flex",
-        minHeight: "100dvh",
+        height: "100dvh",
+        overflow: "hidden",
         background: "#0d0d0d",
         color: "#fff",
         gap: "20px",

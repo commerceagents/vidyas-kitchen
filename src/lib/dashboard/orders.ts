@@ -3,12 +3,14 @@ import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 export type DashboardOrderItem = {
   quantity: number;
   name: string;
+  unit_price?: number;
 };
 
 export type DashboardOrder = {
   id: string;
   status: string;
   phone_number: string | null;
+  customer_name: string | null;
   total_amount: number | null;
   created_at: string;
   delivery_slot: string | null;
@@ -75,17 +77,14 @@ export function isNewPaidOrder(status: string) {
   return normalizeOrderStatus(status) === OrderStatus.PAID;
 }
 
-export function tabForOrder(status: string): "new" | "ongoing" | "completed" {
+export type DashboardTab = "new" | "preparing" | "awaiting" | "dispatched" | "completed" | "cancelled";
+
+export function tabForOrder(status: string): DashboardTab {
   const s = normalizeOrderStatus(status);
   if (s === OrderStatus.PAID) return "new";
-  if (
-    s === OrderStatus.CONFIRMED ||
-    s === OrderStatus.PREPARING ||
-    s === OrderStatus.READY ||
-    s === OrderStatus.OUT_FOR_DELIVERY ||
-    s === OrderStatus.PENDING_PAYMENT
-  ) {
-    return "ongoing";
-  }
-  return "completed";
+  if (s === OrderStatus.CONFIRMED || s === OrderStatus.PREPARING) return "preparing";
+  if (s === OrderStatus.READY) return "awaiting";
+  if (s === OrderStatus.OUT_FOR_DELIVERY) return "dispatched";
+  if (s === OrderStatus.DELIVERED) return "completed";
+  return "cancelled";
 }

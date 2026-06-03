@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { currentMonthKey, type MonthKey, type DashboardTab } from "@/lib/dashboard/orders";
+import { currentMonthKey, type MonthKey } from "@/lib/dashboard/orders";
 import { useDashboardOrders } from "@/hooks/useDashboardOrders";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
@@ -13,15 +13,13 @@ import {
   DashboardSearchOverlay,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
-import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
 
-export default function DashboardHome() {
+export default function LiveOrdersPage() {
   const [month, setMonth] = useState<MonthKey>(currentMonthKey);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("new");
 
   const {
     loading,
@@ -91,45 +89,29 @@ export default function DashboardHome() {
           newCount={newCount}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenNotifications={openNotifications}
+          title="Live Orders"
         />
         <DashboardOrderBoard
           orders={orders}
           loading={loading}
           highlightOrderId={highlightOrderId}
           onActionDone={() => void refresh()}
+          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed", "cancelled"]}
           mobile
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
         />
       </div>
 
-      {/* ── Desktop: layout ── */}
+      {/* ── Desktop Layout ── */}
       <div
         className="vk-dash-home-desktop"
         style={{
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "20px",
-          background: "#0d0d0d",
-          padding: "24px",
-          boxSizing: "border-box",
+          gap: "16px",
         }}
       >
-        {/* Header / Top bar wrapper */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: "#141414",
-          borderRadius: "20px",
-          padding: "16px 24px",
-          border: "1px solid #222222",
-        }}>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
-            Order Management
-          </h1>
+        <DashboardFloatingCard style={{ flex: "none", height: "76px" }}>
           <DashboardDesktopTopBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -137,37 +119,20 @@ export default function DashboardHome() {
             onMonthChange={setMonth}
             unreadCount={unreadCount}
             onOpenNotifications={openNotifications}
-            hideSearchAndMonth={false}
+            title="Live Orders"
+            hideSearchAndMonth={true}
           />
-        </div>
+        </DashboardFloatingCard>
 
-        <DashboardMetrics
-          orders={orders}
-          activeTab={activeTab}
-          onTabSelect={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-        />
-
-        {/* Active Orders Section */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "20px", padding: "20px", border: "1px solid #222222" }}>
-          <div style={{ marginBottom: "4px", paddingLeft: "4px" }}>
-            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)" }}>
-              Active Orders
-            </h2>
-          </div>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <DashboardOrderBoard
-              orders={orders}
-              loading={loading}
-              highlightOrderId={highlightOrderId}
-              onActionDone={() => void refresh()}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              hideTabs={true}
-              allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-            />
-          </div>
-        </div>
+        <DashboardFloatingCard style={{ flex: "1 1 90%", minHeight: 0, overflow: "hidden" }}>
+          <DashboardOrderBoard
+            orders={orders}
+            loading={loading}
+            highlightOrderId={highlightOrderId}
+            onActionDone={() => void refresh()}
+            allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed", "cancelled"]}
+          />
+        </DashboardFloatingCard>
       </div>
 
       <DashboardSearchOverlay

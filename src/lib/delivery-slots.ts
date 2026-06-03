@@ -147,3 +147,18 @@ export function formatSlotLineForCustomer(slotStartIso: string | null | undefine
       : "Delivery";
   return `${k} · ${when}`;
 }
+
+export function getEarliestBookableSlot(nowMs: number = Date.now()): { startTime: string; kind: DeliverySlotKind } {
+  const start = istCalendarYmd(new Date(nowMs));
+  for (let i = 0; i < 8; i++) {
+    const istYmd = istAddCalendarDays(start, i);
+    for (const kind of SLOT_KINDS) {
+      const slotStartIso = slotStartIsoFor(istYmd, kind);
+      if (isSlotBookable(slotStartIso, nowMs)) {
+        return { startTime: slotStartIso, kind };
+      }
+    }
+  }
+  const fallbackDate = istAddCalendarDays(start, 2);
+  return { startTime: slotStartIsoFor(fallbackDate, "breakfast"), kind: "breakfast" };
+}

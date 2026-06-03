@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { currentMonthKey, type MonthKey, type DashboardTab } from "@/lib/dashboard/orders";
+import { currentMonthKey, type MonthKey } from "@/lib/dashboard/orders";
 import { useDashboardOrders } from "@/hooks/useDashboardOrders";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
@@ -13,15 +13,13 @@ import {
   DashboardSearchOverlay,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
-import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
 
-export default function DashboardHome() {
+export default function OrderHistoryPage() {
   const [month, setMonth] = useState<MonthKey>(currentMonthKey);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("new");
 
   const {
     loading,
@@ -91,80 +89,73 @@ export default function DashboardHome() {
           newCount={newCount}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenNotifications={openNotifications}
+          title="Order History"
         />
         <DashboardOrderBoard
           orders={orders}
           loading={loading}
           highlightOrderId={highlightOrderId}
           onActionDone={() => void refresh()}
+          allowedTabs={["cancelled", "completed"]}
+          defaultTab="cancelled"
+          hideTabs={true}
+          simplified={true}
           mobile
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
         />
       </div>
 
-      {/* ── Desktop: layout ── */}
+      {/* ── Desktop Layout ── */}
       <div
         className="vk-dash-home-desktop"
         style={{
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "20px",
-          background: "#0d0d0d",
+          gap: "24px",
+          background: "#F4F6F8",
           padding: "24px",
           boxSizing: "border-box",
         }}
       >
         {/* Header / Top bar wrapper */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: "#141414",
-          borderRadius: "20px",
-          padding: "16px 24px",
-          border: "1px solid #222222",
-        }}>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
-            Order Management
-          </h1>
-          <DashboardDesktopTopBar
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            month={month}
-            onMonthChange={setMonth}
-            unreadCount={unreadCount}
-            onOpenNotifications={openNotifications}
-            hideSearchAndMonth={false}
-          />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#111111", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
+              Order History
+            </h1>
+          </div>
+          
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <DashboardDesktopTopBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              month={month}
+              onMonthChange={setMonth}
+              unreadCount={unreadCount}
+              onOpenNotifications={openNotifications}
+              hideSearchAndMonth={true}
+            />
+          </div>
         </div>
 
-        <DashboardMetrics
-          orders={orders}
-          activeTab={activeTab}
-          onTabSelect={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-        />
-
         {/* Active Orders Section */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "20px", padding: "20px", border: "1px solid #222222" }}>
-          <div style={{ marginBottom: "4px", paddingLeft: "4px" }}>
-            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)" }}>
-              Active Orders
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "20px", padding: "20px", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 18px rgba(0, 0, 0, 0.01)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingLeft: "20px" }}>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "#111111", fontFamily: "var(--font-outfit)" }}>
+              History Log
             </h2>
           </div>
+          
           <div style={{ flex: 1, minHeight: 0 }}>
             <DashboardOrderBoard
               orders={orders}
               loading={loading}
               highlightOrderId={highlightOrderId}
               onActionDone={() => void refresh()}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
+              allowedTabs={["cancelled", "completed"]}
+              defaultTab="cancelled"
               hideTabs={true}
-              allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+              simplified={true}
             />
           </div>
         </div>

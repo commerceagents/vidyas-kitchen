@@ -9,8 +9,11 @@ const razorpay = new Razorpay({
 /**
  * Generates a Razorpay payment link for an order.
  */
-export async function createPaymentLink(amount: number, orderId: string, customerName: string, customerPhone: string) {
+export async function createPaymentLink(amount: number, orderId: string, customerName: string, customerPhone: string, origin?: string) {
   try {
+    const siteOrigin = origin || publicSiteOrigin();
+    // Clean phone number: remove non-digit/non-plus characters
+    const contact = customerPhone.replace(/[^\d+]/g, "");
     const paymentLink = await razorpay.paymentLink.create({
       amount: Math.round(Number(amount) * 100), // paise (avoid float drift)
       currency: "INR",
@@ -18,17 +21,17 @@ export async function createPaymentLink(amount: number, orderId: string, custome
       description: `Order #${orderId} - Vidya's Kitchen`,
       customer: {
         name: customerName,
-        contact: customerPhone,
+        contact: contact || undefined,
       },
       notify: {
-        sms: true,
+        sms: false,
         email: false,
       },
-      reminder_enable: true,
+      reminder_enable: false,
       notes: {
         order_id: orderId,
       },
-      callback_url: `${publicSiteOrigin()}/api/payments/callback`,
+      callback_url: `${siteOrigin}/api/payments/callback`,
       callback_method: "get",
     });
 

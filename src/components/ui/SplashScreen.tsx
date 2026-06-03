@@ -35,11 +35,11 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.8 } }}
+          className="vk-splash-screen"
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 100000,
-            backgroundColor: '#F5F5F7',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -49,6 +49,16 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
             overflow: 'hidden'
           }}
         >
+          <style>{`
+            .vk-splash-screen {
+              background-color: #F5F5F7;
+            }
+            @media (min-width: 1024px) {
+              .vk-splash-screen {
+                background-color: #0d0d0d;
+              }
+            }
+          `}</style>
           {/* Atmospheric Lighting - Corner Glows */}
           <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(189, 35, 32, 0.06) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />

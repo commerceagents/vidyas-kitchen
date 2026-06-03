@@ -54,6 +54,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (authed === false) {
+      const timer = setTimeout(() => {
+        pinInputRef.current?.focus();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [authed]);
+
+  useEffect(() => {
     if (!pinInvalid) return;
     const timer = setTimeout(() => setPinInvalid(false), 2500);
     return () => clearTimeout(timer);
@@ -266,11 +275,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                         fontFamily: FONT,
                       }}
                     >
-                      {filled ? "•" : ""}
+                      {active ? (
+                        <span className="vk-pin-caret" style={{ 
+                          display: "inline-block", 
+                          width: "1.5px", 
+                          height: "28px", 
+                          backgroundColor: "#f5e32d", 
+                          borderRadius: "1px"
+                        }} />
+                      ) : filled ? (
+                        "•"
+                      ) : (
+                        ""
+                      )}
                     </div>
                   );
                 })}
               </motion.div>
+
+              <style>{`
+                @keyframes vk-pin-blink {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0; }
+                }
+                .vk-pin-caret {
+                  animation: vk-pin-blink 1s step-end infinite;
+                }
+              `}</style>
 
               <input
                 ref={pinInputRef}
@@ -418,7 +449,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="vk-dashboard-root min-h-[100dvh] bg-[#0d0d0d] text-white selection:bg-[#f5e32d]/30"
+      className="vk-dashboard-root h-[100dvh] overflow-hidden bg-[#0d0d0d] text-white selection:bg-[#f5e32d]/30"
       style={{
         fontFamily: FONT,
         WebkitTapHighlightColor: "transparent",

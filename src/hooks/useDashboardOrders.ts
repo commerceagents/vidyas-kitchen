@@ -27,11 +27,13 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
     name:
       ((it.menu_items as { name?: string } | null)?.name as string) ||
       "Item",
+    unit_price: Number(it.unit_price) || 0,
   }));
   return {
     id: String(row.id),
     status: String(row.status ?? ""),
     phone_number: (row.phone_number as string | null) ?? null,
+    customer_name: ((row.users as { full_name?: string | null } | null)?.full_name ?? null) || null,
     total_amount: row.total_amount != null ? Number(row.total_amount) : null,
     created_at: String(row.created_at ?? ""),
     delivery_slot: (row.delivery_slot as string | null) ?? null,
@@ -54,7 +56,7 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
       .select(
         `
         id, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
-        order_items ( quantity, menu_items ( name ) )
+        order_items ( quantity, unit_price, menu_items ( name ) )
       `,
       )
       .order("created_at", { ascending: false })
@@ -66,7 +68,26 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
     }
 
     const mapped = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
-    setOrders(mapped);
+
+    // Enrich with customer names from users table (matched by phone_number)
+    const phones = [...new Set(mapped.map((o) => o.phone_number).filter(Boolean))] as string[];
+    let nameByPhone: Record<string, string> = {};
+    if (phones.length > 0) {
+      const { data: userRows } = await supabase
+        .from("users")
+        .select("phone_number, full_name")
+        .in("phone_number", phones);
+      if (userRows) {
+        for (const u of userRows as { phone_number: string; full_name?: string | null }[]) {
+          if (u.phone_number && u.full_name) nameByPhone[u.phone_number] = u.full_name;
+        }
+      }
+    }
+    const enriched = mapped.map((o) => ({
+      ...o,
+      customer_name: nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
+    }));
+    setOrders(enriched);
 
     if (!bootstrappedRef.current) {
       mapped.forEach((o) => {

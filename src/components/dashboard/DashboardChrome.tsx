@@ -35,6 +35,8 @@ type DesktopBarProps = {
   onMonthChange: (m: MonthKey) => void;
   unreadCount: number;
   onOpenNotifications: () => void;
+  title?: string;
+  hideSearchAndMonth?: boolean;
 };
 
 export function DashboardDesktopTopBar({
@@ -44,7 +46,24 @@ export function DashboardDesktopTopBar({
   onMonthChange,
   unreadCount,
   onOpenNotifications,
+  title,
+  hideSearchAndMonth,
 }: DesktopBarProps) {
+  const lightIconBtnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    border: "1px solid #2a2a2a",
+    background: "#1a1a1a",
+    color: "#aaaaaa",
+    cursor: "pointer",
+    flexShrink: 0,
+    boxShadow: "none",
+  };
+
   return (
     <div
       style={{
@@ -52,52 +71,60 @@ export function DashboardDesktopTopBar({
         alignItems: "center",
         gap: "16px",
         height: "100%",
-        padding: "0 clamp(16px, 2vw, 24px)",
+        padding: "0 20px",
         fontFamily: FONT,
       }}
     >
-      <div style={{ position: "relative", width: "50%", maxWidth: "420px", flexShrink: 0 }}>
-        <Search
-          size={18}
-          style={{
-            position: "absolute",
-            left: "14px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: "#666",
-            pointerEvents: "none",
-          }}
-        />
-        <input
-          type="search"
-          inputMode="search"
-          placeholder="Search order ID…"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          style={{
-            width: "100%",
-            height: "44px",
-            padding: "0 16px 0 42px",
-            borderRadius: "12px",
-            border: "1px solid #222",
-            background: "#1a1a1a",
-            color: "#fff",
-            fontSize: "16px",
-            fontFamily: FONT,
-            outline: "none",
-          }}
-        />
-      </div>
+      {title && (
+        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+          {title}
+        </h1>
+      )}
 
       <div style={{ flex: 1 }} />
 
-      <MonthStepper month={month} onMonthChange={onMonthChange} compact={false} />
+      {!hideSearchAndMonth && (
+        <div style={{ position: "relative", width: "280px", flexShrink: 0 }}>
+          <Search
+            size={18}
+            style={{
+              position: "absolute",
+              left: "14px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#555555",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="search"
+            inputMode="search"
+            placeholder="Search order ID…"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{
+              width: "100%",
+              height: "44px",
+              padding: "0 16px 0 42px",
+              borderRadius: "12px",
+              border: "1px solid #2a2a2a",
+              background: "#1a1a1a",
+              color: "#ffffff",
+              fontSize: "16px",
+              fontFamily: FONT,
+              outline: "none",
+              boxShadow: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+      )}
 
       <button
         type="button"
         onClick={onOpenNotifications}
         aria-label="Notifications"
-        style={{ ...iconBtnStyle, position: "relative", background: "#1a1a1a" }}
+        style={{ ...lightIconBtnStyle, position: "relative" }}
       >
         <Bell size={20} />
         {unreadCount > 0 ? (
@@ -110,8 +137,8 @@ export function DashboardDesktopTopBar({
               height: "18px",
               padding: "0 5px",
               borderRadius: "999px",
-              background: "#f5e32d",
-              color: "#000",
+              background: "#F5A623",
+              color: "#ffffff",
               fontSize: "11px",
               fontWeight: 800,
               display: "flex",
@@ -134,6 +161,7 @@ type MobileHeaderProps = {
   onMonthChange: (m: MonthKey) => void;
   unreadCount: number;
   newCount: number;
+  title?: string;
 };
 
 export function DashboardMobileHeader({
@@ -143,6 +171,7 @@ export function DashboardMobileHeader({
   onMonthChange,
   unreadCount,
   newCount,
+  title = "Orders",
 }: MobileHeaderProps) {
   return (
     <header
@@ -165,7 +194,7 @@ export function DashboardMobileHeader({
             letterSpacing: "-0.02em",
           }}
         >
-          Orders
+          {title}
         </h1>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -550,9 +579,10 @@ function ActionChip({
   );
 }
 
-export function DashboardFloatingCard({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
+export function DashboardFloatingCard({ children, style, className }: { children: ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
     <div
+      className={className}
       style={{
         borderRadius: "20px",
         border: "1px solid #222",

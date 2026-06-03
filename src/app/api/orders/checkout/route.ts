@@ -9,6 +9,7 @@ import {
   slotStartIsoFor,
 } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 
 type LineInput = { menuItemId: string; quantity: number };
 
@@ -88,13 +89,32 @@ export async function POST(request: Request) {
 
     const supabase = createServerSupabase();
     const ids = [...qtyById.keys()];
-    const { data: menuRows, error: menuErr } = await supabase.from("menu_items").select("id, price").in("id", ids);
-    if (menuErr || !menuRows?.length) {
-      console.error("[checkout] menu_items", menuErr);
-      return NextResponse.json({ error: "Could not load menu prices." }, { status: 500 });
+    
+    // Resolve prices from local static mobileMenuData.ts first
+    const allDishes = Object.values(MENU_BY_CATEGORY).flat();
+    const allVariants = allDishes.flatMap((d) => d.variants || []);
+    const priceById = new Map<string, number>();
+    
+    for (const id of ids) {
+      const variant = allVariants.find((v) => v.id === id);
+      if (variant) {
+        priceById.set(id, variant.price);
+      }
     }
 
-    const priceById = new Map(menuRows.map((r) => [r.id as string, Number(r.price)]));
+    // Fallback: If any variant ID was not found locally, query Supabase
+    if (priceById.size !== ids.length) {
+      const { data: menuRows } = await supabase.from("menu_items").select("id, price").in("id", ids);
+      if (menuRows) {
+        for (const r of menuRows) {
+          priceById.set(r.id as string, Number(r.price));
+        }
+      }
+    }
+
+    if (priceById.size !== ids.length) {
+      return NextResponse.json({ error: "Could not load menu prices." }, { status: 500 });
+    }
 
     let itemTotal = 0;
     const resolved: { menuItemId: string; quantity: number; unitPrice: number }[] = [];
@@ -157,11 +177,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not save line items." }, { status: 500 });
     }
 
+    const requestUrl = new URL(request.url);
+    const reqHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || requestUrl.host;
+    const reqProto = request.headers.get("x-forwarded-proto") || requestUrl.protocol.replace(":", "") || "http";
+    const origin = `${reqProto}://${reqHost}`;
+
     const { short_url, id: paymentLinkId } = await createPaymentLink(
       grandTotal,
       orderId,
       customerName,
-      phone.replace(/\s/g, "")
+      phone.replace(/\s/g, ""),
+      origin
     );
 
     if (paymentLinkId) {

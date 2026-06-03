@@ -184,30 +184,61 @@ export function DashboardMoreSheet({
             <p style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "#fff" }}>More</p>
           </div>
           {[
-            { label: "Get Help", action: onClose },
-            { label: "Settings", action: onClose },
-          ].map(({ label, action }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={action}
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "16px 20px",
-                border: "none",
-                borderTop: "1px solid #222",
-                background: "transparent",
-                color: "#fff",
-                fontSize: "16px",
-                fontWeight: 600,
-                fontFamily: FONT,
-                textAlign: "left",
-                minHeight: "52px",
-              }}
-            >
-              {label}
-            </button>
+            { label: "Get Help", href: "#", action: onClose },
+            { label: "Settings", href: "#", action: onClose },
+          ].map(({ label, href, action }) => (
+            href ? (
+              <Link
+                key={label}
+                href={href}
+                onClick={() => {
+                  if (action) action();
+                  onClose();
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "none",
+                  borderTop: "1px solid #222",
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  fontFamily: FONT,
+                  textDecoration: "none",
+                  boxSizing: "border-box",
+                  minHeight: "52px",
+                }}
+              >
+                {label}
+              </Link>
+            ) : (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (action) action();
+                  onClose();
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "none",
+                  borderTop: "1px solid #222",
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  fontFamily: FONT,
+                  textAlign: "left",
+                  minHeight: "52px",
+                }}
+              >
+                {label}
+              </button>
+            )
           ))}
           <button
             type="button"

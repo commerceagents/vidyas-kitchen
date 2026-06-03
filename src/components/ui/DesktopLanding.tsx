@@ -90,12 +90,20 @@ export function DesktopLanding() {
   const [isHovered, setIsHovered] = useState(false);
   const [chickenLoaded, setChickenLoaded] = useState(false);
   const [muttonLoaded, setMuttonLoaded] = useState(false);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
-    const checkScreen = () => setIsLargeScreen(window.innerWidth > 1024);
-    checkScreen();
-    window.addEventListener('resize', checkScreen);
-    return () => window.removeEventListener('resize', checkScreen);
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth > 1024);
+      if (window.innerHeight < 800) {
+        setScale(window.innerHeight / 800);
+      } else {
+        setScale(1);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   if (!isLargeScreen) return null;
@@ -111,6 +119,8 @@ export function DesktopLanding() {
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
+      touchAction: 'none',
+      overscrollBehavior: 'none',
       color: 'white',
       fontFamily: 'var(--font-jetbrains-mono), monospace'
     }}>
@@ -125,7 +135,8 @@ export function DesktopLanding() {
         width: '45vw', 
         height: '45vw', 
         transform: 'translateY(-50%)', 
-        zIndex: 4 
+        zIndex: 4,
+        pointerEvents: 'none'
       }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
@@ -168,6 +179,7 @@ export function DesktopLanding() {
               fill
               style={{ objectFit: 'cover' }}
               onLoad={() => setChickenLoaded(true)}
+              draggable={false}
             />
           </motion.div>
         </motion.div>
@@ -213,7 +225,8 @@ export function DesktopLanding() {
         width: '45vw', 
         height: '45vw', 
         transform: 'translateY(-50%)', 
-        zIndex: 4 
+        zIndex: 4,
+        pointerEvents: 'none'
       }}>
         {/* Outer Motion Div for Slide-in Performance (Safari Optimized) */}
         <motion.div
@@ -256,6 +269,7 @@ export function DesktopLanding() {
               fill
               style={{ objectFit: 'cover' }}
               onLoad={() => setMuttonLoaded(true)}
+              draggable={false}
             />
           </motion.div>
         </motion.div>
@@ -341,15 +355,28 @@ export function DesktopLanding() {
         }}
       />
 
-      {/* Main REFINED Card - Glassmorphism Style */}
+      <div 
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 60,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          width: '100%',
+          maxWidth: '480px'
+        }}
+      >
+        {/* Main REFINED Card - Glassmorphism Style */}
       <motion.div
-        initial={{ scale: 0.8, filter: 'blur(20px)', opacity: 0, y: 80 }}
-        animate={{ scale: 1, filter: 'blur(0px)', opacity: 1, y: 60 }}
+        initial={{ scale: 0.8, filter: 'blur(20px)', opacity: 0, y: 30 }}
+        animate={{ scale: 1, filter: 'blur(0px)', opacity: 1, y: 15 }}
         transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '440px',
+          width: '480px',
           padding: '24px 40px',
           background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)', // Obsidian Matte
           backdropFilter: 'blur(60px)', 
@@ -365,11 +392,10 @@ export function DesktopLanding() {
             0 0 0 1px rgba(255,255,255,0.02) inset,
             0 0 80px rgba(189,35,32,0.12)
           `, // DEEP RED UNDER-GLOW
-          maxHeight: '85vh',
-          overflowY: 'auto',
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none',
-          willChange: 'transform, opacity, filter',
+          overflow: 'hidden',
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
           WebkitBackfaceVisibility: 'hidden',
           WebkitTransform: 'translate3d(0,0,0)'
         }}
@@ -487,6 +513,7 @@ export function DesktopLanding() {
             height={85} 
             style={{ borderRadius: '50%', objectFit: 'contain' }}
             priority
+            draggable={false}
           />
         </motion.div>
 
@@ -627,11 +654,11 @@ export function DesktopLanding() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
-              padding: '18px',
+              gap: '12px',
+              padding: '20px 24px',
               borderRadius: '16px',
               fontWeight: '900',
-              fontSize: '14px',
+              fontSize: '16px',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               textDecoration: 'none'
@@ -664,7 +691,7 @@ export function DesktopLanding() {
 
       {/* Subtle Footer */}
       <div style={{ 
-        marginTop: '100px', // Reduced from 140px for symmetry
+        marginTop: '64px', 
         zIndex: 60
       }}>
         <motion.div 
@@ -711,11 +738,13 @@ export function DesktopLanding() {
             textTransform: 'uppercase',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            whiteSpace: 'nowrap'
           }}>
             <span style={{ fontSize: '16px' }}>&copy;</span> 2026 VIDYA&apos;S KITCHEN. ALL RIGHTS RESERVED.
           </div>
         </motion.div>
+      </div>
       </div>
     </div>
   );

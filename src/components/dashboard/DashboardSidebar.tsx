@@ -5,14 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   ChevronsLeft,
   ChevronsRight,
   HelpCircle,
+  History,
   LayoutDashboard,
   LogOut,
   Settings,
   Sparkles,
   Tag,
+  TrendingUp,
 } from "lucide-react";
 
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
@@ -20,6 +23,7 @@ const AUTH_KEY = "vk_dash_authed";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/summary", label: "Revenue", icon: TrendingUp, exact: false },
   { href: "/dashboard/dishes", label: "Menu Deals", icon: Tag, exact: false },
   { href: "/dashboard/festivals", label: "Festival Promos", icon: Sparkles, exact: false },
 ] as const;
@@ -177,6 +181,7 @@ function SidebarCard({
 
       {/* Primary nav */}
       <nav
+        className="no-scrollbar"
         style={{
           flex: 1,
           overflowY: "auto",
@@ -362,7 +367,7 @@ export function DashboardMain({ children }: { children: ReactNode }) {
       style={{
         flex: 1,
         minWidth: 0,
-        minHeight: "100dvh",
+        height: "100dvh",
         fontFamily: FONT,
       }}
     >
@@ -386,7 +391,9 @@ export function DashboardMain({ children }: { children: ReactNode }) {
             flex: 1 !important;
             display: flex !important;
             flex-direction: column !important;
+            height: 100dvh !important;
             min-height: 0 !important;
+            background: #0d0d0d !important;
           }
           .vk-dash-main > * {
             flex: 1 !important;
