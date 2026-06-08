@@ -5,6 +5,9 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { verifyDashboardPin } from "@/app/actions/dashboard-auth";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { DashboardToastProvider } from "@/components/dashboard/DashboardToast";
+import { DashboardNavProgress } from "@/components/dashboard/DashboardNavProgress";
+import { DashboardDataProvider } from "@/hooks/DashboardDataContext";
 import { Lock } from "lucide-react";
 
 const AUTH_KEY = "vk_dash_authed";
@@ -456,7 +459,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         touchAction: "manipulation",
       }}
     >
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardNavProgress />
+      <DashboardDataProvider>
+        <DashboardToastProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </DashboardToastProvider>
+      </DashboardDataProvider>
     </div>
   );
 }

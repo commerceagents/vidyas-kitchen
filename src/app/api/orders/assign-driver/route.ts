@@ -1,14 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { sendText } from "@/lib/twilio-whatsapp";
 
-const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://vidyaskitchenhome.com";
-
-function toE164(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  return digits.startsWith("91") ? digits : `91${digits}`;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,20 +49,9 @@ export async function POST(req: NextRequest) {
       `Address: ${r.delivery_address || "—"}\n\n` +
       `Open the driver app to pick up & deliver:\n${driverUrl}`;
 
-    if (WA_PHONE_ID && WA_TOKEN) {
-      const to = toE164(driverPhone);
-      await fetch(`https://graph.facebook.com/v21.0/${WA_PHONE_ID}/messages`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to,
-          type: "text",
-          text: { body: text },
-        }),
-      });
-    }
+    const digits = driverPhone.replace(/\D/g, "");
+    const to = digits.startsWith("91") ? digits : `91${digits}`;
+    await sendText(to, text);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

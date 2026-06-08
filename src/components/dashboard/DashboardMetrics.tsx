@@ -21,11 +21,11 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
 
   const allCards = [
     { id: "new", label: "New", count: newCount, icon: Clock, color: "#F5A623", bg: "rgba(245, 166, 35, 0.08)" },
-    { id: "preparing", label: "Preparing Food", count: preparingCount, icon: ChefHat, color: "#ffffff", bg: "rgba(255, 255, 255, 0.08)" },
-    { id: "awaiting", label: "Ready", count: awaitingCount, icon: CheckCircle2, color: "#28C76F", bg: "rgba(40, 199, 111, 0.08)" },
-    { id: "dispatched", label: "Dispatch", count: dispatchedCount, icon: Truck, color: "#FF9F43", bg: "rgba(255, 159, 67, 0.08)" },
-    { id: "completed", label: "Complete", count: completedCount, icon: CheckSquare, color: "#00CFDD", bg: "rgba(0, 207, 221, 0.08)" },
-    { id: "cancelled", label: "Cancelled", count: cancelledCount, icon: XCircle, color: "#EA5455", bg: "rgba(234, 84, 85, 0.08)" },
+    { id: "preparing", label: "Preparing Food", count: preparingCount, icon: ChefHat, color: "#A78BFA", bg: "rgba(167, 139, 250, 0.08)" },
+    { id: "awaiting", label: "Ready", count: awaitingCount, icon: CheckCircle2, color: "#34D399", bg: "rgba(52, 211, 153, 0.08)" },
+    { id: "dispatched", label: "Dispatch", count: dispatchedCount, icon: Truck, color: "#FB923C", bg: "rgba(251, 146, 60, 0.08)" },
+    { id: "completed", label: "Complete", count: completedCount, icon: CheckSquare, color: "#38BDF8", bg: "rgba(56, 189, 248, 0.08)" },
+    { id: "cancelled", label: "Cancelled", count: cancelledCount, icon: XCircle, color: "#F87171", bg: "rgba(248, 113, 113, 0.08)" },
   ];
 
   const cards = allowedTabs
@@ -52,7 +52,7 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
           display: "flex",
           flexDirection: "row",
           flexWrap: "nowrap",
-          gap: "12px",
+          gap: "clamp(10px, 1.2vw, 16px)",
           width: "100%",
           fontFamily: "var(--font-outfit), system-ui, sans-serif",
         }}
@@ -70,11 +70,11 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
               style={{
                 flex: "1 1 0px",
                 background: "#1a1a1a",
-                borderRadius: "16px",
-                padding: "12px 14px",
+                borderRadius: "clamp(12px, 1.2vw, 16px)",
+                padding: "clamp(12px, 1.5vh, 18px) clamp(12px, 1.2vw, 18px)",
                 display: "flex",
                 alignItems: "center",
-                gap: "10px",
+                gap: "clamp(8px, 0.8vw, 12px)",
                 boxShadow: active
                   ? `0 6px 20px rgba(0, 0, 0, 0.3)`
                   : "0 2px 8px rgba(0,0,0,0.2)",
@@ -89,9 +89,9 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
             >
               <div
                 style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "8px",
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "10px",
                   background: card.bg,
                   display: "flex",
                   alignItems: "center",
@@ -100,10 +100,10 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
                   flexShrink: 0,
                 }}
               >
-                <Icon size={18} />
+                <Icon size={20} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "#ffffff", lineHeight: 1.1 }}>
+                <h3 style={{ margin: 0, fontSize: "clamp(16px, 1.5vw, 20px)", fontWeight: 800, color: "#ffffff", lineHeight: 1.1 }}>
                   {card.count}
                 </h3>
                 <p

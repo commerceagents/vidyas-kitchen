@@ -321,7 +321,7 @@ function FloatingShell({
     <div
       style={{
         height: "100%",
-        borderRadius: "20px",
+        borderRadius: "clamp(14px, 1.5vw, 20px)",
         border: "1px solid #222",
         background: "#141414",
         boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03)",
@@ -341,8 +341,8 @@ export function DashboardSidebar({ collapsed, onToggleCollapse }: SidebarProps) 
       style={{
         display: "none",
         flexShrink: 0,
-        padding: "16px 0 16px 16px",
-        height: "100dvh",
+        padding: "clamp(12px, 1.5vh, 16px) 0 clamp(12px, 1.5vh, 16px) clamp(12px, 1.5vh, 16px)",
+        height: "100%",
         boxSizing: "border-box",
       }}
     >
@@ -367,7 +367,7 @@ export function DashboardMain({ children }: { children: ReactNode }) {
       style={{
         flex: 1,
         minWidth: 0,
-        height: "100dvh",
+        height: "100%",
         fontFamily: FONT,
       }}
     >
@@ -387,13 +387,14 @@ export function DashboardMain({ children }: { children: ReactNode }) {
         }
         @media (min-width: 1024px) {
           .vk-dash-main {
-            padding: 16px 16px 16px 0 !important;
+            padding: clamp(12px, 1.5vh, 16px) clamp(12px, 1.5vh, 16px) clamp(12px, 1.5vh, 16px) 0 !important;
             flex: 1 !important;
             display: flex !important;
             flex-direction: column !important;
-            height: 100dvh !important;
+            height: 100% !important;
             min-height: 0 !important;
             background: #0d0d0d !important;
+            overflow: hidden !important;
           }
           .vk-dash-main > * {
             flex: 1 !important;

@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { currentMonthKey, type MonthKey } from "@/lib/dashboard/orders";
-import { useDashboardOrders } from "@/hooks/useDashboardOrders";
+import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import {
@@ -15,8 +14,6 @@ import {
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
 
 export default function LiveOrdersPage() {
-  const [month, setMonth] = useState<MonthKey>(currentMonthKey);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
@@ -33,7 +30,11 @@ export default function LiveOrdersPage() {
     dismissNotification,
     refresh,
     newCount,
-  } = useDashboardOrders(month, searchQuery);
+    month,
+    setMonth,
+    searchQuery,
+    setSearchQuery,
+  } = useDashboardData();
 
   const handleAccept = useCallback(
     async (orderId: string) => {
@@ -108,7 +109,7 @@ export default function LiveOrdersPage() {
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "16px",
+          gap: "clamp(10px, 1.2vh, 16px)",
         }}
       >
         <DashboardFloatingCard style={{ flex: "none", height: "76px" }}>

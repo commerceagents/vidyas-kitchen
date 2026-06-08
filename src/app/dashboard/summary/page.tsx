@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { currentMonthKey, type MonthKey } from "@/lib/dashboard/orders";
-import { useDashboardOrders } from "@/hooks/useDashboardOrders";
+import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import {
   DashboardDesktopTopBar,
@@ -14,8 +13,6 @@ import {
 import { TrendingUp, DollarSign, ShoppingBag, PieChart, Calendar } from "lucide-react";
 
 export default function DaySummaryPage() {
-  const [month, setMonth] = useState<MonthKey>(currentMonthKey);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -27,9 +24,12 @@ export default function DaySummaryPage() {
     soundMuted,
     setSoundMuted,
     markAllRead,
-    refresh,
     newCount,
-  } = useDashboardOrders(month, searchQuery);
+    month,
+    setMonth,
+    searchQuery,
+    setSearchQuery,
+  } = useDashboardData();
 
   // Get today's local date string (YYYY-MM-DD)
   const todayStr = useMemo(() => {
@@ -112,13 +112,9 @@ export default function DaySummaryPage() {
       {/* ── Mobile Layout ── */}
       <div className="vk-dash-home-mobile" style={{ display: "none", flexDirection: "column", height: "100%", minHeight: "100dvh", background: "#0d0d0d" }}>
         <DashboardMobileHeader
-          month={month}
-          onMonthChange={setMonth}
-          unreadCount={unreadCount}
           newCount={newCount}
-          onOpenSearch={() => setSearchOpen(true)}
-          onOpenNotifications={() => setNotifOpen(true)}
-          title="Day Summary"
+          soundMuted={soundMuted}
+          onToggleSound={() => setSoundMuted(!soundMuted)}
         />
         <div style={{ padding: "16px", overflowY: "auto", flex: 1 }}>
           <div style={{ background: "#141414", borderRadius: "20px", padding: "24px", border: "1px solid #222" }}>
@@ -134,15 +130,15 @@ export default function DaySummaryPage() {
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "20px",
+          gap: "clamp(10px, 1.2vh, 16px)",
           background: "#0d0d0d",
-          padding: "24px",
           boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {/* Header box */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#141414", borderRadius: "20px", padding: "16px 24px", border: "1px solid #222222" }}>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#141414", borderRadius: "clamp(14px, 1.5vw, 20px)", padding: "clamp(12px, 1.5vh, 16px) clamp(16px, 1.5vw, 24px)", border: "1px solid #222222", flex: "0 0 auto" }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(20px, 2vw, 28px)", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
             Day Summary
           </h1>
           <DashboardDesktopTopBar
@@ -164,8 +160,8 @@ export default function DaySummaryPage() {
             display: "flex",
             flexDirection: "column",
             background: "#141414",
-            borderRadius: "20px",
-            padding: "24px",
+            borderRadius: "clamp(14px, 1.5vw, 20px)",
+            padding: "clamp(14px, 1.5vh, 24px)",
             border: "1px solid #222222",
             overflowY: "auto",
           }}

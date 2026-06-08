@@ -4,6 +4,7 @@ export type DashboardOrderItem = {
   quantity: number;
   name: string;
   unit_price?: number;
+  image_url?: string | null;
 };
 
 export type DashboardOrder = {
@@ -70,7 +71,7 @@ export function filterOrdersByIdQuery(orders: DashboardOrder[], query: string) {
 }
 
 export function shortOrderId(id: string) {
-  return id.slice(0, 8).toUpperCase();
+  return "#" + id.slice(0, 8).toUpperCase();
 }
 
 export function isNewPaidOrder(status: string) {

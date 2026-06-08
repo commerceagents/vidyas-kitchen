@@ -68,8 +68,8 @@ function GlowingBlobsBackground() {
           position: 'absolute',
           top: '20%',
           left: '25%',
-          width: '600px',
-          height: '600px',
+          width: 'clamp(350px, 40vw, 600px)',
+          height: 'clamp(350px, 40vw, 600px)',
           background: 'radial-gradient(circle, rgba(189, 35, 32, 0.4) 0%, transparent 70%)',
           filter: 'blur(100px)',
           borderRadius: '50%',
@@ -95,11 +95,7 @@ export function DesktopLanding() {
   useEffect(() => {
     const handleResize = () => {
       setIsLargeScreen(window.innerWidth > 1024);
-      if (window.innerHeight < 800) {
-        setScale(window.innerHeight / 800);
-      } else {
-        setScale(1);
-      }
+      setScale(window.innerHeight < 750 ? window.innerHeight / 750 : 1);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -320,8 +316,8 @@ export function DesktopLanding() {
           position: 'absolute',
           top: '30%',
           left: '35%',
-          width: '550px',
-          height: '550px',
+          width: 'clamp(320px, 38vw, 550px)',
+          height: 'clamp(320px, 38vw, 550px)',
           background: 'radial-gradient(circle, rgba(189, 35, 32, 0.45) 0%, transparent 75%)',
           filter: 'blur(90px)',
           zIndex: 55,
@@ -343,8 +339,8 @@ export function DesktopLanding() {
           position: 'absolute',
           top: '20%',
           right: '30%',
-          width: '450px',
-          height: '450px',
+          width: 'clamp(280px, 32vw, 450px)',
+          height: 'clamp(280px, 32vw, 450px)',
           background: 'radial-gradient(circle, rgba(189, 35, 32, 0.35) 0%, transparent 75%)',
           filter: 'blur(110px)',
           zIndex: 56,
@@ -362,10 +358,10 @@ export function DesktopLanding() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 60,
-          transform: `scale(${scale})`,
+          transform: scale < 1 ? `scale(${scale})` : undefined,
           transformOrigin: 'center center',
           width: '100%',
-          maxWidth: '480px'
+          maxWidth: 'clamp(440px, 35vw, 480px)'
         }}
       >
         {/* Main REFINED Card - Glassmorphism Style */}
@@ -376,12 +372,12 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
-          width: '480px',
-          padding: '24px 40px',
-          background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)', // Obsidian Matte
+          width: 'clamp(440px, 35vw, 480px)',
+          padding: 'clamp(22px, 3vh, 24px) clamp(36px, 3vw, 40px)',
+          background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)',
           backdropFilter: 'blur(60px)', 
           WebkitBackdropFilter: 'blur(60px)',
-          borderRadius: '38px', 
+          borderRadius: 'clamp(34px, 3vw, 38px)', 
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -491,15 +487,15 @@ export function DesktopLanding() {
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
           style={{
-            width: '115px', // Enlarged
-            height: '115px',
-            minWidth: '115px',
-            minHeight: '115px',
+            width: 'clamp(100px, 14vh, 115px)',
+            height: 'clamp(100px, 14vh, 115px)',
+            minWidth: 'clamp(100px, 14vh, 115px)',
+            minHeight: 'clamp(100px, 14vh, 115px)',
             display: 'flex', // Restored
             alignItems: 'center', // Restored
             justifyContent: 'center', // Restored
-            marginTop: '-12px', // Pushed slightly higher
-            marginBottom: '4px', // Optimized spacing
+            marginTop: '-12px',
+            marginBottom: '4px',
             zIndex: 10,
             background: 'transparent', // Explicitly transparent
             borderRadius: '50%',
@@ -518,22 +514,22 @@ export function DesktopLanding() {
         </motion.div>
 
         {/* Header Section */}
-        <div style={{ marginBottom: '16px', zIndex: 10 }}>
+        <div style={{ marginBottom: 'clamp(14px, 2vh, 16px)', zIndex: 10 }}>
           <h2 style={{
-            fontSize: '28px',
+            fontSize: 'clamp(26px, 2.5vw, 28px)',
             fontWeight: '900',
             color: '#FFFFFF',
             letterSpacing: '-0.04em',
-            lineHeight: '1.4', // Increased line height for spacing
+            lineHeight: '1.4',
             textTransform: 'uppercase'
           }}>
             <span style={{ 
-              fontSize: '14px', 
-              letterSpacing: '2px', // Reduced letter spacing
+              fontSize: 'clamp(13px, 1vw, 14px)', 
+              letterSpacing: '2px',
               opacity: 0.4, 
               color: '#FFFFFF', 
               display: 'block', 
-              marginBottom: '2px' // Reduced from 8px
+              marginBottom: '2px'
             }}>Welcome to</span>
             <span style={{ color: '#BD2320' }}>Vidya&apos;s Kitchen</span>
           </h2>
@@ -542,9 +538,9 @@ export function DesktopLanding() {
         {/* Floating QR Section with Glass Effect */}
         <div style={{
           position: 'relative',
-          width: '180px',
-          height: '180px',
-          marginBottom: '16px',
+          width: 'clamp(165px, 22vh, 180px)',
+          height: 'clamp(165px, 22vh, 180px)',
+          marginBottom: 'clamp(14px, 2vh, 16px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -605,7 +601,7 @@ export function DesktopLanding() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.8, duration: 1 }}
           style={{
-            fontSize: '14px',
+            fontSize: 'clamp(13px, 1.1vw, 14px)',
             color: 'rgba(255, 255, 255, 0.6)',
             textAlign: 'center',
             maxWidth: '420px',
@@ -655,10 +651,10 @@ export function DesktopLanding() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              padding: '20px 24px',
-              borderRadius: '16px',
+              padding: 'clamp(18px, 2.5vh, 20px) clamp(22px, 2vw, 24px)',
+              borderRadius: 'clamp(14px, 1.2vw, 16px)',
               fontWeight: '900',
-              fontSize: '16px',
+              fontSize: 'clamp(15px, 1.2vw, 16px)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               textDecoration: 'none'
@@ -691,7 +687,7 @@ export function DesktopLanding() {
 
       {/* Subtle Footer */}
       <div style={{ 
-        marginTop: '64px', 
+        marginTop: 'clamp(48px, 7vh, 64px)', 
         zIndex: 60
       }}>
         <motion.div 
@@ -702,12 +698,12 @@ export function DesktopLanding() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '32px'
+            gap: 'clamp(28px, 4vh, 32px)'
           }}
         >
           <div style={{
             display: 'flex',
-            gap: '32px'
+            gap: 'clamp(28px, 2.5vw, 32px)'
           }}>
           {['Terms', 'Privacy', 'Refund'].map((item) => (
             <a

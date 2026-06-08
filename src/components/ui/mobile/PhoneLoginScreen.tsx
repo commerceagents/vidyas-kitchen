@@ -369,20 +369,29 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const clearRecaptcha = useCallback(() => {
     try {
       recaptchaVerifierRef.current?.clear();
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     recaptchaVerifierRef.current = null;
+    // Replace the entire DOM node so reCAPTCHA sees a fresh element
+    const old = document.getElementById("vk-recaptcha");
+    if (old && old.parentNode) {
+      const fresh = document.createElement("div");
+      fresh.id = "vk-recaptcha";
+      Object.assign(fresh.style, { position: "fixed", left: "0", bottom: "0", width: "1px", height: "1px", opacity: "0.01", pointerEvents: "none" });
+      old.parentNode.replaceChild(fresh, old);
+    }
   }, []);
 
   const getOrCreateRecaptcha = useCallback(() => {
     if (!auth) throw new Error("Firebase Auth not available");
-    // Always look for the element in the DOM to be safe
+
+    // Always start fresh
+    if (recaptchaVerifierRef.current) {
+      clearRecaptcha();
+    }
+
     const container = document.getElementById("vk-recaptcha");
     if (!container) throw new Error("reCAPTCHA container missing");
-    
-    if (recaptchaVerifierRef.current) return recaptchaVerifierRef.current;
-    
+
     recaptchaVerifierRef.current = new RecaptchaVerifier(auth, container, {
       size: "invisible",
       callback: () => {
@@ -486,6 +495,18 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         }
         setShowOtp(true);
         setTimeout(() => otpRefs.current[0]?.focus(), 350);
+      } else if (code === "auth/captcha-check-failed") {
+        console.warn("reCAPTCHA failed, retrying with fresh verifier...");
+        clearRecaptcha();
+        try {
+          await sendFirebaseOtp();
+          setShowOtp(true);
+          setTimeout(() => otpRefs.current[0]?.focus(), 350);
+        } catch (retryErr) {
+          console.error("Firebase Send Error (retry):", retryErr);
+          clearRecaptcha();
+          setSendError(firebaseErrorMessage(retryErr));
+        }
       } else {
         console.error("Firebase Send Error:", e);
         clearRecaptcha();

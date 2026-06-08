@@ -1,23 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { currentMonthKey, type MonthKey, type DashboardTab } from "@/lib/dashboard/orders";
-import { useDashboardOrders } from "@/hooks/useDashboardOrders";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { tabForOrder, type DashboardTab } from "@/lib/dashboard/orders";
+import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import {
   DashboardDesktopTopBar,
-  DashboardFloatingCard,
   DashboardMobileHeader,
   DashboardNotificationPanel,
   DashboardSearchOverlay,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
 import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
+import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 export default function DashboardHome() {
-  const [month, setMonth] = useState<MonthKey>(currentMonthKey);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
@@ -35,7 +33,11 @@ export default function DashboardHome() {
     dismissNotification,
     refresh,
     newCount,
-  } = useDashboardOrders(month, searchQuery);
+    month,
+    setMonth,
+    searchQuery,
+    setSearchQuery,
+  } = useDashboardData();
 
   const handleAccept = useCallback(
     async (orderId: string) => {
@@ -80,27 +82,38 @@ export default function DashboardHome() {
     markAllRead();
   };
 
+  const tabCounts = useMemo(() => {
+    const c: Record<DashboardTab, number> = { new: 0, preparing: 0, awaiting: 0, dispatched: 0, completed: 0, cancelled: 0 };
+    for (const o of orders) c[tabForOrder(o.status)]++;
+    return c;
+  }, [orders]);
+
   return (
     <>
       {/* ── Mobile Layout ── */}
-      <div className="vk-dash-home-mobile" style={{ display: "none", flexDirection: "column", height: "100%", minHeight: "100dvh", background: "#0d0d0d" }}>
+      <div className="vk-dash-home-mobile" style={{ display: "none", flexDirection: "column", height: "100dvh", minHeight: "100dvh", background: "#0d0d0d", overscrollBehavior: "none", overflow: "hidden" }}>
         <DashboardMobileHeader
-          month={month}
-          onMonthChange={setMonth}
-          unreadCount={unreadCount}
           newCount={newCount}
-          onOpenSearch={() => setSearchOpen(true)}
-          onOpenNotifications={openNotifications}
+          soundMuted={soundMuted}
+          onToggleSound={() => setSoundMuted(!soundMuted)}
         />
-        <DashboardOrderBoard
-          orders={orders}
-          loading={loading}
-          highlightOrderId={highlightOrderId}
-          onActionDone={() => void refresh()}
-          mobile
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <DashboardOrderBoard
+            orders={orders}
+            loading={loading}
+            highlightOrderId={highlightOrderId}
+            onActionDone={() => void refresh()}
+            mobile
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            hideTabs={true}
+            allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+          />
+        </div>
+        <DashboardMobileNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+          counts={tabCounts}
         />
       </div>
 
@@ -111,10 +124,10 @@ export default function DashboardHome() {
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "20px",
+          gap: "clamp(12px, 1.5vw, 20px)",
           background: "#0d0d0d",
-          padding: "24px",
           boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {/* Header / Top bar wrapper */}
@@ -123,11 +136,12 @@ export default function DashboardHome() {
           justifyContent: "space-between",
           alignItems: "center",
           background: "#141414",
-          borderRadius: "20px",
-          padding: "16px 24px",
+          borderRadius: "clamp(14px, 1.5vw, 20px)",
+          padding: "clamp(12px, 1.5vh, 16px) clamp(16px, 1.5vw, 24px)",
           border: "1px solid #222222",
+          flex: "0 0 auto",
         }}>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(16px, 1.5vw, 22px)", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
             Order Management
           </h1>
           <DashboardDesktopTopBar
@@ -141,20 +155,16 @@ export default function DashboardHome() {
           />
         </div>
 
-        <DashboardMetrics
-          orders={orders}
-          activeTab={activeTab}
-          onTabSelect={setActiveTab}
-          allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-        />
+        <div style={{ flex: "0 0 auto" }}>
+          <DashboardMetrics
+            orders={orders}
+            activeTab={activeTab}
+            onTabSelect={setActiveTab}
+            allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+          />
+        </div>
 
-        {/* Active Orders Section */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "20px", padding: "20px", border: "1px solid #222222" }}>
-          <div style={{ marginBottom: "4px", paddingLeft: "4px" }}>
-            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#ffffff", fontFamily: "var(--font-outfit)" }}>
-              Active Orders
-            </h2>
-          </div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "clamp(14px, 1.5vw, 20px)", padding: "clamp(14px, 1.5vh, 20px)", border: "1px solid #222222", overflow: "hidden" }}>
           <div style={{ flex: 1, minHeight: 0 }}>
             <DashboardOrderBoard
               orders={orders}

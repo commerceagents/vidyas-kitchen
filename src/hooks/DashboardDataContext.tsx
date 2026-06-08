@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   type DashboardOrder,
@@ -8,6 +8,7 @@ import {
   filterOrdersByMonth,
   isNewPaidOrder,
   type MonthKey,
+  currentMonthKey,
 } from "@/lib/dashboard/orders";
 import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
@@ -20,13 +21,34 @@ export type DashboardNotification = {
   order: DashboardOrder;
 };
 
+type DashboardDataValue = {
+  allOrders: DashboardOrder[];
+  loading: boolean;
+  notifications: DashboardNotification[];
+  unreadCount: number;
+  soundMuted: boolean;
+  setSoundMuted: (m: boolean) => void;
+  markAllRead: () => void;
+  markRead: (id: string) => void;
+  dismissNotification: (id: string) => void;
+  refresh: () => Promise<void>;
+  month: MonthKey;
+  setMonth: (m: MonthKey) => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  orders: DashboardOrder[];
+  allOrdersInMonth: DashboardOrder[];
+  newCount: number;
+};
+
+const DashboardDataCtx = createContext<DashboardDataValue | null>(null);
+
 function mapRow(row: Record<string, unknown>): DashboardOrder {
   const itemsRaw = (row.order_items as Record<string, unknown>[] | null) ?? [];
   const items = itemsRaw.map((it) => {
     const mi = it.menu_items as { name?: string; image_url?: string | null } | null;
     let imgUrl = mi?.image_url ?? null;
     if (imgUrl) {
-      // Normalize external URLs to local paths & fix .png -> .jpg
       const match = imgUrl.match(/\/menu-images\/(.+)$/);
       if (match) {
         imgUrl = `/menu-images/${match[1].replace(/\.png$/i, ".jpg")}`;
@@ -52,23 +74,23 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
   };
 }
 
-export function useDashboardOrders(month: MonthKey, searchQuery: string) {
-  const [orders, setOrders] = useState<DashboardOrder[]>([]);
+export function DashboardDataProvider({ children }: { children: ReactNode }) {
+  const [allOrders, setAllOrders] = useState<DashboardOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [soundMuted, setSoundMutedState] = useState(false);
+  const [month, setMonth] = useState<MonthKey>(currentMonthKey);
+  const [searchQuery, setSearchQuery] = useState("");
   const knownPaidRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from("orders")
-      .select(
-        `
+      .select(`
         id, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
         order_items ( quantity, unit_price, menu_items ( name, image_url ) )
-      `,
-      )
+      `)
       .order("created_at", { ascending: false })
       .limit(400);
 
@@ -79,7 +101,6 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
 
     const mapped = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
 
-    // Enrich with customer names from users table (matched by phone_number)
     const phones = [...new Set(mapped.map((o) => o.phone_number).filter(Boolean))] as string[];
     let nameByPhone: Record<string, string> = {};
     if (phones.length > 0) {
@@ -97,7 +118,7 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
       ...o,
       customer_name: nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
     }));
-    setOrders(enriched);
+    setAllOrders(enriched);
 
     if (!bootstrappedRef.current) {
       mapped.forEach((o) => {
@@ -114,32 +135,19 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
 
   useEffect(() => {
     const channel = supabase
-      .channel("vk-dashboard-orders")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => {
-          void load();
-        },
-      )
+      .channel("vk-dashboard-orders-shared")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        void load();
+      })
       .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    return () => { void supabase.removeChannel(channel); };
   }, [load]);
 
   const pushNotification = useCallback((order: DashboardOrder) => {
     setNotifications((prev) => {
       if (prev.some((n) => n.orderId === order.id && !n.read)) return prev;
       return [
-        {
-          id: `${order.id}-${Date.now()}`,
-          orderId: order.id,
-          read: false,
-          at: new Date().toISOString(),
-          order,
-        },
+        { id: `${order.id}-${Date.now()}`, orderId: order.id, read: false, at: new Date().toISOString(), order },
         ...prev,
       ].slice(0, 30);
     });
@@ -147,25 +155,17 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
 
   useEffect(() => {
     if (!bootstrappedRef.current) return;
-    for (const o of orders) {
+    for (const o of allOrders) {
       if (!isNewPaidOrder(o.status)) continue;
       if (knownPaidRef.current.has(o.id)) continue;
       knownPaidRef.current.add(o.id);
       pushNotification(o);
       if (!isDashboardSoundMuted()) playNewOrderAlert();
     }
-  }, [orders, pushNotification]);
+  }, [allOrders, pushNotification]);
 
-  const monthOrders = useMemo(
-    () => filterOrdersByMonth(orders, month),
-    [orders, month],
-  );
-
-  const visibleOrders = useMemo(
-    () => filterOrdersByIdQuery(monthOrders, searchQuery),
-    [monthOrders, searchQuery],
-  );
-
+  const monthOrders = useMemo(() => filterOrdersByMonth(allOrders, month), [allOrders, month]);
+  const visibleOrders = useMemo(() => filterOrdersByIdQuery(monthOrders, searchQuery), [monthOrders, searchQuery]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = useCallback(() => {
@@ -173,9 +173,7 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
   }, []);
 
   const markRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
@@ -193,14 +191,11 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
     setLoading(false);
   }, [load]);
 
-  const newCount = visibleOrders.filter(
-    (o) => normalizeOrderStatus(o.status) === OrderStatus.PAID,
-  ).length;
+  const newCount = visibleOrders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.PAID).length;
 
-  return {
+  const value = useMemo<DashboardDataValue>(() => ({
+    allOrders,
     loading,
-    orders: visibleOrders,
-    allOrdersInMonth: monthOrders,
     notifications,
     unreadCount,
     soundMuted,
@@ -209,6 +204,20 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
     markRead,
     dismissNotification,
     refresh,
+    month,
+    setMonth,
+    searchQuery,
+    setSearchQuery,
+    orders: visibleOrders,
+    allOrdersInMonth: monthOrders,
     newCount,
-  };
+  }), [allOrders, loading, notifications, unreadCount, soundMuted, setSoundMuted, markAllRead, markRead, dismissNotification, refresh, month, searchQuery, visibleOrders, monthOrders, newCount]);
+
+  return <DashboardDataCtx.Provider value={value}>{children}</DashboardDataCtx.Provider>;
+}
+
+export function useDashboardData() {
+  const ctx = useContext(DashboardDataCtx);
+  if (!ctx) throw new Error("useDashboardData must be used inside DashboardDataProvider");
+  return ctx;
 }

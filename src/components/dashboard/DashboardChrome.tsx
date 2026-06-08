@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { Bell, ChevronLeft, ChevronRight, Search, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
 import {
   currentMonthKey,
   monthLabel,
@@ -9,7 +9,7 @@ import {
   shortOrderId,
   type MonthKey,
 } from "@/lib/dashboard/orders";
-import type { DashboardNotification } from "@/hooks/useDashboardOrders";
+import type { DashboardNotification } from "@/hooks/DashboardDataContext";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -136,7 +136,7 @@ export function DashboardDesktopTopBar({
               minWidth: "18px",
               height: "18px",
               padding: "0 5px",
-              borderRadius: "999px",
+              borderRadius: "6px",
               background: "#F5A623",
               color: "#ffffff",
               fontSize: "11px",
@@ -155,108 +155,68 @@ export function DashboardDesktopTopBar({
 }
 
 type MobileHeaderProps = {
-  onOpenSearch: () => void;
-  onOpenNotifications: () => void;
-  month: MonthKey;
-  onMonthChange: (m: MonthKey) => void;
-  unreadCount: number;
   newCount: number;
-  title?: string;
+  soundMuted: boolean;
+  onToggleSound: () => void;
 };
 
 export function DashboardMobileHeader({
-  onOpenSearch,
-  onOpenNotifications,
-  month,
-  onMonthChange,
-  unreadCount,
   newCount,
-  title = "Orders",
+  soundMuted,
+  onToggleSound,
 }: MobileHeaderProps) {
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      localStorage.removeItem("vk_dash_authed");
+      window.location.reload();
+    }
+  };
+
   return (
     <header
       className="vk-dash-mobile-header"
       style={{
         display: "none",
         flexShrink: 0,
-        padding: "max(12px, env(safe-area-inset-top, 0px)) 16px 12px",
+        padding: "max(16px, env(safe-area-inset-top, 0px)) 16px 12px",
         fontFamily: FONT,
       }}
     >
-      <div style={{ marginBottom: "12px" }}>
-        <p style={{ margin: 0, fontSize: "13px", fontWeight: 600, color: "#666" }}>Admin</p>
-        <h1
-          style={{
-            margin: "2px 0 0",
-            fontSize: "26px",
-            fontWeight: 800,
-            color: "#fff",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {title}
-        </h1>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <button type="button" onClick={() => onMonthChange(shiftMonth(month, -1))} aria-label="Previous month" style={iconBtnStyle}>
-          <ChevronLeft size={20} />
-        </button>
-        <div
-          style={{
-            flex: 1,
-            height: "44px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: "12px",
-            border: "1px solid #222",
-            background: "#141414",
-            color: "#fff",
-            fontSize: "15px",
-            fontWeight: 700,
-          }}
-        >
-          {monthLabel(month, true)}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "36px", height: "36px", borderRadius: "50%", overflow: "hidden", border: "1px solid #222", background: "#161616", flexShrink: 0 }}>
+            <img src="/vk_logo_full.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>Admin</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => onMonthChange(shiftMonth(month, 1))}
-          aria-label="Next month"
-          style={iconBtnStyle}
-          disabled={isFutureMonth(month)}
-        >
-          <ChevronRight size={20} />
-        </button>
-        <button type="button" onClick={onOpenSearch} aria-label="Search orders" style={iconBtnStyle}>
-          <Search size={20} />
-        </button>
-        <button type="button" onClick={onOpenNotifications} aria-label="Notifications" style={{ ...iconBtnStyle, position: "relative" }}>
-          <Bell size={20} />
-          {unreadCount > 0 ? (
-            <span
-              style={{
-                position: "absolute",
-                top: "4px",
-                right: "4px",
-                width: "10px",
-                height: "10px",
-                borderRadius: "999px",
-                background: "#f5e32d",
-                border: "2px solid #0d0d0d",
-              }}
-            />
-          ) : null}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            type="button"
+            onClick={onToggleSound}
+            aria-label={soundMuted ? "Unmute" : "Mute"}
+            style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px" }}
+          >
+            {soundMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Logout"
+            style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", color: "#ef4444" }}
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
       </div>
-      {newCount > 0 ? (
-        <p style={{ margin: "10px 0 0", fontSize: "13px", fontWeight: 600, color: "#f5e32d" }}>
-          {newCount} new {newCount === 1 ? "order needs" : "orders need"} your action
-        </p>
-      ) : null}
       <style jsx global>{`
         @media (max-width: 1023px) {
           .vk-dash-mobile-header {
             display: block !important;
+          }
+        }
+        @media (max-width: 374px) {
+          .vk-dash-mobile-header h1 {
+            font-size: 18px !important;
           }
         }
       `}</style>
@@ -584,7 +544,7 @@ export function DashboardFloatingCard({ children, style, className }: { children
     <div
       className={className}
       style={{
-        borderRadius: "20px",
+        borderRadius: "clamp(14px, 1.5vw, 20px)",
         border: "1px solid #222",
         background: "#141414",
         boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03)",

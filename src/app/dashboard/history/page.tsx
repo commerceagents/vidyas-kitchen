@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { currentMonthKey, type MonthKey } from "@/lib/dashboard/orders";
-import { useDashboardOrders } from "@/hooks/useDashboardOrders";
+import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import {
@@ -15,8 +14,6 @@ import {
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
 
 export default function OrderHistoryPage() {
-  const [month, setMonth] = useState<MonthKey>(currentMonthKey);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
@@ -33,7 +30,11 @@ export default function OrderHistoryPage() {
     dismissNotification,
     refresh,
     newCount,
-  } = useDashboardOrders(month, searchQuery);
+    month,
+    setMonth,
+    searchQuery,
+    setSearchQuery,
+  } = useDashboardData();
 
   const handleAccept = useCallback(
     async (orderId: string) => {
@@ -111,10 +112,10 @@ export default function OrderHistoryPage() {
           display: "none",
           flexDirection: "column",
           height: "100%",
-          gap: "24px",
+          gap: "clamp(10px, 1.2vh, 16px)",
           background: "#F4F6F8",
-          padding: "24px",
           boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {/* Header / Top bar wrapper */}
@@ -139,7 +140,7 @@ export default function OrderHistoryPage() {
         </div>
 
         {/* Active Orders Section */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "20px", padding: "20px", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 18px rgba(0, 0, 0, 0.01)" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#ffffff", borderRadius: "clamp(14px, 1.5vw, 20px)", padding: "clamp(14px, 1.5vh, 20px)", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 18px rgba(0, 0, 0, 0.01)", overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingLeft: "20px" }}>
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "#111111", fontFamily: "var(--font-outfit)" }}>
               History Log
