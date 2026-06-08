@@ -2,14 +2,21 @@
 
 import { usePathname } from "next/navigation";
 import { SmoothScroll } from "@/components/effects/SmoothScroll";
+import { PwaInstallBanner } from "@/components/ui/PwaInstallBanner";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard");
+  const isDriver = pathname?.startsWith("/driver");
 
-  if (isDashboard) {
+  if (isDashboard || isDriver) {
     return <>{children}</>;
   }
 
-  return <SmoothScroll>{children}</SmoothScroll>;
+  return (
+    <SmoothScroll>
+      <PwaInstallBanner />
+      {children}
+    </SmoothScroll>
+  );
 }

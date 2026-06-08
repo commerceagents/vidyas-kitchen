@@ -88,6 +88,16 @@ export default function DashboardHome() {
     return c;
   }, [orders]);
 
+  const mobileStats = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayOrders = orders.filter((o) => {
+      if (!o.created_at) return false;
+      return new Date(o.created_at).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) === todayStr;
+    });
+    const revenue = todayOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+    return { todayCount: todayOrders.length, revenue, newOrders: tabCounts.new };
+  }, [orders, tabCounts]);
+
   return (
     <>
       {/* ── Mobile Layout ── */}
@@ -97,6 +107,19 @@ export default function DashboardHome() {
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
         />
+        {/* Quick Stats */}
+        <div style={{ display: "flex", gap: "8px", padding: "8px 16px 0", flexShrink: 0 }}>
+          {[
+            { label: "Today", value: String(mobileStats.todayCount), color: "#f5e32d" },
+            { label: "Revenue", value: `₹${mobileStats.revenue.toLocaleString("en-IN")}`, color: "#34D399" },
+            { label: "New", value: String(mobileStats.newOrders), color: "#F5A623" },
+          ].map((s) => (
+            <div key={s.label} style={{ flex: 1, background: "#1a1a1a", borderRadius: "12px", padding: "10px 12px", border: "1px solid #2a2a2a" }}>
+              <div style={{ fontSize: "10px", color: "#666", fontWeight: 700, letterSpacing: "0.04em", marginBottom: "2px" }}>{s.label}</div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: s.color, fontFamily: "var(--font-outfit)" }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
           <DashboardOrderBoard
             orders={orders}

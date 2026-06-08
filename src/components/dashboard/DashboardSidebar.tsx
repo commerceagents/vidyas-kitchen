@@ -30,7 +30,7 @@ const NAV = [
 
 const FOOTER = [
   { label: "Get Help", icon: HelpCircle, href: "#", action: "link" as const },
-  { label: "Settings", icon: Settings, href: "#", action: "link" as const },
+  { label: "Settings", icon: Settings, href: "/dashboard/settings", action: "link" as const },
   { label: "Log out", icon: LogOut, href: "#", action: "logout" as const },
 ] as const;
 

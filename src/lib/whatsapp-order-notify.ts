@@ -2,6 +2,15 @@ import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { OrderStatus } from "@/lib/order-status";
 import { sendText, sendButtons, sendCtaUrl } from "@/lib/twilio-whatsapp";
+import {
+  notifyOrderPaid,
+  notifyOrderAccepted,
+  notifyOrderPreparing,
+  notifyOrderOutForDelivery,
+  notifyOrderDelivered,
+  notifyOrderCancelled,
+  notifyOrderRejected,
+} from "@/lib/whatsapp-copy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** WhatsApp reply id: rate + star (1–5) + 32-char hex uuid (no dashes). */
@@ -18,7 +27,6 @@ export function decodeOrderRatingButtonId(id: string): { stars: number; orderId:
   return { stars: Number(m[1]), orderId };
 }
 
-/** Normalize phone to pure digits with country code */
 function toPhone(phoneRaw: string): string | null {
   const d = phoneRaw.replace(/\D/g, "");
   if (d.length >= 10) return d.startsWith("91") ? d : `91${d.slice(-10)}`;
@@ -40,74 +48,41 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
 
   const trackUrl = `${publicSiteOrigin()}/?track=${order.id}`;
   const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind);
+  const short = order.id.slice(0, 8).toUpperCase();
 
   switch (order.status) {
     case OrderStatus.PAID: {
-      const body =
-        `✅ *Order confirmed!* (#${order.id.slice(0, 8).toUpperCase()}…)\n\n` +
-        (slotLine ? `📅 *Slot:* ${slotLine}\n\n` : "") +
-        `We've received your payment. The kitchen will start soon.`;
-      await sendCtaUrl(to, body, trackUrl, "Track order");
+      const body = notifyOrderPaid(short, slotLine || undefined);
+      await sendCtaUrl(to, body, trackUrl, "Track Order");
       break;
     }
     case OrderStatus.CONFIRMED: {
-      const short = order.id.slice(0, 8).toUpperCase();
       const cancelUrl = `${publicSiteOrigin()}/?cancelOrder=${order.id}&phone=${encodeURIComponent(order.phone_number || "")}`;
-      const body =
-        `🎉 *Order accepted!* (#${short}…)\n\n` +
-        (slotLine ? `📅 *Slot:* ${slotLine}\n\n` : "") +
-        `Your order is confirmed. You can cancel up to 12 hours before your delivery slot.`;
+      const body = notifyOrderAccepted(short, slotLine || undefined);
       await sendCtaUrl(to, body, cancelUrl, "Cancel Order");
       break;
     }
     case OrderStatus.PREPARING: {
-      await sendButtons(
-        to,
-        "👩‍🍳 Your meal is being prepared! We'll notify you when it's out for delivery.",
-        [{ id: "track_order", title: "Track order" }],
-      );
+      await sendButtons(to, notifyOrderPreparing(), [{ id: "track_order", title: "Track Order" }]);
       break;
     }
     case OrderStatus.OUT_FOR_DELIVERY: {
-      await sendButtons(
-        to,
-        "🛵 Your driver has picked up your order! They're on the way to you.",
-        [{ id: "track_order", title: "Track order" }],
-      );
+      await sendButtons(to, notifyOrderOutForDelivery(), [{ id: "track_order", title: "Track Order" }]);
       break;
     }
     case OrderStatus.DELIVERED: {
-      await sendText(
-        to,
-        "🍽️ *Your order has been delivered!*\n\n" +
-        "How was everything? Rate your experience:\n\n" +
-        "1. ⭐⭐⭐⭐⭐ Excellent\n" +
-        "2. ⭐⭐⭐⭐ Great\n" +
-        "3. ⭐⭐⭐ Good\n" +
-        "4. ⭐⭐ Fair\n" +
-        "5. ⭐ Poor\n\n" +
-        "_Reply with a number to rate._",
-      );
+      const ratingMsg = notifyOrderDelivered();
+      // Store rating options for numbered reply resolution
+      await sendText(to, ratingMsg);
       break;
     }
     case OrderStatus.CANCELLED: {
-      const short = order.id.slice(0, 8).toUpperCase();
-      await sendText(
-        to,
-        `Your order *#${short}…* has been *cancelled* as you requested.\n\n` +
-        `If anything looks wrong or you were charged in error, reply here and we'll help.`,
-      );
+      await sendText(to, notifyOrderCancelled(short));
       break;
     }
     case OrderStatus.REJECTED: {
-      const short = order.id.slice(0, 8).toUpperCase();
       const amt = order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "your payment";
-      await sendText(
-        to,
-        `Sorry, your order *#${short}…* could not be accepted by the kitchen.\n\n` +
-        `A full refund of *${amt}* has been initiated — it should arrive within 5–7 working days.\n\n` +
-        `We apologise for the inconvenience. Reply here if you need help.`,
-      );
+      await sendText(to, notifyOrderRejected(short, amt));
       break;
     }
     default:
@@ -120,21 +95,19 @@ type OrderItemRow = {
   menu_items?: { name?: string | null } | null;
 };
 
-/**
- * Kitchen marked order READY — notify driver via WhatsApp with link to driver app.
- */
 export async function notifyWhatsAppDriverNewDeliveryReady(
   supabase: SupabaseClient,
   orderId: string,
+  driverPhone?: string,
 ): Promise<void> {
-  const driverRaw = process.env.DRIVER_WHATSAPP_PHONE;
+  const driverRaw = driverPhone || process.env.DRIVER_WHATSAPP_PHONE;
   if (!driverRaw?.trim()) {
-    console.warn("[whatsapp-order-notify] Skipped driver notify: set DRIVER_WHATSAPP_PHONE");
+    console.warn("[whatsapp-order-notify] Skipped driver notify: no driver phone");
     return;
   }
   const to = toPhone(driverRaw);
   if (!to) {
-    console.warn("[whatsapp-order-notify] Invalid DRIVER_WHATSAPP_PHONE");
+    console.warn("[whatsapp-order-notify] Invalid driver phone");
     return;
   }
 

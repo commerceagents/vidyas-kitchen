@@ -40,6 +40,26 @@ export default function Home() {
     const nameParam = params.get("name");
     if (phoneParam && !cancelOrder) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
+
+    // WhatsApp auto-login: verify JWT token
+    const waToken = params.get("wa_token");
+    if (waToken) {
+      fetch(`/api/auth/wa-login?token=${encodeURIComponent(waToken)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok && data.phone) {
+            setPrefilledPhone(data.phone);
+            if (data.name) setPrefilledName(data.name);
+            setShowSplash(false);
+            setInstantShellEnter(true);
+          }
+        })
+        .catch(() => {});
+      // Clean URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("wa_token");
+      window.history.replaceState({}, "", cleanUrl.toString());
+    }
   }, []);
 
   useEffect(() => {

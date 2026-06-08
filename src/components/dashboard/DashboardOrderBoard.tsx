@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { PackageOpen, MapPin, User, Clock, X, ShoppingBag, Phone } from "lucide-react";
+import { PackageOpen, MapPin, User, Clock, X, ShoppingBag, Phone, Truck } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { useToast } from "@/components/dashboard/DashboardToast";
+import { supabase } from "@/lib/supabase";
 import {
   shortOrderId,
   tabForOrder,
@@ -403,8 +404,24 @@ export function DashboardOrderBoard({
     onActionDone();
   };
 
-  const runCollected = async (orderId: string) => {
+  const [dispatchOrderId, setDispatchOrderId] = useState<string | null>(null);
+
+  const runCollected = (orderId: string) => {
+    setDispatchOrderId(orderId);
+  };
+
+  const confirmDispatch = async (orderId: string, driverPhone: string) => {
     setBusyId(orderId);
+    setDispatchOrderId(null);
+    try {
+      await fetch("/api/orders/assign-driver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, driverPhone }),
+      });
+    } catch (e) {
+      console.error("[dispatch] WhatsApp send failed", e);
+    }
     const r = await transitionOrderStatus(orderId, OrderStatus.OUT_FOR_DELIVERY);
     if (!r.ok) alert(r.error);
     setBusyId(null);
@@ -555,6 +572,15 @@ export function DashboardOrderBoard({
             onClose={() => setDetailOrder(null)}
           />
         )
+      )}
+
+      {/* Driver Picker Modal */}
+      {dispatchOrderId && (
+        <DriverPickerModal
+          orderId={dispatchOrderId}
+          onClose={() => setDispatchOrderId(null)}
+          onConfirm={(driverPhone) => void confirmDispatch(dispatchOrderId, driverPhone)}
+        />
       )}
     </div>
   );
@@ -742,6 +768,77 @@ function DishThumb({ src, size = 34 }: { src?: string | null; size?: number }) {
           <ShoppingBag size={Math.round(size * 0.4)} style={{ color: "#555" }} />
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Driver Picker Modal ──────────────────────────────────────────────────────
+function DriverPickerModal({ orderId, onClose, onConfirm }: { orderId: string; onClose: () => void; onConfirm: (phone: string) => void }) {
+  const [drivers, setDrivers] = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<string>("");
+
+  useEffect(() => {
+    supabase.from("drivers").select("id, name, phone").eq("is_active", true).order("name").then(({ data }: { data: { id: string; name: string; phone: string }[] | null }) => {
+      if (data) setDrivers(data);
+      setLoading(false);
+    });
+  }, []);
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#1a1a1a", borderRadius: "16px", border: "1px solid #2a2a2a", padding: "24px", width: "100%", maxWidth: "380px", fontFamily: FONT }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+          <Truck size={20} style={{ color: YELLOW }} />
+          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff" }}>Select Driver</h3>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", color: "#666", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+
+        {loading ? (
+          <p style={{ color: "#666", fontSize: "14px" }}>Loading drivers...</p>
+        ) : drivers.length === 0 ? (
+          <p style={{ color: "#666", fontSize: "14px" }}>No drivers found. Add drivers in Settings first.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+            {drivers.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setSelected(d.phone)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "12px",
+                  padding: "12px 14px", borderRadius: "12px",
+                  background: selected === d.phone ? `${YELLOW}15` : "#222",
+                  border: selected === d.phone ? `2px solid ${YELLOW}` : "1px solid #333",
+                  cursor: "pointer", textAlign: "left", fontFamily: FONT,
+                }}
+              >
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: selected === d.phone ? YELLOW : "#333", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Truck size={18} style={{ color: selected === d.phone ? "#111" : "#888" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff" }}>{d.name}</div>
+                  <div style={{ fontSize: "12px", color: "#888" }}>{d.phone}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          disabled={!selected}
+          onClick={() => onConfirm(selected)}
+          style={{
+            width: "100%", height: "44px", borderRadius: "12px", border: "none",
+            background: selected ? YELLOW : "#333", color: selected ? "#111" : "#666",
+            fontSize: "14px", fontWeight: 800, cursor: selected ? "pointer" : "not-allowed",
+            fontFamily: FONT, boxShadow: selected ? `0 4px 14px ${YELLOW}30` : "none",
+          }}
+        >
+          {selected ? "Dispatch & Notify Driver" : "Select a driver"}
+        </button>
+      </div>
     </div>
   );
 }
