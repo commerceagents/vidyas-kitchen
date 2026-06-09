@@ -228,7 +228,8 @@ export async function POST(req: Request) {
 
     // ── Resolved numbered reply mapping ─────────────────────────────────
     if (resolvedId) {
-      return await handleResolvedId(from, resolvedId, session, profileName);
+      const handled = await handleResolvedId(from, resolvedId, session, profileName);
+      if (handled) return handled;
     }
 
     // ── Global escape commands ──────────────────────────────────────────
@@ -302,7 +303,7 @@ export async function POST(req: Request) {
 
 // ─── State Handlers ────────────────────────────────────────────────────────
 
-async function handleResolvedId(from: string, id: string, session: { cart: CartItem[]; state: SessionState; delivery_date: string | null; delivery_slot_kind: string | null; delivery_address: string | null }, profileName: string) {
+async function handleResolvedId(from: string, id: string, session: { cart: CartItem[]; state: SessionState; delivery_date: string | null; delivery_slot_kind: string | null; delivery_address: string | null }, profileName: string): Promise<Response | null> {
   switch (id) {
     case "browse_menu":
       return await showCategoryBrowser(from);
@@ -360,9 +361,8 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
     case "hs_payments":
       return await showPaymentsSummary(from);
     default:
-      break;
+      return null;
   }
-  return ack();
 }
 
 async function handleIdle(from: string, text: string, session: { cart: CartItem[] }, profileName: string) {
@@ -662,12 +662,14 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 // ─── Shared Flows ──────────────────────────────────────────────────────────
 
 async function showCategoryBrowser(from: string) {
-  await updateSession(from, { state: "browsing_category" });
-  await storeOptions(from, [
-    { id: "cat_chicken", title: "Chicken" },
-    { id: "cat_mutton", title: "Mutton" },
-    { id: "cat_egg", title: "Egg" },
-  ]);
+  await updateSession(from, {
+    state: "browsing_category",
+    pending_options: [
+      { id: "cat_chicken", title: "Chicken" },
+      { id: "cat_mutton", title: "Mutton" },
+      { id: "cat_egg", title: "Egg" },
+    ],
+  });
   await sendText(from, buildCategoryMessage());
   return ack();
 }
@@ -693,7 +695,7 @@ async function showCategoryItems(from: string, cat: string) {
   ].join("\n");
 
   await storeOptions(from, itemOptions(items));
-  await updateSession(from, { state: "picking_item" });
+  await updateSession(from, { state: "picking_item", pending_options: itemOptions(items) });
   await sendText(from, msg);
   return ack();
 }
