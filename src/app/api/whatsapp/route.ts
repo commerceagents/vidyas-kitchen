@@ -60,18 +60,25 @@ function ack() {
 
 /** Numbered reply resolver - uses session for persistence across serverless instances */
 async function storeOptions(phone: string, opts: { id: string; title: string }[]) {
-  await updateSession(phone, { pending_options: opts });
+  try {
+    await updateSession(phone, { pending_options: opts });
+  } catch (e) {
+    console.error("[WA] storeOptions error (non-critical):", e);
+  }
 }
 
 async function resolveNumbered(phone: string, text: string): Promise<string | null> {
   const num = parseInt(text.trim(), 10);
   if (isNaN(num) || num < 1) return null;
   
-  const session = await getSession(phone);
-  const opts = session.pending_options;
-  if (!opts || num > opts.length) return null;
-  
-  return opts[num - 1].id;
+  try {
+    const session = await getSession(phone);
+    const opts = session.pending_options;
+    if (!opts || num > opts.length) return null;
+    return opts[num - 1].id;
+  } catch {
+    return null;
+  }
 }
 
 async function getMenu(): Promise<MenuItem[]> {
@@ -662,14 +669,20 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 // ─── Shared Flows ──────────────────────────────────────────────────────────
 
 async function showCategoryBrowser(from: string) {
-  await updateSession(from, {
-    state: "browsing_category",
-    pending_options: [
+  try {
+    await updateSession(from, { state: "browsing_category" });
+  } catch (e) {
+    console.error("[WA] showCategoryBrowser updateSession error:", e);
+  }
+  try {
+    await updateSession(from, { pending_options: [
       { id: "cat_chicken", title: "Chicken" },
       { id: "cat_mutton", title: "Mutton" },
       { id: "cat_egg", title: "Egg" },
-    ],
-  });
+    ] });
+  } catch (e) {
+    console.error("[WA] storeOptions error (non-critical):", e);
+  }
   await sendText(from, buildCategoryMessage());
   return ack();
 }
@@ -695,7 +708,7 @@ async function showCategoryItems(from: string, cat: string) {
   ].join("\n");
 
   await storeOptions(from, itemOptions(items));
-  await updateSession(from, { state: "picking_item", pending_options: itemOptions(items) });
+  await updateSession(from, { state: "picking_item" });
   await sendText(from, msg);
   return ack();
 }
