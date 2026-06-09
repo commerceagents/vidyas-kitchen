@@ -31,6 +31,7 @@ export type WhatsAppSession = {
   delivery_date: string | null;
   delivery_slot_kind: string | null;
   delivery_address: string | null;
+  pending_options: { id: string; title: string }[] | null;
   last_active: string;
 };
 
@@ -43,6 +44,7 @@ const DEFAULT_SESSION: Omit<WhatsAppSession, "phone"> = {
   delivery_date: null,
   delivery_slot_kind: null,
   delivery_address: null,
+  pending_options: null,
   last_active: new Date().toISOString(),
 };
 
@@ -64,6 +66,7 @@ export async function getSession(phone: string): Promise<WhatsAppSession> {
       delivery_date: data.delivery_date,
       delivery_slot_kind: data.delivery_slot_kind,
       delivery_address: data.delivery_address,
+      pending_options: (data.pending_options as { id: string; title: string }[]) || null,
       last_active: data.last_active,
     };
   }

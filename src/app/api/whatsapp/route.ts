@@ -58,17 +58,19 @@ function ack() {
   return new Response("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });
 }
 
-/** Numbered reply resolver */
-const recentOptions = new Map<string, { id: string; title: string }[]>();
-function storeOptions(phone: string, opts: { id: string; title: string }[]) {
-  recentOptions.set(phone, opts);
-  setTimeout(() => recentOptions.delete(phone), 30 * 60 * 1000);
+/** Numbered reply resolver - uses session for persistence across serverless instances */
+async function storeOptions(phone: string, opts: { id: string; title: string }[]) {
+  await updateSession(phone, { pending_options: opts });
 }
-function resolveNumbered(phone: string, text: string): string | null {
+
+async function resolveNumbered(phone: string, text: string): Promise<string | null> {
   const num = parseInt(text.trim(), 10);
   if (isNaN(num) || num < 1) return null;
-  const opts = recentOptions.get(phone);
+  
+  const session = await getSession(phone);
+  const opts = session.pending_options;
   if (!opts || num > opts.length) return null;
+  
   return opts[num - 1].id;
 }
 
@@ -187,7 +189,7 @@ export async function POST(req: Request) {
     await agent.upsertCustomer(from, profileName?.trim() || "WhatsApp User");
 
     // ── Rating check (works in any state) ────────────────────────────────
-    const resolvedId = resolveNumbered(from, text);
+    const resolvedId = await resolveNumbered(from, text);
     if (resolvedId) {
       const dec = decodeOrderRatingButtonId(resolvedId);
       if (dec) {
@@ -219,7 +221,7 @@ export async function POST(req: Request) {
       }
       buttons.push({ id: "help_support", title: "Help & Support" });
 
-      storeOptions(from, buttons);
+      await storeOptions(from, buttons);
       await sendButtons(from, welcomeText, buttons);
       return ack();
     }
@@ -403,15 +405,16 @@ async function handlePickingItem(from: string, text: string, session: { cart: Ca
   const num = parseInt(text, 10);
   const menu = await getMenu();
 
-  const resolved = resolveNumbered(from, text);
-  const itemId = resolved || (num > 0 ? recentOptions.get(from)?.[num - 1]?.id : null);
+  const resolved = await resolveNumbered(from, text);
+  const sess = await getSession(from);
+  const itemId = resolved || (num > 0 && sess.pending_options ? sess.pending_options[num - 1]?.id : null);
 
   if (itemId) {
     const item = menu.find((m) => m.id === itemId);
     if (item) {
       await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
       await sendText(from, buildVariantMessage(item.name, item.price));
-      storeOptions(from, [
+      await storeOptions(from, [
         { id: "var_500gm", title: "500gm" },
         { id: "var_1kg", title: "1kg" },
       ]);
@@ -423,7 +426,7 @@ async function handlePickingItem(from: string, text: string, session: { cart: Ca
   if (matched) {
     await updateSession(from, { selected_item_id: matched.id, state: "picking_variant" });
     await sendText(from, buildVariantMessage(matched.name, matched.price));
-    storeOptions(from, [
+    await storeOptions(from, [
       { id: "var_500gm", title: "500gm" },
       { id: "var_1kg", title: "1kg" },
     ]);
@@ -442,7 +445,7 @@ async function handlePickingVariant(from: string, text: string, session: { cart:
   if (num === 1 || /500/i.test(lower) || lower === "var_500gm") variant = "500gm";
   else if (num === 2 || /1\s*kg/i.test(lower) || lower === "var_1kg") variant = "1kg";
 
-  const resolvedVar = resolveNumbered(from, text);
+  const resolvedVar = await resolveNumbered(from, text);
   if (resolvedVar === "var_500gm") variant = "500gm";
   if (resolvedVar === "var_1kg") variant = "1kg";
 
@@ -508,7 +511,7 @@ async function handlePickingQty(from: string, text: string, session: { cart: Car
 
 async function handleCartReview(from: string, text: string, session: { cart: CartItem[] }) {
   const num = parseInt(text.trim(), 10);
-  const resolved = resolveNumbered(from, text);
+  const resolved = await resolveNumbered(from, text);
 
   if (resolved === "checkout" || num === 1) {
     if (session.cart.length === 0) {
@@ -548,7 +551,7 @@ async function handlePickingDate(from: string, text: string, session: { cart: Ca
 
   await updateSession(from, { delivery_date: date, state: "picking_slot" });
   await sendText(from, buildSlotPickerMessage(dateLabel));
-  storeOptions(from, [
+  await storeOptions(from, [
     { id: "slot_breakfast", title: "Breakfast" },
     { id: "slot_lunch", title: "Lunch" },
     { id: "slot_dinner", title: "Dinner" },
@@ -559,7 +562,7 @@ async function handlePickingDate(from: string, text: string, session: { cart: Ca
 async function handlePickingSlot(from: string, text: string, session: { cart: CartItem[]; delivery_date: string | null }) {
   let slotKind: DeliverySlotKind | null = parseSlotInput(text);
 
-  const resolved = resolveNumbered(from, text);
+  const resolved = await resolveNumbered(from, text);
   if (resolved === "slot_breakfast") slotKind = "breakfast";
   if (resolved === "slot_lunch") slotKind = "lunch";
   if (resolved === "slot_dinner") slotKind = "dinner";
@@ -609,7 +612,7 @@ async function handlePickingAddress(from: string, text: string, session: { cart:
     address,
   );
 
-  storeOptions(from, [
+  await storeOptions(from, [
     { id: "confirm_order", title: "Confirm & Pay" },
     { id: "edit_order", title: "Edit Order" },
   ]);
@@ -622,7 +625,7 @@ async function handlePickingAddress(from: string, text: string, session: { cart:
 }
 
 async function handleAwaitingPayment(from: string, text: string, session: { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null; delivery_address: string | null }) {
-  const resolved = resolveNumbered(from, text);
+  const resolved = await resolveNumbered(from, text);
   const lower = text.toLowerCase().trim();
 
   if (resolved === "confirm_order" || lower === "1" || /confirm|pay|yes/i.test(lower)) {
@@ -649,7 +652,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     { id: "help_support", title: "Help & Support" },
     { id: "back_home", title: "Start Over" },
   ];
-  storeOptions(from, buttons);
+  await storeOptions(from, buttons);
   await sendButtons(from, "_Vera enna help venum?_", buttons);
 
   await updateSession(from, { state: "idle" });
@@ -660,7 +663,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 
 async function showCategoryBrowser(from: string) {
   await updateSession(from, { state: "browsing_category" });
-  storeOptions(from, [
+  await storeOptions(from, [
     { id: "cat_chicken", title: "Chicken" },
     { id: "cat_mutton", title: "Mutton" },
     { id: "cat_egg", title: "Egg" },
@@ -689,7 +692,7 @@ async function showCategoryItems(from: string, cat: string) {
     `_Dish number or name reply pannu!_`,
   ].join("\n");
 
-  storeOptions(from, itemOptions(items));
+  await storeOptions(from, itemOptions(items));
   await updateSession(from, { state: "picking_item" });
   await sendText(from, msg);
   return ack();
@@ -698,7 +701,7 @@ async function showCategoryItems(from: string, cat: string) {
 async function showCart(from: string, cart: CartItem[]) {
   await updateSession(from, { state: "cart_review" });
   const msg = buildCartMessage(cart);
-  storeOptions(from, [
+  await storeOptions(from, [
     { id: "checkout", title: "Checkout" },
     { id: "add_more", title: "Add More" },
     { id: "clear_cart", title: "Clear Cart" },
@@ -717,7 +720,7 @@ async function showHelpSupport(from: string) {
     { id: "hs_complaint", title: "Raise Complaint" },
     { id: "hs_payments", title: "Payments" },
   );
-  storeOptions(from, options);
+  await storeOptions(from, options);
   await sendButtons(from, helpAndSupportReply(), options);
   return ack();
 }
@@ -767,7 +770,7 @@ async function showOrderHistory(from: string) {
   );
 
   const buttons = [{ id: "browse_menu", title: "Browse Menu" }, { id: "back_home", title: "Home" }];
-  storeOptions(from, buttons);
+  await storeOptions(from, buttons);
   await sendButtons(from, `📋 *Your Orders*\n\n${lines.join("\n")}`, buttons);
   return ack();
 }
@@ -793,7 +796,7 @@ async function showPaymentsSummary(from: string) {
   });
 
   const buttons = [{ id: "browse_menu", title: "Browse Menu" }, { id: "back_home", title: "Home" }];
-  storeOptions(from, buttons);
+  await storeOptions(from, buttons);
   await sendButtons(from, `💳 *Payments*\n\n${lines.join("\n")}`, buttons);
   return ack();
 }
@@ -824,7 +827,7 @@ async function showQuickReorder(from: string) {
 
   const reorderItems = unique.map((m) => ({ name: m.name, price: m.price }));
   const opts = unique.map((m) => ({ id: m.id, title: m.name }));
-  storeOptions(from, opts);
+  await storeOptions(from, opts);
   await updateSession(from, { state: "picking_item" });
   await sendText(from, buildReorderMessage(reorderItems));
   return ack();
