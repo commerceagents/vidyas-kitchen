@@ -696,16 +696,24 @@ async function showCategoryItems(from: string, cat: string) {
 
   const emojiMap: Record<string, string> = { chicken: "🍗", mutton: "🐑", egg: "🥚" };
   const emoji = emojiMap[cat] || "🍽";
-  const lines = items.map((m, i) => `${i + 1}. ${m.name}\n   _500gm — ₹${m.price} · 1kg — ₹${Math.round(m.price * 1.8)}_`);
+  const lines = items.map((m, i) => `${i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
 
-  const msg = [
+  let msg = [
     `${emoji} *${cat.charAt(0).toUpperCase() + cat.slice(1)} Specials*`,
-    `━━━━━━━━━━━━━━━━━━━`,
+    `_(500gm/1kg prices)_`,
     ``,
     ...lines,
     ``,
-    `_Dish number or name reply pannu!_`,
+    `_Dish number reply pannu!_`,
   ].join("\n");
+
+  if (msg.length > 1500) {
+    const half = Math.ceil(items.length / 2);
+    const firstLines = items.slice(0, half).map((m, i) => `${i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
+    await sendText(from, `${emoji} *${cat.charAt(0).toUpperCase() + cat.slice(1)} Specials (1/${2})*\n_(500gm/1kg)_\n\n${firstLines.join("\n")}`);
+    const secondLines = items.slice(half).map((m, i) => `${half + i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
+    msg = `${secondLines.join("\n")}\n\n_Dish number reply pannu!_`;
+  }
 
   await storeOptions(from, itemOptions(items));
   await updateSession(from, { state: "picking_item" });

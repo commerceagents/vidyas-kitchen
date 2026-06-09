@@ -51,13 +51,15 @@ async function postTwilio(params: Record<string, string>): Promise<TwilioSendRes
       },
       body: body.toString(),
     });
-    const data = await res.json();
-    if (data.error_code || data.error_message) {
-      console.error("[twilio-whatsapp]", data.error_code, data.error_message);
-      return { error: data.error_message };
+    const text = await res.text();
+    let data: Record<string, unknown>;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok || data.error_code || data.error_message) {
+      console.error("[twilio-whatsapp] Error:", res.status, JSON.stringify(data).slice(0, 500));
+      return { error: String(data.error_message || data.message || text).slice(0, 200) };
     }
     console.log("[twilio-whatsapp] Sent:", data.sid);
-    return { sid: data.sid };
+    return { sid: data.sid as string };
   } catch (err) {
     console.error("[twilio-whatsapp] Send error:", err);
     return { error: String(err) };
