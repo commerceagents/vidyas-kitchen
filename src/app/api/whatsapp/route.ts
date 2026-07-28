@@ -933,6 +933,16 @@ async function hasOrders(phone: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN;
+
+  if (mode === "subscribe" && token && challenge && expected && token === expected) {
+    return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+  }
+
   return new Response("Twilio WhatsApp webhook active — v2 state machine", { status: 200 });
 }
