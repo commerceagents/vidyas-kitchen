@@ -9,7 +9,7 @@ import {
   isNewPaidOrder,
   type MonthKey,
 } from "@/lib/dashboard/orders";
-import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 
 export type DashboardNotification = {
@@ -24,19 +24,16 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
   const itemsRaw = (row.order_items as Record<string, unknown>[] | null) ?? [];
   const items = itemsRaw.map((it) => {
     const mi = it.menu_items as { name?: string; image_url?: string | null } | null;
-    let imgUrl = mi?.image_url ?? null;
-    if (imgUrl) {
-      // Normalize external URLs to local paths & fix .png -> .jpg
-      const match = imgUrl.match(/\/menu-images\/(.+)$/);
-      if (match) {
-        imgUrl = `/menu-images/${match[1].replace(/\.png$/i, ".jpg")}`;
-      }
-    }
+    const itemName = mi?.name || "Item";
     return {
       quantity: Number(it.quantity) || 0,
-      name: mi?.name || "Item",
+      name: itemName,
       unit_price: Number(it.unit_price) || 0,
-      image_url: imgUrl,
+      image_url: resolveOrderItemImageUrl({
+        name: itemName,
+        imageUrl: mi?.image_url ?? null,
+        menuItemId: (it.menu_item_id as string | null) ?? null,
+      }),
     };
   });
   return {
@@ -66,7 +63,7 @@ export function useDashboardOrders(month: MonthKey, searchQuery: string) {
       .select(
         `
         id, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
-        order_items ( quantity, unit_price, menu_items ( name, image_url ) )
+        order_items ( quantity, unit_price, menu_item_id, menu_items ( name, image_url ) )
       `,
       )
       .order("created_at", { ascending: false })

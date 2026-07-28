@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/ai/run-pricing-agent",
+      "schedule": "30 20 * * *"
+    }
+  ]
+}

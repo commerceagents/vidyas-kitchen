@@ -8,6 +8,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div
+      className={collapsed ? "vk-sidebar-collapsed" : undefined}
       style={{
         display: "flex",
         height: "100dvh",

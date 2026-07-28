@@ -37,6 +37,7 @@ type DesktopBarProps = {
   onOpenNotifications: () => void;
   title?: string;
   hideSearchAndMonth?: boolean;
+  trailingActions?: ReactNode;
 };
 
 export function DashboardDesktopTopBar({
@@ -48,6 +49,7 @@ export function DashboardDesktopTopBar({
   onOpenNotifications,
   title,
   hideSearchAndMonth,
+  trailingActions,
 }: DesktopBarProps) {
   const lightIconBtnStyle: React.CSSProperties = {
     display: "flex",
@@ -69,19 +71,21 @@ export function DashboardDesktopTopBar({
       style={{
         display: "flex",
         alignItems: "center",
+        justifyContent: "flex-end",
         gap: "16px",
+        flex: 1,
+        minWidth: 0,
         height: "100%",
-        padding: "0 20px",
+        marginLeft: "24px",
+        padding: 0,
         fontFamily: FONT,
       }}
     >
       {title && (
-        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", margin: 0, marginRight: "auto", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
           {title}
         </h1>
       )}
-
-      <div style={{ flex: 1 }} />
 
       {!hideSearchAndMonth && (
         <div style={{ position: "relative", width: "280px", flexShrink: 0 }}>
@@ -119,6 +123,8 @@ export function DashboardDesktopTopBar({
           />
         </div>
       )}
+
+      {trailingActions}
 
       <button
         type="button"
@@ -428,7 +434,7 @@ export function DashboardNotificationPanel({
                   New paid order
                 </p>
                 <p style={{ margin: "0 0 2px", fontSize: "15px", fontWeight: 700, color: "#fff" }}>
-                  #{shortOrderId(n.order.id)}
+                  #{shortOrderId(n.order.id, n.order.order_number)}
                 </p>
                 <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>
                   ₹{n.order.total_amount ?? "—"} ·{" "}

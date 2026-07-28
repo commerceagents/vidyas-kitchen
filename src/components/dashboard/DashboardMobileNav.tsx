@@ -27,14 +27,22 @@ export function DashboardMobileNav({ activeTab, onTabChange, counts }: Props) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const idx = STATUS_TABS.findIndex((t) => t.id === activeTab);
-    const btn = container.children[idx + 1] as HTMLElement | undefined;
-    if (!btn) return;
-    setPill({ left: btn.offsetLeft, width: btn.offsetWidth });
+
+    const updatePill = () => {
+      const btn = container.querySelector<HTMLElement>(`[data-tab-id="${activeTab}"]`);
+      if (!btn) return;
+      setPill({ left: btn.offsetLeft, width: btn.offsetWidth });
+    };
+
+    updatePill();
+    window.addEventListener("resize", updatePill);
+    return () => window.removeEventListener("resize", updatePill);
   }, [activeTab]);
 
   return (
-    <nav
+    <>
+      <div className="vk-dash-bottom-vignette" aria-hidden />
+      <nav
       className="vk-dash-bottom-nav"
       style={{
         display: "none",
@@ -47,7 +55,7 @@ export function DashboardMobileNav({ activeTab, onTabChange, counts }: Props) {
         paddingLeft: "max(8px, env(safe-area-inset-left, 0px))",
         paddingRight: "max(8px, env(safe-area-inset-right, 0px))",
         paddingTop: "8px",
-        background: "linear-gradient(to top, #0d0d0d 85%, transparent)",
+        background: "transparent",
         fontFamily: FONT,
       }}
     >
@@ -93,6 +101,7 @@ export function DashboardMobileNav({ activeTab, onTabChange, counts }: Props) {
             <button
               key={id}
               type="button"
+              data-tab-id={id}
               onClick={() => onTabChange(id)}
               style={{
                 flex: 1,
@@ -166,5 +175,6 @@ export function DashboardMobileNav({ activeTab, onTabChange, counts }: Props) {
         }
       `}</style>
     </nav>
+    </>
   );
 }

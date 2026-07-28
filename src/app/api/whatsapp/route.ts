@@ -13,12 +13,28 @@ import {
   isSlotBookable,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
+// Meta WhatsApp Cloud API (Primary)
 import {
-  sendText,
-  sendButtons,
-  sendCtaUrl,
+  sendText as metaSendText,
+  sendButtons as metaSendButtons,
+  sendCtaUrl as metaSendCtaUrl,
+  fromMetaWebhook,
+  toMetaPhoneNumber,
+} from "@/lib/meta-whatsapp";
+
+// Twilio WhatsApp (Fallback/Legacy)
+import {
+  sendText as twilioSendText,
+  sendButtons as twilioSendButtons,
+  sendCtaUrl as twilioSendCtaUrl,
   fromWhatsAppFrom,
 } from "@/lib/twilio-whatsapp";
+
+// Dynamic API selection
+const USE_META_API = process.env.WHATSAPP_ACCESS_TOKEN ? true : false;
+const sendText = USE_META_API ? metaSendText : twilioSendText;
+const sendButtons = USE_META_API ? metaSendButtons : twilioSendButtons;
+const sendCtaUrl = USE_META_API ? metaSendCtaUrl : twilioSendCtaUrl;
 import {
   getSession,
   updateSession,
@@ -55,7 +71,10 @@ import { createAutoLoginToken } from "@/lib/wa-auto-login";
  */
 
 function ack() {
-  return new Response("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });
+  return new Response(JSON.stringify({ status: "ok" }), { 
+    status: 200, 
+    headers: { "Content-Type": "application/json" } 
+  });
 }
 
 /** Numbered reply resolver - uses session for persistence across serverless instances */
@@ -161,22 +180,63 @@ export async function POST(req: Request) {
     let from = "";
     let body = "";
     let profileName = "";
+    let messageId = "";
 
-    if (contentType.includes("application/x-www-form-urlencoded")) {
+    // Parse request - support both Meta and Twilio formats
+    if (contentType.includes("application/json")) {
+      const json = await req.json();
+      
+      // Meta WhatsApp Cloud API format
+      if (json.object === "whatsapp_business_account" && json.entry) {
+        const entry = json.entry?.[0];
+        const change = entry?.changes?.[0];
+        const value = change?.value;
+        const message = value?.messages?.[0];
+        const contact = value?.contacts?.[0];
+
+        if (message && message.type === "text") {
+          from = fromMetaWebhook(message.from);
+          body = message.text?.body || "";
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          console.log(`[Meta WA] From=${from} Body="${body}" Name=${profileName} MsgId=${messageId}`);
+        } else if (message && message.type === "interactive") {
+          // Handle button/list replies
+          from = fromMetaWebhook(message.from);
+          const interactive = message.interactive;
+          if (interactive?.type === "button_reply") {
+            body = interactive.button_reply?.title || interactive.button_reply?.id || "";
+          } else if (interactive?.type === "list_reply") {
+            body = interactive.list_reply?.title || interactive.list_reply?.id || "";
+          }
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          console.log(`[Meta WA Interactive] From=${from} Body="${body}" Name=${profileName}`);
+        } else {
+          // Not a text/interactive message, acknowledge and skip
+          return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+        }
+      } 
+      // Twilio JSON format (fallback)
+      else if (json.From || json.Body) {
+        from = fromWhatsAppFrom(json.From || "");
+        body = json.Body || "";
+        profileName = json.ProfileName || "";
+        console.log(`[Twilio WA JSON] From=${from} Body="${body}" Name=${profileName}`);
+      }
+    } 
+    // Twilio form-encoded format
+    else if (contentType.includes("application/x-www-form-urlencoded")) {
       const formData = await req.formData();
       from = fromWhatsAppFrom(formData.get("From")?.toString() || "");
       body = formData.get("Body")?.toString() || "";
       profileName = formData.get("ProfileName")?.toString() || "";
-    } else {
-      const json = await req.json();
-      from = fromWhatsAppFrom(json.From || "");
-      body = json.Body || "";
-      profileName = json.ProfileName || "";
+      console.log(`[Twilio WA Form] From=${from} Body="${body}" Name=${profileName}`);
     }
 
-    if (!from || !body) return ack();
-
-    console.log(`[WA] From=${from} Body="${body}" Name=${profileName}`);
+    if (!from || !body) {
+      return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+    }
 
     const text = body.trim();
     const lower = text.toLowerCase();

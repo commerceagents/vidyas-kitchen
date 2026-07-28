@@ -1,16 +1,18 @@
 "use client";
 
 import { Clock, ChefHat, CheckCircle2, Truck, CheckSquare, XCircle } from "lucide-react";
+import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { type DashboardOrder, tabForOrder } from "@/lib/dashboard/orders";
 
 type MetricsProps = {
   orders: DashboardOrder[];
+  loading?: boolean;
   activeTab?: string;
   onTabSelect?: (tab: any) => void;
   allowedTabs?: string[];
 };
 
-export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }: MetricsProps) {
+export function DashboardMetrics({ orders, loading = false, activeTab, onTabSelect, allowedTabs }: MetricsProps) {
   // Count dynamically based on tab status
   const newCount = orders.filter((o) => tabForOrder(o.status) === "new").length;
   const preparingCount = orders.filter((o) => tabForOrder(o.status) === "preparing").length;
@@ -32,19 +34,22 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
     ? allCards.filter((c) => allowedTabs.includes(c.id))
     : allCards;
 
+  if (loading) {
+    return <DashboardSpinner minHeight={88} />;
+  }
+
   return (
     <>
       <style>{`
         .metric-card {
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
-        .metric-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
-          border-color: rgba(0, 0, 0, 0.1) !important;
-        }
-        .metric-card:active {
-          transform: translateY(0);
+        @media (hover: hover) {
+          .metric-card:hover:not(.metric-card-active) {
+            background: #161616 !important;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+            border-color: #252525 !important;
+          }
         }
       `}</style>
       <div
@@ -65,7 +70,7 @@ export function DashboardMetrics({ orders, activeTab, onTabSelect, allowedTabs }
           return (
             <div
               key={idx}
-              className="metric-card"
+              className={`metric-card${active ? " metric-card-active" : ""}`}
               onClick={() => clickable && onTabSelect(card.id)}
               style={{
                 flex: "1 1 0px",

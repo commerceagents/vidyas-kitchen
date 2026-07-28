@@ -155,6 +155,17 @@ body {
   animation: vk-shimmer 1.5s ease-in-out infinite;
 }
 
+.vk-dash-skeleton {
+  background: linear-gradient(
+    90deg,
+    #1e1e1e 25%,
+    #2a2a2a 50%,
+    #1e1e1e 75%
+  );
+  background-size: 200% 100%;
+  animation: vk-shimmer 1.5s ease-in-out infinite;
+}
+
 /* Hide scrollbar for category pill rows + main mobile feed */
 .no-scrollbar::-webkit-scrollbar,
 .vk-scroll-container::-webkit-scrollbar {
@@ -200,6 +211,346 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
 .vk-mobile-ui,
 .vk-mobile-ui * {
   font-family: var(--font-outfit), system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.vk-order-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 24px 0;
+  display: grid;
+  gap: clamp(14px, 1.5vw, 20px);
+  align-items: stretch;
+  /* Smaller desktop / laptop: 2 per row */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1400px) {
+  .vk-order-grid {
+    /* Wide desktop: 3 per row */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.vk-order-grid-mobile {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(14px, 1.5vw, 20px);
+  align-items: start;
+}
+
+/* Mobile dashboard — fade scroll content under bottom nav */
+@media (max-width: 1023px) {
+  .vk-dash-bottom-vignette {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 160px;
+    pointer-events: none;
+    z-index: 44;
+    background: linear-gradient(
+      to top,
+      #0d0d0d 0%,
+      rgba(13, 13, 13, 0.88) 22%,
+      rgba(13, 13, 13, 0.45) 52%,
+      rgba(13, 13, 13, 0.12) 78%,
+      transparent 100%
+    );
+  }
+}
+
+@media (min-width: 1024px) {
+  .vk-dash-bottom-vignette {
+    display: none;
+  }
+}
+
+.vk-order-card {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.vk-order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.vk-order-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vk-order-card-actions .vk-order-btn {
+  box-sizing: border-box;
+}
+
+/* Desktop order card footer — layout follows card width, not sidebar */
+@media (min-width: 1024px) {
+  .vk-order-card-actions .vk-order-btn {
+    width: 118px;
+    flex: 0 0 118px;
+  }
+
+  .vk-order-card-total-price {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-outfit), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    font-size: 18px;
+  }
+  .vk-order-card-total-sym {
+    font-size: 1.06em;
+    font-weight: inherit;
+    line-height: 1;
+  }
+  .vk-order-card-total-num {
+    font-size: 1em;
+    font-weight: inherit;
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+
+  /* Wide card — larger total */
+  @container (min-width: 421px) {
+    .vk-order-card-total-price {
+      font-size: 22px;
+    }
+  }
+
+  /* Cramped card (typical 3-col) — hide total, full-width buttons */
+  @container (max-width: 420px) {
+    .vk-order-card-footer {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+    }
+    .vk-order-card-footer-total {
+      display: none;
+    }
+    .vk-order-card-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+    }
+    .vk-order-card-actions .vk-order-btn {
+      width: 100% !important;
+      flex: none;
+      min-width: 0;
+      max-width: none;
+      text-align: center;
+    }
+  }
+
+  /* Sidebar minimised — always show total (2-col or 3-col) */
+  .vk-sidebar-collapsed .vk-order-card-footer {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .vk-sidebar-collapsed .vk-order-card-footer-total {
+    display: block;
+  }
+  .vk-sidebar-collapsed .vk-order-card-actions {
+    display: flex;
+    width: auto;
+    gap: 8px;
+  }
+  .vk-sidebar-collapsed .vk-order-card-actions .vk-order-btn {
+    width: 118px !important;
+    flex: 0 0 118px;
+    min-width: 0;
+    max-width: none;
+    text-align: center;
+  }
+}
+
+/* ── Revenue dashboard ── */
+.vk-revenue-dashboard {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(252px, 28vw);
+  gap: clamp(12px, 1.4vw, 20px);
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.vk-revenue-main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.2vh, 16px);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.vk-revenue-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(12px, 1.2vh, 16px);
+  flex-shrink: 0;
+}
+
+.vk-revenue-cal-summary {
+  display: none;
+}
+
+/* Full sidebar — title left, month/year picker right */
+.vk-revenue-cal-header:not(.vk-revenue-cal-header--tabbed) {
+  justify-content: space-between;
+}
+
+.vk-revenue-cal-nav:not(.vk-revenue-cal-nav--tabbed) {
+  justify-content: flex-end;
+}
+
+/* Compact tabbed aside (smaller desktop) — date picker centered, no title */
+.vk-revenue-cal-header--tabbed {
+  justify-content: center;
+}
+
+.vk-revenue-cal-nav--tabbed {
+  width: 100%;
+  justify-content: center;
+}
+
+.vk-revenue-cal-nav--tabbed .vk-revenue-month-year-picker {
+  justify-content: center;
+  width: 100%;
+}
+
+/* Compact tabbed aside — hidden on large desktop by default */
+.vk-revenue-aside-compact {
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Large desktop — full stacked sidebar, no tabs */
+@media (min-width: 1367px) {
+  .vk-revenue-dashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  }
+  .vk-revenue-aside-full {
+    display: flex;
+  }
+  .vk-revenue-aside-compact {
+    display: none !important;
+  }
+}
+
+/* Compact laptop (1024–1366) — KPI row + chart | tabbed aside */
+@media (min-width: 1024px) and (max-width: 1366px) {
+  .vk-revenue-dashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+  .vk-revenue-main {
+    display: contents;
+  }
+  .vk-revenue-kpi-grid {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .vk-revenue-chart-card {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    height: 100%;
+  }
+  .vk-revenue-aside-full {
+    display: none !important;
+  }
+  .vk-revenue-aside-compact {
+    display: flex !important;
+    grid-column: 2;
+    grid-row: 2;
+    height: 100%;
+    align-self: stretch;
+  }
+  .vk-revenue-chart-card,
+  .vk-revenue-aside-panel {
+    padding: 16px !important;
+  }
+  .vk-revenue-metric-card {
+    padding: 12px 14px !important;
+    min-height: 96px !important;
+    gap: 6px !important;
+  }
+  .vk-revenue-metric-card span:first-of-type {
+    font-size: 11px !important;
+  }
+  .vk-revenue-trend {
+    display: none !important;
+  }
+  .vk-revenue-aside-compact .vk-revenue-meal-donut-wrap {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .vk-revenue-cal-day {
+    font-size: 11px !important;
+  }
+  .vk-revenue-cal-weekday {
+    font-size: 10px !important;
+  }
+}
+
+/* Very tight laptop — only 2 hero KPIs */
+@media (min-width: 1024px) and (max-width: 1180px) {
+  .vk-revenue-metric-card--secondary {
+    display: none !important;
+  }
+  .vk-revenue-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .vk-revenue-dashboard {
+    height: auto;
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.4vw, 20px);
+  }
+  .vk-revenue-panel {
+    overflow-y: auto !important;
+  }
+  .vk-revenue-main {
+    display: contents;
+  }
+  .vk-revenue-aside-full {
+    display: none !important;
+  }
+  .vk-revenue-aside-compact {
+    display: flex !important;
+    min-height: 340px;
+  }
+  .vk-revenue-chart-card {
+    min-height: 280px;
+    flex: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .vk-revenue-kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .grecaptcha-badge {

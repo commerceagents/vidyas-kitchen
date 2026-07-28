@@ -6,10 +6,15 @@ import {
   type DashboardOrder,
   filterOrdersByIdQuery,
   filterOrdersByMonth,
+  isDevPreviewOrder,
   isNewPaidOrder,
+  sortDashboardOrders,
   type MonthKey,
   currentMonthKey,
 } from "@/lib/dashboard/orders";
+import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { resolveOrderItemWeight } from "@/lib/menu/order-item-weight";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 
@@ -43,26 +48,115 @@ type DashboardDataValue = {
 
 const DashboardDataCtx = createContext<DashboardDataValue | null>(null);
 
+/** Local dev only — extra cards to preview 3-column grid layout. */
+function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
+  if (process.env.NODE_ENV !== "development") return orders;
+
+  const real = orders.filter((o) => !isDevPreviewOrder(o));
+  const ref = real[0];
+  const deliverySlot =
+    ref?.delivery_slot ?? new Date(Date.now() + 1000 * 60 * 60 * 20).toISOString();
+  const createdAt = new Date(Date.now() - 1000 * 60 * 12).toISOString();
+
+  const pepperImg = resolveOrderItemImageUrl({
+    name: "Black Pepper Chicken Gravy",
+    menuItemId: "8c621691-b064-4f1f-9fff-df8a23dde896",
+  });
+  const momImg = resolveOrderItemImageUrl({
+    name: "Mom's Recipe Chicken Gravy",
+    menuItemId: "bdbbe985-a2c6-4c9c-b32f-c06c83a7fdcf",
+  });
+  const chillyDryImg = resolveOrderItemImageUrl({
+    name: "Chilly Chicken (Dry)",
+    menuItemId: "ade151a9-4657-4a99-b9bf-e1277d09bfb6",
+  });
+
+  const dinnerItems = [
+    {
+      quantity: 1,
+      name: "Black Pepper Chicken Gravy",
+      unit_price: 799,
+      image_url: pepperImg,
+      weight: "1kg",
+    },
+    {
+      quantity: 1,
+      name: "Mom's Recipe Chicken Gravy",
+      unit_price: 699,
+      image_url: momImg,
+      weight: "1kg",
+    },
+  ];
+  const dinnerSubtotal = 799 + 699;
+  const dinnerTotal = Math.round(computeOrderBreakdownFromItemSubtotal(dinnerSubtotal).computedTotal);
+
+  const previews: DashboardOrder[] = [
+    {
+      id: "dev-preview-00003",
+      order_number: 3,
+      status: OrderStatus.PAID,
+      phone_number: "+919887766554",
+      customer_name: "Preview Customer B",
+      total_amount: dinnerTotal,
+      created_at: createdAt,
+      delivery_slot: deliverySlot,
+      delivery_slot_kind: "dinner",
+      items: dinnerItems,
+    },
+    {
+      id: "dev-preview-00002",
+      order_number: 2,
+      status: OrderStatus.PAID,
+      phone_number: "+919776655443",
+      customer_name: "Preview Customer A",
+      total_amount: 399,
+      created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+      delivery_slot: deliverySlot,
+      delivery_slot_kind: "breakfast",
+      items: [
+        {
+          quantity: 1,
+          name: "Chilly Chicken (Dry)",
+          unit_price: 349,
+          image_url: chillyDryImg,
+          weight: "500gm",
+        },
+      ],
+    },
+  ];
+
+  return sortDashboardOrders([...previews, ...real]);
+}
+
 function mapRow(row: Record<string, unknown>): DashboardOrder {
   const itemsRaw = (row.order_items as Record<string, unknown>[] | null) ?? [];
-  const items = itemsRaw.map((it) => {
-    const mi = it.menu_items as { name?: string; image_url?: string | null } | null;
-    let imgUrl = mi?.image_url ?? null;
-    if (imgUrl) {
-      const match = imgUrl.match(/\/menu-images\/(.+)$/);
-      if (match) {
-        imgUrl = `/menu-images/${match[1].replace(/\.png$/i, ".jpg")}`;
-      }
-    }
+  const items = [...itemsRaw]
+    .sort((a, b) => String(a.id ?? "").localeCompare(String(b.id ?? "")))
+    .map((it) => {
+    const mi = it.menu_items as { name?: string; image_url?: string | null; price?: number } | null;
+    const itemName = mi?.name || "Item";
+    const unitPrice = Number(it.unit_price) || 0;
+    const menuItemId = (it.menu_item_id as string | null) ?? null;
     return {
       quantity: Number(it.quantity) || 0,
-      name: mi?.name || "Item",
-      unit_price: Number(it.unit_price) || 0,
-      image_url: imgUrl,
+      name: itemName,
+      unit_price: unitPrice,
+      image_url: resolveOrderItemImageUrl({
+        name: itemName,
+        imageUrl: mi?.image_url ?? null,
+        menuItemId,
+      }),
+      weight: resolveOrderItemWeight({
+        name: itemName,
+        unitPrice,
+        menuItemId,
+        catalogPrice: mi?.price != null ? Number(mi.price) : null,
+      }),
     };
   });
   return {
     id: String(row.id),
+    order_number: row.order_number != null ? Number(row.order_number) : null,
     status: String(row.status ?? ""),
     phone_number: (row.phone_number as string | null) ?? null,
     customer_name: ((row.users as { full_name?: string | null } | null)?.full_name ?? null) || null,
@@ -88,9 +182,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from("orders")
       .select(`
-        id, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
-        order_items ( quantity, unit_price, menu_items ( name, image_url ) )
+        id, order_number, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
+        order_items ( id, quantity, unit_price, menu_item_id, menu_items ( name, image_url, price ) )
       `)
+      .order("order_number", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(400);
 
@@ -114,16 +209,20 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    const enriched = mapped.map((o) => ({
-      ...o,
-      customer_name: nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
-    }));
-    setAllOrders(enriched);
+    const enriched = sortDashboardOrders(
+      mapped.map((o) => ({
+        ...o,
+        customer_name: nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
+      })),
+    );
+    const withPreviews = applyDevPreviewOrders(enriched);
+    setAllOrders(withPreviews);
 
     if (!bootstrappedRef.current) {
       mapped.forEach((o) => {
         if (isNewPaidOrder(o.status)) knownPaidRef.current.add(o.id);
       });
+      withPreviews.filter(isDevPreviewOrder).forEach((o) => knownPaidRef.current.add(o.id));
       bootstrappedRef.current = true;
     }
   }, []);

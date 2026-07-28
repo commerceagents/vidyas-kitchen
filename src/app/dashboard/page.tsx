@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { tabForOrder, type DashboardTab } from "@/lib/dashboard/orders";
+import { tabForOrder, type DashboardTab, computeTodayDashboardStats } from "@/lib/dashboard/orders";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { OrderStatus } from "@/lib/order-status";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
@@ -13,7 +13,9 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
 import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
+import { DashboardDayStats } from "@/components/dashboard/DashboardSkeleton";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
+import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
 export default function DashboardHome() {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -89,13 +91,8 @@ export default function DashboardHome() {
   }, [orders]);
 
   const mobileStats = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const todayOrders = orders.filter((o) => {
-      if (!o.created_at) return false;
-      return new Date(o.created_at).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) === todayStr;
-    });
-    const revenue = todayOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-    return { todayCount: todayOrders.length, revenue, newOrders: tabCounts.new };
+    const { todayOrderCount, revenue } = computeTodayDashboardStats(orders);
+    return { todayCount: todayOrderCount, revenue, newOrders: tabCounts.new };
   }, [orders, tabCounts]);
 
   return (
@@ -107,32 +104,28 @@ export default function DashboardHome() {
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
         />
-        {/* Quick Stats */}
-        <div style={{ display: "flex", gap: "8px", padding: "8px 16px 0", flexShrink: 0 }}>
-          {[
-            { label: "Today", value: String(mobileStats.todayCount), color: "#f5e32d" },
-            { label: "Revenue", value: `₹${mobileStats.revenue.toLocaleString("en-IN")}`, color: "#34D399" },
-            { label: "New", value: String(mobileStats.newOrders), color: "#F5A623" },
-          ].map((s) => (
-            <div key={s.label} style={{ flex: 1, background: "#1a1a1a", borderRadius: "12px", padding: "10px 12px", border: "1px solid #2a2a2a" }}>
-              <div style={{ fontSize: "10px", color: "#666", fontWeight: 700, letterSpacing: "0.04em", marginBottom: "2px" }}>{s.label}</div>
-              <div style={{ fontSize: "18px", fontWeight: 800, color: s.color, fontFamily: "var(--font-outfit)" }}>{s.value}</div>
+        {loading ? (
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <DashboardSpinner minHeight="100%" />
+          </div>
+        ) : (
+          <>
+            <DashboardDayStats stats={mobileStats} variant="mobile" />
+            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              <DashboardOrderBoard
+                orders={orders}
+                loading={false}
+                highlightOrderId={highlightOrderId}
+                onActionDone={() => void refresh()}
+                mobile
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                hideTabs={true}
+                allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+              />
             </div>
-          ))}
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-          <DashboardOrderBoard
-            orders={orders}
-            loading={loading}
-            highlightOrderId={highlightOrderId}
-            onActionDone={() => void refresh()}
-            mobile
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            hideTabs={true}
-            allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-          />
-        </div>
+          </>
+        )}
         <DashboardMobileNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -178,29 +171,38 @@ export default function DashboardHome() {
           />
         </div>
 
-        <div style={{ flex: "0 0 auto" }}>
-          <DashboardMetrics
-            orders={orders}
-            activeTab={activeTab}
-            onTabSelect={setActiveTab}
-            allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-          />
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "clamp(14px, 1.5vw, 20px)", padding: "clamp(14px, 1.5vh, 20px)", border: "1px solid #222222", overflow: "hidden" }}>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <DashboardOrderBoard
-              orders={orders}
-              loading={loading}
-              highlightOrderId={highlightOrderId}
-              onActionDone={() => void refresh()}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              hideTabs={true}
-              allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
-            />
+        {loading ? (
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "clamp(14px, 1.5vw, 20px)", border: "1px solid #222222", overflow: "hidden" }}>
+            <DashboardSpinner minHeight="100%" />
           </div>
-        </div>
+        ) : (
+          <>
+            <div style={{ flex: "0 0 auto" }}>
+              <DashboardMetrics
+                orders={orders}
+                loading={false}
+                activeTab={activeTab}
+                onTabSelect={setActiveTab}
+                allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+              />
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "#141414", borderRadius: "clamp(14px, 1.5vw, 20px)", padding: "clamp(14px, 1.5vh, 20px)", border: "1px solid #222222", overflow: "hidden" }}>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <DashboardOrderBoard
+                  orders={orders}
+                  loading={false}
+                  highlightOrderId={highlightOrderId}
+                  onActionDone={() => void refresh()}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  hideTabs={true}
+                  allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <DashboardSearchOverlay

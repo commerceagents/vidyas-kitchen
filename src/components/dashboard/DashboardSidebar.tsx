@@ -6,15 +6,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Bot,
   ChevronsLeft,
   ChevronsRight,
-  HelpCircle,
   History,
   LayoutDashboard,
   LogOut,
-  Settings,
-  Sparkles,
-  Tag,
+  Truck,
   TrendingUp,
 } from "lucide-react";
 
@@ -24,13 +22,11 @@ const AUTH_KEY = "vk_dash_authed";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/summary", label: "Revenue", icon: TrendingUp, exact: false },
-  { href: "/dashboard/dishes", label: "Menu Deals", icon: Tag, exact: false },
-  { href: "/dashboard/festivals", label: "Festival Promos", icon: Sparkles, exact: false },
+  { href: "/dashboard/pricing-agent", label: "AI Pricing", icon: Bot, exact: false },
+  { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
 ] as const;
 
 const FOOTER = [
-  { label: "Get Help", icon: HelpCircle, href: "#", action: "link" as const },
-  { label: "Settings", icon: Settings, href: "/dashboard/settings", action: "link" as const },
   { label: "Log out", icon: LogOut, href: "#", action: "logout" as const },
 ] as const;
 
@@ -121,7 +117,7 @@ function SidebarCard({
             <span
               style={{
                 fontSize: "15px",
-                fontWeight: 700,
+                fontWeight: 800,
                 color: "#fff",
                 letterSpacing: "-0.02em",
                 whiteSpace: "nowrap",
@@ -271,6 +267,15 @@ function SidebarCard({
                     color: "#888",
                     cursor: "pointer",
                     minHeight: "44px",
+                    transition: "background 0.2s ease, color 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)";
+                    e.currentTarget.style.color = "#EF4444";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#888";
                   }}
                 >
                   <Icon size={20} strokeWidth={1.75} style={{ flexShrink: 0 }} />
