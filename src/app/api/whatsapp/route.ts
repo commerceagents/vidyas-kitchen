@@ -13,28 +13,12 @@ import {
   isSlotBookable,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
-// Meta WhatsApp Cloud API (Primary)
+// Unified WhatsApp send (Meta primary, Twilio fallback)
+import { sendText, sendButtons, sendCtaUrl, sendList } from "@/lib/whatsapp-send";
+import { fromWhatsAppFrom } from "@/lib/twilio-whatsapp";
 import {
-  sendText as metaSendText,
-  sendButtons as metaSendButtons,
-  sendCtaUrl as metaSendCtaUrl,
   fromMetaWebhook,
-  toMetaPhoneNumber,
 } from "@/lib/meta-whatsapp";
-
-// Twilio WhatsApp (Fallback/Legacy)
-import {
-  sendText as twilioSendText,
-  sendButtons as twilioSendButtons,
-  sendCtaUrl as twilioSendCtaUrl,
-  fromWhatsAppFrom,
-} from "@/lib/twilio-whatsapp";
-
-// Dynamic API selection
-const USE_META_API = process.env.WHATSAPP_ACCESS_TOKEN ? true : false;
-const sendText = USE_META_API ? metaSendText : twilioSendText;
-const sendButtons = USE_META_API ? metaSendButtons : twilioSendButtons;
-const sendCtaUrl = USE_META_API ? metaSendCtaUrl : twilioSendCtaUrl;
 import {
   getSession,
   updateSession,
@@ -45,23 +29,31 @@ import {
 } from "@/lib/whatsapp-session";
 import {
   buildWelcomeMessage,
-  buildMenuMessage,
+  welcomeLogoImageUrl,
+  buildCategoryListBody,
+  buildDishListBody,
   buildCategoryMessage,
   buildVariantMessage,
   buildCartMessage,
+  buildCartLimitMessage,
   buildItemAddedMessage,
   buildDatePickerMessage,
   buildSlotPickerMessage,
   buildAddressPrompt,
   buildOrderSummaryMessage,
   buildPaymentMessage,
+  buildOrderIdPendingPaymentMessage,
+  buildReorderEmptyMessage,
   buildReorderMessage,
   buildPwaPromoMessage,
   helpAndSupportReply,
   callUsDialReply,
   ORDER_CUTOFF_REMINDER,
+  WA_CART_MAX,
+  buildAppNudgeFooter,
 } from "@/lib/whatsapp-copy";
 import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
+import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
 
 /**
@@ -101,23 +93,33 @@ async function resolveNumbered(phone: string, text: string): Promise<string | nu
 }
 
 async function getMenu(): Promise<MenuItem[]> {
-  const { data } = await supabase
-    .from("menu_items")
-    .select("*")
-    .in("category", [...AGAINST_ORDER_CATEGORIES])
-    .eq("is_available", true)
-    .order("price", { ascending: true });
-  return (data || []) as MenuItem[];
+  try {
+    const { data, error } = await supabase
+      .from("menu_items")
+      .select("*")
+      .in("category", [...AGAINST_ORDER_CATEGORIES])
+      .eq("is_available", true)
+      .order("price", { ascending: true });
+    if (!error && data?.length) return data as MenuItem[];
+  } catch (e) {
+    console.error("[WA] getMenu supabase error:", e);
+  }
+  return staticMenuItems();
 }
 
 async function getMenuByCategory(cat: string): Promise<MenuItem[]> {
-  const { data } = await supabase
-    .from("menu_items")
-    .select("*")
-    .eq("category", cat)
-    .eq("is_available", true)
-    .order("price", { ascending: true });
-  return (data || []) as MenuItem[];
+  try {
+    const { data, error } = await supabase
+      .from("menu_items")
+      .select("*")
+      .eq("category", cat)
+      .eq("is_available", true)
+      .order("price", { ascending: true });
+    if (!error && data?.length) return data as MenuItem[];
+  } catch (e) {
+    console.error("[WA] getMenuByCategory supabase error:", e);
+  }
+  return staticMenuByCategory(cat);
 }
 
 function findItemByName(menu: MenuItem[], text: string): MenuItem | undefined {
@@ -182,6 +184,8 @@ export async function POST(req: Request) {
     let profileName = "";
     let messageId = "";
 
+    let interactiveReplyId: string | null = null;
+
     // Parse request - support both Meta and Twilio formats
     if (contentType.includes("application/json")) {
       const json = await req.json();
@@ -201,19 +205,19 @@ export async function POST(req: Request) {
           messageId = message.id || "";
           console.log(`[Meta WA] From=${from} Body="${body}" Name=${profileName} MsgId=${messageId}`);
         } else if (message && message.type === "interactive") {
-          // Handle button/list replies
           from = fromMetaWebhook(message.from);
           const interactive = message.interactive;
           if (interactive?.type === "button_reply") {
-            body = interactive.button_reply?.title || interactive.button_reply?.id || "";
+            interactiveReplyId = interactive.button_reply?.id || null;
+            body = interactiveReplyId || interactive.button_reply?.title || "";
           } else if (interactive?.type === "list_reply") {
-            body = interactive.list_reply?.title || interactive.list_reply?.id || "";
+            interactiveReplyId = interactive.list_reply?.id || null;
+            body = interactiveReplyId || interactive.list_reply?.title || "";
           }
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
-          console.log(`[Meta WA Interactive] From=${from} Body="${body}" Name=${profileName}`);
+          console.log(`[Meta WA Interactive] From=${from} Id=${interactiveReplyId} Body="${body}"`);
         } else {
-          // Not a text/interactive message, acknowledge and skip
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
         }
       } 
@@ -262,7 +266,7 @@ export async function POST(req: Request) {
       if (dec) {
         const supa = createServerSupabase();
         const r = await saveOrderRatingByPhone(supa, dec.orderId, dec.stars, from);
-        await sendText(from, r.ok ? "🙏 Thank you for the rating! Nandri!" : "Rating save aagala, try again please.");
+        await sendText(from, r.ok ? "Thank you for the rating!" : "Could not save your rating. Please try again.");
         return ack();
       }
     }
@@ -273,24 +277,21 @@ export async function POST(req: Request) {
       const firstName = profileName?.trim().split(/\s+/)[0];
       const welcomeText = buildWelcomeMessage(firstName);
 
-      const hasActive = await hasActiveOrder(from);
-      const returning = await hasOrders(from);
-
       const buttons: { id: string; title: string }[] = [
         { id: "browse_menu", title: "Browse Menu" },
+        { id: "open_app", title: "Open App" },
+        { id: "help_support", title: "Help" },
       ];
-      if (hasActive) {
-        buttons.push({ id: "track_order", title: "Track Order" });
-      } else if (returning) {
-        buttons.push({ id: "quick_reorder", title: "Order Again" });
-      } else {
-        buttons.push({ id: "open_app", title: "Open App" });
-      }
-      buttons.push({ id: "help_support", title: "Help & Support" });
 
       await storeOptions(from, buttons);
-      await sendButtons(from, welcomeText, buttons);
+      await sendButtons(from, welcomeText, buttons, { headerImageUrl: welcomeLogoImageUrl() });
       return ack();
+    }
+
+    // Button / list tap (Meta interactive)
+    if (interactiveReplyId) {
+      const handled = await handleResolvedId(from, interactiveReplyId, session, profileName);
+      if (handled) return handled;
     }
 
     // ── Resolved numbered reply mapping ─────────────────────────────────
@@ -394,7 +395,7 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return await showCategoryItems(from, "egg");
     case "checkout":
       if (session.cart.length === 0) {
-        await sendText(from, "Cart empty-a irukku! Menu browse pannu first. 🛒");
+        await sendText(from, "Your cart is empty. Browse the menu first.");
         return ack();
       }
       await updateSession(from, { state: "picking_date" });
@@ -404,7 +405,7 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return await showCategoryBrowser(from);
     case "clear_cart":
       await updateSession(from, { cart: [], state: "idle" });
-      await sendText(from, "🗑 Cart clear aayiduchu! Fresh-a start pannalaam.");
+      await sendText(from, "Cart cleared. Type *hi* to start fresh.");
       return ack();
     case "confirm_order":
       return await processConfirmOrder(from, session);
@@ -421,14 +422,26 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return ack();
     case "hs_complaint":
       await updateSession(from, { state: "ai_chat" });
-      await sendText(from, "Enna problem? Type pannu, naan paarthukren. 🙏");
+      await sendText(from, "Tell me what went wrong and I'll help, or connect you with the team.");
       return ack();
     case "hs_your_orders":
       return await showOrderHistory(from);
     case "hs_payments":
       return await showPaymentsSummary(from);
-    default:
+    default: {
+      const menu = await getMenu();
+      const item = menu.find((m) => m.id === id);
+      if (item) {
+        await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
+        await sendText(from, buildVariantMessage(item.name, item.price));
+        await storeOptions(from, [
+          { id: "var_500gm", title: "500gm" },
+          { id: "var_1kg", title: "1kg" },
+        ]);
+        return ack();
+      }
       return null;
+    }
   }
 }
 
@@ -464,7 +477,7 @@ async function handleBrowsingCategory(from: string, text: string, session: { car
     return await showCategoryItems(from, cat);
   }
 
-  await sendText(from, "1, 2, or 3 reply pannu — or category name type pannu! 🍽");
+  await sendText(from, "Reply 1, 2, or 3 — or type the category name (chicken, mutton, egg).");
   return ack();
 }
 
@@ -500,7 +513,7 @@ async function handlePickingItem(from: string, text: string, session: { cart: Ca
     return ack();
   }
 
-  await sendText(from, "Dish number or name reply pannu! List-la irundhu choose pannu. 🍛");
+  await sendText(from, "Pick a dish from the list, or type the dish name.");
   return ack();
 }
 
@@ -517,12 +530,12 @@ async function handlePickingVariant(from: string, text: string, session: { cart:
   if (resolvedVar === "var_1kg") variant = "1kg";
 
   if (!variant) {
-    await sendText(from, "1 (500gm) or 2 (1kg) reply pannu! 🍛");
+    await sendText(from, "Reply 1 for 500gm or 2 for 1kg.");
     return ack();
   }
 
   await updateSession(from, { selected_variant: variant, state: "picking_qty" });
-  await sendText(from, `👍 *${variant}* selected! Quantity enna? (1, 2, 3...)\n\n_Default 1, number reply pannu._`);
+  await sendText(from, `*${variant}* selected. How many? (1–10, default 1)`);
   return ack();
 }
 
@@ -537,7 +550,7 @@ async function handlePickingQty(from: string, text: string, session: { cart: Car
   const menu = await getMenu();
   const item = menu.find((m) => m.id === session.selected_item_id);
   if (!item) {
-    await sendText(from, "Item kaanala! Menu-la irundhu select pannu.");
+    await sendText(from, "Couldn't find that item. Pick from the menu list.");
     await updateSession(from, { state: "idle" });
     return ack();
   }
@@ -555,6 +568,11 @@ async function handlePickingQty(from: string, text: string, session: { cart: Car
 
   const cart = [...(session.cart || [])];
   const existingIdx = cart.findIndex((c) => c.menu_item_id === item.id && c.variant === variant);
+  if (cart.length >= WA_CART_MAX && existingIdx < 0) {
+    await sendText(from, buildCartLimitMessage());
+    return ack();
+  }
+
   if (existingIdx >= 0) {
     cart[existingIdx].quantity += qty;
   } else {
@@ -582,7 +600,7 @@ async function handleCartReview(from: string, text: string, session: { cart: Car
 
   if (resolved === "checkout" || num === 1) {
     if (session.cart.length === 0) {
-      await sendText(from, "Cart empty! Menu browse pannu first.");
+      await sendText(from, "Cart is empty. Browse the menu first.");
       return ack();
     }
     await updateSession(from, { state: "picking_date" });
@@ -594,18 +612,18 @@ async function handleCartReview(from: string, text: string, session: { cart: Car
   }
   if (resolved === "clear_cart" || num === 3) {
     await updateSession(from, { cart: [], state: "idle" });
-    await sendText(from, "🗑 Cart clear aayiduchu!");
+    await sendText(from, "Cart cleared.");
     return ack();
   }
 
-  await sendText(from, "1 (Checkout), 2 (Add more), or 3 (Clear cart) reply pannu! 🛒");
+  await sendText(from, "Reply 1 to checkout, 2 to add more, or 3 to clear cart.");
   return ack();
 }
 
 async function handlePickingDate(from: string, text: string, session: { cart: CartItem[] }) {
   const date = parseDateInput(text);
   if (!date) {
-    await sendText(from, "Date number (1-5) or day name (tomo, monday) reply pannu! 📅");
+    await sendText(from, "Reply with a date number (1–5) or type tomorrow / monday.");
     return ack();
   }
 
@@ -635,14 +653,14 @@ async function handlePickingSlot(from: string, text: string, session: { cart: Ca
   if (resolved === "slot_dinner") slotKind = "dinner";
 
   if (!slotKind) {
-    await sendText(from, "1 (Breakfast), 2 (Lunch), or 3 (Dinner) reply pannu! ⏰");
+    await sendText(from, "Reply 1 for Breakfast, 2 for Lunch, or 3 for Dinner.");
     return ack();
   }
 
   if (session.delivery_date) {
     const slotIso = slotStartIsoFor(session.delivery_date, slotKind);
     if (!isSlotBookable(slotIso)) {
-      await sendText(from, `⚠️ Andha slot-ku minimum 24 hours irukanum!\n\n${ORDER_CUTOFF_REMINDER}\n\nVera date try pannu.`);
+      await sendText(from, `That slot needs at least 24 hours notice.\n\n${ORDER_CUTOFF_REMINDER}\n\nPick another date.`);
       await updateSession(from, { state: "picking_date" });
       await sendText(from, buildDatePickerMessage());
       return ack();
@@ -702,7 +720,7 @@ async function handleAwaitingPayment(from: string, text: string, session: { cart
     return await showCart(from, session.cart);
   }
 
-  await sendText(from, "1 (Confirm & Pay) or 2 (Edit Order) reply pannu! 📋");
+  await sendText(from, "Reply 1 to confirm and pay, or 2 to edit.");
   return ack();
 }
 
@@ -720,7 +738,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     { id: "back_home", title: "Start Over" },
   ];
   await storeOptions(from, buttons);
-  await sendButtons(from, "_Vera enna help venum?_", buttons);
+  await sendButtons(from, "Anything else I can help with?", buttons);
 
   await updateSession(from, { state: "idle" });
   return ack();
@@ -730,54 +748,54 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 
 async function showCategoryBrowser(from: string) {
   try {
-    await updateSession(from, { state: "browsing_category" });
+    await updateSession(from, {
+      state: "browsing_category",
+      pending_options: [
+        { id: "cat_chicken", title: "Chicken" },
+        { id: "cat_mutton", title: "Mutton" },
+        { id: "cat_egg", title: "Egg" },
+      ],
+    });
   } catch (e) {
     console.error("[WA] showCategoryBrowser updateSession error:", e);
   }
-  try {
-    await updateSession(from, { pending_options: [
-      { id: "cat_chicken", title: "Chicken" },
-      { id: "cat_mutton", title: "Mutton" },
-      { id: "cat_egg", title: "Egg" },
-    ] });
-  } catch (e) {
-    console.error("[WA] storeOptions error (non-critical):", e);
-  }
-  await sendText(from, buildCategoryMessage());
+
+  await sendList(from, buildCategoryListBody(), "View Menu", [
+    {
+      title: "Categories",
+      rows: [
+        { id: "cat_chicken", title: "Chicken", description: "Gravies, pepper, and more" },
+        { id: "cat_mutton", title: "Mutton", description: "Curries, keema, stew" },
+        { id: "cat_egg", title: "Egg", description: "Egg curries" },
+      ],
+    },
+  ]);
   return ack();
 }
 
 async function showCategoryItems(from: string, cat: string) {
   const items = await getMenuByCategory(cat);
   if (items.length === 0) {
-    await sendText(from, "Andha category-la items illai right now! Vera category try pannu.");
+    await sendText(from, "Nothing in that category right now. Try another one.");
     return ack();
   }
 
-  const emojiMap: Record<string, string> = { chicken: "🍗", mutton: "🐑", egg: "🥚" };
-  const emoji = emojiMap[cat] || "🍽";
-  const lines = items.map((m, i) => `${i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
+  const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+  const slice = items.slice(0, 10);
+  const rows = slice.map((m) => ({
+    id: m.id,
+    title: m.name.length > 24 ? `${m.name.slice(0, 21)}...` : m.name,
+    description: `500gm Rs${m.price} / 1kg Rs${Math.round(m.price * 1.8)}`,
+  }));
 
-  let msg = [
-    `${emoji} *${cat.charAt(0).toUpperCase() + cat.slice(1)} Specials*`,
-    `_(500gm/1kg prices)_`,
-    ``,
-    ...lines,
-    ``,
-    `_Dish number reply pannu!_`,
-  ].join("\n");
-
-  if (msg.length > 1500) {
-    const half = Math.ceil(items.length / 2);
-    const firstLines = items.slice(0, half).map((m, i) => `${i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
-    await sendText(from, `${emoji} *${cat.charAt(0).toUpperCase() + cat.slice(1)} Specials (1/${2})*\n_(500gm/1kg)_\n\n${firstLines.join("\n")}`);
-    const secondLines = items.slice(half).map((m, i) => `${half + i + 1}. ${m.name} — ₹${m.price}/₹${Math.round(m.price * 1.8)}`);
-    msg = `${secondLines.join("\n")}\n\n_Dish number reply pannu!_`;
+  let body = buildDishListBody(catLabel);
+  if (items.length > 10) {
+    body += `\n\n_Showing top 10. Full menu with photos in the app._\n${buildAppNudgeFooter()}`;
   }
 
-  await storeOptions(from, itemOptions(items));
+  await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
-  await sendText(from, msg);
+  await sendList(from, body, "Pick Dish", [{ title: catLabel, rows }]);
   return ack();
 }
 
@@ -820,7 +838,7 @@ async function showTrackOrder(from: string) {
   const active = ((orders || []) as OrderRow[]).filter((o) => !["delivered", "cancelled"].includes(o.status));
 
   if (!active.length) {
-    await sendText(from, "📦 Active orders onnum illai! Order panna menu browse pannu.\n\n_Type *menu* to browse._");
+    await sendText(from, "No active orders. Type *menu* to browse and order.");
     return ack();
   }
 
@@ -829,7 +847,7 @@ async function showTrackOrder(from: string) {
       `${i + 1}. #${String(o.id).slice(0, 8).toUpperCase()} — *${o.status}* — ₹${o.total_amount ?? "—"}`,
   );
 
-  await sendText(from, `📦 *Active Orders*\n\n${lines.join("\n")}\n\n_Status update varum, wait pannu! 🙌_`);
+  await sendText(from, `*Active orders*\n\n${lines.join("\n")}\n\n_We'll message you when the status changes._`);
   return ack();
 }
 
@@ -843,7 +861,7 @@ async function showOrderHistory(from: string) {
 
   type HistRow = { id: string; status: string; created_at: string; total_amount: number | null };
   if (!orders?.length) {
-    await sendText(from, "📋 Orders history illai. First order pannu! _Type *menu* to browse._");
+    await sendText(from, "No order history yet. Type *menu* to place your first order.");
     return ack();
   }
 
@@ -904,7 +922,7 @@ async function showQuickReorder(from: string) {
   const unique = Array.from(new Map(items.map((item) => [item.id, item])).values()).slice(0, 5);
 
   if (unique.length === 0) {
-    await sendText(from, "Past items kaanala! _Type *menu* to browse fresh._");
+    await sendText(from, buildReorderEmptyMessage());
     return ack();
   }
 
@@ -918,7 +936,7 @@ async function showQuickReorder(from: string) {
 
 async function processConfirmOrder(from: string, session: { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null; delivery_address: string | null }) {
   if (session.cart.length === 0) {
-    await sendText(from, "Cart empty! Menu browse pannu first.");
+    await sendText(from, "Cart is empty. Browse the menu first.");
     return ack();
   }
 
@@ -928,8 +946,10 @@ async function processConfirmOrder(from: string, session: { cart: CartItem[]; de
     ? slotStartIsoFor(session.delivery_date, slotKind)
     : new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString();
 
-  // Create order in Supabase
-  const { data: order, error: orderError } = await supabase
+  const serverDb = createServerSupabase();
+
+  // Create order in Supabase (service role — bypasses RLS)
+  const { data: order, error: orderError } = await serverDb
     .from("orders")
     .insert({
       phone_number: from,
@@ -944,7 +964,7 @@ async function processConfirmOrder(from: string, session: { cart: CartItem[]; de
 
   if (orderError || !order) {
     console.error("[WA] Order create error:", orderError?.message);
-    await sendText(from, "Order create panna mudiyala! Try again please. 🙏");
+    await sendText(from, "Could not create your order. Please try again.");
     return ack();
   }
 
@@ -955,20 +975,25 @@ async function processConfirmOrder(from: string, session: { cart: CartItem[]; de
     quantity: c.quantity,
     unit_price: c.unit_price,
   }));
-  await supabase.from("order_items").insert(orderItems);
+  const { error: itemsError } = await serverDb.from("order_items").insert(orderItems);
+  if (itemsError) {
+    console.error("[WA] Order items insert error:", itemsError.message);
+  }
 
   // Create payment link
   const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", from);
   if (paymentLinkId) {
-    await supabase.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
+    await serverDb.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
   }
 
   // Reset session
   await resetSession(from);
 
+  const shortId = String(order.id).slice(0, 8).toUpperCase();
+
   // Send payment message
   await sendText(from, buildPaymentMessage(total, short_url));
-  await sendText(from, `_Order ID: #${String(order.id).slice(0, 8).toUpperCase()}_\n\n_Payment aana udan, we'll confirm your order!_ ✅`);
+  await sendText(from, buildOrderIdPendingPaymentMessage(shortId));
 
   return ack();
 }

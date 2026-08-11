@@ -97,10 +97,15 @@ export async function sendText(to: string, text: string): Promise<MetaSendResult
 /**
  * Send an interactive button message (up to 3 buttons)
  */
+export type SendButtonsOptions = {
+  headerImageUrl?: string;
+};
+
 export async function sendButtons(
   to: string,
   bodyText: string,
-  buttons: { id: string; title: string }[]
+  buttons: { id: string; title: string }[],
+  options?: SendButtonsOptions,
 ): Promise<MetaSendResult> {
   try {
     const { accessToken, phoneNumberId } = getConfig();
@@ -108,6 +113,29 @@ export async function sendButtons(
 
     // Meta allows max 3 buttons
     const limitedButtons = buttons.slice(0, 3);
+
+    const interactive: Record<string, unknown> = {
+      type: "button",
+      body: {
+        text: bodyText.substring(0, 1024),
+      },
+      action: {
+        buttons: limitedButtons.map((btn) => ({
+          type: "reply",
+          reply: {
+            id: btn.id,
+            title: btn.title.substring(0, 20), // Max 20 chars
+          },
+        })),
+      },
+    };
+
+    if (options?.headerImageUrl) {
+      interactive.header = {
+        type: "image",
+        image: { link: options.headerImageUrl },
+      };
+    }
 
     const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
       method: "POST",
@@ -120,21 +148,7 @@ export async function sendButtons(
         recipient_type: "individual",
         to: recipient,
         type: "interactive",
-        interactive: {
-          type: "button",
-          body: {
-            text: bodyText,
-          },
-          action: {
-            buttons: limitedButtons.map((btn) => ({
-              type: "reply",
-              reply: {
-                id: btn.id,
-                title: btn.title.substring(0, 20), // Max 20 chars
-              },
-            })),
-          },
-        },
+        interactive,
       }),
     });
 
@@ -217,6 +231,74 @@ export async function sendCtaUrl(
     };
   } catch (error) {
     console.error("[Meta WhatsApp] Send CTA URL exception:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export type ListRow = { id: string; title: string; description?: string };
+export type ListSection = { title: string; rows: ListRow[] };
+
+/**
+ * Send an interactive list message (menu picker)
+ */
+export async function sendList(
+  to: string,
+  bodyText: string,
+  buttonLabel: string,
+  sections: ListSection[],
+): Promise<MetaSendResult> {
+  try {
+    const { accessToken, phoneNumberId } = getConfig();
+    const recipient = toMetaPhoneNumber(to);
+
+    const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "list",
+          body: { text: bodyText.substring(0, 1024) },
+          action: {
+            button: buttonLabel.substring(0, 20),
+            sections: sections.map((sec) => ({
+              title: sec.title.substring(0, 24),
+              rows: sec.rows.slice(0, 10).map((row) => ({
+                id: row.id.substring(0, 200),
+                title: row.title.substring(0, 24),
+                description: row.description?.substring(0, 72) || undefined,
+              })),
+            })),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("[Meta WhatsApp] Send list error:", data);
+      return {
+        success: false,
+        error: data.error?.message || "Failed to send list",
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data.messages?.[0]?.id,
+    };
+  } catch (error) {
+    console.error("[Meta WhatsApp] Send list exception:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

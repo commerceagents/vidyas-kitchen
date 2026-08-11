@@ -1,7 +1,7 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { OrderStatus } from "@/lib/order-status";
-import { sendText, sendButtons, sendCtaUrl } from "@/lib/twilio-whatsapp";
+import { sendText, sendButtons, sendCtaUrl } from "@/lib/whatsapp-send";
 import {
   notifyOrderPaid,
   notifyOrderAccepted,

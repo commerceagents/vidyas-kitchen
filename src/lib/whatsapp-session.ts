@@ -48,44 +48,73 @@ const DEFAULT_SESSION: Omit<WhatsAppSession, "phone"> = {
   last_active: new Date().toISOString(),
 };
 
+/** Fallback when Supabase host is unreachable (serverless — best-effort per instance). */
+const memorySessions = new Map<string, WhatsAppSession>();
+
 export async function getSession(phone: string): Promise<WhatsAppSession> {
-  const { data } = await supabase
-    .from("whatsapp_sessions")
-    .select("*")
-    .eq("phone", phone)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_sessions")
+      .select("*")
+      .eq("phone", phone)
+      .maybeSingle();
 
-  if (data) {
-    return {
-      phone: data.phone,
-      state: data.state as SessionState,
-      cart: (data.cart as CartItem[]) || [],
-      selected_item_id: data.selected_item_id,
-      selected_variant: data.selected_variant,
-      selected_qty: data.selected_qty ?? 1,
-      delivery_date: data.delivery_date,
-      delivery_slot_kind: data.delivery_slot_kind,
-      delivery_address: data.delivery_address,
-      pending_options: (data.pending_options as { id: string; title: string }[]) || null,
-      last_active: data.last_active,
-    };
+    if (error) throw error;
+
+    if (data) {
+      const session: WhatsAppSession = {
+        phone: data.phone,
+        state: data.state as SessionState,
+        cart: (data.cart as CartItem[]) || [],
+        selected_item_id: data.selected_item_id,
+        selected_variant: data.selected_variant,
+        selected_qty: data.selected_qty ?? 1,
+        delivery_date: data.delivery_date,
+        delivery_slot_kind: data.delivery_slot_kind,
+        delivery_address: data.delivery_address,
+        pending_options: (data.pending_options as { id: string; title: string }[]) || null,
+        last_active: data.last_active,
+      };
+      memorySessions.set(phone, session);
+      return session;
+    }
+
+    const fresh: WhatsAppSession = { phone, ...DEFAULT_SESSION, last_active: new Date().toISOString() };
+    const { error: upErr } = await supabase.from("whatsapp_sessions").upsert(fresh, { onConflict: "phone" });
+    if (upErr) throw upErr;
+    memorySessions.set(phone, fresh);
+    return fresh;
+  } catch (err) {
+    console.error("[WA session] Supabase unavailable, using memory fallback:", err);
+    const cached = memorySessions.get(phone);
+    if (cached) return cached;
+    const fresh: WhatsAppSession = { phone, ...DEFAULT_SESSION, last_active: new Date().toISOString() };
+    memorySessions.set(phone, fresh);
+    return fresh;
   }
-
-  const fresh: WhatsAppSession = { phone, ...DEFAULT_SESSION, last_active: new Date().toISOString() };
-  await supabase.from("whatsapp_sessions").upsert(fresh, { onConflict: "phone" });
-  return fresh;
 }
 
 export async function updateSession(
   phone: string,
   updates: Partial<Omit<WhatsAppSession, "phone">>,
 ): Promise<void> {
-  await supabase
-    .from("whatsapp_sessions")
-    .upsert(
+  const merged: WhatsAppSession = {
+    ...(memorySessions.get(phone) ?? { phone, ...DEFAULT_SESSION, last_active: new Date().toISOString() }),
+    ...updates,
+    phone,
+    last_active: new Date().toISOString(),
+  };
+  memorySessions.set(phone, merged);
+
+  try {
+    const { error } = await supabase.from("whatsapp_sessions").upsert(
       { phone, ...updates, updated_at: new Date().toISOString(), last_active: new Date().toISOString() },
       { onConflict: "phone" },
     );
+    if (error) throw error;
+  } catch (err) {
+    console.error("[WA session] updateSession memory-only:", err);
+  }
 }
 
 export async function resetSession(phone: string): Promise<void> {
