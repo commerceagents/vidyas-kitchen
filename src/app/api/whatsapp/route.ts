@@ -405,7 +405,7 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return await showCategoryBrowser(from);
     case "clear_cart":
       await updateSession(from, { cart: [], state: "idle" });
-      await sendText(from, "Cart cleared. Type *hi* to start fresh.");
+      await sendText(from, "Your cart has been cleared. Type *hi* to start again.");
       return ack();
     case "confirm_order":
       return await processConfirmOrder(from, session);
@@ -413,7 +413,7 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return await showCart(from, session.cart);
     case "back_home":
       await resetSession(from);
-      await sendText(from, "_Type *hi* to start fresh!_");
+      await sendText(from, "_Type *hi* to start again._");
       return ack();
     case "hs_track":
       return await showTrackOrder(from);
@@ -422,7 +422,7 @@ async function handleResolvedId(from: string, id: string, session: { cart: CartI
       return ack();
     case "hs_complaint":
       await updateSession(from, { state: "ai_chat" });
-      await sendText(from, "Tell me what went wrong and I'll help, or connect you with the team.");
+      await sendText(from, "Please tell us what went wrong and we will do our best to help, or connect you with our team.");
       return ack();
     case "hs_your_orders":
       return await showOrderHistory(from);
@@ -543,7 +543,7 @@ async function handlePickingQty(from: string, text: string, session: { cart: Car
   let qty = parseInt(text.trim(), 10);
   if (isNaN(qty) || qty < 1) qty = 1;
   if (qty > 10) {
-    await sendText(from, "Maximum 10 per item! Reasonable-a sollu 😅");
+    await sendText(from, "Maximum 10 per item. Please enter a quantity between 1 and 10.");
     return ack();
   }
 
@@ -674,7 +674,7 @@ async function handlePickingSlot(from: string, text: string, session: { cart: Ca
 
 async function handlePickingAddress(from: string, text: string, session: { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null }) {
   if (text.length < 5) {
-    await sendText(from, "Full address sollu please! (area, landmark, etc.) 📍");
+    await sendText(from, "Please send your full delivery address (area, landmark, and so on).");
     return ack();
   }
 
@@ -738,7 +738,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     { id: "back_home", title: "Start Over" },
   ];
   await storeOptions(from, buttons);
-  await sendButtons(from, "Anything else I can help with?", buttons);
+  await sendButtons(from, "Is there anything else we can help you with?", buttons);
 
   await updateSession(from, { state: "idle" });
   return ack();
@@ -847,7 +847,7 @@ async function showTrackOrder(from: string) {
       `${i + 1}. #${String(o.id).slice(0, 8).toUpperCase()} — *${o.status}* — ₹${o.total_amount ?? "—"}`,
   );
 
-  await sendText(from, `*Active orders*\n\n${lines.join("\n")}\n\n_We'll message you when the status changes._`);
+  await sendText(from, `*Active orders*\n\n${lines.join("\n")}\n\n_We will message you when the status changes._`);
   return ack();
 }
 
@@ -872,7 +872,7 @@ async function showOrderHistory(from: string) {
 
   const buttons = [{ id: "browse_menu", title: "Browse Menu" }, { id: "back_home", title: "Home" }];
   await storeOptions(from, buttons);
-  await sendButtons(from, `📋 *Your Orders*\n\n${lines.join("\n")}`, buttons);
+  await sendButtons(from, `*Your Orders*\n\n${lines.join("\n")}`, buttons);
   return ack();
 }
 
@@ -886,7 +886,7 @@ async function showPaymentsSummary(from: string) {
 
   type PayRow = { id: string; status: string; total_amount: number | null; created_at: string };
   if (!orders?.length) {
-    await sendText(from, "💳 Payment history illai.");
+    await sendText(from, "No payment history on this number yet.");
     return ack();
   }
 
@@ -898,7 +898,7 @@ async function showPaymentsSummary(from: string) {
 
   const buttons = [{ id: "browse_menu", title: "Browse Menu" }, { id: "back_home", title: "Home" }];
   await storeOptions(from, buttons);
-  await sendButtons(from, `💳 *Payments*\n\n${lines.join("\n")}`, buttons);
+  await sendButtons(from, `*Payments*\n\n${lines.join("\n")}`, buttons);
   return ack();
 }
 
@@ -911,7 +911,7 @@ async function showQuickReorder(from: string) {
     .limit(5);
 
   if (!pastOrders?.length) {
-    await sendText(from, "Past orders illai! Fresh-a start pannalaam. _Type *menu*._");
+    await sendText(from, "No past orders yet. _Type *menu* to browse and place your first order._");
     return ack();
   }
 

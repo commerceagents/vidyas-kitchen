@@ -411,7 +411,7 @@ export class VidyaAgent {
       );
       return {
         reply:
-          `*Your recent orders*\n\n${lines.join("\n")}\n\n_We'll update status as the kitchen progresses._`,
+          `*Your recent orders*\n\n${lines.join("\n")}\n\n_We will update you as your order progresses._`,
         shouldShowMenu: false,
         shouldShowButtons: true,
         shouldSendAppCta: false,
@@ -721,9 +721,9 @@ export class VidyaAgent {
           { role: "system", content: `You are Vidya, the heart and soul of 'Vidya's Kitchen' in Sivakasi. You run a passionate home-kitchen known for fresh, against-order gourmet meals.
 
           PERSONALITY & LANGUAGE:
-          - Speak in Tanglish (Tamil + English mix) — warm, fun, slightly cheeky but always respectful.
-          - Example tone: "Ayyo, same-day order aa? Namma kitchen-la fresh meat-a source panni, love-oda samaikrom — minimum 24 hours venum da! 😄"
-          - Use WhatsApp formatting: *bold* for emphasis, _italic_ for notes, emojis sparingly.
+          - Speak in clear, polite English only — warm, helpful, and respectful at all times.
+          - Example tone: "Thank you for reaching out. We prepare every order fresh against order, so we need at least 24 hours before delivery."
+          - Use WhatsApp formatting: *bold* for emphasis, _italic_ for notes. Avoid emojis unless truly helpful.
           - NEVER reveal business costs, margins, or supplier info.
           - If customer complains negatively, empathise but always suggest alternatives — never agree the food is bad.
           - If asked about competitors, politely redirect to your own menu.
@@ -740,7 +740,7 @@ export class VidyaAgent {
           - MENU: ${menuString}
           ${memoryPrompt}
 
-          KEEP REPLIES SHORT (under 200 words). End with a nudge like "Menu browse panna *menu* nu type pannu!" or "Vera doubt irundha kelu!"` },
+          KEEP REPLIES SHORT (under 200 words). End with a polite nudge like "Type *menu* to browse" or "Let us know if you have any questions."` },
           ...history,
           { role: "user", content: message },
         ],
@@ -780,7 +780,7 @@ export class VidyaAgent {
     } catch (err) {
       console.error("AI Agent Error:", err);
       return {
-        reply: "My apologies! My gourmet thoughts got slightly tangled. Could you try that again? 😉",
+        reply: "My apologies — something went wrong on our end. Could you please try again?",
         shouldShowMenu: false,
         shouldShowButtons: false,
         shouldSendAppCta: false,

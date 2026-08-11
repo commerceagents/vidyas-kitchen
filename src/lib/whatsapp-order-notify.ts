@@ -145,7 +145,7 @@ export async function notifyWhatsAppDriverNewDeliveryReady(
   }
 
   const body =
-    `🍱 *New delivery ready!*\n\n` +
+    `*New delivery ready*\n\n` +
     `Customer: ${customerName}\n` +
     `Item: ${itemLine}\n` +
     `Address: ${r.delivery_address || "—"}`;

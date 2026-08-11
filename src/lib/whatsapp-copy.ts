@@ -1,5 +1,5 @@
 /**
- * WhatsApp copy — English bot (fun, no emoji) + Tanglish order notifications.
+ * WhatsApp copy — English only, warm and respectful.
  */
 
 import { publicSiteOrigin } from "./site-url";
@@ -10,7 +10,7 @@ export const SUPPORT_EMAIL = "hello.vidyaskitchen@gmail.com";
 export const WA_CART_MAX = 3;
 
 export const ORDER_CUTOFF_REMINDER =
-  "_We cook fresh — please order at least 24 hours before delivery. No rush orders, only love._";
+  "_We cook fresh — please order at least 24 hours before delivery. We do not accept rush orders._";
 
 export function buildAppNudgeFooter(): string {
   return "_For photos, deals, and the full menu, tap Open App or visit vidyaskitchenhome.com_";
@@ -25,15 +25,15 @@ export function welcomeLogoImageUrl(): string {
 export function buildWelcomeMessage(firstName?: string): string {
   const name = firstName ? `*${firstName}*` : "there";
   return [
-    `Hey ${name}!`,
+    `Hello ${name}!`,
     ``,
-    `Hungry thoughts detected. You've reached *Vidya's Kitchen* — Sivakasi's home-style gourmet kitchen.`,
+    `Welcome to *Vidya's Kitchen* — Sivakasi's home-style gourmet kitchen.`,
     ``,
-    `Chicken, mutton, and egg specials. Cooked fresh, against order only. No shortcuts, no sad reheats.`,
+    `We serve chicken, mutton, and egg specials, cooked fresh against order. Every dish is made with care — no shortcuts.`,
     ``,
     ORDER_CUTOFF_REMINDER,
     ``,
-    `_Pick an option below._`,
+    `_Please choose an option below._`,
   ].join("\n");
 }
 
@@ -43,7 +43,7 @@ export function buildCategoryListBody(): string {
   return [
     `*What's on the menu?*`,
     ``,
-    `Tap the button below and pick a category.`,
+    `Tap the button below and choose a category.`,
     ``,
     buildAppNudgeFooter(),
   ].join("\n");
@@ -51,7 +51,7 @@ export function buildCategoryListBody(): string {
 
 export function buildCategoryMessage(): string {
   return [
-    `*Pick a category:*`,
+    `*Choose a category:*`,
     ``,
     `1. Chicken`,
     `2. Mutton`,
@@ -67,7 +67,7 @@ export function buildDishListBody(categoryLabel: string): string {
     `*${categoryLabel} specials*`,
     `(Prices shown: 500gm / 1kg)`,
     ``,
-    `Tap below to pick a dish.`,
+    `Tap below to choose a dish.`,
   ].join("\n");
 }
 
@@ -106,7 +106,7 @@ export function buildVariantMessage(itemName: string, price500gm: number): strin
   return [
     `*${itemName}*`,
     ``,
-    `Pick a size:`,
+    `Please choose a size:`,
     ``,
     `1. 500gm — *Rs ${price500gm}*`,
     `2. 1kg — *Rs ${price1kg}*`,
@@ -119,7 +119,7 @@ export function buildVariantMessage(itemName: string, price500gm: number): strin
 
 export function buildCartMessage(cart: CartItem[]): string {
   if (cart.length === 0) {
-    return `Your cart is empty. Browse the menu to add something tasty.`;
+    return `Your cart is empty. Please browse the menu to add items.`;
   }
 
   const lines: string[] = [`*Your cart*`, ``];
@@ -140,7 +140,7 @@ export function buildCartMessage(cart: CartItem[]): string {
 
   if (cart.length >= WA_CART_MAX) {
     lines.push(``);
-    lines.push(`_WhatsApp cart is limited to ${WA_CART_MAX} items. Use the app for a bigger order._`);
+    lines.push(`_WhatsApp cart is limited to ${WA_CART_MAX} items. Please use the app for larger orders._`);
   }
 
   return lines.join("\n");
@@ -148,9 +148,9 @@ export function buildCartMessage(cart: CartItem[]): string {
 
 export function buildCartLimitMessage(): string {
   return [
-    `Your WhatsApp cart is full (${WA_CART_MAX} items max here).`,
+    `Your WhatsApp cart is full (${WA_CART_MAX} items maximum here).`,
     ``,
-    `Open the app for unlimited items, photos, and live tracking.`,
+    `Please open the app for unlimited items, photos, and live tracking.`,
     ``,
     buildAppNudgeFooter(),
   ].join("\n");
@@ -178,17 +178,17 @@ export function buildDatePickerMessage(): string {
   }
 
   return [
-    `*When should we deliver?*`,
+    `*When would you like delivery?*`,
     ``,
     ...dates,
     ``,
-    `_Reply with a number, or type "tomorrow" / "monday"._`,
+    `_Reply with a number, or type "tomorrow" or "monday"._`,
   ].join("\n");
 }
 
 export function buildSlotPickerMessage(dateStr: string): string {
   return [
-    `*${dateStr} — pick a slot:*`,
+    `*${dateStr} — please choose a slot:*`,
     ``,
     `1. Breakfast (8am – 10am)`,
     `2. Lunch (12pm – 2pm)`,
@@ -204,8 +204,8 @@ export function buildAddressPrompt(): string {
   return [
     `*Delivery address*`,
     ``,
-    `Where in Sivakasi should we bring your food?`,
-    `Send the full address (area, landmark, etc.)`,
+    `Where in Sivakasi should we deliver your order?`,
+    `Please send the full address (area, landmark, and so on).`,
     ``,
     `_Example: 42, Gandhi Nagar, near Sivakasi bus stand_`,
   ].join("\n");
@@ -241,14 +241,14 @@ export function buildOrderSummaryMessage(
 
 export function buildPaymentMessage(total: number, paymentUrl: string): string {
   return [
-    `*Time to pay*`,
+    `*Payment*`,
     ``,
     `Amount: *Rs ${total}*`,
     ``,
-    `Pay via Razorpay (UPI, card, or net banking):`,
+    `Please pay via Razorpay (UPI, card, or net banking):`,
     paymentUrl,
     ``,
-    `_We confirm your order as soon as payment goes through._`,
+    `_We will confirm your order as soon as payment is received._`,
     buildAppNudgeFooter(),
   ].join("\n");
 }
@@ -257,73 +257,85 @@ export function buildOrderIdPendingPaymentMessage(shortId: string): string {
   return [
     `_Order ID: #${shortId}_`,
     ``,
-    `_We confirm your order as soon as payment goes through._`,
+    `_We will confirm your order as soon as payment is received._`,
   ].join("\n");
 }
 
 export function buildReorderEmptyMessage(): string {
-  return "Couldn't find your past items. _Type *menu* to browse fresh._";
+  return "We could not find your past items. _Type *menu* to browse the menu._";
 }
 
-// ─── Order Status Notifications (Tanglish, no emoji) ─────────────────────────
+// ─── Order Status Notifications ──────────────────────────────────────────────
 
 export function notifyOrderPaid(shortId: string, slotLine?: string): string {
   return [
-    `*Order confirm aayiduchu!* (#${shortId})`,
+    `*Order confirmed* (#${shortId})`,
     ``,
-    slotLine ? `*Slot:* ${slotLine}` : "",
+    slotLine ? `*Delivery slot:* ${slotLine}` : "",
     slotLine ? `` : "",
-    `Payment vandhuruchu. Kitchen prepare pannum soon.`,
-    `Relax pannunga — update pannren.`,
+    `Thank you — we have received your payment. Our kitchen will begin preparing your order shortly.`,
+    `We will keep you updated on the status.`,
   ].filter((l) => l !== "").join("\n");
 }
 
 export function notifyOrderAccepted(shortId: string, slotLine?: string): string {
   return [
-    `*Order accept pannitom!* (#${shortId})`,
+    `*Order accepted* (#${shortId})`,
     ``,
-    slotLine ? `*Slot:* ${slotLine}` : "",
+    slotLine ? `*Delivery slot:* ${slotLine}` : "",
     slotLine ? `` : "",
-    `Vidya aunty order-a accept pannirukanga.`,
-    `Cancel panna 12 hours munnadi time irukku.`,
+    `Your order has been accepted by our kitchen.`,
+    `If you need to cancel, please do so at least 12 hours before your delivery slot.`,
   ].filter((l) => l !== "").join("\n");
 }
 
 export function notifyOrderPreparing(): string {
-  return `*Kitchen-la start panrom!*\n\nUnga order prepare aagudhu. Fresh-a varum — konjam wait pannunga.`;
+  return [
+    `*Preparation started*`,
+    ``,
+    `Your order is now being prepared in our kitchen. Thank you for your patience — it will be worth the wait.`,
+  ].join("\n");
 }
 
 export function notifyOrderOutForDelivery(): string {
-  return `*Driver varraar!*\n\nOrder eduthutu varanga. Track panna app open pannunga.`;
+  return [
+    `*Out for delivery*`,
+    ``,
+    `Your order is on its way. You can track it in the app.`,
+  ].join("\n");
 }
 
 export function notifyOrderDelivered(): string {
   return [
-    `*Delivered!* Enjoy your meal.`,
+    `*Delivered*`,
     ``,
-    `Eppadi irundhudhu? Rate pannunga:`,
+    `We hope you enjoy your meal. We would appreciate your feedback:`,
     ``,
-    `1. Semma`,
-    `2. Nalla irundhuchu`,
-    `3. Ok ok`,
-    `4. Improve pannalaam`,
-    `5. Not great`,
+    `1. Excellent`,
+    `2. Good`,
+    `3. Okay`,
+    `4. Could be better`,
+    `5. Not satisfied`,
     ``,
-    `_Number reply pannunga._`,
+    `_Please reply with a number._`,
   ].join("\n");
 }
 
 export function notifyOrderCancelled(shortId: string): string {
-  return `Order *#${shortId}* cancel aayiduchu.\n\nProblem irundha reply pannunga — help panrom.`;
+  return [
+    `Order *#${shortId}* has been cancelled.`,
+    ``,
+    `If you have any questions, please reply and we will be happy to help.`,
+  ].join("\n");
 }
 
 export function notifyOrderRejected(shortId: string, amtStr: string): string {
   return [
-    `Sorry, order *#${shortId}* accept panna mudiyala.`,
+    `We are sorry — we were unable to accept order *#${shortId}*.`,
     ``,
-    `*${amtStr}* full refund initiate pannurom — 5-7 working days.`,
+    `A full refund of *${amtStr}* has been initiated and should reach you within 5–7 working days.`,
     ``,
-    `Inconvenience-ku sorry. Vera help venum-na sollunga.`,
+    `We apologise for the inconvenience. Please let us know if we can assist you further.`,
   ].join("\n");
 }
 
@@ -333,10 +345,10 @@ export function helpAndSupportReply(): string {
   return [
     `*Help & Support*`,
     ``,
-    `I'm the Vidya's Kitchen assistant.`,
-    `I can help with menu, orders, and tracking.`,
+    `I am the Vidya's Kitchen assistant.`,
+    `I can help with the menu, orders, and tracking.`,
     ``,
-    `Need a human? Pick an option below.`,
+    `If you would like to speak with our team, please choose an option below.`,
     buildAppNudgeFooter(),
   ].join("\n");
 }
@@ -354,7 +366,7 @@ export function callUsDialReply(): string {
 // ─── Reorder ─────────────────────────────────────────────────────────────────
 
 export function buildReorderMessage(items: { name: string; price: number }[]): string {
-  const lines: string[] = [`*Order again*`, ``, `Last time you ordered:`, ``];
+  const lines: string[] = [`*Order again*`, ``, `Your previous order included:`, ``];
 
   items.forEach((item, i) => {
     lines.push(`${i + 1}. ${item.name} — Rs ${item.price}`);
@@ -373,8 +385,8 @@ export function buildPwaPromoMessage(phone: string, name: string, autoLoginUrl?:
   return [
     `*Open the Vidya's Kitchen app*`,
     ``,
-    `Full menu with photos, easy cart, live tracking, and order history.`,
-    `No download — works in your browser.`,
+    `Browse the full menu with photos, manage your cart easily, track orders live, and view your order history.`,
+    `No download required — it works in your browser.`,
     ``,
     url,
   ].join("\n");
