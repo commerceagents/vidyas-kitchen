@@ -239,21 +239,6 @@ function parseRecipeTag(name: string) {
   return { cleanName, tag: null };
 }
 
-/** Deterministic pseudo-random for demo stats (replace with real analytics later). */
-function stableHash(str: string) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function dishStatsFromId(id: string) {
-  const h = stableHash(id);
-  const rating = Math.round((37 + (h % 12)) / 10 * 10) / 10; // 3.7–4.8
-  const weekly = 72 + (stableHash(`${id}:wk`) % 140); // 72–211
-  const reviews = 18 + (h % 220);
-  return { rating, weekly, reviews };
-}
-
 /** Short, plain description from dish name and category. */
 function simpleDishDescription(cleanName: string, category: string) {
   const n = cleanName.toLowerCase();
@@ -285,13 +270,14 @@ function compactHumanCount(n: number): string {
   return n.toLocaleString("en-IN");
 }
 
-/** Short trend label for the social-proof combo (title may already show “Highly reordered”). */
-function dishSocialTrendTag(weekly: number, highly: boolean, rating: number): string {
-  if (highly) return "Customer favourite";
-  if (weekly >= 170) return "Trending now";
-  if (rating >= 4.5) return "Top rated";
-  if (weekly >= 110) return "Best Selling";
-  return "Well loved";
+function relativeReviewAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const days = Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+  if (days <= 0) return "Today";
+  if (days === 1) return "1 day ago";
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? "1 month ago" : `${months} months ago`;
 }
 
 /** One-line pairing / how to serve (from name + category). */
@@ -328,7 +314,21 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
-function BestSellingCard({ item, index, qty, onOpenDetail }: { item: MenuItem; index: number; qty: number; onOpenDetail: () => void }) {
+function BestSellingCard({
+  item,
+  index,
+  qty,
+  onOpenDetail,
+  showFavoriteHeart,
+  onRemoveFavorite,
+}: {
+  item: MenuItem;
+  index: number;
+  qty: number;
+  onOpenDetail: () => void;
+  showFavoriteHeart?: boolean;
+  onRemoveFavorite?: () => void;
+}) {
   const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName } = parseRecipeTag(item.name);
@@ -430,6 +430,36 @@ function BestSellingCard({ item, index, qty, onOpenDetail }: { item: MenuItem; i
           </div>
         )}
 
+        {showFavoriteHeart && onRemoveFavorite && (
+          <button
+            type="button"
+            aria-label={`Remove ${cleanName} from favorites`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveFavorite();
+            }}
+            style={{
+              position: "absolute",
+              bottom: 10,
+              left: 10,
+              zIndex: 12,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.92)",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              touchAction: "manipulation",
+            }}
+          >
+            <Heart size={20} weight="fill" color={C.red} />
+          </button>
+        )}
+
         {qty > 0 && (
           <div style={{
             position: "absolute", bottom: 10, right: 10, zIndex: 12,
@@ -524,6 +554,8 @@ function DishDetailView({
   isFavorite,
   onToggleFavorite,
   cart,
+  allItems,
+  onOpenRelated,
 }: {
   item: MenuItem;
   onClose: () => void;
@@ -533,29 +565,106 @@ function DishDetailView({
   isFavorite: boolean;
   onToggleFavorite: () => void;
   cart: Record<string, number>;
+  allItems: MenuItem[];
+  onOpenRelated: (next: MenuItem) => void;
 }) {
   const activeFestival = useActiveFestival();
-  const [selectedWeight, setSelectedWeight] = useState<string | null>(item.variants?.[0]?.weight ?? null);
-  const qty = selectedWeight ? (cart[`${item.id}:${selectedWeight}`] || 0) : 0;
+  const defaultWeight = item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight
+    ?? item.variants?.[0]?.weight
+    ?? null;
+  const [selectedWeight, setSelectedWeight] = useState<string | null>(defaultWeight);
+
+  type SocialState = {
+    loading: boolean;
+    highlyReordered: boolean;
+    avgRating: number | null;
+    ratingCount: number;
+    reviews: { id: string; name: string; stars: number; comment: string | null; createdAt: string }[];
+  };
+  const [social, setSocial] = useState<SocialState>({
+    loading: true,
+    highlyReordered: false,
+    avgRating: null,
+    ratingCount: 0,
+    reviews: [],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setSocial((s) => ({ ...s, loading: true }));
+    (async () => {
+      try {
+        const res = await fetch(`/api/menu/dish-social?menuItemId=${encodeURIComponent(item.id)}`, {
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setSocial({
+            loading: false,
+            highlyReordered: false,
+            avgRating: null,
+            ratingCount: 0,
+            reviews: [],
+          });
+          return;
+        }
+        setSocial({
+          loading: false,
+          highlyReordered: !!data.highlyReordered,
+          avgRating: typeof data.avgRating === "number" ? data.avgRating : null,
+          ratingCount: Number(data.ratingCount) || 0,
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+        });
+      } catch {
+        if (!cancelled) {
+          setSocial({
+            loading: false,
+            highlyReordered: false,
+            avgRating: null,
+            ratingCount: 0,
+            reviews: [],
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
+
+  // Prefer 500gm when opening / switching dish
+  useEffect(() => {
+    const w =
+      item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight ??
+      item.variants?.[0]?.weight ??
+      null;
+    setSelectedWeight(w);
+  }, [item.id]);
+
+  const qty = selectedWeight ? cart[`${item.id}:${selectedWeight}`] || 0 : 0;
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
-  const { rating, weekly, reviews } = dishStatsFromId(item.id);
-  const highly = weekly >= 160;
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
-  const socialTrend = dishSocialTrendTag(weekly, highly, rating);
+
+  const selectedVariant = item.variants?.find((v) => v.weight === selectedWeight);
+  const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
+  const lineSaleTotal = qty < 1 ? currentPrice : currentPrice * qty;
   const detailDiscountChip = discountChipDisplay(item, new Date(), activeFestival);
 
-  const selectedVariant = item.variants?.find(v => v.weight === selectedWeight);
-  const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
-  const priceVariant = selectedVariant ?? item.variants?.[0];
-  const listUnitPrice = priceVariant
-    ? listPriceForVariant(item, priceVariant.id, priceVariant.price, new Date(), activeFestival)
-    : null;
+  const suggested = useMemo(() => {
+    const cat = (item.category || "").toLowerCase();
+    return allItems
+      .filter((d) => d.id !== item.id && (d.category || "").toLowerCase() === cat)
+      .slice(0, 3);
+  }, [allItems, item.id, item.category]);
 
-  const lineSaleTotal = qty < 1 ? currentPrice : currentPrice * qty;
-  const lineMsrpTotal = listUnitPrice != null ? (qty < 1 ? listUnitPrice : listUnitPrice * qty) : null;
+  const sectionTitle: CSSProperties = {
+    ...TYPO.sectionTitle,
+    margin: "0 0 12px",
+  };
 
   const iconBtn = {
     width: 44,
@@ -613,7 +722,7 @@ function DishDetailView({
           flex: 1,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          padding: `0 ${sp(2.5)}px 16px`,
+          padding: `0 ${sp(2.5)}px max(120px, calc(88px + env(safe-area-inset-bottom)))`,
         }}
         className="no-scrollbar"
       >
@@ -662,14 +771,22 @@ function DishDetailView({
                 border: "1px solid rgba(255,255,255,0.12)",
               }}
             >
-              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.92)" }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.92)",
+                }}
+              >
                 {tag}
               </span>
             </div>
           )}
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 14 }}>
           <div
             style={{
               display: "flex",
@@ -704,7 +821,7 @@ function DishDetailView({
               >
                 {cleanName}
               </h1>
-              {highly && (
+              {social.highlyReordered && (
                 <span
                   style={{
                     fontSize: 10,
@@ -762,25 +879,43 @@ function DishDetailView({
             padding: "16px 16px 14px",
             background: C.surfaceDeep,
             border: `1px solid ${C.border}`,
-            marginBottom: 16,
+            marginBottom: 20,
             boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
           }}
         >
-          <p
-            style={{
-              margin: "0 0 12px",
-              ...HT.caption,
-              lineHeight: 1.5,
-              letterSpacing: "0.01em",
-            }}
-          >
-            <span style={{ color: "#fbbf24" }} aria-hidden>★</span>{" "}
-            <span style={{ color: C.text, fontWeight: 800 }}>{rating.toFixed(1)}</span>
-            <span style={{ color: "rgba(0,0,0,0.42)", margin: "0 6px" }}>·</span>
-            <span>{compactHumanCount(reviews)}+ from buyers</span>
-            <span style={{ color: "rgba(0,0,0,0.42)", margin: "0 6px" }}>·</span>
-            <span style={{ color: C.red, fontWeight: 800 }}>{socialTrend}</span>
-          </p>
+          {!social.loading && social.avgRating != null && social.ratingCount > 0 ? (
+            <p style={{ margin: "0 0 12px", ...HT.caption, lineHeight: 1.5, letterSpacing: "0.01em" }}>
+              <span style={{ color: "#fbbf24" }} aria-hidden>
+                ★
+              </span>{" "}
+              <span style={{ color: C.text, fontWeight: 800 }}>{social.avgRating.toFixed(1)}</span>
+              <span style={{ color: "rgba(0,0,0,0.42)", margin: "0 6px" }}>·</span>
+              <span>
+                {compactHumanCount(social.ratingCount)} rating
+                {social.ratingCount === 1 ? "" : "s"}
+              </span>
+            </p>
+          ) : !social.loading ? (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 12,
+                padding: "6px 12px",
+                borderRadius: 999,
+                background: "rgba(189,35,32,0.1)",
+                border: "1px solid rgba(189,35,32,0.28)",
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.red, letterSpacing: "0.01em" }}>
+                New on menu · Be among the first to order
+              </span>
+            </div>
+          ) : (
+            <div style={{ height: 18, marginBottom: 12, width: "55%", borderRadius: 6, background: "rgba(0,0,0,0.06)" }} />
+          )}
+
           <p style={{ margin: 0, ...HT.bodySm, lineHeight: 1.6, color: "rgba(0,0,0,0.7)" }}>{desc}</p>
           <div
             style={{
@@ -791,60 +926,220 @@ function DishDetailView({
               border: `1px solid ${C.borderFaint}`,
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-                textTransform: "none",
-                color: "rgba(0,0,0,0.42)",
-              }}
-            >
-              Serve with
-            </p>
-            <p style={{ margin: "8px 0 0", ...HT.subtitle, color: "rgba(0,0,0,0.7)", fontWeight: 600 }}>
-              {pairing}
-            </p>
+            <p style={{ ...sectionTitle, margin: 0, fontSize: 13, color: "rgba(0,0,0,0.42)" }}>Serve with</p>
+            <p style={{ margin: "8px 0 0", ...HT.subtitle, color: "rgba(0,0,0,0.7)", fontWeight: 600 }}>{pairing}</p>
           </div>
         </div>
 
-        {/* ── Weight Selector (Rule 1) ───────────────────────────────────── */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ display: "flex", gap: 12 }}>
+        {/* Choose Size — list rows + radio (not full red fill) */}
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={sectionTitle}>Choose Size</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {item.variants?.map((v) => {
               const active = selectedWeight === v.weight;
+              const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
               return (
                 <motion.button
                   key={v.weight}
-                  whileTap={{ scale: 0.96 }}
+                  type="button"
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedWeight(v.weight)}
                   style={{
-                    flex: 1,
-                    padding: "16px 12px",
-                    borderRadius: 20,
-                    background: active ? C.red : "rgba(0,0,0,0.03)",
-                    border: `1px solid ${active ? C.red : "rgba(0,0,0,0.06)"}`,
+                    width: "100%",
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 14,
+                    padding: "16px 16px",
+                    borderRadius: 18,
+                    background: active ? "rgba(189,35,32,0.08)" : C.surface,
+                    border: `1.5px solid ${active ? C.red : C.border}`,
                     cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    boxShadow: active ? "0 8px 24px rgba(189,35,32,0.25)" : "none",
+                    textAlign: "left",
+                    boxShadow: active ? "0 6px 20px rgba(189,35,32,0.12)" : "none",
                   }}
                 >
-                  <span style={{ fontSize: 16, fontWeight: 900, color: active ? "white" : C.text }}>
-                    {v.label}
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      border: `2px solid ${active ? C.red : "rgba(0,0,0,0.2)"}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      background: C.white,
+                    }}
+                  >
+                    {active && (
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.red }} />
+                    )}
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: active ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.4)" }}>
-                    ₹{v.price}
+                  <span style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text }}>{v.label}</span>
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                    {listPrice != null && listPrice > v.price && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "rgba(0,0,0,0.35)",
+                          textDecoration: "line-through",
+                        }}
+                      >
+                        ₹{listPrice.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
+                      ₹{v.price.toLocaleString("en-IN")}
+                    </span>
                   </span>
                 </motion.button>
               );
             })}
           </div>
         </div>
+
+        {/* Reviews — only when real ratings exist */}
+        {social.reviews.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={sectionTitle}>Reviews</h3>
+            {social.reviews.length > 1 && (
+              <p style={{ margin: "-4px 0 12px", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                Swipe for more · {social.reviews.length} of {social.ratingCount} review
+                {social.ratingCount === 1 ? "" : "s"}
+              </p>
+            )}
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                overflowX: "auto",
+                scrollSnapType: social.reviews.length > 1 ? "x mandatory" : undefined,
+                paddingBottom: 4,
+                marginRight: -sp(2.5),
+                paddingRight: sp(2.5),
+              }}
+              className="no-scrollbar"
+            >
+              {social.reviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  style={{
+                    minWidth: social.reviews.length > 1 ? "86%" : "100%",
+                    scrollSnapAlign: "start",
+                    borderRadius: 18,
+                    padding: 16,
+                    background: C.surface,
+                    border: `1px solid ${C.border}`,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        background: "rgba(189,35,32,0.12)",
+                        color: C.red,
+                        fontWeight: 900,
+                        fontSize: 16,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {(rev.name || "C").charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C.text }}>{rev.name}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                        Verified buyer · {relativeReviewAge(rev.createdAt)}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flexShrink: 0 }}>
+                      <span style={{ color: "#fbbf24" }}>★</span> {rev.stars.toFixed(1)}
+                    </span>
+                  </div>
+                  {rev.comment && (
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "rgba(0,0,0,0.7)", fontWeight: 500 }}>
+                      {rev.comment}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Suggested dishes — same category */}
+        {suggested.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <h3 style={sectionTitle}>Suggested Dishes</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {suggested.map((d) => {
+                const { cleanName: sn } = parseRecipeTag(d.name);
+                const fromPrice = Math.min(...d.variants.map((v) => v.price));
+                const thumb = getItemImage(d.name, d.image || d.image_url);
+                return (
+                  <motion.button
+                    key={d.id}
+                    type="button"
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onOpenRelated(d)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      width: "100%",
+                      padding: 10,
+                      borderRadius: 16,
+                      background: C.surface,
+                      border: `1px solid ${C.border}`,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "relative",
+                        width: 64,
+                        height: 64,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        background: "rgba(0,0,0,0.04)",
+                      }}
+                    >
+                      <Image src={thumb} alt={sn} fill sizes="64px" style={{ objectFit: "cover" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: C.text,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {sn}
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.55)" }}>
+                        From ₹{fromPrice.toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <ArrowRight size={18} weight="bold" color="rgba(0,0,0,0.35)" />
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div
@@ -855,9 +1150,9 @@ function DishDetailView({
           display: isOrderingWindowOpen() ? "flex" : "none",
           alignItems: "center",
           gap: 12,
+          borderTop: `1px solid ${C.borderFaint}`,
         }}
       >
-        {/* Quantity stepper */}
         <div
           style={{
             display: "flex",
@@ -876,19 +1171,20 @@ function DishDetailView({
         >
           <motion.button
             type="button"
-            whileTap={{ scale: qty <= 0 ? 1 : 0.9 }}
-            onClick={() => qty > 0 && updateQty(`${item.id}:${selectedWeight}`, -1)}
-            disabled={qty <= 0}
+            whileTap={{ scale: qty <= 1 ? 1 : 0.9 }}
+            onClick={() => {
+              if (!selectedWeight || qty <= 1) return;
+              updateQty(`${item.id}:${selectedWeight}`, -1);
+            }}
+            disabled={qty <= 1}
             style={{
               width: 42,
               height: 42,
               borderRadius: "50%",
               border: "none",
-              background: qty <= 0 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
-              color: qty <= 0 ? "rgba(0,0,0,0.2)" : C.text,
-              fontSize: 20,
-              fontWeight: 800,
-              cursor: qty <= 0 ? "default" : "pointer",
+              background: qty <= 1 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
+              color: qty <= 1 ? "rgba(0,0,0,0.2)" : C.text,
+              cursor: qty <= 1 ? "default" : "pointer",
               flexShrink: 0,
               display: "flex",
               alignItems: "center",
@@ -912,7 +1208,7 @@ function DishDetailView({
           <motion.button
             type="button"
             whileTap={{ scale: 0.9 }}
-            onClick={() => updateQty(`${item.id}:${selectedWeight}`, 1)}
+            onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
             style={{
               width: 42,
               height: 42,
@@ -920,8 +1216,6 @@ function DishDetailView({
               border: "none",
               background: C.text,
               color: C.white,
-              fontSize: 20,
-              fontWeight: 800,
               cursor: "pointer",
               flexShrink: 0,
               display: "flex",
@@ -933,7 +1227,6 @@ function DishDetailView({
           </motion.button>
         </div>
 
-        {/* Checkout CTA */}
         <motion.button
           type="button"
           whileTap={{ scale: selectedWeight ? 0.97 : 1 }}
@@ -960,12 +1253,13 @@ function DishDetailView({
             boxShadow: selectedWeight ? `0 8px 28px ${C.redGlow}` : "none",
           }}
         >
-          Checkout — ₹{lineSaleTotal.toLocaleString("en-IN")}
+          Add to Cart — ₹{(qty < 1 ? currentPrice : lineSaleTotal).toLocaleString("en-IN")}
         </motion.button>
       </div>
     </motion.div>
   );
 }
+
 
 function trackingLineForStatus(status: string): string {
   const s = (status || "").toLowerCase();
@@ -1044,6 +1338,7 @@ export function MobileHomeScreen({
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
+  const [unfavoriteConfirm, setUnfavoriteConfirm] = useState<{ id: string; name: string } | null>(null);
   const feedTabRowRef = useRef<HTMLDivElement>(null);
   const [feedTabPill, setFeedTabPill] = useState({ w: 0, shift: 0 });
 
@@ -1286,6 +1581,18 @@ export function MobileHomeScreen({
       writeFavoriteIds(arr);
       return arr;
     });
+  }, []);
+
+  const removeFavorite = useCallback((id: string) => {
+    setFavoriteIds((prev) => {
+      const arr = prev.filter((x) => x !== id);
+      writeFavoriteIds(arr);
+      return arr;
+    });
+  }, []);
+
+  const requestRemoveFavorite = useCallback((id: string, name: string) => {
+    setUnfavoriteConfirm({ id, name });
   }, []);
 
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
@@ -1847,6 +2154,16 @@ export function MobileHomeScreen({
                             item={item}
                             index={i}
                             qty={cart[item.id] || 0}
+                            showFavoriteHeart={homeDishFeedTab === "favorites"}
+                            onRemoveFavorite={
+                              homeDishFeedTab === "favorites"
+                                ? () =>
+                                    requestRemoveFavorite(
+                                      item.id,
+                                      parseRecipeTag(item.name).cleanName
+                                    )
+                                : undefined
+                            }
                             onOpenDetail={() => {
                               setLocationOpen(false);
                               setDishDetailItem(item);
@@ -2051,7 +2368,7 @@ export function MobileHomeScreen({
                         <button
                           type="button"
                           aria-label={`Remove ${cleanName} from favorites`}
-                          onClick={() => toggleFavorite(item.id)}
+                          onClick={() => requestRemoveFavorite(item.id, cleanName)}
                           style={{
                             alignSelf: "center",
                             flexShrink: 0,
@@ -2126,8 +2443,128 @@ export function MobileHomeScreen({
             cartTotalItems={cartTotalItems}
             onCheckout={goCheckout}
             isFavorite={favoriteIdSet.has(dishDetailItem.id)}
-            onToggleFavorite={() => toggleFavorite(dishDetailItem.id)}
+            onToggleFavorite={() => {
+              const id = dishDetailItem.id;
+              if (favoriteIdSet.has(id)) {
+                requestRemoveFavorite(id, parseRecipeTag(dishDetailItem.name).cleanName);
+                return;
+              }
+              toggleFavorite(id);
+            }}
+            allItems={items}
+            onOpenRelated={(next) => setDishDetailItem(next)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Remove-from-favorites confirm (Home Favorites / Account / Dish Details) */}
+      <AnimatePresence>
+        {unfavoriteConfirm && (
+          <motion.div
+            key="unfav-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 200,
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+            onClick={() => setUnfavoriteConfirm(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="vk-unfav-title"
+              style={{
+                width: "100%",
+                maxWidth: 340,
+                borderRadius: 24,
+                background: C.white,
+                padding: "28px 22px 20px",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.22)",
+                fontFamily: C.mono,
+              }}
+            >
+              <h2
+                id="vk-unfav-title"
+                style={{
+                  margin: 0,
+                  fontSize: 20,
+                  fontWeight: 900,
+                  color: C.text,
+                  letterSpacing: "-0.02em",
+                  textAlign: "center",
+                }}
+              >
+                Remove from favorites?
+              </h2>
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  lineHeight: 1.45,
+                  color: "rgba(0,0,0,0.5)",
+                  textAlign: "center",
+                }}
+              >
+                {unfavoriteConfirm.name} will be removed from your favorites list.
+              </p>
+              <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+                <button
+                  type="button"
+                  onClick={() => setUnfavoriteConfirm(null)}
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    background: "rgba(0,0,0,0.04)",
+                    color: C.text,
+                    fontSize: 15,
+                    fontWeight: 800,
+                    fontFamily: C.mono,
+                    cursor: "pointer",
+                  }}
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeFavorite(unfavoriteConfirm.id);
+                    setUnfavoriteConfirm(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    border: "1px solid rgba(189,35,32,0.28)",
+                    background: "rgba(189,35,32,0.12)",
+                    color: C.red,
+                    fontSize: 15,
+                    fontWeight: 800,
+                    fontFamily: C.mono,
+                    cursor: "pointer",
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
