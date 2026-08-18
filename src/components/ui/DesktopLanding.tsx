@@ -630,7 +630,7 @@ export function DesktopLanding() {
         }}>
           {/* Combined "Order with Vidya Bot" Button */}
           <motion.a 
-            href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=Hi!+I'd+like+to+order+from+today's+menu.`}
+            href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent("Hi Vidya's Kitchen! I'd like to place an order.")}`}
             target="_blank"
             rel="noopener noreferrer"
             onMouseEnter={() => setIsHovered(true)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, CSSProperties, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, CaretLeft } from "@phosphor-icons/react";
 import Image from "next/image";
@@ -476,11 +477,21 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     if (!isValid) return;
     setSendError(null);
     setSendLoading(true);
-    const isMockBypass = rawPhone === "9999999999" || rawPhone.startsWith("99999") || rawPhone === "7299808575";
-    
+    // Local/LAN hosts (e.g. 192.168.x.x) are not Firebase authorized domains —
+    // these numbers skip reCAPTCHA so phone testing still works.
+    const isMockBypass =
+      rawPhone === "9999999999" ||
+      rawPhone.startsWith("99999") ||
+      rawPhone === "7299808575";
+
     try {
-      if (!isFirebaseConfigured) {
-        throw new Error("mock_fallback");
+      if (isMockBypass || !isFirebaseConfigured) {
+        if (typeof window !== "undefined") {
+          (window as any).__vk_mock_login_active = true;
+        }
+        setShowOtp(true);
+        setTimeout(() => otpRefs.current[0]?.focus(), 350);
+        return;
       }
       await sendFirebaseOtp();
       setShowOtp(true);
@@ -861,25 +872,15 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         </motion.div>
       </div>
 
-      {/* ── OTP FULL PAGE (not a drawer) ─────────────────────────── */}
-      <AnimatePresence>
-        {showOtp && (
-          <motion.div
-            key="otp-fullpage"
-            style={S.otpFullPage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-          >
+      {/* OTP overlay — plain DOM + portal (outside MobileShell AnimatePresence).
+          Framer motion.div here was throwing React 19 insertBefore NotFoundError. */}
+      {showOtp &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div style={S.otpFullPage}>
             <div style={S.otpFullBody}>
               {!verifyLoading && !otpVerifySuccess && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.06 }}
-                  style={S.otpHeroBlock}
-                >
+                <div style={S.otpHeroBlock}>
                   <p style={{ ...S.sheetTitle, textAlign: "center" }}>Enter the OTP</p>
                   <p style={{ ...S.sheetSub, textAlign: "center", marginBottom: 10 }}>
                     Sent to{" "}
@@ -906,148 +907,156 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                   >
                     Change number
                   </button>
-                </motion.div>
+                </div>
               )}
 
-              {/* 6-digit OTP (Firebase SMS) */}
-              <AnimatePresence mode="wait">
-                {otpVerifySuccess ? (
-                  <motion.div
-                    key="otp-verified"
-                    role="status"
-                    aria-live="polite"
-                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.94 }}
-                    transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              {otpVerifySuccess ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    minHeight: 168,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 14,
+                    padding: `${T.sp2}px ${T.sp3}px ${T.sp4}px`,
+                  }}
+                >
+                  <div style={SUCCESS_STATUS.iconRing}>
+                    <Check size={28} weight="bold" color={SUCCESS_STATUS.green} />
+                  </div>
+                  <div style={SUCCESS_STATUS.chip}>
+                    <p style={SUCCESS_STATUS.chipText}>OTP verified</p>
+                  </div>
+                  <p style={SUCCESS_STATUS.hint}>Taking you to the map…</p>
+                </div>
+              ) : verifyLoading ? (
+                <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span
+                    aria-hidden
                     style={{
-                      minHeight: 168,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 14,
-                      padding: `${T.sp2}px ${T.sp3}px ${T.sp4}px`,
+                      display: "block",
+                      width: 48,
+                      height: 48,
+                      borderRadius: "50%",
+                      border: "4px solid rgba(189,35,32,0.2)",
+                      borderTopColor: C.red,
+                      animation: "vk-otp-spin 0.75s linear infinite",
                     }}
-                  >
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.05 }}
-                      style={SUCCESS_STATUS.iconRing}
+                  />
+                  <style>{`@keyframes vk-otp-spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+              ) : (
+                <div>
+                  <div style={S.otpRow}>
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => {
+                          otpRefs.current[i] = el;
+                        }}
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+                        }}
+                        onFocus={() => setActiveOtpIdx(i)}
+                        onBlur={() => setActiveOtpIdx(null)}
+                        autoFocus={i === 0}
+                        style={{
+                          width: 46,
+                          height: 56,
+                          textAlign: "center",
+                          fontSize: 26,
+                          fontWeight: 800,
+                          color: C.text,
+                          background: "rgba(0,0,0,0.03)",
+                          border: `1.5px solid ${
+                            otpError
+                              ? "rgba(189,35,32,0.5)"
+                              : activeOtpIdx === i
+                                ? "#FACC15"
+                                : digit
+                                  ? "rgba(189,35,32,0.6)"
+                                  : "rgba(0,0,0,0.08)"
+                          }`,
+                          borderRadius: 16,
+                          outline: "none",
+                          caretColor: "#FACC15",
+                          boxShadow:
+                            activeOtpIdx === i
+                              ? "0 0 0 3px rgba(250, 204, 21, 0.18)"
+                              : digit && !otpError
+                                ? "0 0 0 3px rgba(189,35,32,0.08)"
+                                : "none",
+                          transition: "border-color 0.18s, box-shadow 0.18s",
+                          fontFamily: C.mono,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {otpError && (
+                    <p
+                      style={{
+                        color: C.red,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        textAlign: "center",
+                        marginBottom: T.sp2,
+                        fontFamily: C.mono,
+                      }}
                     >
-                      <Check size={28} weight="bold" color={SUCCESS_STATUS.green} />
-                    </motion.div>
-                    <div style={SUCCESS_STATUS.chip}>
-                      <p style={SUCCESS_STATUS.chipText}>
-                        OTP verified
+                      That code didn&apos;t work. Try again.
+                    </p>
+                  )}
+
+                  {canResend && (
+                    <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
+                      <button
+                        type="button"
+                        disabled={sendLoading}
+                        onClick={() => void handleResendOtp()}
+                        style={{
+                          color: C.red,
+                          fontSize: 13,
+                          background: "none",
+                          border: "none",
+                          cursor: sendLoading ? "wait" : "pointer",
+                          fontFamily: C.mono,
+                          fontWeight: 700,
+                          letterSpacing: "0.02em",
+                          opacity: sendLoading ? 0.5 : 1,
+                        }}
+                      >
+                        {sendLoading ? "Sending…" : "Resend code"}
+                      </button>
+                    </div>
+                  )}
+
+                  {!canResend && (
+                    <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
+                      <p style={{ color: "rgba(0,0,0,0.25)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
+                        Resend in <span style={{ color: "rgba(0,0,0,0.5)" }}>{resendTimer}s</span>
                       </p>
                     </div>
-                    <p style={SUCCESS_STATUS.hint}>
-                      Taking you to the map…
-                    </p>
-                  </motion.div>
-                ) : verifyLoading ? (
-                  <motion.div
-                    key="loader-container"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <motion.span
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
-                      style={{
-                        display: "block",
-                        width: 48,
-                        height: 48,
-                        borderRadius: "50%",
-                        border: "4px solid rgba(189,35,32,0.2)",
-                        borderTopColor: C.red,
-                      }}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="otp-inputs-container"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <div style={S.otpRow}>
-                      {otp.map((digit, i) => (
-                        <motion.input key={i}
-                          ref={el => { otpRefs.current[i] = el; }}
-                          type="tel" inputMode="numeric" maxLength={1}
-                          value={digit}
-                          onChange={e => handleOtpChange(i, e.target.value)}
-                          onKeyDown={e => { if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus(); }}
-                          onFocus={() => setActiveOtpIdx(i)}
-                          onBlur={() => setActiveOtpIdx(null)}
-                          autoFocus={i === 0}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.08 + i * 0.04 }}
-                          style={{
-                            width: 46, height: 56,
-                            textAlign: "center", fontSize: 26, fontWeight: 800,
-                            color: C.text,
-                            background: "rgba(0,0,0,0.03)",
-                            border: `1.5px solid ${otpError ? "rgba(189,35,32,0.5)" : activeOtpIdx === i ? "#FACC15" : digit ? "rgba(189,35,32,0.6)" : "rgba(0,0,0,0.08)"}`,
-                            borderRadius: 16,
-                            outline: "none",
-                            caretColor: "#FACC15",
-                            boxShadow: activeOtpIdx === i ? "0 0 0 3px rgba(250, 204, 21, 0.18)" : digit && !otpError ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
-                            transition: "border-color 0.18s, box-shadow 0.18s",
-                            fontFamily: C.mono,
-                          }}
-                        />
-                      ))}
-                    </div>
-
-                    <AnimatePresence>
-                      {otpError && (
-                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          style={{ color: C.red, fontSize: 13, fontWeight: 600, textAlign: "center", marginBottom: T.sp2, fontFamily: C.mono }}>
-                          That code didn&apos;t work. Try again.
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-
-                    {canResend && (
-                      <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
-                        <button type="button" disabled={sendLoading} onClick={() => void handleResendOtp()}
-                          style={{ color: C.red, fontSize: 13, background: "none", border: "none", cursor: sendLoading ? "wait" : "pointer", fontFamily: C.mono, fontWeight: 700, letterSpacing: "0.02em", opacity: sendLoading ? 0.5 : 1 }}>
-                          {sendLoading ? "Sending…" : "Resend code"}
-                        </button>
-                      </div>
-                    )}
-
-                    {!canResend && (
-                      <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
-                        <p style={{ color: "rgba(0,0,0,0.25)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
-                          Resend in{" "}
-                          <motion.span key={resendTimer} initial={{ opacity: 0.5, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                            style={{ color: "rgba(0,0,0,0.5)" }}>
-                            {resendTimer}s
-                          </motion.span>
-                        </p>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  )}
+                </div>
+              )}
             </div>
-          </motion.div>
+          </div>,
+          document.body
         )}
-      </AnimatePresence>
 
       {/* ── LEGAL FULLSCREEN SHEET ───────────────────────────────── */}
-      <AnimatePresence>
-        {showLegal && (
+      {showLegal && (
           <motion.div key="legal" style={S.legalSheet}
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            initial={{ y: "100%" }} animate={{ y: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}>
 
             {/* Header */}
@@ -1105,8 +1114,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
               </motion.div>
             </AnimatePresence>
           </motion.div>
-        )}
-      </AnimatePresence>
+      )}
 
       {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web */}
       <div id="vk-recaptcha" style={{ position: "fixed", left: 0, bottom: 0, width: 1, height: 1, opacity: 0.01, pointerEvents: "none" }} />

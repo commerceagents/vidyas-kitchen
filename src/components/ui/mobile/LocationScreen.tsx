@@ -28,8 +28,16 @@ interface LocationScreenProps {
 type TipTone = "info" | "warn" | "success";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SIVAKASI_CENTER = { lat: 9.452, lng: 77.798 };
-const MAX_DISTANCE_KM = 15;
+/** Flip to `false` when going live in Sivakasi again. */
+const DELIVERY_TEST_CHENNAI = true;
+
+const SIVAKASI_ZONE = { name: "Sivakasi", lat: 9.452, lng: 77.798, radiusKm: 15 };
+/** Rough city center — 25 km covers most of Chennai for local testing / driver tracking. */
+const CHENNAI_ZONE = { name: "Chennai", lat: 13.0827, lng: 80.2707, radiusKm: 25 };
+
+const DELIVERY_ZONE = DELIVERY_TEST_CHENNAI ? CHENNAI_ZONE : SIVAKASI_ZONE;
+const KITCHEN_CENTER = { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
+const MAX_DISTANCE_KM = DELIVERY_ZONE.radiusKm;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
@@ -284,8 +292,8 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [viewState, setViewState] = useState({
-    longitude: SIVAKASI_CENTER.lng,
-    latitude: SIVAKASI_CENTER.lat,
+    longitude: KITCHEN_CENTER.lng,
+    latitude: KITCHEN_CENTER.lat,
     zoom: 13,
     pitch: 58,
     bearing: -18,
@@ -296,7 +304,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       right: 0,
     },
   });
-  const [pinCoords, setPinCoords] = useState(SIVAKASI_CENTER);
+  const [pinCoords, setPinCoords] = useState(KITCHEN_CENTER);
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -452,7 +460,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
         return;
       }
       try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&country=IN&limit=5&proximity=${SIVAKASI_CENTER.lng},${SIVAKASI_CENTER.lat}`;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&country=IN&limit=5&proximity=${KITCHEN_CENTER.lng},${KITCHEN_CENTER.lat}`;
         const res = await fetch(url);
         if (!res.ok) {
           setSuggestions([]);
@@ -630,7 +638,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   };
 
   const handleConfirm = () => {
-    const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, SIVAKASI_CENTER.lat, SIVAKASI_CENTER.lng);
+    const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, KITCHEN_CENTER.lat, KITCHEN_CENTER.lng);
     if (dist > MAX_DISTANCE_KM) {
       setOutOfRangeModal(true);
       return;
@@ -642,7 +650,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   };
 
   const handleSkip = () => {
-    onLocationSet({ label: "Sivakasi", lat: SIVAKASI_CENTER.lat, lng: SIVAKASI_CENTER.lng, inRange: true });
+    onLocationSet({ label: DELIVERY_ZONE.name, lat: KITCHEN_CENTER.lat, lng: KITCHEN_CENTER.lng, inRange: true });
   };
 
   const hasToken = MAPBOX_TOKEN.length > 0;
@@ -1326,7 +1334,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
               </div>
               <h2 style={LOC.modalTitle}>Outside delivery area</h2>
               <p style={LOC.modalBody}>
-                We currently only deliver within <span style={{ color: "#1A1A1A", fontWeight: 700 }}>Sivakasi, Tamil Nadu</span> — within 15 km of our kitchen.
+                We currently only deliver within{" "}
+                <span style={{ color: "#1A1A1A", fontWeight: 700 }}>
+                  {DELIVERY_ZONE.name}, Tamil Nadu
+                </span>{" "}
+                — within {MAX_DISTANCE_KM} km of our kitchen.
               </p>
               <p style={LOC.modalSub}>The location you picked is outside our delivery zone.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1336,12 +1348,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                     setOutOfRangeModal(false);
                     setSearchText("");
                     setSuggestions([]);
-                    setPinCoords(SIVAKASI_CENTER);
-                    animateCameraTo(SIVAKASI_CENTER.lng, SIVAKASI_CENTER.lat, 1400);
+                    setPinCoords(KITCHEN_CENTER);
+                    animateCameraTo(KITCHEN_CENTER.lng, KITCHEN_CENTER.lat, 1400);
                   }}
                   style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)", border: "none", borderRadius: 14, ...LOC.modalBtnPrimary, cursor: "pointer", boxShadow: "0 4px 16px rgba(189,35,32,0.4)" }}
                 >
-                  Search in Sivakasi
+                  Search in {DELIVERY_ZONE.name}
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}

@@ -1869,7 +1869,7 @@ export function MobileHomeScreen({
           {/* WhatsApp Bot Row */}
           <motion.div {...fadeUp(0.24)}>
             <motion.a
-              href={`https://wa.me/917550028179?text=Hi!+I'd+like+to+order+from+today's+menu.`}
+              href={`https://wa.me/917550028179?text=${encodeURIComponent("Hi Vidya's Kitchen! I'd like to place an order.")}`}
               target="_blank"
               rel="noopener noreferrer"
               whileTap={{ scale: 0.97 }}
