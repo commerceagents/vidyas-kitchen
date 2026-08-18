@@ -2131,8 +2131,8 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette (hidden when dish detail is open) ──────────── */}
-      {!dishDetailItem && (
+      {/* ── Bottom Vignette (home tabs only — not browse menu / dish detail) ─ */}
+      {!dishDetailItem && activeScreen !== "menu" && (
         <div
           style={{
             position: "fixed",
@@ -2149,8 +2149,8 @@ export function MobileHomeScreen({
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{
-          opacity: (!windowOpen || !dishDetailItem) ? 1 : 0,
-          y: (!windowOpen || !dishDetailItem) ? 0 : 24,
+          opacity: windowOpen && !dishDetailItem && activeScreen !== "menu" ? 1 : !windowOpen ? 1 : 0,
+          y: windowOpen && !dishDetailItem && activeScreen !== "menu" ? 0 : !windowOpen ? 0 : 24,
         }}
         transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
         style={{
@@ -2160,6 +2160,8 @@ export function MobileHomeScreen({
           display: "flex", justifyContent: "center",
           paddingBottom: "env(safe-area-inset-bottom)",
           pointerEvents: "none",
+          // Keep closed-window banner; hide nav on browse menu + dish detail
+          visibility: !windowOpen || (!dishDetailItem && activeScreen !== "menu") ? "visible" : "hidden",
         }}
       >
         <div
@@ -2174,7 +2176,7 @@ export function MobileHomeScreen({
             borderRadius: 999,
             border: `1px solid ${windowOpen ? "rgba(0,0,0,0.06)" : "rgba(189, 35, 32, 0.25)"}`,
             boxShadow: windowOpen ? "0 4px 24px rgba(0,0,0,0.08)" : "0 4px 20px rgba(189,35,32,0.12)",
-            pointerEvents: dishDetailItem ? "none" : "auto",
+            pointerEvents: dishDetailItem || activeScreen === "menu" ? "none" : "auto",
             transition: "all 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
@@ -2565,7 +2567,12 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
           style={{
             height: "100%",
             overflowY: "auto",
-            padding: `20px 16px ${isOrderingWindowOpen() ? "110px" : "180px"}`, 
+            // Extra bottom space so last cards clear cart bar + safe area (no faded prices)
+            padding: `20px 16px ${
+              isOrderingWindowOpen() && Object.values(cart).some((q) => q > 0)
+                ? "max(140px, calc(112px + env(safe-area-inset-bottom)))"
+                : "max(96px, calc(72px + env(safe-area-inset-bottom)))"
+            }`,
             scrollbarWidth: "none",
           }}
           className="no-scrollbar"
@@ -2592,13 +2599,6 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             </div>
           )}
         </div>
-
-        {/* Bottom Vignette */}
-        <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0, height: 80,
-          background: `linear-gradient(to top, ${C.bg}, transparent)`,
-          zIndex: 5, pointerEvents: "none"
-        }} />
       </div>
 
       {/* Cart Summary Bar */}
@@ -2766,7 +2766,8 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
               fontFamily: "inherit",
             }}
           >
-            ₹<span style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, marginRight: 2, verticalAlign: "middle" }}>from</span>{Math.min(...item.variants.map(v => v.price)).toLocaleString("en-IN")}
+            <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, marginRight: 4 }}>From</span>
+            ₹{Math.min(...item.variants.map(v => v.price)).toLocaleString("en-IN")}
           </motion.button>
           
           {/* Plus Button inside notch */}
