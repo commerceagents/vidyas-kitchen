@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { upsertFestivalAction, type FestivalUpsertPayload } from "@/app/actions/festival-pricing";
 import { festivalUiStatus, pickActiveFestival, type FestivalRow, type FestivalUiStatus } from "@/lib/menu/discount-pricing";
+import { DiscountPctPicker } from "@/components/dashboard/DiscountPctPicker";
+import { suggestFestivalDiscountPct } from "@/lib/menu/discount-presets";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-white/[0.1] bg-zinc-950/80 px-3 py-2.5 text-base text-white shadow-inner shadow-black/20 outline-none transition placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-2 focus:ring-amber-500/20";
@@ -106,13 +108,22 @@ export default function FestivalPricingPage() {
           >
             Dish pricing
           </Link>
+          <span className="text-zinc-700" aria-hidden>
+            ·
+          </span>
+          <Link
+            href="/dashboard/pricing-agent"
+            className="font-semibold text-zinc-500 transition-colors hover:text-white"
+          >
+            AI Pricing
+          </Link>
         </nav>
 
         <header className="mb-8">
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Festival offers</h1>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-zinc-400">
-            Turn on a window to bump up the “was” price and swap the red deal badge for a gold festival badge — only on dishes that already
-            show a discount. Customers who closed the app may need a refresh.
+            Set dates ahead, tap a round % (10–30), then turn on. Or run <strong className="text-zinc-200">AI Pricing</strong> —
+            it suggests festival offers before the date; you pick the % and approve.
           </p>
         </header>
 
@@ -207,20 +218,19 @@ export default function FestivalPricingPage() {
                   />
                 </label>
 
-                <label className="mt-4 block text-xs font-semibold text-zinc-500">
-                  Extra “was” discount (%)
-                  <input
-                    type="number"
-                    min={1}
-                    max={99}
-                    className={`${inputClass} max-w-[8rem]`}
-                    value={f.discount_override}
-                    onChange={(e) => patchRow(f.id, { discount_override: Number(e.target.value) || 0 })}
-                  />
-                  <span className="mt-1 block text-[11px] font-normal normal-case leading-snug text-zinc-600">
-                    How much higher the crossed-out price looks vs the real price (same idea as your everyday %).
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-zinc-500">Offer % (tap to select)</p>
+                  <div className="mt-2">
+                    <DiscountPctPicker
+                      value={f.discount_override}
+                      suggested={suggestFestivalDiscountPct(f.discount_override, f.name)}
+                      onChange={(pct) => patchRow(f.id, { discount_override: pct })}
+                    />
+                  </div>
+                  <span className="mt-2 block text-[11px] font-normal leading-snug text-zinc-600">
+                    How much higher the crossed-out price looks vs the real price. AI suggestion is marked.
                   </span>
-                </label>
+                </div>
 
                 <button
                   type="button"

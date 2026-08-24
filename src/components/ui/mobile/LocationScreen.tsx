@@ -497,9 +497,41 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     animateCameraTo(lng, lat, 1600);
   };
 
+  const applyPin = useCallback(
+    async (lat: number, lng: number) => {
+      setPinCoords({ lat, lng });
+      setSelectedSaved(null);
+      setSearchText("Locating address...");
+      animateCameraRoute(lng, lat);
+      const addr = await resolveAddress(lat, lng);
+      setSearchText(addr);
+    },
+    [animateCameraRoute, resolveAddress]
+  );
+
   const handleGPS = useCallback(async () => {
     setIsDetecting(true);
     setGpsError(null);
+
+    // Geolocation requires a secure context (HTTPS or localhost).
+    // Phone on http://192.168.x.x → browsers return PERMISSION_DENIED.
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      if (DELIVERY_TEST_CHENNAI) {
+        await applyPin(KITCHEN_CENTER.lat, KITCHEN_CENTER.lng);
+        setIsDetecting(false);
+        showTip(
+          "GPS blocked on HTTP Wi‑Fi — using Chennai test pin. Search or drag the map to refine.",
+          "info"
+        );
+        return;
+      }
+      setGpsError(
+        "GPS needs HTTPS. On phone Wi‑Fi (http://192…), browsers block it — search or drop a pin on the map."
+      );
+      setIsDetecting(false);
+      return;
+    }
+
     if (!navigator.geolocation) {
       setGpsError("GPS not supported on this browser.");
       setIsDetecting(false);
@@ -508,18 +540,15 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setPinCoords({ lat: latitude, lng: longitude });
-        setSelectedSaved(null);
-        setSearchText("Locating address...");
-        animateCameraRoute(longitude, latitude);
-        const addr = await resolveAddress(latitude, longitude);
-        setSearchText(addr);
+        await applyPin(latitude, longitude);
         setIsDetecting(false);
       },
       (err) => {
         setIsDetecting(false);
         if (err.code === 1) {
-          setGpsError("Location access denied. Please allow it in your browser settings.");
+          setGpsError(
+            "Location permission denied. Allow location for this site in your browser settings, or search / drop a pin."
+          );
         } else if (err.code === 2) {
           setGpsError("Unable to detect location. Try searching your area instead.");
         } else if (err.code === 3) {
@@ -530,7 +559,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
-  }, [animateCameraRoute, resolveAddress]);
+  }, [applyPin, showTip]);
 
   const handleRecenter = useCallback(() => {
     animateCameraTo(pinCoords.lng, pinCoords.lat, 1500);

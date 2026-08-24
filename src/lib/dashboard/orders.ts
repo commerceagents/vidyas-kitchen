@@ -8,6 +8,8 @@ export type DashboardOrderItem = {
   image_url?: string | null;
   /** Pack size: 500gm or 1kg when known */
   weight?: string | null;
+  /** Parent dish UUID when resolved from variant menu_item_id */
+  menuItemId?: string | null;
 };
 
 export type DashboardOrder = {

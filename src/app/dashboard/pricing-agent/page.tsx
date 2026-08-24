@@ -16,6 +16,9 @@ import {
   runAgentManuallyAction,
 } from "@/app/actions/ai-pricing";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
+import { DiscountPctPicker } from "@/components/dashboard/DiscountPctPicker";
+import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
+import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -64,53 +67,6 @@ type AgentState = {
   loading: boolean;
 };
 
-const DUMMY_DECISIONS: Decision[] = [
-  {
-    id: "demo-1",
-    dish_id: "Mutton Biryani",
-    decision_type: "increase_discount",
-    old_discount: 0,
-    new_discount: 20,
-    reasoning: "Low sales: 3 orders in 14 days. Category avg: 12 orders/14d. Boosting to attract demand.",
-    status: "pending",
-    decided_at: new Date().toISOString(),
-    applied_at: null,
-  },
-  {
-    id: "demo-2",
-    dish_id: "Black Pepper Chicken Gravy",
-    decision_type: "increase_discount",
-    old_discount: 0,
-    new_discount: 15,
-    reasoning: "Below threshold (4 orders vs category avg 14). Ratio: 28%. Applying introductory discount.",
-    status: "auto_applied",
-    decided_at: new Date(Date.now() - 86400000).toISOString(),
-    applied_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "demo-3",
-    dish_id: "Mom's Recipe - Chicken Gravy",
-    decision_type: "remove_discount",
-    old_discount: 22,
-    new_discount: 0,
-    reasoning: "Top performer (45 orders, 5.2x category avg). Discount not needed — selling well organically.",
-    status: "applied",
-    decided_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    applied_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    id: "demo-4",
-    dish_id: "festival:Pongal 2026",
-    decision_type: "festival_activate",
-    old_discount: null,
-    new_discount: 25,
-    reasoning: "Festival \"Pongal 2026\" starts in 5 days. Auto-activating with 25% override.",
-    status: "pending",
-    decided_at: new Date(Date.now() - 3600000).toISOString(),
-    applied_at: null,
-  },
-];
-
 export default function PricingAgentPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const {
@@ -142,15 +98,15 @@ export default function PricingAgentPage() {
       const res = await fetch("/api/ai/pricing-agent-state", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        const decisions = data.decisions?.length > 0 ? data.decisions : DUMMY_DECISIONS;
+        const decisions = Array.isArray(data.decisions) ? data.decisions : [];
         const pendingCount = decisions.filter((d: Decision) => d.status === "pending").length;
         const appliedCount = decisions.filter((d: Decision) => d.status === "applied" || d.status === "auto_applied").length;
         setState({ ...data, decisions, pendingCount, appliedCount, loading: false });
       } else {
-        setState((s) => ({ ...s, decisions: DUMMY_DECISIONS, pendingCount: 2, appliedCount: 2, loading: false }));
+        setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
       }
     } catch {
-      setState((s) => ({ ...s, decisions: DUMMY_DECISIONS, pendingCount: 2, appliedCount: 2, loading: false }));
+      setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
     }
   }, []);
 
@@ -178,9 +134,9 @@ export default function PricingAgentPage() {
     }
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, pct?: number | null) => {
     if (id.startsWith("demo-")) return;
-    const r = await approvePricingDecisionAction(id);
+    const r = await approvePricingDecisionAction(id, pct);
     if (r.ok) void load();
     else setMsg(r.error ?? "Approve failed");
   };
@@ -230,7 +186,7 @@ export default function PricingAgentPage() {
             <DecisionCard
               key={d.id}
               decision={d}
-              onApprove={d.status === "pending" ? () => handleApprove(d.id) : undefined}
+              onApprove={d.status === "pending" ? (pct) => handleApprove(d.id, pct) : undefined}
               onReject={d.status === "pending" ? () => handleReject(d.id) : undefined}
             />
           ))}
@@ -494,9 +450,18 @@ function AgentChip({ enabled, onClick }: { enabled: boolean; onClick: () => void
 }
 
 function decisionDisplayName(decision: Decision): string {
+  const fromReason = decision.reasoning?.match(/Festival "([^"]+)"/);
+  if (fromReason?.[1]) return fromReason[1];
+
   if (decision.dish_id.startsWith("festival:")) {
-    return decision.dish_id.replace("festival:", "");
+    return "Festival offer";
   }
+
+  const dish = Object.values(MENU_BY_CATEGORY)
+    .flat()
+    .find((d) => d.id === decision.dish_id);
+  if (dish) return dish.name;
+
   return decision.dish_id;
 }
 
@@ -556,10 +521,18 @@ function DecisionCard({
   onReject,
 }: {
   decision: Decision;
-  onApprove?: () => void;
+  onApprove?: (pct?: number | null) => void;
   onReject?: () => void;
 }) {
   const isPending = decision.status === "pending";
+  const needsPctPick =
+    isPending &&
+    (decision.decision_type === "increase_discount" ||
+      decision.decision_type === "meal_boost" ||
+      decision.decision_type === "festival_activate");
+  const [pickedPct, setPickedPct] = useState<number>(() =>
+    roundToDiscountPreset(decision.new_discount ?? 20),
+  );
   const name = decisionDisplayName(decision);
   const chip = statusChipStyle(decision.status);
   const decidedLabel = new Date(decision.decided_at).toLocaleString("en-IN", {
@@ -585,7 +558,6 @@ function DecisionCard({
         listStyle: "none",
       }}
     >
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -642,20 +614,8 @@ function DecisionCard({
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-          <div
-            style={{
-              ...DETAIL_BOX,
-              alignItems: "flex-start",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#ccc",
-                lineHeight: 1.45,
-              }}
-            >
+          <div style={{ ...DETAIL_BOX, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#ccc", lineHeight: 1.45 }}>
               {decision.reasoning}
             </span>
           </div>
@@ -677,17 +637,30 @@ function DecisionCard({
             >
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={{ ...DETAIL_TEXT, color: YELLOW }}>
-                New {decision.new_discount != null ? `${decision.new_discount}%` : "—"}
+                New {needsPctPick ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}
               </span>
             </div>
           </div>
+
+          {needsPctPick && (
+            <div style={{ marginTop: 4 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                Tap a % (AI suggested highlighted)
+              </p>
+              <DiscountPctPicker
+                value={pickedPct}
+                suggested={decision.new_discount}
+                onChange={setPickedPct}
+                size="sm"
+              />
+            </div>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <InfoChip label={decisionTypeLabel(decision.decision_type)} />
           </div>
         </div>
 
-        {/* Footer */}
         <div
           className="vk-order-card-footer"
           style={{ marginTop: "auto", paddingTop: 16, flexShrink: 0 }}
@@ -698,7 +671,12 @@ function DecisionCard({
             </div>
             {decision.applied_at && (
               <div style={{ fontSize: 11, fontWeight: 600, color: "#555" }}>
-                Applied {new Date(decision.applied_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "short" })}
+                Applied{" "}
+                {new Date(decision.applied_at).toLocaleString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
               </div>
             )}
           </div>
@@ -726,7 +704,7 @@ function DecisionCard({
               </button>
               <button
                 type="button"
-                onClick={onApprove}
+                onClick={() => onApprove(needsPctPick ? pickedPct : null)}
                 className="vk-order-btn vk-order-btn-accept"
                 style={{
                   height: 44,

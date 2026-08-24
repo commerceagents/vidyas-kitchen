@@ -4,6 +4,7 @@ import {
   type MealPerformance,
   type UpcomingFestival,
 } from "./dish-analytics";
+import { roundToDiscountPreset, suggestFestivalDiscountPct } from "@/lib/menu/discount-presets";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -64,16 +65,16 @@ export function lowPerformerRule(
 
   if (dish.daysSinceLastOrder != null && dish.daysSinceLastOrder >= 7) {
     newDiscount = 30;
-    reasoning = `No orders in ${dish.daysSinceLastOrder} days. Category avg: ${cat.avgOrders} orders/${config.lowPerformerDays}d.`;
+    reasoning = `No orders in ${dish.daysSinceLastOrder} days. Category avg: ${cat.avgOrders} orders/${config.lowPerformerDays}d. Suggest ${newDiscount}% off.`;
   } else if (ratio < 0.15) {
     newDiscount = 25;
-    reasoning = `Very low sales (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%.`;
+    reasoning = `Very low sales (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%. Suggest ${newDiscount}% off.`;
   } else {
     newDiscount = 15;
-    reasoning = `Below threshold (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%.`;
+    reasoning = `Below threshold (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%. Suggest ${newDiscount}% off.`;
   }
 
-  newDiscount = Math.min(newDiscount, config.maxDiscountPct);
+  newDiscount = Math.min(roundToDiscountPreset(newDiscount), config.maxDiscountPct);
 
   if (currentDiscount != null && currentDiscount >= newDiscount) return null;
 
@@ -84,7 +85,8 @@ export function lowPerformerRule(
     oldDiscount: currentDiscount,
     newDiscount,
     reasoning,
-    autoApply: newDiscount <= config.autoApplyThresholdPct,
+    // Kitchen picks the final % — never auto-apply dish offers
+    autoApply: false,
   };
 }
 
@@ -107,7 +109,7 @@ export function highPerformerRule(
     decisionType: "remove_discount",
     oldDiscount: currentDiscount,
     newDiscount: 0,
-    reasoning: `Top performer (${dish.totalOrders} orders, ${(ratio).toFixed(1)}x category avg). Discount not needed.`,
+    reasoning: `Top performer (${dish.totalOrders} orders, ${ratio.toFixed(1)}x category avg). Discount not needed.`,
     autoApply: false,
   };
 }
@@ -134,7 +136,10 @@ export function mealTimeRule(
   if (dishMealRatio < 0.4) return null;
 
   const boost = 10;
-  const newDiscount = Math.min((currentDiscount ?? 0) + boost, config.maxDiscountPct);
+  const newDiscount = Math.min(
+    roundToDiscountPreset((currentDiscount ?? 0) + boost),
+    config.maxDiscountPct,
+  );
   if (newDiscount <= (currentDiscount ?? 0)) return null;
 
   return {
@@ -143,23 +148,23 @@ export function mealTimeRule(
     decisionType: "meal_boost",
     oldDiscount: currentDiscount,
     newDiscount,
-    reasoning: `${weakest.meal} underperforming (${(weakRatio * 100).toFixed(0)}% of revenue). Dish is ${(dishMealRatio * 100).toFixed(0)}% ${weakest.meal} orders — boosting.`,
-    autoApply: newDiscount <= config.autoApplyThresholdPct,
+    reasoning: `${weakest.meal} underperforming (${(weakRatio * 100).toFixed(0)}% of revenue). Dish is ${(dishMealRatio * 100).toFixed(0)}% ${weakest.meal} orders — suggest ${newDiscount}% off.`,
+    autoApply: false,
   };
 }
 
-export function festivalRule(
-  festival: UpcomingFestival,
-): PricingDecision | null {
+export function festivalRule(festival: UpcomingFestival): PricingDecision | null {
+  const suggested = suggestFestivalDiscountPct(festival.discount_override, festival.name);
+
   if (festival.shouldActivate) {
     return {
       dishId: `festival:${festival.id}`,
       dishName: festival.name,
       decisionType: "festival_activate",
-      oldDiscount: null,
-      newDiscount: festival.discount_override,
-      reasoning: `Festival "${festival.name}" starts in ${festival.daysUntilStart} day(s). Auto-activating with ${festival.discount_override}% override.`,
-      autoApply: festival.daysUntilStart <= 2,
+      oldDiscount: Number(festival.discount_override) || null,
+      newDiscount: suggested,
+      reasoning: `Festival "${festival.name}" starts in ${festival.daysUntilStart} day(s). AI suggests ${suggested}% offer — pick a % and approve to go live.`,
+      autoApply: false,
     };
   }
 
@@ -168,9 +173,9 @@ export function festivalRule(
       dishId: `festival:${festival.id}`,
       dishName: festival.name,
       decisionType: "festival_deactivate",
-      oldDiscount: festival.discount_override,
+      oldDiscount: Number(festival.discount_override) || null,
       newDiscount: 0,
-      reasoning: `Festival "${festival.name}" ended ${Math.abs(festival.daysUntilEnd)} day(s) ago. Deactivating.`,
+      reasoning: `Festival "${festival.name}" ended ${Math.abs(festival.daysUntilEnd)} day(s) ago. Turning offer off.`,
       autoApply: true,
     };
   }
@@ -193,7 +198,10 @@ export function validateDecision(
   if (decision.decisionType === "increase_discount" || decision.decisionType === "meal_boost") {
     const discountRatio = (currentDiscountedCount + 1) / totalMenuItems;
     if (discountRatio > config.maxMenuDiscountRatio) {
-      return { valid: false, reason: `Too many menu items on discount (${(discountRatio * 100).toFixed(0)}% > ${config.maxMenuDiscountRatio * 100}% limit)` };
+      return {
+        valid: false,
+        reason: `Too many menu items on discount (${(discountRatio * 100).toFixed(0)}% > ${config.maxMenuDiscountRatio * 100}% limit)`,
+      };
     }
   }
 

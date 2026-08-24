@@ -6,6 +6,8 @@ import { upsertDishDiscountAction } from "@/app/actions/dish-discount";
 import { MENU_BY_CATEGORY, type MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import type { DishDiscountRow } from "@/lib/menu/discount-pricing";
 import { mergeMenuDiscountOverrides } from "@/lib/menu/discount-pricing";
+import { DiscountPctPicker } from "@/components/dashboard/DiscountPctPicker";
+import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
 const fontUi = "var(--font-outfit), system-ui, sans-serif";
 const fontData = "var(--font-jetbrains-mono), ui-monospace, monospace";
@@ -215,21 +217,17 @@ export default function DishesPricingPage() {
               </div>
 
               {r.discount_type === "percentage" && (
-                <label className="mt-4 block text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
-                  Percent off (e.g. 25 for 25%)
-                  <input
-                    type="number"
-                    min={1}
-                    max={99}
-                    className="mt-1 w-full max-w-xs rounded-lg border px-3 py-2 text-base text-black"
-                    value={r.discount_value ?? ""}
-                    onChange={(e) =>
-                      updateRow(dish.id, {
-                        discount_value: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                </label>
+                <div className="mt-4">
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    Percent off — tap to select
+                  </span>
+                  <div className="mt-2">
+                    <DiscountPctPicker
+                      value={r.discount_value != null ? roundToDiscountPreset(r.discount_value) : null}
+                      onChange={(pct) => updateRow(dish.id, { discount_value: pct, show_discount: true })}
+                    />
+                  </div>
+                </div>
               )}
 
               {r.discount_type === "manual" && (

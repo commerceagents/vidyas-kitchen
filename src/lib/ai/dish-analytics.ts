@@ -2,6 +2,8 @@ import { type DashboardOrder, type DashboardOrderItem } from "@/lib/dashboard/or
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { getOrderRevenueAmount } from "@/lib/order-pricing";
 import { type FestivalRow, isWithinSeasonalWindow } from "@/lib/menu/discount-pricing";
+import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
+import { variantIdToDishIdMap } from "@/lib/menu/best-selling";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,12 +42,6 @@ export type UpcomingFestival = FestivalRow & {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function istDateString(iso: string): string | null {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-}
-
 function mealSlotOf(order: DashboardOrder): "breakfast" | "lunch" | "dinner" {
   const kind = (order.delivery_slot_kind ?? "").toLowerCase();
   if (kind.includes("breakfast")) return "breakfast";
@@ -55,6 +51,36 @@ function mealSlotOf(order: DashboardOrder): "breakfast" | "lunch" | "dinner" {
 
 function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+function menuLookup() {
+  const byId = new Map(
+    Object.values(MENU_BY_CATEGORY)
+      .flat()
+      .map((d) => [d.id, d]),
+  );
+  const byName = new Map(
+    Object.values(MENU_BY_CATEGORY)
+      .flat()
+      .map((d) => [d.name.toLowerCase(), d]),
+  );
+  const variantToDish = variantIdToDishIdMap();
+  return { byId, byName, variantToDish };
+}
+
+function resolveDishMeta(item: DashboardOrderItem) {
+  const { byId, byName, variantToDish } = menuLookup();
+  const rawId = item.menuItemId?.trim() || null;
+  const parentId = rawId ? variantToDish.get(rawId) ?? rawId : null;
+  const fromId = parentId ? byId.get(parentId) : undefined;
+  if (fromId) {
+    return { dishId: fromId.id, dishName: fromId.name, category: fromId.category ?? null };
+  }
+  const fromName = byName.get(item.name.toLowerCase());
+  if (fromName) {
+    return { dishId: fromName.id, dishName: fromName.name, category: fromName.category ?? null };
+  }
+  return { dishId: parentId || item.name, dishName: item.name, category: null as string | null };
 }
 
 // ─── Dish Performance ────────────────────────────────────────────────────────
@@ -77,14 +103,17 @@ export function computeDishPerformance(
     return date >= prevCutoff && date < cutoff && normalizeOrderStatus(o.status) === OrderStatus.DELIVERED;
   });
 
-  const dishMap = new Map<string, {
-    name: string;
-    category: string | null;
-    orders: number;
-    revenue: number;
-    lastOrderDate: Date | null;
-    meals: { breakfast: number; lunch: number; dinner: number };
-  }>();
+  const dishMap = new Map<
+    string,
+    {
+      name: string;
+      category: string | null;
+      orders: number;
+      revenue: number;
+      lastOrderDate: Date | null;
+      meals: { breakfast: number; lunch: number; dinner: number };
+    }
+  >();
 
   const prevDishMap = new Map<string, { orders: number; revenue: number }>();
 
@@ -92,10 +121,11 @@ export function computeDishPerformance(
     const meal = mealSlotOf(order);
     const orderDate = new Date(order.delivery_slot || order.created_at);
     for (const item of order.items) {
-      const key = item.name;
+      const meta = resolveDishMeta(item);
+      const key = meta.dishId;
       const entry = dishMap.get(key) ?? {
-        name: item.name,
-        category: null,
+        name: meta.dishName,
+        category: meta.category,
         orders: 0,
         revenue: 0,
         lastOrderDate: null,
@@ -113,7 +143,8 @@ export function computeDishPerformance(
 
   for (const order of prevOrders) {
     for (const item of order.items) {
-      const key = item.name;
+      const meta = resolveDishMeta(item);
+      const key = meta.dishId;
       const entry = prevDishMap.get(key) ?? { orders: 0, revenue: 0 };
       entry.orders += item.quantity;
       entry.revenue += (item.unit_price ?? 0) * item.quantity;
@@ -122,15 +153,15 @@ export function computeDishPerformance(
   }
 
   const results: DishPerformance[] = [];
-  for (const [dishName, data] of dishMap.entries()) {
-    const prev = prevDishMap.get(dishName);
+  for (const [dishId, data] of dishMap.entries()) {
+    const prev = prevDishMap.get(dishId);
     let trendPct: number | null = null;
     if (prev && prev.revenue > 0) {
       trendPct = Math.round(((data.revenue - prev.revenue) / prev.revenue) * 100);
     }
 
     results.push({
-      dishId: dishName,
+      dishId,
       dishName: data.name,
       category: data.category,
       totalOrders: data.orders,

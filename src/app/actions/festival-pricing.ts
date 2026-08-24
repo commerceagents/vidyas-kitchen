@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
-import type { FestivalRow } from "@/lib/menu/discount-pricing";
+import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
 export type FestivalUpsertPayload = {
   id: string;
@@ -25,7 +25,7 @@ export async function upsertFestivalAction(row: FestivalUpsertPayload): Promise<
           name: row.name.trim(),
           date_start: row.date_start.slice(0, 10),
           date_end: row.date_end.slice(0, 10),
-          discount_override: row.discount_override,
+          discount_override: roundToDiscountPreset(row.discount_override),
           chip_label: row.chip_label.trim(),
           active: row.active,
           updated_at: new Date().toISOString(),

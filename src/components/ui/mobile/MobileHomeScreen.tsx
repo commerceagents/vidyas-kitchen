@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo, type CSSProperties } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
-import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Minus } from "@phosphor-icons/react";
+import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Minus, BowlFood, ForkKnife, Lightning } from "@phosphor-icons/react";
 
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
@@ -19,6 +19,10 @@ import {
   mergeMenuDiscountOverrides,
   type DishDiscountRow,
 } from "@/lib/menu/discount-pricing";
+import {
+  KITCHEN_PICK_DISH_IDS,
+  type BestSellingSource,
+} from "@/lib/menu/best-selling";
 import { useActiveFestival } from "./festival-pricing-context";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
@@ -74,7 +78,7 @@ const HT = {
   micro: TYPO.micro,
   microTag: { ...TYPO.micro, color: C.red, textTransform: "uppercase" as const, opacity: 0.9 },
   tileTitle: { ...TYPO.bodyMedium, margin: 0, fontWeight: 800, color: C.text, letterSpacing: "-0.01em" },
-  tileSub: { ...TYPO.caption, margin: "2px 0 0", color: "rgba(0,0,0,0.38)" },
+  tileSub: { ...TYPO.caption, margin: "2px 0 0", fontSize: 14, color: "rgba(0,0,0,0.38)" },
   greetingSub: { ...TYPO.subtitle, margin: 0, fontWeight: 500, color: "rgba(0,0,0,0.52)" },
   homeGreeting: { ...TYPO.title, fontSize: 28, lineHeight: 1.12 },
   subtitle: TYPO.subtitle,
@@ -279,6 +283,54 @@ function relativeReviewAge(iso: string): string {
   const months = Math.floor(days / 30);
   return months === 1 ? "1 month ago" : `${months} months ago`;
 }
+
+/** Serving copy + icon for size rows (500gm = bowl, 1kg = meal). */
+function sizeServingMeta(weightOrLabel: string): {
+  servings: string;
+  hint: string;
+  kind: "bowl" | "meal";
+} {
+  const s = (weightOrLabel || "").toLowerCase();
+  if (/1\s*kg|1000/.test(s)) {
+    return {
+      servings: "Serves 3–4",
+      hint: "Family / sharing meal",
+      kind: "meal",
+    };
+  }
+  if (/500/.test(s)) {
+    return {
+      servings: "Serves 1–2",
+      hint: "Ideal for one hearty bowl",
+      kind: "bowl",
+    };
+  }
+  return {
+    servings: "Flexible portion",
+    hint: "Pick what fits your table",
+    kind: "bowl",
+  };
+}
+
+/** Preview-only reviews so you can judge the UI before real ratings exist. */
+const SAMPLE_REVIEWS = [
+  {
+    id: "sample-1",
+    name: "Priya",
+    stars: 5,
+    comment: "Gravy was spot on — tasted like home. Ordered again the same week.",
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    sample: true,
+  },
+  {
+    id: "sample-2",
+    name: "Karthik",
+    stars: 4,
+    comment: "Good spice balance and generous portion. Delivery was on time for lunch.",
+    createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
+    sample: true,
+  },
+] as const;
 
 /** One-line pairing / how to serve (from name + category). */
 function pairingSuggestion(cleanName: string, category: string): string {
@@ -573,6 +625,10 @@ function DishDetailView({
     ?? item.variants?.[0]?.weight
     ?? null;
   const [selectedWeight, setSelectedWeight] = useState<string | null>(defaultWeight);
+  /** Collapsed = Add item only; expanded = qty + View cart (liquid morph). */
+  const [barExpanded, setBarExpanded] = useState(false);
+  /** Force sample reviews so we can preview 1 vs 2+ carousel UI. */
+  const [previewSampleReviews, setPreviewSampleReviews] = useState(true);
 
   type SocialState = {
     loading: boolean;
@@ -640,9 +696,17 @@ function DishDetailView({
       item.variants?.[0]?.weight ??
       null;
     setSelectedWeight(w);
+    setBarExpanded(false);
+    setPreviewSampleReviews(true);
   }, [item.id]);
 
   const qty = selectedWeight ? cart[`${item.id}:${selectedWeight}`] || 0 : 0;
+
+  useEffect(() => {
+    if (qty > 0) setBarExpanded(true);
+    // Sync expand only when dish/size changes — not on every qty tick
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeight, item.id]);
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
@@ -931,13 +995,15 @@ function DishDetailView({
           </div>
         </div>
 
-        {/* Choose Size — list rows + radio (not full red fill) */}
+        {/* Choose Size — icons + servings */}
         <div style={{ marginBottom: 24 }}>
           <h3 style={sectionTitle}>Choose Size</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {item.variants?.map((v) => {
               const active = selectedWeight === v.weight;
               const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
+              const meta = sizeServingMeta(v.weight || v.label);
+              const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
               return (
                 <motion.button
                   key={v.weight}
@@ -949,35 +1015,43 @@ function DishDetailView({
                     display: "flex",
                     alignItems: "center",
                     gap: 14,
-                    padding: "16px 16px",
-                    borderRadius: 18,
+                    padding: "14px 14px",
+                    borderRadius: 20,
                     background: active ? "rgba(189,35,32,0.08)" : C.surface,
                     border: `1.5px solid ${active ? C.red : C.border}`,
                     cursor: "pointer",
                     textAlign: "left",
-                    boxShadow: active ? "0 6px 20px rgba(189,35,32,0.12)" : "none",
+                    boxShadow: active ? "0 8px 24px rgba(189,35,32,0.14)" : "0 2px 10px rgba(0,0,0,0.03)",
                   }}
                 >
                   <span
                     aria-hidden
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      border: `2px solid ${active ? C.red : "rgba(0,0,0,0.2)"}`,
+                      width: 48,
+                      height: 48,
+                      borderRadius: 16,
+                      background: active ? "rgba(189,35,32,0.14)" : "rgba(0,0,0,0.04)",
+                      border: `1px solid ${active ? "rgba(189,35,32,0.28)" : "rgba(0,0,0,0.06)"}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       flexShrink: 0,
-                      background: C.white,
                     }}
                   >
-                    {active && (
-                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.red }} />
-                    )}
+                    <Icon size={24} weight={active ? "fill" : "duotone"} color={active ? C.red : "rgba(0,0,0,0.45)"} />
                   </span>
-                  <span style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text }}>{v.label}</span>
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.text }}>
+                      {v.label}
+                    </span>
+                    <span style={{ display: "block", marginTop: 3, fontSize: 12, fontWeight: 700, color: C.red }}>
+                      {meta.servings}
+                    </span>
+                    <span style={{ display: "block", marginTop: 2, fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                      {meta.hint}
+                    </span>
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
                     {listPrice != null && listPrice > v.price && (
                       <span
                         style={{
@@ -990,7 +1064,7 @@ function DishDetailView({
                         ₹{listPrice.toLocaleString("en-IN")}
                       </span>
                     )}
-                    <span style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
+                    <span style={{ fontSize: 24, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
                       ₹{v.price.toLocaleString("en-IN")}
                     </span>
                   </span>
@@ -1000,79 +1074,135 @@ function DishDetailView({
           </div>
         </div>
 
-        {/* Reviews — only when real ratings exist */}
-        {social.reviews.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <h3 style={sectionTitle}>Reviews</h3>
-            {social.reviews.length > 1 && (
-              <p style={{ margin: "-4px 0 12px", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
-                Swipe for more · {social.reviews.length} of {social.ratingCount} review
-                {social.ratingCount === 1 ? "" : "s"}
-              </p>
-            )}
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                overflowX: "auto",
-                scrollSnapType: social.reviews.length > 1 ? "x mandatory" : undefined,
-                paddingBottom: 4,
-                marginRight: -sp(2.5),
-                paddingRight: sp(2.5),
-              }}
-              className="no-scrollbar"
-            >
-              {social.reviews.map((rev) => (
-                <div
-                  key={rev.id}
-                  style={{
-                    minWidth: social.reviews.length > 1 ? "86%" : "100%",
-                    scrollSnapAlign: "start",
-                    borderRadius: 18,
-                    padding: 16,
-                    background: C.surface,
-                    border: `1px solid ${C.border}`,
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "rgba(189,35,32,0.12)",
-                        color: C.red,
-                        fontWeight: 900,
-                        fontSize: 16,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {(rev.name || "C").charAt(0).toUpperCase()}
+        {/* Reviews — real when available; otherwise sample preview (2 cards to show carousel) */}
+        {(() => {
+          const real = social.reviews;
+          const usingSample = previewSampleReviews && real.length === 0 && !social.loading;
+          const displayReviews = usingSample
+            ? SAMPLE_REVIEWS.map((r) => ({ ...r, sample: true as boolean }))
+            : real.map((r) => ({ ...r, sample: false }));
+          if (!displayReviews.length) return null;
+          const totalLabel = usingSample ? displayReviews.length : social.ratingCount;
+          return (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+                <h3 style={{ ...sectionTitle, margin: 0 }}>Reviews</h3>
+                {usingSample && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewSampleReviews(false)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "rgba(0,0,0,0.35)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      fontFamily: C.mono,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Hide samples
+                  </button>
+                )}
+              </div>
+              {displayReviews.length > 1 && (
+                <p style={{ margin: "-4px 0 12px", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                  Swipe for more · {displayReviews.length} of {totalLabel} review
+                  {totalLabel === 1 ? "" : "s"}
+                  {usingSample ? " (sample)" : ""}
+                </p>
+              )}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  overflowX: "auto",
+                  scrollSnapType: displayReviews.length > 1 ? "x mandatory" : undefined,
+                  paddingBottom: 4,
+                  marginRight: -sp(2.5),
+                  paddingRight: sp(2.5),
+                }}
+                className="no-scrollbar"
+              >
+                {displayReviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    style={{
+                      minWidth: displayReviews.length > 1 ? "86%" : "100%",
+                      scrollSnapAlign: "start",
+                      borderRadius: 18,
+                      padding: 16,
+                      background: C.surface,
+                      border: `1px solid ${C.border}`,
+                      boxSizing: "border-box",
+                      position: "relative",
+                    }}
+                  >
+                    {rev.sample && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: C.red,
+                          background: "rgba(189,35,32,0.1)",
+                          border: "1px solid rgba(189,35,32,0.25)",
+                          borderRadius: 999,
+                          padding: "3px 8px",
+                        }}
+                      >
+                        Sample
+                      </span>
+                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, paddingRight: rev.sample ? 64 : 0 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          background: "rgba(189,35,32,0.12)",
+                          color: C.red,
+                          fontWeight: 900,
+                          fontSize: 16,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {(rev.name || "C").charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C.text }}>{rev.name}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                          Verified buyer · {relativeReviewAge(rev.createdAt)}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flexShrink: 0 }}>
+                        <span style={{ color: "#fbbf24" }}>★</span> {Number(rev.stars).toFixed(1)}
+                      </span>
                     </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C.text }}>{rev.name}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
-                        Verified buyer · {relativeReviewAge(rev.createdAt)}
+                    {rev.comment && (
+                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "rgba(0,0,0,0.7)", fontWeight: 500 }}>
+                        {rev.comment}
                       </p>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flexShrink: 0 }}>
-                      <span style={{ color: "#fbbf24" }}>★</span> {rev.stars.toFixed(1)}
-                    </span>
+                    )}
                   </div>
-                  {rev.comment && (
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "rgba(0,0,0,0.7)", fontWeight: 500 }}>
-                      {rev.comment}
-                    </p>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
+              {usingSample && (
+                <p style={{ margin: "10px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.35)", textAlign: "center" }}>
+                  Real reviews appear here after customers rate delivered orders.
+                </p>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Suggested dishes — same category */}
         {suggested.length > 0 && (
@@ -1142,120 +1272,183 @@ function DishDetailView({
         )}
       </div>
 
-      <div
-        style={{
-          flexShrink: 0,
-          padding: `12px ${sp(2.5)}px max(16px, env(safe-area-inset-bottom))`,
-          background: C.white,
-          display: isOrderingWindowOpen() ? "flex" : "none",
-          alignItems: "center",
-          gap: 12,
-          borderTop: `1px solid ${C.borderFaint}`,
-        }}
-      >
+      {/* Floating Add item → expands to qty + View cart */}
+      {isOrderingWindowOpen() && (
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 0,
-            padding: "4px 6px",
-            borderRadius: 999,
-            background: C.surfaceDeep,
-            border: `1px solid ${C.border}`,
-            height: 52,
-            flexShrink: 0,
-            boxSizing: "border-box",
-            opacity: selectedWeight ? 1 : 0.35,
-            pointerEvents: selectedWeight ? "auto" : "none",
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: "max(16px, env(safe-area-inset-bottom))",
+            zIndex: 20,
+            pointerEvents: "none",
           }}
         >
-          <motion.button
-            type="button"
-            whileTap={{ scale: qty <= 1 ? 1 : 0.9 }}
-            onClick={() => {
-              if (!selectedWeight || qty <= 1) return;
-              updateQty(`${item.id}:${selectedWeight}`, -1);
-            }}
-            disabled={qty <= 1}
+          <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 380, damping: 28, mass: 0.85 }}
             style={{
-              width: 42,
-              height: 42,
-              borderRadius: "50%",
-              border: "none",
-              background: qty <= 1 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
-              color: qty <= 1 ? "rgba(0,0,0,0.2)" : C.text,
-              cursor: qty <= 1 ? "default" : "pointer",
-              flexShrink: 0,
+              pointerEvents: "auto",
+              background: "rgba(255,255,255,0.94)",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+              padding: 10,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 10,
+              overflow: "hidden",
             }}
           >
-            <Minus size={18} weight="bold" />
-          </motion.button>
-          <span
-            style={{
-              fontSize: 16,
-              fontWeight: 900,
-              minWidth: 32,
-              textAlign: "center",
-              color: C.text,
-              fontFamily: C.mono,
-            }}
-          >
-            {String(qty < 1 ? 1 : qty).padStart(2, "0")}
-          </span>
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.9 }}
-            onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: "50%",
-              border: "none",
-              background: C.text,
-              color: C.white,
-              cursor: "pointer",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Plus size={18} weight="bold" />
-          </motion.button>
-        </div>
+            <AnimatePresence initial={false} mode="popLayout">
+              {!barExpanded ? (
+                <motion.button
+                  key="add-item"
+                  layout
+                  type="button"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.94 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 30 }}
+                  whileTap={{ scale: selectedWeight ? 0.98 : 1, borderRadius: 18 }}
+                  disabled={!selectedWeight}
+                  onClick={() => {
+                    if (!selectedWeight) return;
+                    if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
+                    setBarExpanded(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 18,
+                    border: "none",
+                    background: selectedWeight ? C.red : "rgba(0,0,0,0.06)",
+                    color: selectedWeight ? "#fff" : "rgba(0,0,0,0.3)",
+                    fontFamily: C.mono,
+                    fontSize: 16,
+                    fontWeight: 900,
+                    cursor: selectedWeight ? "pointer" : "not-allowed",
+                    boxShadow: selectedWeight ? `0 8px 24px ${C.redGlow}` : "none",
+                  }}
+                >
+                  Add item
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="expanded-bar"
+                  layout
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0,
+                      padding: "4px 6px",
+                      borderRadius: 999,
+                      background: C.surfaceDeep,
+                      border: `1px solid ${C.border}`,
+                      height: 52,
+                      flexShrink: 0,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: qty <= 1 ? 1 : 0.9 }}
+                      onClick={() => {
+                        if (!selectedWeight || qty <= 1) return;
+                        updateQty(`${item.id}:${selectedWeight}`, -1);
+                      }}
+                      disabled={qty <= 1}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: qty <= 1 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
+                        color: qty <= 1 ? "rgba(0,0,0,0.2)" : C.text,
+                        cursor: qty <= 1 ? "default" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Minus size={16} weight="bold" />
+                    </motion.button>
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 900,
+                        minWidth: 28,
+                        textAlign: "center",
+                        color: C.text,
+                        fontFamily: C.mono,
+                      }}
+                    >
+                      {String(Math.max(1, qty)).padStart(2, "0")}
+                    </span>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: C.text,
+                        color: C.white,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Plus size={16} weight="bold" />
+                    </motion.button>
+                  </div>
 
-        <motion.button
-          type="button"
-          whileTap={{ scale: selectedWeight ? 0.97 : 1 }}
-          onClick={() => {
-            if (!selectedWeight) return;
-            if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
-            onCheckout?.();
-          }}
-          disabled={!selectedWeight}
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 999,
-            background: selectedWeight ? C.red : "rgba(0,0,0,0.06)",
-            color: selectedWeight ? "#fff" : "rgba(0,0,0,0.25)",
-            border: "none",
-            ...HT.button,
-            fontWeight: 900,
-            cursor: selectedWeight ? "pointer" : "not-allowed",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            boxShadow: selectedWeight ? `0 8px 28px ${C.redGlow}` : "none",
-          }}
-        >
-          Add to Cart — ₹{(qty < 1 ? currentPrice : lineSaleTotal).toLocaleString("en-IN")}
-        </motion.button>
-      </div>
+                  <motion.button
+                    type="button"
+                    layout
+                    whileTap={{ scale: 0.98, borderRadius: 18 }}
+                    onClick={() => onCheckout?.()}
+                    style={{
+                      flex: 1,
+                      height: 52,
+                      borderRadius: 18,
+                      border: "none",
+                      background: C.red,
+                      color: "#fff",
+                      fontFamily: C.mono,
+                      fontSize: 15,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      boxShadow: `0 8px 24px ${C.redGlow}`,
+                      minWidth: 0,
+                    }}
+                  >
+                    View cart
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -1330,11 +1523,22 @@ export function MobileHomeScreen({
   const openedOrdersForTrack = useRef(false);
   const prevTrackStatus = useRef<string | null>(null);
 
-  const bestFive = items
-    .filter(d => d.name.toUpperCase().includes("RECIPE"))
-    .concat(items.filter(d => !d.name.toUpperCase().includes("RECIPE")))
-    .sort((a, b) => a.variants[0].price - b.variants[0].price)
-    .slice(0, 5);
+  const [bestSellingIds, setBestSellingIds] = useState<string[]>(KITCHEN_PICK_DISH_IDS);
+  const [bestSellingSource, setBestSellingSource] = useState<BestSellingSource>("kitchen_picks");
+
+  const bestFive = useMemo(() => {
+    const byId = new Map(items.map((d) => [d.id, d]));
+    const ranked = bestSellingIds.map((id) => byId.get(id)).filter((d): d is MenuItem => !!d);
+    if (ranked.length >= 5) return ranked.slice(0, 5);
+    const seen = new Set(ranked.map((d) => d.id));
+    for (const d of items) {
+      if (ranked.length >= 5) break;
+      if (seen.has(d.id)) continue;
+      seen.add(d.id);
+      ranked.push(d);
+    }
+    return ranked.slice(0, 5);
+  }, [items, bestSellingIds]);
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
@@ -1672,6 +1876,33 @@ export function MobileHomeScreen({
       cancelled = true;
     };
   }, [setItems]);
+
+  // Best selling: real 30-day units when volume exists; kitchen picks before launch
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/menu/best-selling");
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          ids?: string[];
+          source?: BestSellingSource;
+        };
+        if (cancelled) return;
+        if (Array.isArray(json.ids) && json.ids.length > 0) {
+          setBestSellingIds(json.ids);
+        }
+        if (json.source === "sales" || json.source === "kitchen_picks") {
+          setBestSellingSource(json.source);
+        }
+      } catch {
+        /* keep kitchen picks fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
 
@@ -2081,7 +2312,7 @@ export function MobileHomeScreen({
                       border: "none",
                       cursor: "pointer",
                       fontFamily: C.mono,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: 800,
                       letterSpacing: "0.02em",
                       background: "transparent",
@@ -2093,7 +2324,11 @@ export function MobileHomeScreen({
                       animate={{ color: active ? "#fff" : "rgba(0,0,0,0.4)" }}
                       transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      {tab === "bestSelling" ? "Best Selling" : "Favorites"}
+                      {tab === "bestSelling"
+                        ? bestSellingSource === "kitchen_picks"
+                          ? "Kitchen picks"
+                          : "Best Selling"
+                        : "Favorites"}
                     </motion.span>
                   </motion.button>
                 );
@@ -2142,9 +2377,11 @@ export function MobileHomeScreen({
                               margin: 0, fontSize: 15, fontWeight: 600, color: "rgba(0,0,0,0.35)",
                               textAlign: "center", lineHeight: 1.4, maxWidth: 220
                             }}>
-                              {homeDishFeedTab === "favorites" 
-                                ? "No favorites yet. Tap the heart on a dish to save it here." 
-                                : "No best selling dishes available."}
+                              {homeDishFeedTab === "favorites"
+                                ? "No favorites yet. Tap the heart on a dish to save it here."
+                                : bestSellingSource === "kitchen_picks"
+                                  ? "Kitchen picks will appear here."
+                                  : "No best selling dishes available."}
                             </p>
                           </div>
                         )
@@ -2210,13 +2447,17 @@ export function MobileHomeScreen({
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <p style={HT.tileTitle}>Vidya Bot</p>
                   <span style={{
-                    display: "inline-flex", alignItems: "center", gap: 3,
-                    padding: "3px 8px", borderRadius: 999,
-                    background: "rgba(22,163,74,0.1)",
-                    border: "1px solid rgba(22,163,74,0.28)",
-                    fontSize: 10, fontWeight: 800, color: "#15803d",
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 8px 3px 6px", borderRadius: 999,
+                    background: "rgba(22,163,74,0.18)",
+                    border: "1px solid rgba(21,128,61,0.45)",
+                    fontSize: 10, fontWeight: 800, color: "#14532d",
                     letterSpacing: "0.05em", textTransform: "uppercase" as const,
-                  }}>⚡ Instant</span>
+                    lineHeight: 1,
+                  }}>
+                    <Lightning size={11} weight="fill" color="#CA8A04" style={{ flexShrink: 0 }} aria-hidden />
+                    Instant
+                  </span>
                 </div>
                 <p style={{ ...HT.tileSub, margin: "2px 0 0" }}>Order via our bot</p>
               </div>
