@@ -373,6 +373,7 @@ function BestSellingCard({
   onOpenDetail,
   showFavoriteHeart,
   onRemoveFavorite,
+  scrollContainerRef,
 }: {
   item: MenuItem;
   index: number;
@@ -380,17 +381,30 @@ function BestSellingCard({
   onOpenDetail: () => void;
   showFavoriteHeart?: boolean;
   onRemoveFavorite?: () => void;
+  /** Horizontal carousel scroller — drives Swiggy-style image parallax. */
+  scrollContainerRef?: RefObject<HTMLDivElement | null>;
 }) {
   const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const { scrollXProgress } = useScroll({
+    container: scrollContainerRef,
+    target: cardRef,
+    axis: "x",
+    offset: ["start end", "end start"],
+  });
+  // Image pans opposite the swipe — slight depth, not a hard slide
+  const imgX = useTransform(scrollXProgress, [0, 0.5, 1], ["14%", "0%", "-14%"]);
 
   const minPrice = Math.min(...item.variants.map(v => v.price));
   const chip = discountChipDisplay(item, new Date(), activeFestival);
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.05 + index * 0.07 }}
@@ -444,14 +458,26 @@ function BestSellingCard({
             border: "1px solid rgba(0,0,0,0.04)",
           }}
         >
-          <Image
-            src={imgSrc}
-            alt={item.name}
-            fill
-            sizes="72vw"
-            style={{ objectFit: "cover" }}
-            onLoad={() => setLoaded(true)}
-          />
+          <motion.div
+            style={{
+              x: imgX,
+              position: "absolute",
+              top: 0,
+              left: "-12%",
+              width: "124%",
+              height: "100%",
+              willChange: "transform",
+            }}
+          >
+            <Image
+              src={imgSrc}
+              alt={item.name}
+              fill
+              sizes="72vw"
+              style={{ objectFit: "cover" }}
+              onLoad={() => setLoaded(true)}
+            />
+          </motion.div>
         </motion.div>
 
         {/* Price chip — top-left of image */}
@@ -1544,6 +1570,7 @@ export function MobileHomeScreen({
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
   const [unfavoriteConfirm, setUnfavoriteConfirm] = useState<{ id: string; name: string } | null>(null);
   const feedTabRowRef = useRef<HTMLDivElement>(null);
+  const kitchenCarouselRef = useRef<HTMLDivElement>(null);
   const [feedTabPill, setFeedTabPill] = useState({ w: 0, shift: 0 });
 
   useLayoutEffect(() => {
@@ -2346,6 +2373,7 @@ export function MobileHomeScreen({
                 {/* Removed 'Your favorites' text as requested */}
 
                 <div
+                  ref={kitchenCarouselRef}
                   className="no-scrollbar"
                   style={{
                     display: "flex",
@@ -2391,6 +2419,7 @@ export function MobileHomeScreen({
                             item={item}
                             index={i}
                             qty={cart[item.id] || 0}
+                            scrollContainerRef={kitchenCarouselRef}
                             showFavoriteHeart={homeDishFeedTab === "favorites"}
                             onRemoveFavorite={
                               homeDishFeedTab === "favorites"
