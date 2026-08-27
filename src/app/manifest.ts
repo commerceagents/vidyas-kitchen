@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Premium home-style gourmet food from Sivakasi",
     start_url: "/",
     display: "standalone",
+    orientation: "portrait",
     background_color: "#0a0a0a",
     theme_color: "#BD2320",
     icons: [

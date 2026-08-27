@@ -24,6 +24,7 @@ import {
   type BestSellingSource,
 } from "@/lib/menu/best-selling";
 import { useActiveFestival } from "./festival-pricing-context";
+import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -320,7 +321,6 @@ const SAMPLE_REVIEWS = [
     stars: 5,
     comment: "Gravy was spot on — tasted like home. Ordered again the same week.",
     createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    sample: true,
   },
   {
     id: "sample-2",
@@ -328,9 +328,124 @@ const SAMPLE_REVIEWS = [
     stars: 4,
     comment: "Good spice balance and generous portion. Delivery was on time for lunch.",
     createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
-    sample: true,
+  },
+  {
+    id: "sample-3",
+    name: "Anitha",
+    stars: 5,
+    comment: "Perfect with idli. Kids finished the bowl — will order for Sunday too.",
+    createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
+  },
+  {
+    id: "sample-4",
+    name: "Ravi",
+    stars: 4,
+    comment: "Rich flavour, not oily. Packaging was neat and still hot when it arrived.",
+    createdAt: new Date(Date.now() - 21 * 86400000).toISOString(),
   },
 ] as const;
+
+const REVIEW_PREVIEW_COUNT = 2;
+
+function ReviewStars({ stars, size = 13 }: { stars: number; size?: number }) {
+  const n = Math.max(0, Math.min(5, Math.round(Number(stars) || 0)));
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }} aria-label={`${n} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          size={size}
+          weight={i <= n ? "fill" : "regular"}
+          color={i <= n ? "#E8A317" : "rgba(0,0,0,0.14)"}
+        />
+      ))}
+    </span>
+  );
+}
+
+type ReviewRow = {
+  id: string;
+  name: string;
+  stars: number;
+  comment: string | null;
+  createdAt: string;
+  sample?: boolean;
+};
+
+function ReviewListItem({ rev, compact }: { rev: ReviewRow; compact?: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        alignItems: "flex-start",
+        padding: compact ? "14px 0" : "16px 0",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: compact ? 36 : 40,
+          height: compact ? 36 : 40,
+          borderRadius: "50%",
+          background: "linear-gradient(145deg, rgba(189,35,32,0.16), rgba(189,35,32,0.06))",
+          color: C.red,
+          fontWeight: 900,
+          fontSize: compact ? 14 : 15,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {(rev.name || "C").charAt(0).toUpperCase()}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C.text, letterSpacing: "-0.01em" }}>
+            {rev.name}
+            {rev.sample ? (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "rgba(0,0,0,0.35)",
+                }}
+              >
+                Sample
+              </span>
+            ) : null}
+          </p>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.35)", flexShrink: 0 }}>
+            {relativeReviewAge(rev.createdAt)}
+          </span>
+        </div>
+        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+          <ReviewStars stars={rev.stars} size={12} />
+          {!rev.sample && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.38)" }}>Verified order</span>
+          )}
+        </div>
+        {rev.comment ? (
+          <p
+            style={{
+              margin: "10px 0 0",
+              fontSize: 13.5,
+              lineHeight: 1.55,
+              color: "rgba(0,0,0,0.68)",
+              fontWeight: 500,
+            }}
+          >
+            {rev.comment}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 /** One-line pairing / how to serve (from name + category). */
 function pairingSuggestion(cleanName: string, category: string): string {
@@ -390,6 +505,10 @@ function BestSellingCard({
   const [loaded, setLoaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setLoaded(false);
+  }, [imgSrc]);
+
   const { scrollXProgress } = useScroll({
     container: scrollContainerRef,
     target: cardRef,
@@ -447,14 +566,35 @@ function BestSellingCard({
         minHeight: 0,
         marginBottom: 12,
       }}>
+        {/* Skeleton while photo loads */}
+        <AnimatePresence>
+          {!loaded && (
+            <motion.div
+              key="skel"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="vk-skeleton-shimmer"
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 22,
+                zIndex: 1,
+                border: "1px solid rgba(0,0,0,0.04)",
+              }}
+            />
+          )}
+        </AnimatePresence>
         <motion.div
-          animate={{ opacity: loaded ? 1 : 0, scale: loaded ? 1 : 0.9 }}
-          transition={{ duration: 0.6 }}
+          initial={false}
+          animate={{ opacity: loaded ? 1 : 0, scale: loaded ? 1 : 1.04 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           style={{
             position: "absolute", inset: 0,
             borderRadius: 22,
             overflow: "hidden",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+            boxShadow: loaded ? "0 4px 14px rgba(0,0,0,0.08)" : "none",
             border: "1px solid rgba(0,0,0,0.04)",
           }}
         >
@@ -651,10 +791,14 @@ function DishDetailView({
     ?? item.variants?.[0]?.weight
     ?? null;
   const [selectedWeight, setSelectedWeight] = useState<string | null>(defaultWeight);
-  /** Collapsed = Add item only; expanded = qty + View cart (liquid morph). */
+  /** Collapsed = Add item only; expanded = qty + View cart (shared-space morph). */
   const [barExpanded, setBarExpanded] = useState(false);
-  /** Force sample reviews so we can preview 1 vs 2+ carousel UI. */
+  const BAR_STEPPER_W = 128;
+  const BAR_GAP = 10;
+  const barSpring = { type: "spring" as const, stiffness: 340, damping: 34, mass: 0.85 };
+  /** Force sample reviews so we can preview the reviews UI before launch. */
   const [previewSampleReviews, setPreviewSampleReviews] = useState(true);
+  const [reviewsSheetOpen, setReviewsSheetOpen] = useState(false);
 
   type SocialState = {
     loading: boolean;
@@ -724,20 +868,27 @@ function DishDetailView({
     setSelectedWeight(w);
     setBarExpanded(false);
     setPreviewSampleReviews(true);
+    setReviewsSheetOpen(false);
   }, [item.id]);
 
   const qty = selectedWeight ? cart[`${item.id}:${selectedWeight}`] || 0 : 0;
 
   useEffect(() => {
     if (qty > 0) setBarExpanded(true);
-    // Sync expand only when dish/size changes — not on every qty tick
+    else setBarExpanded(false);
+    // Sync expand when dish/size changes or line is cleared
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeight, item.id]);
+  }, [selectedWeight, item.id, qty === 0]);
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
+  const [heroLoaded, setHeroLoaded] = useState(false);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
+
+  useEffect(() => {
+    setHeroLoaded(false);
+  }, [imgSrc]);
 
   const selectedVariant = item.variants?.find((v) => v.weight === selectedWeight);
   const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
@@ -827,9 +978,36 @@ function DishDetailView({
             marginBottom: 16,
             border: `1px solid ${C.borderFaint}`,
             boxShadow: "0 16px 48px rgba(0,0,0,0.06)",
+            background: "rgba(0,0,0,0.03)",
           }}
         >
-          <Image src={imgSrc} alt={item.name} fill sizes="100vw" style={{ objectFit: "cover" }} priority />
+          <AnimatePresence>
+            {!heroLoaded && (
+              <motion.div
+                key="detail-skel"
+                initial={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="vk-skeleton-shimmer"
+                aria-hidden
+                style={{ position: "absolute", inset: 0, zIndex: 1 }}
+              />
+            )}
+          </AnimatePresence>
+          <Image
+            src={imgSrc}
+            alt={item.name}
+            fill
+            sizes="100vw"
+            priority
+            onLoad={() => setHeroLoaded(true)}
+            style={{
+              objectFit: "cover",
+              opacity: heroLoaded ? 1 : 0,
+              transform: heroLoaded ? "scale(1)" : "scale(1.05)",
+              transition: "opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          />
           {detailDiscountChip.text && (
             <div
               style={{
@@ -1070,10 +1248,10 @@ function DishDetailView({
                     <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.text }}>
                       {v.label}
                     </span>
-                    <span style={{ display: "block", marginTop: 3, fontSize: 12, fontWeight: 700, color: C.red }}>
+                    <span style={{ display: "block", marginTop: 3, fontSize: 14, fontWeight: 700, color: C.red }}>
                       {meta.servings}
                     </span>
-                    <span style={{ display: "block", marginTop: 2, fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                    <span style={{ display: "block", marginTop: 3, fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.45)", lineHeight: 1.35 }}>
                       {meta.hint}
                     </span>
                   </span>
@@ -1090,7 +1268,7 @@ function DishDetailView({
                         ₹{listPrice.toLocaleString("en-IN")}
                       </span>
                     )}
-                    <span style={{ fontSize: 24, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
+                    <span style={{ fontSize: 24, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
                       ₹{v.price.toLocaleString("en-IN")}
                     </span>
                   </span>
@@ -1100,132 +1278,199 @@ function DishDetailView({
           </div>
         </div>
 
-        {/* Reviews — real when available; otherwise sample preview (2 cards to show carousel) */}
+        {/* Reviews — show 2 on page; rest in “See all” sheet (no endless swipe) */}
         {(() => {
           const real = social.reviews;
           const usingSample = previewSampleReviews && real.length === 0 && !social.loading;
-          const displayReviews = usingSample
-            ? SAMPLE_REVIEWS.map((r) => ({ ...r, sample: true as boolean }))
+          const displayReviews: ReviewRow[] = usingSample
+            ? SAMPLE_REVIEWS.map((r) => ({ ...r, sample: true }))
             : real.map((r) => ({ ...r, sample: false }));
           if (!displayReviews.length) return null;
-          const totalLabel = usingSample ? displayReviews.length : social.ratingCount;
+          const totalLabel = usingSample ? displayReviews.length : Math.max(social.ratingCount, displayReviews.length);
+          const preview = displayReviews.slice(0, REVIEW_PREVIEW_COUNT);
+          const hasMore = displayReviews.length > REVIEW_PREVIEW_COUNT || (!usingSample && social.ratingCount > REVIEW_PREVIEW_COUNT);
+
           return (
             <div style={{ marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
                 <h3 style={{ ...sectionTitle, margin: 0 }}>Reviews</h3>
-                {usingSample && (
-                  <button
-                    type="button"
-                    onClick={() => setPreviewSampleReviews(false)}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "rgba(0,0,0,0.35)",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: C.mono,
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                    }}
-                  >
-                    Hide samples
-                  </button>
-                )}
+                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.4)" }}>
+                  {totalLabel} review{totalLabel === 1 ? "" : "s"}
+                  {usingSample ? " · sample" : ""}
+                </span>
               </div>
-              {displayReviews.length > 1 && (
-                <p style={{ margin: "-4px 0 12px", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
-                  Swipe for more · {displayReviews.length} of {totalLabel} review
-                  {totalLabel === 1 ? "" : "s"}
-                  {usingSample ? " (sample)" : ""}
-                </p>
+              {usingSample && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewSampleReviews(false)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "rgba(0,0,0,0.35)",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: C.mono,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    padding: 0,
+                    marginBottom: 8,
+                  }}
+                >
+                  Hide samples
+                </button>
               )}
+
               <div
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  overflowX: "auto",
-                  scrollSnapType: displayReviews.length > 1 ? "x mandatory" : undefined,
-                  paddingBottom: 4,
-                  marginRight: -sp(2.5),
-                  paddingRight: sp(2.5),
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.72)",
+                  border: `1px solid ${C.borderFaint}`,
+                  padding: "4px 16px",
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
                 }}
-                className="no-scrollbar"
               >
-                {displayReviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    style={{
-                      minWidth: displayReviews.length > 1 ? "86%" : "100%",
-                      scrollSnapAlign: "start",
-                      borderRadius: 18,
-                      padding: 16,
-                      background: C.surface,
-                      border: `1px solid ${C.border}`,
-                      boxSizing: "border-box",
-                      position: "relative",
-                    }}
-                  >
-                    {rev.sample && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: 12,
-                          right: 12,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          color: C.red,
-                          background: "rgba(189,35,32,0.1)",
-                          border: "1px solid rgba(189,35,32,0.25)",
-                          borderRadius: 999,
-                          padding: "3px 8px",
-                        }}
-                      >
-                        Sample
-                      </span>
-                    )}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, paddingRight: rev.sample ? 64 : 0 }}>
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "50%",
-                          background: "rgba(189,35,32,0.12)",
-                          color: C.red,
-                          fontWeight: 900,
-                          fontSize: 16,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {(rev.name || "C").charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C.text }}>{rev.name}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
-                          Verified buyer · {relativeReviewAge(rev.createdAt)}
-                        </p>
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flexShrink: 0 }}>
-                        <span style={{ color: "#fbbf24" }}>★</span> {Number(rev.stars).toFixed(1)}
-                      </span>
-                    </div>
-                    {rev.comment && (
-                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "rgba(0,0,0,0.7)", fontWeight: 500 }}>
-                        {rev.comment}
-                      </p>
-                    )}
+                {preview.map((rev, i) => (
+                  <div key={rev.id}>
+                    {i > 0 && <div style={{ height: 1, background: "rgba(0,0,0,0.06)" }} />}
+                    <ReviewListItem rev={rev} />
                   </div>
                 ))}
               </div>
+
+              {hasMore && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setReviewsSheetOpen(true)}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    height: 46,
+                    borderRadius: 14,
+                    border: `1px solid ${C.border}`,
+                    background: C.surface,
+                    color: C.text,
+                    fontFamily: C.mono,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  See all {totalLabel} reviews
+                </motion.button>
+              )}
+
               {usingSample && (
                 <p style={{ margin: "10px 0 0", fontSize: 11, fontWeight: 600, color: "rgba(0,0,0,0.35)", textAlign: "center" }}>
                   Real reviews appear here after customers rate delivered orders.
                 </p>
               )}
+
+              <AnimatePresence>
+                {reviewsSheetOpen && (
+                  <motion.div
+                    key="reviews-sheet"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{
+                      position: "fixed",
+                      inset: 0,
+                      zIndex: 220,
+                      background: "rgba(12,12,12,0.45)",
+                      backdropFilter: "blur(12px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(12px) saturate(140%)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "flex-end",
+                    }}
+                    onClick={() => setReviewsSheetOpen(false)}
+                  >
+                    <motion.div
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
+                      exit={{ y: "100%" }}
+                      transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                      onClick={(e) => e.stopPropagation()}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="vk-reviews-sheet-title"
+                      style={{
+                        maxHeight: "78dvh",
+                        background: C.bg,
+                        borderRadius: "24px 24px 0 0",
+                        display: "flex",
+                        flexDirection: "column",
+                        boxShadow: "0 -12px 40px rgba(0,0,0,0.18)",
+                        paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 4 }}>
+                        <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,0.12)" }} />
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 20px 12px",
+                          borderBottom: "1px solid rgba(0,0,0,0.06)",
+                        }}
+                      >
+                        <div>
+                          <h3 id="vk-reviews-sheet-title" style={{ margin: 0, fontSize: 18, fontWeight: 900, color: C.text }}>
+                            All reviews
+                          </h3>
+                          <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.4)" }}>
+                            {totalLabel} review{totalLabel === 1 ? "" : "s"}
+                            {social.avgRating != null ? ` · ${social.avgRating.toFixed(1)} avg` : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Close reviews"
+                          onClick={() => setReviewsSheetOpen(false)}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            border: `1px solid ${C.border}`,
+                            background: C.surface,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <X size={18} weight="bold" color={C.text} />
+                        </button>
+                      </div>
+                      <div
+                        className="no-scrollbar"
+                        style={{
+                          flex: 1,
+                          overflowY: "auto",
+                          padding: "4px 20px 20px",
+                          WebkitOverflowScrolling: "touch",
+                        }}
+                      >
+                        {displayReviews.map((rev, i) => (
+                          <div key={rev.id}>
+                            {i > 0 && <div style={{ height: 1, background: "rgba(0,0,0,0.06)" }} />}
+                            <ReviewListItem rev={rev} compact />
+                          </div>
+                        ))}
+                        {!usingSample && social.ratingCount > displayReviews.length && (
+                          <p style={{ margin: "12px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.35)", textAlign: "center" }}>
+                            Showing latest {displayReviews.length} of {social.ratingCount}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })()}
@@ -1289,7 +1534,22 @@ function DishDetailView({
                         From ₹{fromPrice.toLocaleString("en-IN")}
                       </p>
                     </div>
-                    <ArrowRight size={18} weight="bold" color="rgba(0,0,0,0.35)" />
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: C.red,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        boxShadow: `0 4px 12px ${C.redGlow}`,
+                      }}
+                    >
+                      <ArrowRight size={16} weight="bold" color="#fff" />
+                    </span>
                   </motion.button>
                 );
               })}
@@ -1298,7 +1558,7 @@ function DishDetailView({
         )}
       </div>
 
-      {/* Floating Add item → expands to qty + View cart */}
+      {/* Floating Add item ↔ qty + View cart — shared-space expand (qty grows, CTA yields) */}
       {isOrderingWindowOpen() && (
         <div
           style={{
@@ -1310,9 +1570,7 @@ function DishDetailView({
             pointerEvents: "none",
           }}
         >
-          <motion.div
-            layout
-            transition={{ type: "spring", stiffness: 380, damping: 28, mass: 0.85 }}
+          <div
             style={{
               pointerEvents: "auto",
               background: "rgba(255,255,255,0.94)",
@@ -1322,157 +1580,172 @@ function DishDetailView({
               border: `1px solid ${C.border}`,
               boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
               padding: 10,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
               overflow: "hidden",
             }}
           >
-            <AnimatePresence initial={false} mode="popLayout">
-              {!barExpanded ? (
-                <motion.button
-                  key="add-item"
-                  layout
+            <div style={{ position: "relative", height: 52, width: "100%" }}>
+              {/* Qty grows from the left into shared space */}
+              <motion.div
+                initial={false}
+                animate={{ width: barExpanded ? BAR_STEPPER_W : 0 }}
+                transition={barSpring}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  height: 52,
+                  overflow: "hidden",
+                  zIndex: 1,
+                  pointerEvents: barExpanded ? "auto" : "none",
+                }}
+              >
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: barExpanded ? 1 : 0.35,
+                    scale: barExpanded ? 1 : 0.92,
+                  }}
+                  transition={barSpring}
+                  style={{
+                    width: BAR_STEPPER_W,
+                    height: 52,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "4px 6px",
+                    borderRadius: 999,
+                    background: C.surfaceDeep,
+                    border: `1px solid ${C.border}`,
+                    boxSizing: "border-box",
+                    transformOrigin: "left center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedWeight) return;
+                      if (qty <= 1) {
+                        updateQty(`${item.id}:${selectedWeight}`, -1);
+                        setBarExpanded(false);
+                      } else {
+                        updateQty(`${item.id}:${selectedWeight}`, -1);
+                      }
+                    }}
+                    aria-label={qty <= 1 ? "Remove from cart" : "Decrease quantity"}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "rgba(0,0,0,0.08)",
+                      color: C.text,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Minus size={16} weight="bold" />
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 900,
+                      minWidth: 28,
+                      textAlign: "center",
+                      color: C.text,
+                      fontFamily: C.mono,
+                    }}
+                  >
+                    {String(Math.max(1, qty)).padStart(2, "0")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
+                    aria-label="Increase quantity"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: C.text,
+                      color: C.white,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Plus size={16} weight="bold" />
+                  </button>
+                </motion.div>
+              </motion.div>
+
+              {/* CTA left edge yields right as qty expands — same spring */}
+              <motion.div
+                initial={false}
+                animate={{ left: barExpanded ? BAR_STEPPER_W + BAR_GAP : 0 }}
+                transition={barSpring}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  height: 52,
+                  zIndex: 2,
+                }}
+              >
+                <button
                   type="button"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.94 }}
-                  transition={{ type: "spring", stiffness: 420, damping: 30 }}
-                  whileTap={{ scale: selectedWeight ? 0.98 : 1, borderRadius: 18 }}
-                  disabled={!selectedWeight}
+                  disabled={!barExpanded && !selectedWeight}
                   onClick={() => {
+                    if (barExpanded) {
+                      onCheckout?.();
+                      return;
+                    }
                     if (!selectedWeight) return;
                     if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
                     setBarExpanded(true);
                   }}
                   style={{
-                    flex: 1,
+                    width: "100%",
                     height: 52,
                     borderRadius: 18,
                     border: "none",
-                    background: selectedWeight ? C.red : "rgba(0,0,0,0.06)",
-                    color: selectedWeight ? "#fff" : "rgba(0,0,0,0.3)",
+                    background: barExpanded || selectedWeight ? C.red : "rgba(0,0,0,0.06)",
+                    color: barExpanded || selectedWeight ? "#fff" : "rgba(0,0,0,0.3)",
                     fontFamily: C.mono,
                     fontSize: 16,
                     fontWeight: 900,
-                    cursor: selectedWeight ? "pointer" : "not-allowed",
-                    boxShadow: selectedWeight ? `0 8px 24px ${C.redGlow}` : "none",
+                    cursor: barExpanded || selectedWeight ? "pointer" : "not-allowed",
+                    boxShadow: barExpanded || selectedWeight ? `0 8px 24px ${C.redGlow}` : "none",
+                    position: "relative",
+                    overflow: "hidden",
                   }}
                 >
-                  Add item
-                </motion.button>
-              ) : (
-                <motion.div
-                  key="expanded-bar"
-                  layout
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    minWidth: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0,
-                      padding: "4px 6px",
-                      borderRadius: 999,
-                      background: C.surfaceDeep,
-                      border: `1px solid ${C.border}`,
-                      height: 52,
-                      flexShrink: 0,
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <motion.button
-                      type="button"
-                      whileTap={{ scale: qty <= 1 ? 1 : 0.9 }}
-                      onClick={() => {
-                        if (!selectedWeight || qty <= 1) return;
-                        updateQty(`${item.id}:${selectedWeight}`, -1);
-                      }}
-                      disabled={qty <= 1}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        border: "none",
-                        background: qty <= 1 ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.08)",
-                        color: qty <= 1 ? "rgba(0,0,0,0.2)" : C.text,
-                        cursor: qty <= 1 ? "default" : "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                  <span style={{ position: "relative", display: "inline-grid", placeItems: "center" }}>
+                    <motion.span
+                      initial={false}
+                      animate={{ opacity: barExpanded ? 0 : 1, y: barExpanded ? -6 : 0 }}
+                      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+                      style={{ gridArea: "1 / 1", pointerEvents: "none" }}
                     >
-                      <Minus size={16} weight="bold" />
-                    </motion.button>
-                    <span
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 900,
-                        minWidth: 28,
-                        textAlign: "center",
-                        color: C.text,
-                        fontFamily: C.mono,
-                      }}
+                      Add item
+                    </motion.span>
+                    <motion.span
+                      initial={false}
+                      animate={{ opacity: barExpanded ? 1 : 0, y: barExpanded ? 0 : 6 }}
+                      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+                      style={{ gridArea: "1 / 1", pointerEvents: "none" }}
                     >
-                      {String(Math.max(1, qty)).padStart(2, "0")}
-                    </span>
-                    <motion.button
-                      type="button"
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        border: "none",
-                        background: C.text,
-                        color: C.white,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Plus size={16} weight="bold" />
-                    </motion.button>
-                  </div>
-
-                  <motion.button
-                    type="button"
-                    layout
-                    whileTap={{ scale: 0.98, borderRadius: 18 }}
-                    onClick={() => onCheckout?.()}
-                    style={{
-                      flex: 1,
-                      height: 52,
-                      borderRadius: 18,
-                      border: "none",
-                      background: C.red,
-                      color: "#fff",
-                      fontFamily: C.mono,
-                      fontSize: 15,
-                      fontWeight: 900,
-                      cursor: "pointer",
-                      boxShadow: `0 8px 24px ${C.redGlow}`,
-                      minWidth: 0,
-                    }}
-                  >
-                    View cart
-                  </motion.button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                      View cart
+                    </motion.span>
+                  </span>
+                </button>
+              </motion.div>
+            </div>
+          </div>
         </div>
       )}
     </motion.div>
@@ -1513,11 +1786,20 @@ export function MobileHomeScreen({
   onProfileNameSave,
 }: MobileHomeScreenProps) {
   const activeFestival = useActiveFestival();
+  const [uiBootstrap] = useState(() => {
+    const ui = readUiSession();
+    return {
+      activeNav: ui?.activeNav === "orders" || ui?.activeNav === "account" || ui?.activeNav === "home" ? ui.activeNav : "home",
+      activeScreen: ui?.activeScreen === "menu" ? ("menu" as const) : ("home" as const),
+      dishDetailId: ui?.dishDetailId ?? null,
+      homeDishFeedTab: ui?.homeDishFeedTab === "favorites" ? ("favorites" as const) : ("bestSelling" as const),
+    };
+  });
   const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
   const loading = items.length === 0;
-  const [activeNav,      setActiveNav]      = useState("home");
-  const [activeScreen,   setActiveScreen]   = useState<"home" | "menu">("home");
-  const [locationOpen,   setLocationOpen]   = useState(false);
+  const [activeNav, setActiveNav] = useState(uiBootstrap.activeNav);
+  const [activeScreen, setActiveScreen] = useState<"home" | "menu">(uiBootstrap.activeScreen);
+  const [locationOpen, setLocationOpen] = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
   const [trackSnap, setTrackSnap] = useState<{
     status: string;
@@ -1567,7 +1849,9 @@ export function MobileHomeScreen({
   }, [items, bestSellingIds]);
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
-  const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">("bestSelling");
+  const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">(
+    uiBootstrap.homeDishFeedTab
+  );
   const [unfavoriteConfirm, setUnfavoriteConfirm] = useState<{ id: string; name: string } | null>(null);
   const feedTabRowRef = useRef<HTMLDivElement>(null);
   const kitchenCarouselRef = useRef<HTMLDivElement>(null);
@@ -1600,6 +1884,26 @@ export function MobileHomeScreen({
       window.removeEventListener(VK_FAVORITES_UPDATED, sync);
     };
   }, []);
+
+  // Restore dish detail after menu loads (survives refresh)
+  useEffect(() => {
+    if (!uiBootstrap.dishDetailId || dishDetailItem || items.length === 0) return;
+    const found = items.find((i) => i.id === uiBootstrap.dishDetailId);
+    if (found) {
+      setDishDetailItem(found);
+      setActiveScreen("home");
+    }
+  }, [items, uiBootstrap.dishDetailId, dishDetailItem]);
+
+  // Persist in-app page across refresh
+  useEffect(() => {
+    writeUiSession({
+      activeNav,
+      activeScreen,
+      dishDetailId: dishDetailItem?.id ?? null,
+      homeDishFeedTab,
+    });
+  }, [activeNav, activeScreen, dishDetailItem?.id, homeDishFeedTab]);
 
   useEffect(() => {
     if (!customerPhone || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
@@ -1971,6 +2275,7 @@ export function MobileHomeScreen({
         position: "fixed", inset: 0,
         background: C.bg,
         overflow: "hidden", // Let sub-screens handle scrolling
+        overscrollBehavior: "none",
         fontFamily: C.mono,
         color: C.text,
       }}
@@ -2740,7 +3045,9 @@ export function MobileHomeScreen({
               position: "fixed",
               inset: 0,
               zIndex: 200,
-              background: "rgba(0,0,0,0.45)",
+              background: "rgba(12,12,12,0.48)",
+              backdropFilter: "blur(14px) saturate(140%)",
+              WebkitBackdropFilter: "blur(14px) saturate(140%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2763,8 +3070,10 @@ export function MobileHomeScreen({
                 borderRadius: 24,
                 background: C.white,
                 padding: "28px 22px 20px",
-                boxShadow: "0 24px 60px rgba(0,0,0,0.22)",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
                 fontFamily: C.mono,
+                position: "relative",
+                zIndex: 1,
               }}
             >
               <h2
@@ -2821,13 +3130,14 @@ export function MobileHomeScreen({
                     flex: 1,
                     height: 48,
                     borderRadius: 14,
-                    border: "1px solid rgba(189,35,32,0.28)",
-                    background: "rgba(189,35,32,0.12)",
-                    color: C.red,
+                    border: "none",
+                    background: C.red,
+                    color: "#fff",
                     fontSize: 15,
                     fontWeight: 800,
                     fontFamily: C.mono,
                     cursor: "pointer",
+                    boxShadow: `0 8px 20px ${C.redGlow}`,
                   }}
                 >
                   Remove
@@ -3150,7 +3460,28 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
     { id: "egg",     label: "Egg"     },
   ];
 
-  // Removed local updateQty since it's passed from props
+  // Block browser pull-to-refresh when dragging down at top of the grid
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    let startY = 0;
+    const onStart = (e: TouchEvent) => {
+      startY = e.touches[0]?.clientY ?? 0;
+    };
+    const onMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY ?? 0;
+      const pullingDown = y - startY > 0;
+      if (pullingDown && el.scrollTop <= 0) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+    };
+  }, [activeCat]);
 
   useScroll({
     container: carouselRef,
@@ -3167,6 +3498,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
         background: C.bg,
         zIndex: 100,
         overflow: "hidden",
+        overscrollBehavior: "none",
         display: "flex", flexDirection: "column",
         filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9)",
         transition: "filter 0.5s ease",
@@ -3271,9 +3603,11 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
 
         <div
           ref={carouselRef}
+          className="no-scrollbar vk-no-pull-refresh"
           style={{
             height: "100%",
             overflowY: "auto",
+            overscrollBehaviorY: "none",
             // Extra bottom space so last cards clear cart bar + safe area (no faded prices)
             padding: `20px 16px ${
               isOrderingWindowOpen() && Object.values(cart).some((q) => q > 0)
@@ -3282,7 +3616,6 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
             }`,
             scrollbarWidth: "none",
           }}
-          className="no-scrollbar"
         >
           {filtered.length > 0 ? (
             <div style={{
@@ -3358,6 +3691,10 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
   const open = onOpenDetail;
   const gridChip = discountChipDisplay(item, new Date(), activeFestival);
 
+  useEffect(() => {
+    setLoaded(false);
+  }, [imgSrc]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -3391,11 +3728,29 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           borderRadius: 22,
           border: "none",
           padding: 0,
-          background: "transparent",
+          background: "rgba(0,0,0,0.03)",
           cursor: "pointer",
           display: "block",
         }}
       >
+        <AnimatePresence>
+          {!loaded && (
+            <motion.div
+              key="grid-skel"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="vk-skeleton-shimmer"
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 22,
+                zIndex: 1,
+              }}
+            />
+          )}
+        </AnimatePresence>
         {gridChip.text && (
           <span
             style={{
@@ -3415,7 +3770,19 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
             {gridChip.text}
           </span>
         )}
-        <Image src={imgSrc} alt="" fill sizes="45vw" style={{ objectFit: "cover", opacity: loaded ? 1 : 0 }} onLoad={() => setLoaded(true)} />
+        <Image
+          src={imgSrc}
+          alt=""
+          fill
+          sizes="45vw"
+          onLoad={() => setLoaded(true)}
+          style={{
+            objectFit: "cover",
+            opacity: loaded ? 1 : 0,
+            transform: loaded ? "scale(1)" : "scale(1.06)",
+            transition: "opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        />
       </motion.button>
       
       <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>

@@ -11,6 +11,7 @@ import {
   notifyOrderCancelled,
   notifyOrderRejected,
 } from "@/lib/whatsapp-copy";
+import { updateSession } from "@/lib/whatsapp-session";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** WhatsApp reply id: rate + star (1–5) + 32-char hex uuid (no dashes). */
@@ -25,6 +26,16 @@ export function decodeOrderRatingButtonId(id: string): { stars: number; orderId:
   const hex = m[2];
   const orderId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   return { stars: Number(m[1]), orderId };
+}
+
+/** Numbered WA list: 1 Excellent → 5★ … 5 Not satisfied → 1★ */
+export function deliveredRatingPendingOptions(orderId: string): { id: string; title: string }[] {
+  const labels = ["Excellent", "Good", "Okay", "Could be better", "Not satisfied"] as const;
+  const starByChoice = [5, 4, 3, 2, 1] as const;
+  return labels.map((title, i) => ({
+    id: encodeOrderRatingButtonId(starByChoice[i], orderId),
+    title,
+  }));
 }
 
 function toPhone(phoneRaw: string): string | null {
@@ -72,7 +83,12 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     }
     case OrderStatus.DELIVERED: {
       const ratingMsg = notifyOrderDelivered();
-      // Store rating options for numbered reply resolution
+      // Reply "1"…"5" → resolveNumbered → correct ★ (1=Excellent=5★)
+      try {
+        await updateSession(to, { pending_options: deliveredRatingPendingOptions(order.id) });
+      } catch (e) {
+        console.error("[WA] store delivered rating options", e);
+      }
       await sendText(to, ratingMsg);
       break;
     }

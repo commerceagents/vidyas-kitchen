@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { dishLineItemIds } from "@/lib/menu/best-selling";
 
 const BILLABLE = new Set([
   "paid",
@@ -34,6 +35,8 @@ export type DishReview = {
  * Genuine social proof for a menu item from real orders.
  * - Rating/reviews: only from orders that include this dish and have rating_stars
  * - Highly reordered: customers who ordered this dish on 2+ separate orders
+ *
+ * order_items.menu_item_id is usually a variant UUID — we match parent + all variants.
  */
 export async function GET(request: Request) {
   try {
@@ -43,6 +46,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid menuItemId" }, { status: 400 });
     }
 
+    const lineIds = dishLineItemIds(menuItemId);
     const supabase = createServerSupabase();
     const { data, error } = await supabase
       .from("order_items")
@@ -59,9 +63,9 @@ export async function GET(request: Request) {
           created_at,
           updated_at
         )
-      `
+      `,
       )
-      .eq("menu_item_id", menuItemId);
+      .in("menu_item_id", lineIds);
 
     if (error) {
       console.error("[dish-social]", error);
@@ -91,7 +95,6 @@ export async function GET(request: Request) {
     const orders = [...byOrder.values()];
     const orderCount = orders.length;
 
-    // Unique customers + how many times each ordered this dish
     const byPhone = new Map<string, number>();
     for (const o of orders) {
       const key = phoneKey(o.phone_number);
@@ -101,12 +104,11 @@ export async function GET(request: Request) {
     const uniqueCustomers = byPhone.size;
     const repeatCustomers = [...byPhone.values()].filter((n) => n >= 2).length;
     const reorderRate = uniqueCustomers > 0 ? repeatCustomers / uniqueCustomers : 0;
-    // Enough sample + real repeats — never invent this badge
     const highlyReordered =
       uniqueCustomers >= 3 && repeatCustomers >= 2 && reorderRate >= 0.3;
 
     const rated = orders.filter(
-      (o) => typeof o.rating_stars === "number" && o.rating_stars >= 1 && o.rating_stars <= 5
+      (o) => typeof o.rating_stars === "number" && o.rating_stars >= 1 && o.rating_stars <= 5,
     );
     const ratingCount = rated.length;
     const avgRating =
@@ -114,7 +116,6 @@ export async function GET(request: Request) {
         ? Math.round((rated.reduce((s, o) => s + Number(o.rating_stars), 0) / ratingCount) * 10) / 10
         : null;
 
-    // Resolve display names for reviews
     const phones = [...new Set(rated.map((o) => phoneKey(o.phone_number)).filter(Boolean))];
     const nameByPhone = new Map<string, string>();
     if (phones.length) {
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
         const tb = new Date(b.updated_at || b.created_at || 0).getTime();
         return tb - ta;
       })
-      .slice(0, 5)
+      .slice(0, 20)
       .map((o) => {
         const k = phoneKey(o.phone_number);
         return {

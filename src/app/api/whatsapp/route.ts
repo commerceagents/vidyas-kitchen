@@ -266,6 +266,13 @@ export async function POST(req: Request) {
       if (dec) {
         const supa = createServerSupabase();
         const r = await saveOrderRatingByPhone(supa, dec.orderId, dec.stars, from);
+        if (r.ok) {
+          try {
+            await updateSession(from, { pending_options: null });
+          } catch {
+            /* non-critical */
+          }
+        }
         await sendText(from, r.ok ? "Thank you for the rating!" : "Could not save your rating. Please try again.");
         return ack();
       }

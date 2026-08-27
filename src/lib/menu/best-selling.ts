@@ -55,6 +55,16 @@ export function variantIdToDishIdMap(): Map<string, string> {
   return map;
 }
 
+/** All IDs that can appear on order lines for a dish (parent + variants). */
+export function dishLineItemIds(menuItemIdOrDishId: string): string[] {
+  const map = variantIdToDishIdMap();
+  const dishId = map.get(menuItemIdOrDishId) || menuItemIdOrDishId;
+  const dish = allMenuDishes().find((d) => d.id === dishId);
+  if (!dish) return [menuItemIdOrDishId];
+  const ids = new Set<string>([dish.id, ...dish.variants.map((v) => v.id)]);
+  return [...ids];
+}
+
 export function kitchenPickEntries(limit = BEST_SELLING_LIMIT): BestSellingEntry[] {
   return KITCHEN_PICK_DISH_IDS.slice(0, limit).map((dishId) => ({
     dishId,

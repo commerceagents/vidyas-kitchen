@@ -9,6 +9,7 @@ import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
 import type { SavedPlace } from "@/lib/vk-saved-places";
+import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
@@ -44,19 +45,40 @@ type PaymentFeedback =
 export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, cancelPhone }: MobileShellProps) {
   // ── Sync Initial State from Storage ──────────────────────────────────────
   const [initialData] = useState(() => {
-    if (typeof window === "undefined") return { step: "login" as MobileStep, phone: "", name: "", location: null as LocationData | null };
-    
+    if (typeof window === "undefined") {
+      return {
+        step: "login" as MobileStep,
+        phone: "",
+        name: "",
+        location: null as LocationData | null,
+        cart: {} as Record<string, number>,
+        checkoutSourceDishId: null as string | null,
+      };
+    }
+
     const savedPhone = localStorage.getItem("vk_phone");
     const savedLocation = localStorage.getItem("vk_location");
     const savedName = localStorage.getItem(LS_NAME);
-    
+    const ui = readUiSession();
+
     let step: MobileStep = "login";
     let loc: LocationData | null = null;
-    
+
     if (savedPhone) {
       if (savedLocation) {
-        try { loc = JSON.parse(savedLocation); step = "home"; } 
-        catch { step = "location"; }
+        try {
+          loc = JSON.parse(savedLocation);
+          const restored = ui?.step;
+          if (restored === "checkout" || restored === "home" || restored === "location") {
+            step = restored;
+          } else if (restored === "location_marked") {
+            step = "home";
+          } else {
+            step = "home";
+          }
+        } catch {
+          step = "location";
+        }
       } else {
         step = "location";
       }
@@ -64,11 +86,16 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       step = "location";
     }
 
-    return { 
-      step, 
-      phone: savedPhone || prefilledPhone || "", 
-      name: savedName || prefilledName || "", 
-      location: loc 
+    const cart =
+      ui?.cart && typeof ui.cart === "object" ? ui.cart : ({} as Record<string, number>);
+
+    return {
+      step,
+      phone: savedPhone || prefilledPhone || "",
+      name: savedName || prefilledName || "",
+      location: loc,
+      cart,
+      checkoutSourceDishId: ui?.checkoutSourceDishId ?? null,
     };
   });
 
@@ -76,16 +103,18 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [phone, setPhone] = useState(initialData.phone);
   const [name, setName] = useState(initialData.name);
   const [location, setLocation] = useState<LocationData | null>(initialData.location);
-  
+
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [paymentFeedback, setPaymentFeedback] = useState<PaymentFeedback>(null);
 
   // ── Hoisted State for Cart & Menu ───────────────────────────────────────
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [cart, setCart]   = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>(initialData.cart);
 
-  const [checkoutSourceDishId, setCheckoutSourceDishId] = useState<string | null>(null);
+  const [checkoutSourceDishId, setCheckoutSourceDishId] = useState<string | null>(
+    initialData.checkoutSourceDishId
+  );
   const [resumeDishDetail, setResumeDishDetail] = useState<{ id: string; nonce: number } | null>(null);
   const [browseMenuSignal, setBrowseMenuSignal] = useState(0);
   /** True after “Add more” from checkout — Browse Menu back should return to checkout. */
@@ -125,6 +154,16 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     };
   }, []);
 
+  // Persist shell route + cart across refresh
+  useEffect(() => {
+    if (step === "login") return;
+    writeUiSession({
+      step,
+      cart,
+      checkoutSourceDishId,
+    });
+  }, [step, cart, checkoutSourceDishId]);
+
   // Restore session from localStorage
   useEffect(() => {
     // ?reset=true clears all cached session data (useful for testing)
@@ -135,8 +174,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       localStorage.removeItem(LS_NAME);
       sessionStorage.removeItem(SS_TRACK_ORDER);
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+      clearUiSession();
       window.history.replaceState({}, "", "/");
       setStep("login");
+      setCart({});
       setTrackingOrderId(null);
       setPaymentFeedback(null);
       return;
@@ -198,6 +239,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     const savedPhone = localStorage.getItem("vk_phone");
     const savedLocation = localStorage.getItem("vk_location");
     const savedName = localStorage.getItem(LS_NAME);
+    const ui = readUiSession();
 
     if (prefilledName?.trim()) {
       setName(prefilledName.trim());
@@ -212,7 +254,14 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         try {
           const loc = JSON.parse(savedLocation) as LocationData;
           setLocation(loc);
-          setStep("home"); // Returning user → home (use ?reset=true while testing to clear session)
+          // Keep restored route (checkout / home / location); don't force home on refresh
+          if (ui?.step === "checkout" || ui?.step === "home" || ui?.step === "location") {
+            setStep(ui.step);
+          } else if (step !== "checkout" && step !== "home" && step !== "location") {
+            setStep("home");
+          }
+          if (ui?.cart && typeof ui.cart === "object") setCart(ui.cart);
+          if (ui?.checkoutSourceDishId) setCheckoutSourceDishId(ui.checkoutSourceDishId);
         } catch {
           setStep("location");
         }
@@ -220,7 +269,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         setStep("location");
       }
     } else if (prefilledPhone) {
-      // Came from WhatsApp with phone in URL param
       setPhone(prefilledPhone);
       localStorage.setItem("vk_phone", prefilledPhone);
       if (prefilledName) {
@@ -242,6 +290,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       }
       setStep("home");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once from URL/storage; step from initial state
   }, [prefilledPhone, prefilledName, cancelOrderId, cancelPhone]);
 
   const clearOrderTracking = () => {
@@ -255,6 +304,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     localStorage.removeItem(LS_NAME);
     sessionStorage.removeItem(SS_TRACK_ORDER);
     sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+    clearUiSession();
     setPhone("");
     setName("");
     setLocation(null);
