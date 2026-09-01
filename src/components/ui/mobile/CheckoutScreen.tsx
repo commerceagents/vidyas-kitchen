@@ -29,6 +29,7 @@ import {
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 
 const C = {
   bg: "#F5F5F7",
@@ -432,9 +433,15 @@ export function CheckoutScreen({
   const tax = Math.round(itemTotal * 0.05);
   const otherCharges = packagingFee + tax;
   const grandTotal = itemTotal + packagingFee + deliveryFee + tax;
+  const codBlockedByTotal = !isCodAllowedForTotal(grandTotal);
   const recipientIncomplete =
     forSomeoneElse && (!recipientName.trim() || recipientPhone.replace(/\D/g, "").length < 10);
   const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen() || recipientIncomplete;
+
+  // Adding items can push the cart past the COD ceiling after it was selected.
+  useEffect(() => {
+    if (codBlockedByTotal && paymentMethod === "cod") setPaymentMethod("online");
+  }, [codBlockedByTotal, paymentMethod]);
   const cartEmpty = cartEntries.length === 0;
 
   const goSchedule = () => {
@@ -1442,9 +1449,9 @@ export function CheckoutScreen({
                     {
                       id: "cod",
                       label: "Cash on Delivery",
-                      sub: "Pay when it arrives",
+                      sub: codBlockedByTotal ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}` : "Pay when it arrives",
                       icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
-                      disabled: false,
+                      disabled: codBlockedByTotal,
                     },
                   ] as const
                 ).map((p) => {
@@ -1478,6 +1485,13 @@ export function CheckoutScreen({
                   );
                 })}
               </div>
+
+              {codBlockedByTotal && (
+                <p style={{ margin: "10px 2px 0", fontSize: 11.5, fontWeight: 600, color: C.muted, lineHeight: 1.45 }}>
+                  Cash on delivery is available on orders up to ₹
+                  {COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.
+                </p>
+              )}
 
             </motion.div>
           )}

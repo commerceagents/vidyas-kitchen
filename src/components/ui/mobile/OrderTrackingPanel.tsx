@@ -2,31 +2,13 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { DELIVERY_SLOT_DEFS, DELIVERY_SLOT_TIMEZONE, isValidSlotKind } from "@/lib/delivery-slots";
+import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
-import { 
-  Clock, 
-  Flame, 
-  Package, 
-  Motorcycle, 
-  House, 
-  XCircle, 
-  Sun, 
-  ForkKnife, 
-  Moon, 
-  CookingPot, 
-  Check,
-  MapPin,
-  PencilSimple 
-} from "@phosphor-icons/react";
-import { C, C_ICON, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
+import { codFailureLabel } from "@/lib/order-status";
+import { Motorcycle, Money, MapPin, PencilSimple } from "@phosphor-icons/react";
+import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
-
-/** Green slot icon tile — matches “Highly reordered” accent. */
-const HIGHLY_REORDERED_GREEN = "#4ade80";
-const SLOT_ICON_BOX_BG = "rgba(74,222,128,0.2)";
-const SLOT_ICON_BOX_BORDER = "rgba(74,222,128,0.38)";
 
 /** Status + address cards — match home location pin tile. */
 const ORDER_CARD_ICON_BOX = {
@@ -63,6 +45,9 @@ export type OrderTrackSnap = {
   ratingStars?: number | null;
   ratingComment?: string | null;
   totalAmount?: number | null;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  codFailureReason?: string | null;
   deliveryLat?: number | null;
   deliveryLng?: number | null;
   driverLastLat?: number | null;
@@ -89,84 +74,6 @@ function normalizeTrackStatus(s: string): string {
   return x;
 }
 
-function mainTrackStep(status: string): number {
-  const n = normalizeTrackStatus(status);
-  switch (n) {
-    case "cancelled":
-      return -1;
-    case "pending_payment":
-      return -1;
-    case "paid":
-      return 0;
-    case "confirmed":
-      return 1;
-    case "preparing":
-      return 2;
-    case "ready":
-      return 3;
-    case "out_for_delivery":
-      return 4;
-    case "delivered":
-      return 5;
-    default:
-      return -1;
-  }
-}
-
-function statusCopy(status: string): { title: string; description: string } {
-  const s = normalizeTrackStatus(status);
-  if (s === "pending_payment")
-    return { title: "Waiting for payment", description: "Complete checkout to send your order to the kitchen." };
-  if (s === "confirmed")
-    return { title: "Order confirmed", description: "Kitchen has acknowledged your order. We\u2019ll start cooking closer to your slot." };
-  if (s === "paid")
-    return { title: "Kitchen will accept soon", description: "Payment is in — we’re lining up your meal with the next prep wave." };
-  if (s === "preparing")
-    return { title: "Your meal is being prepared", description: "Fresh ingredients, no rush — we’re cooking your order with care." };
-  if (s === "ready")
-    return { title: "Packed and ready for pickup", description: "Your boxes are sealed; the rider will collect them shortly." };
-  if (s === "out_for_delivery")
-    return { title: "Driver is on the way", description: "Your driver has picked up your order and is heading to you." };
-  if (s === "delivered") return { title: "Enjoy your meal", description: "Thank you for choosing Vidya’s Kitchen today." };
-  if (s === "cancelled")
-    return {
-      title: "Order cancelled",
-      description: "We’ve updated our systems and sent you WhatsApp so everything stays in sync.",
-    };
-  return { title: "Order update", description: "We’re fetching the latest status for you." };
-}
-
-function statusIconSvg(kind: "clock" | "flame" | "package" | "bike" | "home", strokeColor?: string) {
-  const stroke = strokeColor ?? C_ICON;
-  switch (kind) {
-    case "clock":
-      return <Clock size={24} weight="regular" color={stroke} />;
-    case "flame":
-      return <Flame size={24} weight="regular" color={stroke} />;
-    case "package":
-      return <Package size={24} weight="regular" color={stroke} />;
-    case "bike":
-      return <Motorcycle size={24} weight="regular" color={stroke} />;
-    case "home":
-      return <House size={24} weight="regular" color={stroke} />;
-  }
-}
-
-function statusPrimaryIcon(status: string, strokeColor?: string) {
-  const n = normalizeTrackStatus(status);
-  if (n === "cancelled") {
-    const stroke = strokeColor ?? C_TEXT_MUTED;
-    return <XCircle size={24} weight="regular" color={stroke} />;
-  }
-  if (n === "pending_payment" || n === "paid") return statusIconSvg("clock", strokeColor);
-  if (n === "confirmed") return <Check size={24} weight="regular" color={strokeColor ?? C_ICON} />;
-  if (n === "preparing") return statusIconSvg("flame", strokeColor);
-  if (n === "ready") return statusIconSvg("package", strokeColor);
-  if (n === "out_for_delivery") return statusIconSvg("bike", strokeColor);
-  if (n === "delivered") return statusIconSvg("home", strokeColor);
-  return statusIconSvg("clock", strokeColor);
-}
-
 function canCustomerCancelStatus(status: string): boolean {
   const s = normalizeTrackStatus(status);
   return ["paid", "confirmed"].includes(s);
@@ -185,116 +92,26 @@ function tryNotifyOrderCancelled(orderRef: string) {
   }
 }
 
-function SlotKindIcon({ kind, size = 20 }: { kind: string | null | undefined; size?: number }) {
-  const stroke = HIGHLY_REORDERED_GREEN;
-  const k = (kind || "").toLowerCase();
-  if (k === "breakfast") return <Sun size={size} weight="bold" color={stroke} />;
-  if (k === "lunch") return <ForkKnife size={size} weight="bold" color={stroke} />;
-  if (k === "dinner") return <Moon size={size} weight="bold" color={stroke} />;
-  return <Clock size={size} weight="bold" color={stroke} />;
+/** Four stages the customer actually cares about. */
+const TRACK_STAGES = ["Order", "Preparing", "On the way", "Delivered"] as const;
+
+/** Index into TRACK_STAGES; -1 when the order is cancelled or not yet placed. */
+function trackStage(status: string): number {
+  switch (normalizeTrackStatus(status)) {
+    case "paid":
+    case "confirmed":
+      return 0;
+    case "preparing":
+    case "ready":
+      return 1;
+    case "out_for_delivery":
+      return 2;
+    case "delivered":
+      return 3;
+    default:
+      return -1;
+  }
 }
-
-/** Parsed slot for tracking card (readable date + time, avoids cramped single-line chip). */
-function formatTrackSlotDisplay(slotStartIso: string, kind?: string | null) {
-  const d = new Date(slotStartIso);
-  if (Number.isNaN(d.getTime())) return null;
-  const kindLabel = kind && isValidSlotKind(kind) ? DELIVERY_SLOT_DEFS[kind].label : "Delivery";
-  const datePart = d.toLocaleDateString("en-IN", {
-    timeZone: DELIVERY_SLOT_TIMEZONE,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const timePart = d.toLocaleTimeString("en-IN", {
-    timeZone: DELIVERY_SLOT_TIMEZONE,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return { kindLabel, datePart, timePart };
-}
-
-/** Full-width delivery slot — same shell as address / status cards. */
-function OrderSlotCard({
-  deliverySlot,
-  deliverySlotKind,
-}: {
-  deliverySlot: string;
-  deliverySlotKind: string | null | undefined;
-}) {
-  const parsed = formatTrackSlotDisplay(deliverySlot, deliverySlotKind);
-  if (!parsed) return null;
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        alignItems: "center",
-        background: C.surfaceDeep,
-        border: `1px solid ${C.border}`,
-        borderRadius: 18,
-        padding: 16,
-        marginBottom: 16,
-        width: "100%",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 12,
-          background: SLOT_ICON_BOX_BG,
-          border: `1px solid ${SLOT_ICON_BOX_BORDER}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <SlotKindIcon kind={deliverySlotKind} size={22} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ ...TYPO.eyebrow, margin: 0 }}>Delivery slot</p>
-        <p style={{ margin: "6px 0 0", fontSize: 18, fontWeight: 800, color: C.text, fontFamily: fontUi, lineHeight: 1.3 }}>
-          {parsed.kindLabel}
-        </p>
-        <p
-          style={{
-            margin: "5px 0 0",
-            fontSize: 15,
-            fontWeight: 600,
-            color: C_TEXT_SEC,
-            fontFamily: fontUi,
-            lineHeight: 1.45,
-          }}
-        >
-          {parsed.datePart}
-          <span style={{ color: "rgba(0,0,0,0.25)", margin: "0 0.35em" }}>·</span>
-          {parsed.timePart}
-          <span style={{ color: C_TEXT_MUTED, fontWeight: 700, fontSize: 13, marginLeft: 6 }}>IST</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const STEP_ICON_PX = 18;
-
-/** Compact stroke icons (24×24 viewBox) — readable at small sizes in the stepper. */
-const STEP_ICONS = [
-  (active: boolean) => <Check size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-  (active: boolean) => <Check size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-  (active: boolean) => <CookingPot size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-  (active: boolean) => <Package size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-  (active: boolean) => <Motorcycle size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-  (active: boolean) => <House size={STEP_ICON_PX} weight="bold" color={active ? C.red : C_TEXT_MUTED} />,
-];
-
-const STEP_LABELS = ["Paid", "Confirmed", "Prep", "Ready", "Out", "Done"];
-
-/** Subtle pulse ring for the active tracking step (not for completed checkmarks). */
-const STEP_ACTIVE_RING_COLOR = "rgba(189,35,32,0.42)";
 
 function mapStaticUrl(
   userLat: number,
@@ -304,19 +121,138 @@ function mapStaticUrl(
   driverLng?: number | null,
 ): string {
   const pins: string[] = [`pin-s+BD2320(${userLng},${userLat})`];
+  // Only pin the driver when we genuinely have their GPS — a synthetic pin here
+  // told customers their food was a kilometre away when we had no idea.
   if (
     driverLat != null &&
     driverLng != null &&
     Number.isFinite(driverLat) &&
     Number.isFinite(driverLng)
   ) {
-    pins.push(`pin-s+FFFFFF(${driverLng},${driverLat})`);
-  } else {
-    const dLng = 0.01;
-    const dLat = 0.008;
-    pins.push(`pin-s+FFFFFF(${userLng + dLng},${userLat + dLat})`);
+    pins.push(`pin-s+1A1A1A(${driverLng},${driverLat})`);
   }
-  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins.join(",")}/auto/640x240@2x?padding=60&access_token=${encodeURIComponent(token)}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins.join(",")}/auto/640x420@2x?padding=70&access_token=${encodeURIComponent(token)}`;
+}
+
+/** Headline + supporting line for the hero card. */
+function heroCopy(status: string): { headline: string; sub: string } {
+  switch (normalizeTrackStatus(status)) {
+    case "pending_payment":
+      return { headline: "Awaiting payment", sub: "Finish checkout to send this to the kitchen" };
+    case "paid":
+      return { headline: "Order placed", sub: "The kitchen will accept it shortly" };
+    case "confirmed":
+      return { headline: "Order confirmed", sub: "We'll start cooking closer to your slot" };
+    case "preparing":
+      return { headline: "Preparing your food", sub: "Cooked fresh, right now" };
+    case "ready":
+      return { headline: "Packed and ready", sub: "Waiting for your driver to collect it" };
+    case "out_for_delivery":
+      return { headline: "On the way", sub: "Your driver is heading to you" };
+    case "delivered":
+      return { headline: "Delivered", sub: "Enjoy your meal" };
+    case "undelivered":
+      return { headline: "Delivery unsuccessful", sub: "Our team will reach out to you" };
+    case "cancelled":
+      return { headline: "Order cancelled", sub: "Nothing more to do here" };
+    default:
+      return { headline: "Order update", sub: "Fetching the latest status" };
+  }
+}
+
+/** "Sat, 16 Aug" + "1:30 PM" from the delivery slot, in IST. */
+function etaParts(slotIso: string | null | undefined): { date: string; time: string } | null {
+  if (!slotIso) return null;
+  const d = new Date(slotIso);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    date: d.toLocaleDateString("en-IN", {
+      timeZone: DELIVERY_SLOT_TIMEZONE,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }),
+    time: d.toLocaleTimeString("en-IN", {
+      timeZone: DELIVERY_SLOT_TIMEZONE,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+  };
+}
+
+const PANEL_DARK = "#151515";
+
+/** Horizontal 4-dot progress rail on the dark status panel. */
+function StageRail({ stage }: { stage: number }) {
+  const filled = Math.max(0, stage);
+  const pct = TRACK_STAGES.length > 1 ? (filled / (TRACK_STAGES.length - 1)) * 100 : 0;
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
+        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.14)" }} />
+        <motion.div
+          initial={false}
+          animate={{ width: `calc(${pct}% - ${(pct / 100) * 18}px)` }}
+          transition={{ type: "spring", stiffness: 140, damping: 22 }}
+          style={{ position: "absolute", left: 9, height: 6, borderRadius: 3, background: C.red }}
+        />
+        <div style={{ position: "relative", display: "flex", justifyContent: "space-between", width: "100%" }}>
+          {TRACK_STAGES.map((label, i) => {
+            const done = i <= stage && stage >= 0;
+            const current = i === stage;
+            return (
+              <span
+                key={label}
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: done ? C.red : "rgba(255,255,255,0.18)",
+                  border: done ? "none" : "1px solid rgba(255,255,255,0.12)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxSizing: "border-box",
+                }}
+              >
+                {done && (
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      opacity: current ? 1 : 0.75,
+                    }}
+                  />
+                )}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+        {TRACK_STAGES.map((label, i) => (
+          <span
+            key={label}
+            style={{
+              flex: 1,
+              fontSize: 11,
+              fontWeight: 700,
+              fontFamily: fontUi,
+              textAlign: i === 0 ? "left" : i === TRACK_STAGES.length - 1 ? "right" : "center",
+              color: i === stage ? C.red : "rgba(255,255,255,0.42)",
+            }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function waHelpUrl(orderId: string) {
@@ -368,11 +304,21 @@ export function OrderTrackingPanel({
   const [cancelErr, setCancelErr] = useState<string | null>(null);
 
   const mapToken = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "" : "";
-  const stepIdx = trackSnap ? mainTrackStep(trackSnap.status) : -1;
+  const stage = trackSnap ? trackStage(trackSnap.status) : -1;
   const n = trackSnap ? normalizeTrackStatus(trackSnap.status) : "";
   const cancelled = n === "cancelled";
   const outForDelivery = n === "out_for_delivery";
   const delivered = n === "delivered";
+  const hero = heroCopy(trackSnap?.status ?? "");
+  const eta = etaParts(trackSnap?.deliverySlot);
+  const undelivered = n === "undelivered";
+  const showLiveMap = outForDelivery && !!location && !!mapToken;
+  const codPending =
+    (trackSnap?.paymentMethod || "").toLowerCase() === "cod" &&
+    (trackSnap?.paymentStatus || "pending") !== "paid" &&
+    !cancelled &&
+    !delivered &&
+    !undelivered;
   const canEditAddress =
     !!onEditAddress && !!trackSnap && (normalizeTrackStatus(trackSnap.status) === "paid" || normalizeTrackStatus(trackSnap.status) === "pending_payment");
   const canCancelOrder =
@@ -415,7 +361,6 @@ export function OrderTrackingPanel({
     trackSnap?.deliveryAddress?.trim() ||
     location?.label?.trim() ||
     "We’ll confirm the delivery address from your checkout.";
-  const { title: statusTitle, description: statusDesc } = trackSnap ? statusCopy(trackSnap.status) : { title: "…", description: "Loading…" };
   const lines = trackSnap?.lines?.length ? trackSnap.lines : [];
   const total =
     trackSnap?.totalAmount != null && Number.isFinite(Number(trackSnap.totalAmount))
@@ -481,21 +426,174 @@ export function OrderTrackingPanel({
         </div>
       ) : (
         <>
-          {/* Header — order id */}
-          <div style={{ marginBottom: trackSnap?.deliverySlot ? 12 : 16 }}>
-            <p style={TYPO.eyebrow}>Order ID</p>
-            <h1 style={TYPO.heroId}>#{shortOrderRef(trackingOrderId)}</h1>
-          </div>
-          {trackSnap?.deliverySlot ? (
-            <OrderSlotCard deliverySlot={trackSnap.deliverySlot} deliverySlotKind={trackSnap.deliverySlotKind} />
-          ) : null}
-
           {trackErr ? (
             <p style={{ margin: "0 0 18px", color: "#fca5a5", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>{trackErr}</p>
           ) : null}
 
           {trackSnap ? (
             <>
+              {/* Hero — map backdrop + floating ETA card */}
+              <div style={{ position: "relative", marginBottom: 14 }}>
+                <div
+                  style={{
+                    borderRadius: 22,
+                    overflow: "hidden",
+                    border: `1px solid ${C.border}`,
+                    height: showLiveMap ? 232 : 150,
+                    background: showLiveMap
+                      ? undefined
+                      : "linear-gradient(140deg, rgba(189,35,32,0.10) 0%, rgba(189,35,32,0.03) 60%, rgba(0,0,0,0.02) 100%)",
+                  }}
+                >
+                  {showLiveMap && location && mapToken ? (
+                    <img
+                      src={mapStaticUrl(location.lat, location.lng, mapToken, trackSnap.driverLastLat, trackSnap.driverLastLng)}
+                      alt="Live delivery map"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : null}
+                </div>
+
+                <div
+                  style={{
+                    position: "relative",
+                    marginTop: showLiveMap ? -74 : -108,
+                    marginLeft: 16,
+                    marginRight: 16,
+                    background: C.white,
+                    borderRadius: 20,
+                    border: `1px solid ${C.border}`,
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                    padding: "18px 18px 16px",
+                    textAlign: "center",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.01em" }}>
+                    {hero.headline}
+                  </p>
+                  {eta ? (
+                    <>
+                      <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi }}>
+                        {eta.date}
+                      </p>
+                      <p style={{ margin: "6px 0 0", fontSize: 34, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+                        {eta.time}
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 700, color: C_TEXT_MUTED, fontFamily: fontUi }}>
+                        {delivered ? "Delivered" : "Estimated arrival"}
+                      </p>
+                    </>
+                  ) : (
+                    <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.5 }}>
+                      {hero.sub}
+                    </p>
+                  )}
+                  <p style={{ margin: "12px 0 0", fontSize: 11.5, fontWeight: 700, color: "rgba(0,0,0,0.32)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
+                    ORDER #{shortOrderRef(trackingOrderId).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Delivery status — dark panel */}
+              {!cancelled && (
+                <div
+                  style={{
+                    background: PANEL_DARK,
+                    borderRadius: 22,
+                    padding: "18px 18px 16px",
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: "#fff", fontFamily: fontUi, letterSpacing: "-0.01em" }}>
+                        Delivery status
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.45)", fontFamily: fontUi, lineHeight: 1.45 }}>
+                        {hero.sub}
+                      </p>
+                    </div>
+                    <span
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 14,
+                        flexShrink: 0,
+                        background: "rgba(189,35,32,0.18)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      aria-hidden
+                    >
+                      <Motorcycle size={24} weight="fill" color={C.red} />
+                    </span>
+                  </div>
+
+                  {undelivered ? (
+                    <div
+                      style={{
+                        marginTop: 18,
+                        padding: "14px 16px",
+                        borderRadius: 14,
+                        background: "rgba(189,35,32,0.16)",
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.9)",
+                        fontFamily: fontUi,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      We couldn’t hand this order over
+                      {trackSnap.codFailureReason ? ` — ${codFailureLabel(trackSnap.codFailureReason).toLowerCase()}` : ""}.
+                      Our team will call you to sort it out.
+                    </div>
+                  ) : (
+                    <StageRail stage={stage} />
+                  )}
+
+                  {codPending && (
+                    <div
+                      style={{
+                        marginTop: 18,
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: "rgba(255,255,255,0.06)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <Money size={20} weight="regular" color="rgba(255,255,255,0.7)" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: fontUi, lineHeight: 1.45 }}>
+                        Keep ₹{total.toLocaleString("en-IN")} in cash ready for the driver
+                      </span>
+                    </div>
+                  )}
+
+                  <a
+                    href={waHelpUrl(trackingOrderId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "block",
+                      marginTop: 18,
+                      padding: "13px 16px",
+                      borderRadius: 14,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      textAlign: "center",
+                      textDecoration: "none",
+                      fontSize: 14,
+                      fontWeight: 800,
+                      fontFamily: fontUi,
+                      color: "#fff",
+                    }}
+                  >
+                    Need help? Chat with us
+                  </a>
+                </div>
+              )}
+
               {cancelled ? (
                 <div
                   style={{
@@ -523,171 +621,7 @@ export function OrderTrackingPanel({
                     You’ll see the same update on WhatsApp. Reply there if you need help with a refund.
                   </p>
                 </div>
-              ) : (
-              <div
-                style={{
-                  background: C.surfaceDeep,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 20,
-                  padding: "20px 14px 18px",
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 0 }}>
-                  {STEP_LABELS.map((lbl, i) => {
-                    const done = stepIdx > i || (delivered && i < 6);
-                    const current = stepIdx === i;
-                    const IconFn = STEP_ICONS[i]!;
-                    const node = 34;
-                    const barOffset = node / 2 - 1;
-                    return (
-                      <div key={lbl} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                          {i > 0 ? (
-                            <div
-                              style={{
-                                flex: 1,
-                                height: 2,
-                                background: stepIdx >= i || delivered ? C.red : C.border,
-                                borderRadius: 1,
-                                marginRight: -2,
-                                marginTop: barOffset,
-                                opacity: 0.85,
-                              }}
-                            />
-                          ) : (
-                            <div style={{ flex: 1 }} />
-                          )}
-                        <div
-                          style={{
-                            position: "relative",
-                            width: node,
-                            height: node,
-                            flexShrink: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          {current && !done
-                            ? [0, 1].map((ring) => (
-                                <motion.div
-                                  key={ring}
-                                  aria-hidden
-                                  animate={{
-                                    scale: [1, 1.38],
-                                    opacity: [0.28, 0],
-                                  }}
-                                  transition={{
-                                    duration: 2.5,
-                                    repeat: Infinity,
-                                    ease: "easeOut",
-                                    delay: ring * 0.72,
-                                  }}
-                                  style={{
-                                    position: "absolute",
-                                    left: "50%",
-                                    top: "50%",
-                                    width: node,
-                                    height: node,
-                                    marginLeft: -node / 2,
-                                    marginTop: -node / 2,
-                                    borderRadius: "50%",
-                                    border: `1.5px solid ${STEP_ACTIVE_RING_COLOR}`,
-                                    pointerEvents: "none",
-                                    boxSizing: "border-box",
-                                  }}
-                                />
-                              ))
-                            : null}
-                          <div
-                            style={{
-                              position: "relative",
-                              zIndex: 1,
-                              width: node,
-                              height: node,
-                              borderRadius: "50%",
-                              border: `2px solid ${done || current ? C.red : C.border}`,
-                              background: done ? C.red : current ? C.glass : "transparent",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {done ? (
-                              <Check size={16} weight="bold" color="#ffffff" />
-                            ) : (
-                              IconFn(current)
-                            )}
-                          </div>
-                        </div>
-                          {i < STEP_LABELS.length - 1 ? (
-                            <div
-                              style={{
-                                flex: 1,
-                                height: 2,
-                                background: stepIdx > i || delivered ? C.red : C.border,
-                                borderRadius: 1,
-                                marginLeft: -2,
-                                marginTop: barOffset,
-                                opacity: 0.85,
-                              }}
-                            />
-                          ) : (
-                            <div style={{ flex: 1 }} />
-                          )}
-                        </div>
-                        <span
-                          style={{
-                            marginTop: 10,
-                            fontSize: 12,
-                            fontWeight: 800,
-                            letterSpacing: "0.05em",
-                            color: current || done ? C.red : C_TEXT_MUTED,
-                            textAlign: "center",
-                            lineHeight: 1.25,
-                            fontFamily: fontUi,
-                          }}
-                        >
-                          {lbl}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              )}
-
-              {/* Status card */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "flex-start",
-                  background: C.surfaceDeep,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 18,
-                  padding: 16,
-                  marginBottom: 14,
-                }}
-              >
-                <div
-                  style={{
-                    ...ORDER_CARD_ICON_BOX,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {statusPrimaryIcon(trackSnap.status, cancelled ? C_TEXT_MUTED : C.red)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={TYPO.cardTitle}>{statusTitle}</p>
-                  <p style={{ margin: "10px 0 0", ...TYPO.body }}>{statusDesc}</p>
-                </div>
-              </div>
+              ) : null}
 
               {/* Address card */}
               <div
@@ -877,52 +811,21 @@ export function OrderTrackingPanel({
                 </div>
               ) : null}
 
-              {/* Map */}
-              {outForDelivery && location && mapToken ? (
-                <div
+              {showLiveMap ? (
+                <p
                   style={{
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    border: `1px solid ${C.border}`,
-                    marginBottom: 14,
-                  }}
-                >
-                  <img
-                    src={mapStaticUrl(
-                      location.lat,
-                      location.lng,
-                      mapToken,
-                      trackSnap.driverLastLat,
-                      trackSnap.driverLastLng,
-                    )}
-                    alt="Delivery map"
-                    style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
-                  />
-                  <div style={{ padding: "12px 14px", background: C.glass, fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.45 }}>
-                    Red pin: your address · White pin: driver
-                    {trackSnap.driverLastLat != null && trackSnap.driverLastLng != null
-                      ? " (live)"
-                      : " (last known when available)"}
-                  </div>
-                </div>
-              ) : outForDelivery ? (
-                <div
-                  style={{
-                    borderRadius: 18,
-                    padding: 20,
-                    background: C.glass,
-                    border: `1px dashed ${C.border}`,
-                    color: C_TEXT_MUTED,
-                    fontSize: 15,
-                    marginBottom: 14,
-                    textAlign: "center",
+                    margin: "-4px 0 14px",
+                    fontSize: 12.5,
                     fontWeight: 600,
+                    color: C_TEXT_MUTED,
                     fontFamily: fontUi,
-                    lineHeight: 1.5,
+                    textAlign: "center",
                   }}
                 >
-                  Map preview needs saved location & Mapbox token.
-                </div>
+                  {trackSnap.driverLastLat != null && trackSnap.driverLastLng != null
+                    ? "Red pin is your address, dark pin is your driver — updating live."
+                    : "Your driver's location will appear on the map once they share it."}
+                </p>
               ) : null}
 
               {delivered ? (
@@ -1058,44 +961,46 @@ export function OrderTrackingPanel({
             )
           )}
 
-          {/* Footer help or map-era: out delivery uses map above; keep WhatsApp secondary */}
-          <a
-            href={waHelpUrl(trackingOrderId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 10,
-              padding: "16px 18px",
-              borderRadius: 16,
-              border: `1px solid ${C.border}`,
-              background: C.surfaceDeep,
-              textDecoration: "none",
-              color: C_TEXT_MUTED,
-            }}
-          >
-            <span
+          {/* Cancelled orders lose the dark panel, so keep a way to reach us. */}
+          {cancelled ? (
+            <a
+              href={waHelpUrl(trackingOrderId)}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
-                flexShrink: 0,
-                width: 40,
-                height: 40,
-                borderRadius: 12,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(37, 211, 102, 0.12)",
-                border: "1px solid rgba(37, 211, 102, 0.28)",
+                gap: 12,
+                marginTop: 10,
+                padding: "16px 18px",
+                borderRadius: 16,
+                border: `1px solid ${C.border}`,
+                background: C.surfaceDeep,
+                textDecoration: "none",
+                color: C_TEXT_MUTED,
               }}
-              aria-hidden
             >
-              <WhatsAppBrandIcon size={22} />
-            </span>
-            <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.45, fontFamily: fontUi, color: C_TEXT_SEC }}>
-              {outForDelivery ? "Driver en route — message us if you need help" : "Need help? Message us on WhatsApp"}
-            </span>
-          </a>
+              <span
+                style={{
+                  flexShrink: 0,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(37, 211, 102, 0.12)",
+                  border: "1px solid rgba(37, 211, 102, 0.28)",
+                }}
+                aria-hidden
+              >
+                <WhatsAppBrandIcon size={22} />
+              </span>
+              <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.45, fontFamily: fontUi, color: C_TEXT_SEC }}>
+                Need help? Message us on WhatsApp
+              </span>
+            </a>
+          ) : null}
         </>
       )}
 

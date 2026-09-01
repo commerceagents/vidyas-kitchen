@@ -32,7 +32,8 @@ export async function GET(request: Request) {
       .from("orders")
       .select(
         `
-        id, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
+        id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
+        payment_method, payment_status, cod_failure_reason,
         delivery_lat, delivery_lng, cancellation_deadline,
         driver_last_lat, driver_last_lng, driver_location_at,
         order_items (
@@ -72,7 +73,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       orderId: row.id,
+      orderNumber: (row as { order_number?: number | null }).order_number ?? null,
       status: row.status,
+      paymentMethod: (row as { payment_method?: string | null }).payment_method ?? null,
+      paymentStatus: (row as { payment_status?: string | null }).payment_status ?? null,
+      codFailureReason: (row as { cod_failure_reason?: string | null }).cod_failure_reason ?? null,
       updatedAt: row.updated_at,
       deliveryAddress: row.delivery_address,
       deliverySlot: row.delivery_slot,

@@ -218,7 +218,8 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
     const payStatus = params.get("status");
     const orderIdParam = params.get("orderId");
-    if (payStatus === "success" && orderIdParam) {
+    const paidOk = payStatus === "success" && !!orderIdParam;
+    if (paidOk && orderIdParam) {
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       sessionStorage.setItem(SS_TRACK_ORDER, orderIdParam);
       // Clear right away — don't wait on the modal's dismiss button. Otherwise a
@@ -291,13 +292,19 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         try {
           const loc = JSON.parse(savedLocation) as LocationData;
           setLocation(loc);
-          // Keep restored route (checkout / home / location); don't force home on refresh
-          if (ui?.step === "checkout" || ui?.step === "home" || ui?.step === "location") {
+          // Coming back from a successful payment we must NOT restore the saved
+          // "checkout" route — the cart has just been emptied, so the customer
+          // would land on a blank checkout. Home + a tracking id lands them on
+          // the Order tab instead.
+          if (paidOk) {
+            setStep("home");
+          } else if (ui?.step === "checkout" || ui?.step === "home" || ui?.step === "location") {
+            // Keep restored route (checkout / home / location); don't force home on refresh
             setStep(ui.step);
           } else if (step !== "checkout" && step !== "home" && step !== "location") {
             setStep("home");
           }
-          if (ui?.cart && typeof ui.cart === "object") setCart(ui.cart);
+          if (!paidOk && ui?.cart && typeof ui.cart === "object") setCart(ui.cart);
           if (ui?.checkoutSourceDishId) setCheckoutSourceDishId(ui.checkoutSourceDishId);
         } catch {
           setStep("location");
@@ -333,6 +340,12 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const clearOrderTracking = () => {
     sessionStorage.removeItem(SS_TRACK_ORDER);
     setTrackingOrderId(null);
+  };
+
+  /** Open live tracking for any past order picked from the history list. */
+  const openOrderTracking = (orderId: string) => {
+    sessionStorage.setItem(SS_TRACK_ORDER, orderId);
+    setTrackingOrderId(orderId);
   };
 
   const handleSignOut = () => {
@@ -417,6 +430,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               trackingOrderId={trackingOrderId}
               customerPhone={phone}
               onDismissOrderTracking={clearOrderTracking}
+              onTrackOrder={openOrderTracking}
               onSignOut={handleSignOut}
               onProfileNameSave={(n) => {
                 setName(n);
@@ -615,7 +629,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 }}
               >
                 {paymentFeedback.kind === "success" ? (
-                  <>Order #{paymentFeedback.orderId.slice(0, 8)}… — check the Order tab for live updates.</>
+                  <>Order #{paymentFeedback.orderId.slice(0, 8)}… — we’ll take you to live tracking.</>
                 ) : paymentFeedback.kind === "error" ? (
                   <>Something went wrong completing payment. Your cart is unchanged — try again from checkout.</>
                 ) : (
@@ -630,8 +644,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   const kind = paymentFeedback?.kind;
-                  if (kind === "success") setCart({});
-                  else if ((kind === "error" || kind === "cancelled") && location) {
+                  if (kind === "success") {
+                    setCart({});
+                    setStep("home");
+                  } else if ((kind === "error" || kind === "cancelled") && location) {
                     writeUiSession({ checkoutPhase: "cart" });
                     setStep("checkout");
                   }
@@ -650,7 +666,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                   cursor: "pointer",
                 }}
               >
-                Continue
+                {paymentFeedback.kind === "success" ? "Track my order" : "Continue"}
               </motion.button>
             </motion.div>
           </motion.div>

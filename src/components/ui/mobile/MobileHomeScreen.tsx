@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
 import { isOrderingWindowOpen } from "@/lib/delivery-slots";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
+import { OrderHistoryPanel } from "@/components/ui/mobile/OrderHistoryPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
@@ -157,6 +158,8 @@ interface MobileHomeScreenProps {
   trackingOrderId?: string | null;
   customerPhone?: string;
   onDismissOrderTracking?: () => void;
+  /** Open live tracking for an order picked from the history list. */
+  onTrackOrder?: (orderId: string) => void;
   /** Sign out — clear session and return to login (shell). */
   onSignOut?: () => void;
   onProfileNameSave?: (name: string) => void;
@@ -1775,6 +1778,66 @@ function trackingLineForStatus(status: string): string {
   return status ? `Status: ${status.replace(/_/g, " ")}` : "Fetching latest update…";
 }
 
+/** Shape of `/api/orders/status`, as the tracking panel consumes it. */
+type TrackSnapshot = {
+  status: string;
+  orderNumber?: number | null;
+  deliveryAddress?: string | null;
+  deliverySlot?: string | null;
+  deliverySlotKind?: string | null;
+  ratingStars?: number | null;
+  ratingComment?: string | null;
+  totalAmount?: number | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  driverLastLat?: number | null;
+  driverLastLng?: number | null;
+  driverLocationAt?: string | null;
+  cancellationDeadline?: string | null;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  codFailureReason?: string | null;
+  lines?: { name: string; quantity: number; unitPrice: number }[];
+  breakdown?: {
+    itemsSubtotal: number;
+    packaging: number;
+    delivery: number;
+    gst: number;
+    computedTotal: number;
+    adjustment: number;
+  } | null;
+};
+
+/** Normalises a raw status payload into the snapshot the panel renders. */
+function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  const str = (v: unknown) => (v == null ? null : String(v));
+  return {
+    status: str(raw.status) || "",
+    orderNumber: num(raw.orderNumber),
+    deliveryAddress: str(raw.deliveryAddress),
+    deliverySlot: str(raw.deliverySlot),
+    deliverySlotKind: str(raw.deliverySlotKind),
+    ratingStars: num(raw.ratingStars),
+    ratingComment: str(raw.ratingComment),
+    totalAmount: num(raw.totalAmount),
+    deliveryLat: num(raw.deliveryLat),
+    deliveryLng: num(raw.deliveryLng),
+    driverLastLat: num(raw.driverLastLat),
+    driverLastLng: num(raw.driverLastLng),
+    driverLocationAt: str(raw.driverLocationAt),
+    cancellationDeadline: str(raw.cancellationDeadline),
+    paymentMethod: str(raw.paymentMethod),
+    paymentStatus: str(raw.paymentStatus),
+    codFailureReason: str(raw.codFailureReason),
+    lines: Array.isArray(raw.lines) ? (raw.lines as TrackSnapshot["lines"]) : [],
+    breakdown:
+      raw.breakdown && typeof raw.breakdown === "object"
+        ? (raw.breakdown as TrackSnapshot["breakdown"])
+        : undefined,
+  };
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 export function MobileHomeScreen({
   displayName,
@@ -1792,6 +1855,7 @@ export function MobileHomeScreen({
   trackingOrderId = null,
   customerPhone = "",
   onDismissOrderTracking,
+  onTrackOrder,
   onSignOut,
   onProfileNameSave,
 }: MobileHomeScreenProps) {
@@ -1811,33 +1875,12 @@ export function MobileHomeScreen({
   const [activeScreen, setActiveScreen] = useState<"home" | "menu">(uiBootstrap.activeScreen);
   const [locationOpen, setLocationOpen] = useState(false);
   const [proximityAlert, setProximityAlert] = useState(true);
-  const [trackSnap, setTrackSnap] = useState<{
-    status: string;
-    deliveryAddress?: string | null;
-    deliverySlot?: string | null;
-    deliverySlotKind?: string | null;
-    ratingStars?: number | null;
-    ratingComment?: string | null;
-    totalAmount?: number | null;
-    deliveryLat?: number | null;
-    deliveryLng?: number | null;
-    driverLastLat?: number | null;
-    driverLastLng?: number | null;
-    driverLocationAt?: string | null;
-    lines?: { name: string; quantity: number; unitPrice: number }[];
-    breakdown?: {
-      itemsSubtotal: number;
-      packaging: number;
-      delivery: number;
-      gst: number;
-      computedTotal: number;
-      adjustment: number;
-    } | null;
-  } | null>(null);
+  const [trackSnap, setTrackSnap] = useState<TrackSnapshot | null>(null);
   const [trackErr, setTrackErr] = useState<string | null>(null);
   const [trackBanner, setTrackBanner] = useState<string | null>(null);
   const [ratingCommentDraft, setRatingCommentDraft] = useState("");
   const [ratingSending, setRatingSending] = useState(false);
+  const [ordersView, setOrdersView] = useState<"track" | "history">(trackingOrderId ? "track" : "history");
   const openedOrdersForTrack = useRef(false);
   const prevTrackStatus = useRef<string | null>(null);
 
@@ -1973,6 +2016,7 @@ export function MobileHomeScreen({
     }
     if (!openedOrdersForTrack.current) {
       setActiveNav("orders");
+      setOrdersView("track");
       openedOrdersForTrack.current = true;
     }
 
@@ -1981,48 +2025,10 @@ export function MobileHomeScreen({
       try {
         const q = new URLSearchParams({ orderId: trackingOrderId, phone });
         const res = await fetch(`/api/orders/status?${q}`);
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          status?: string;
-          deliveryAddress?: string | null;
-          deliverySlot?: string | null;
-          deliverySlotKind?: string | null;
-          ratingStars?: number | null;
-          ratingComment?: string | null;
-          totalAmount?: number | null;
-          deliveryLat?: number | null;
-          deliveryLng?: number | null;
-          driverLastLat?: number | null;
-          driverLastLng?: number | null;
-          driverLocationAt?: string | null;
-          lines?: { name: string; quantity: number; unitPrice: number }[];
-          breakdown?: {
-            itemsSubtotal: number;
-            packaging: number;
-            delivery: number;
-            gst: number;
-            computedTotal: number;
-            adjustment: number;
-          } | null;
-        };
-        if (!res.ok) throw new Error(data.error || "Could not load order");
+        const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!res.ok) throw new Error(String(data.error || "Could not load order"));
         if (!cancelled) {
-          setTrackSnap({
-            status: data.status || "",
-            deliveryAddress: data.deliveryAddress,
-            deliverySlot: data.deliverySlot,
-            deliverySlotKind: data.deliverySlotKind,
-            ratingStars: data.ratingStars ?? null,
-            ratingComment: data.ratingComment ?? null,
-            totalAmount: data.totalAmount != null ? Number(data.totalAmount) : null,
-            deliveryLat: data.deliveryLat ?? null,
-            deliveryLng: data.deliveryLng ?? null,
-            driverLastLat: data.driverLastLat ?? null,
-            driverLastLng: data.driverLastLng ?? null,
-            driverLocationAt: data.driverLocationAt ?? null,
-            lines: Array.isArray(data.lines) ? data.lines : [],
-            breakdown: data.breakdown && typeof data.breakdown === "object" ? data.breakdown : undefined,
-          });
+          setTrackSnap(toTrackSnapshot(data));
           setTrackErr(null);
         }
       } catch (e) {
@@ -2067,47 +2073,8 @@ export function MobileHomeScreen({
         if (!res.ok) throw new Error(data.error || "Could not save");
         const q = new URLSearchParams({ orderId: trackingOrderId, phone: customerPhone.trim() });
         const snap = await fetch(`/api/orders/status?${q}`);
-        const j = (await snap.json().catch(() => ({}))) as {
-          status?: string;
-          deliveryAddress?: string | null;
-          deliverySlot?: string | null;
-          deliverySlotKind?: string | null;
-          ratingStars?: number | null;
-          ratingComment?: string | null;
-          totalAmount?: number | null;
-          deliveryLat?: number | null;
-          deliveryLng?: number | null;
-          driverLastLat?: number | null;
-          driverLastLng?: number | null;
-          driverLocationAt?: string | null;
-          lines?: { name: string; quantity: number; unitPrice: number }[];
-          breakdown?: {
-            itemsSubtotal: number;
-            packaging: number;
-            delivery: number;
-            gst: number;
-            computedTotal: number;
-            adjustment: number;
-          } | null;
-        };
-        if (snap.ok) {
-          setTrackSnap({
-            status: j.status || "",
-            deliveryAddress: j.deliveryAddress,
-            deliverySlot: j.deliverySlot,
-            deliverySlotKind: j.deliverySlotKind,
-            ratingStars: j.ratingStars ?? null,
-            ratingComment: j.ratingComment ?? null,
-            totalAmount: j.totalAmount != null ? Number(j.totalAmount) : null,
-            deliveryLat: j.deliveryLat ?? null,
-            deliveryLng: j.deliveryLng ?? null,
-            driverLastLat: j.driverLastLat ?? null,
-            driverLastLng: j.driverLastLng ?? null,
-            driverLocationAt: j.driverLocationAt ?? null,
-            lines: Array.isArray(j.lines) ? j.lines : [],
-            breakdown: j.breakdown && typeof j.breakdown === "object" ? j.breakdown : undefined,
-          });
-        }
+        const j = (await snap.json().catch(() => ({}))) as Record<string, unknown>;
+        if (snap.ok) setTrackSnap(toTrackSnapshot(j));
       } catch (e) {
         setTrackErr(e instanceof Error ? e.message : "Rating failed");
       } finally {
@@ -2312,25 +2279,69 @@ export function MobileHomeScreen({
         }}
       >
         {activeNav === "orders" ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 48,
-              paddingBottom: 8,
-            }}
-          >
-            <h1
+          <div style={{ paddingBottom: 12 }}>
+            <div
               style={{
-                ...TYPO.titleSm,
-                margin: 0,
-                letterSpacing: "0.03em",
-                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 48,
               }}
             >
-              Your Orders
-            </h1>
+              <h1
+                style={{
+                  ...TYPO.titleSm,
+                  margin: 0,
+                  letterSpacing: "0.03em",
+                  textAlign: "center",
+                }}
+              >
+                Your Orders
+              </h1>
+            </div>
+            <div
+              role="tablist"
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: 4,
+                borderRadius: 14,
+                background: "rgba(0,0,0,0.045)",
+              }}
+            >
+              {(
+                [
+                  { id: "track" as const, label: "Live order" },
+                  { id: "history" as const, label: "All orders" },
+                ]
+              ).map((t) => {
+                const on = ordersView === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setOrdersView(t.id)}
+                    style={{
+                      flex: 1,
+                      padding: "9px 10px",
+                      borderRadius: 11,
+                      border: "none",
+                      background: on ? C.white : "transparent",
+                      color: on ? C.text : "rgba(0,0,0,0.45)",
+                      fontSize: 13.5,
+                      fontWeight: 800,
+                      fontFamily: C.mono,
+                      cursor: "pointer",
+                      transition: "background 0.18s, color 0.18s",
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : activeNav === "account" ? (
           <div
@@ -2848,20 +2859,33 @@ export function MobileHomeScreen({
 
         {activeNav === "orders" && (
           <div style={{ margin: `0 -${sp(2)}px`, flex: 1, alignSelf: "stretch" }}>
-            <OrderTrackingPanel
-              trackingOrderId={trackingOrderId}
-              customerPhone={customerPhone}
-              trackSnap={trackSnap}
-              trackErr={trackErr}
-              trackBanner={trackBanner}
-              location={location}
-              onDismiss={onDismissOrderTracking}
-              onEditAddress={onChangeLocation}
-              ratingCommentDraft={ratingCommentDraft}
-              setRatingCommentDraft={setRatingCommentDraft}
-              ratingSending={ratingSending}
-              submitOrderRating={submitOrderRating}
-            />
+            {ordersView === "track" ? (
+              <OrderTrackingPanel
+                trackingOrderId={trackingOrderId}
+                customerPhone={customerPhone}
+                trackSnap={trackSnap}
+                trackErr={trackErr}
+                trackBanner={trackBanner}
+                location={location}
+                onDismiss={onDismissOrderTracking}
+                onEditAddress={onChangeLocation}
+                ratingCommentDraft={ratingCommentDraft}
+                setRatingCommentDraft={setRatingCommentDraft}
+                ratingSending={ratingSending}
+                submitOrderRating={submitOrderRating}
+              />
+            ) : (
+              <div style={{ padding: `0 ${sp(2)}px max(32px, env(safe-area-inset-bottom))` }}>
+                <OrderHistoryPanel
+                  customerPhone={customerPhone}
+                  activeOrderId={trackingOrderId}
+                  onTrackOrder={(id) => {
+                    onTrackOrder?.(id);
+                    setOrdersView("track");
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -2871,7 +2895,10 @@ export function MobileHomeScreen({
               customerPhone={customerPhone}
               onEditName={(name) => onProfileNameSave?.(name)}
               onSavedAddresses={() => onChangeLocation?.()}
-              onOpenOrders={() => handleNav("orders")}
+              onOpenOrders={() => {
+                setOrdersView("history");
+                handleNav("orders");
+              }}
               onSignOut={onSignOut}
             >
               <p
