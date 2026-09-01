@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { dishLineItemIds } from "@/lib/menu/best-selling";
 
+export const revalidate = 60;
+
 const BILLABLE = new Set([
   "paid",
   "confirmed",
@@ -13,6 +15,9 @@ const BILLABLE = new Set([
   "delivered",
 ]);
 
+const CACHE_TTL_MS = 60_000;
+const socialMemo = new Map<string, { at: number; payload: Record<string, unknown> }>();
+
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
@@ -23,6 +28,14 @@ function phoneKey(raw: string | null | undefined) {
   return d;
 }
 
+function jsonCached(payload: Record<string, unknown>) {
+  return NextResponse.json(payload, {
+    headers: {
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
+    },
+  });
+}
+
 export type DishReview = {
   id: string;
   name: string;
@@ -31,12 +44,19 @@ export type DishReview = {
   createdAt: string;
 };
 
+type OrderRow = {
+  id: string;
+  phone_number?: string | null;
+  status?: string | null;
+  rating_stars?: number | null;
+  rating_comment?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 /**
  * Genuine social proof for a menu item from real orders.
- * - Rating/reviews: only from orders that include this dish and have rating_stars
- * - Highly reordered: customers who ordered this dish on 2+ separate orders
- *
- * order_items.menu_item_id is usually a variant UUID — we match parent + all variants.
+ * Cached ~60s — “new on menu” dishes skip the users name lookup entirely.
  */
 export async function GET(request: Request) {
   try {
@@ -44,6 +64,11 @@ export async function GET(request: Request) {
     const menuItemId = String(searchParams.get("menuItemId") || "").trim();
     if (!isUuid(menuItemId)) {
       return NextResponse.json({ error: "Invalid menuItemId" }, { status: 400 });
+    }
+
+    const hit = socialMemo.get(menuItemId);
+    if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+      return jsonCached(hit.payload);
     }
 
     const lineIds = dishLineItemIds(menuItemId);
@@ -72,16 +97,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Could not load dish stats." }, { status: 500 });
     }
 
-    type OrderRow = {
-      id: string;
-      phone_number?: string | null;
-      status?: string | null;
-      rating_stars?: number | null;
-      rating_comment?: string | null;
-      created_at?: string | null;
-      updated_at?: string | null;
-    };
-
     const rows = (data || []) as { order_id: string; orders: OrderRow | OrderRow[] | null }[];
     const byOrder = new Map<string, OrderRow>();
     for (const row of rows) {
@@ -93,7 +108,6 @@ export async function GET(request: Request) {
     }
 
     const orders = [...byOrder.values()];
-    const orderCount = orders.length;
 
     const byPhone = new Map<string, number>();
     for (const o of orders) {
@@ -116,18 +130,21 @@ export async function GET(request: Request) {
         ? Math.round((rated.reduce((s, o) => s + Number(o.rating_stars), 0) / ratingCount) * 10) / 10
         : null;
 
-    const phones = [...new Set(rated.map((o) => phoneKey(o.phone_number)).filter(Boolean))];
     const nameByPhone = new Map<string, string>();
-    if (phones.length) {
-      const orFilter = phones.map((p) => `phone_number.ilike.%${p}`).join(",");
-      const { data: users } = await supabase
-        .from("users")
-        .select("phone_number, full_name")
-        .or(orFilter);
-      for (const u of users || []) {
-        const k = phoneKey((u as { phone_number?: string }).phone_number);
-        const name = String((u as { full_name?: string | null }).full_name || "").trim();
-        if (k && name) nameByPhone.set(k, name.split(/\s+/)[0] || name);
+    // Only hit users table when there are ratings to label — new dishes stay fast
+    if (rated.length > 0) {
+      const phones = [...new Set(rated.map((o) => phoneKey(o.phone_number)).filter(Boolean))];
+      if (phones.length) {
+        const orFilter = phones.map((p) => `phone_number.ilike.%${p}`).join(",");
+        const { data: users } = await supabase
+          .from("users")
+          .select("phone_number, full_name")
+          .or(orFilter);
+        for (const u of users || []) {
+          const k = phoneKey((u as { phone_number?: string }).phone_number);
+          const name = String((u as { full_name?: string | null }).full_name || "").trim();
+          if (k && name) nameByPhone.set(k, name.split(/\s+/)[0] || name);
+        }
       }
     }
 
@@ -150,15 +167,18 @@ export async function GET(request: Request) {
         };
       });
 
-    return NextResponse.json({
-      orderCount,
+    const payload = {
+      orderCount: orders.length,
       uniqueCustomers,
       repeatCustomers,
       highlyReordered,
       avgRating,
       ratingCount,
       reviews,
-    });
+    };
+
+    socialMemo.set(menuItemId, { at: Date.now(), payload });
+    return jsonCached(payload);
   } catch (e) {
     console.error("[dish-social]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

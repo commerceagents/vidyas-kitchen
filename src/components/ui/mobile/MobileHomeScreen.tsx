@@ -313,6 +313,15 @@ function sizeServingMeta(weightOrLabel: string): {
   };
 }
 
+/** Browse-menu quick add uses 500gm when available (same as dish detail default). */
+function defaultVariantWeight(item: MenuItem): string {
+  return (
+    item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight ??
+    item.variants?.[0]?.weight ??
+    ""
+  );
+}
+
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
 const SAMPLE_REVIEWS = [
   {
@@ -817,12 +826,16 @@ function DishDetailView({
 
   useEffect(() => {
     let cancelled = false;
-    setSocial((s) => ({ ...s, loading: true }));
+    setSocial({
+      loading: true,
+      highlyReordered: false,
+      avgRating: null,
+      ratingCount: 0,
+      reviews: [],
+    });
     (async () => {
       try {
-        const res = await fetch(`/api/menu/dish-social?menuItemId=${encodeURIComponent(item.id)}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(`/api/menu/dish-social?menuItemId=${encodeURIComponent(item.id)}`);
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (!res.ok) {
@@ -1163,7 +1176,7 @@ function DishDetailView({
                 {social.ratingCount === 1 ? "" : "s"}
               </span>
             </p>
-          ) : !social.loading ? (
+          ) : (
             <div
               style={{
                 display: "inline-flex",
@@ -1180,8 +1193,6 @@ function DishDetailView({
                 New on menu · Be among the first to order
               </span>
             </div>
-          ) : (
-            <div style={{ height: 18, marginBottom: 12, width: "55%", borderRadius: 6, background: "rgba(0,0,0,0.06)" }} />
           )}
 
           <p style={{ margin: 0, ...HT.bodySm, lineHeight: 1.6, color: "rgba(0,0,0,0.7)" }}>{desc}</p>
@@ -1259,10 +1270,11 @@ function DishDetailView({
                     {listPrice != null && listPrice > v.price && (
                       <span
                         style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "rgba(0,0,0,0.35)",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "rgba(0,0,0,0.5)",
                           textDecoration: "line-through",
+                          letterSpacing: "-0.01em",
                         }}
                       >
                         ₹{listPrice.toLocaleString("en-IN")}
@@ -3443,6 +3455,8 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
     const variant = item.variants.find(v => v.weight === weight);
     return acc + (variant?.price || 0) * q;
   }, 0);
+
+  const cartItemCount = Object.values(cart).reduce((sum, q) => sum + q, 0);
   
   // Reset to first card when category changes
   const handleCatChange = (cat: string) => {
@@ -3623,15 +3637,19 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
               gridTemplateColumns: "1fr 1fr",
               gap: 12,
             }}>
-              {filtered.map((item, i) => (
-                <MenuGridCard
-                  key={item.id}
-                  item={item}
-                  qty={cart[item.id] || 0}
-                  onUpdate={(d) => updateQty(item.id, d)}
-                  onOpenDetail={() => onOpenDishDetail(item)}
-                />
-              ))}
+              {filtered.map((item) => {
+                const defaultW = defaultVariantWeight(item);
+                const cartKey = defaultW ? `${item.id}:${defaultW}` : item.id;
+                return (
+                  <MenuGridCard
+                    key={item.id}
+                    item={item}
+                    qty={cart[cartKey] || 0}
+                    onUpdate={(d) => updateQty(cartKey, d)}
+                    onOpenDetail={() => onOpenDishDetail(item)}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div style={{ color: "rgba(0,0,0,0.3)", textAlign: "center", marginTop: 40 }}>
@@ -3641,36 +3659,84 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
         </div>
       </div>
 
-      {/* Cart Summary Bar */}
+      {/* Cart summary — white floating bar (matches dish add-to-cart) */}
       <AnimatePresence>
-        {isOrderingWindowOpen() && Object.values(cart).some(q => q > 0) && (
+        {isOrderingWindowOpen() && cartItemCount > 0 && (
           <motion.div
-            initial={{ y: 100, opacity: 0 }}
+            initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
             style={{
-              position: "absolute", bottom: 32, left: 24, right: 24,
-              background: "rgba(189,35,32,0.85)", // Transparent red
-              backdropFilter: "blur(24px) saturate(160%)", // Glass blur
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              borderRadius: 22,
-              padding: "18px 24px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              boxShadow: "0 12px 40px rgba(189,35,32,0.45)",
+              position: "absolute",
+              left: 16,
+              right: 16,
+              bottom: "max(16px, env(safe-area-inset-bottom))",
+              background: "rgba(255,255,255,0.94)",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+              padding: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
               zIndex: 110,
-              cursor: "pointer",
-              border: "1px solid rgba(255,255,255,0.15)",
             }}
-            onClick={onCheckout}
           >
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ ...HT.eyebrow, color: "rgba(255,255,255,0.8)", letterSpacing: "0.06em" }}>TOTAL PRICE</span>
-              <span style={{ ...HT.priceLg, color: "white" }}>₹{totalPrice.toLocaleString("en-IN")}</span>
+            <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "rgba(0,0,0,0.42)",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {cartItemCount} item{cartItemCount === 1 ? "" : "s"}
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: 22,
+                  fontWeight: 900,
+                  color: C.red,
+                  letterSpacing: "-0.02em",
+                  fontFamily: C.mono,
+                }}
+              >
+                ₹{totalPrice.toLocaleString("en-IN")}
+              </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ ...HT.cardName, fontWeight: 800, color: "white" }}>Checkout</span>
-              <ArrowRight size={20} weight="bold" color="white" />
-            </div>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={onCheckout}
+              style={{
+                height: 52,
+                padding: "0 22px",
+                borderRadius: 18,
+                border: "none",
+                background: C.red,
+                color: "#fff",
+                fontFamily: C.mono,
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: `0 8px 24px ${C.redGlow}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              View cart
+              <ArrowRight size={16} weight="bold" color="#fff" />
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -3678,7 +3744,12 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
   );
 }
 
-function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
+function MenuGridCard({
+  item,
+  qty,
+  onUpdate,
+  onOpenDetail,
+}: {
   item: MenuItem;
   qty: number;
   onUpdate: (d: number) => void;
@@ -3688,49 +3759,66 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
-  const open = onOpenDetail;
+  const orderingOpen = isOrderingWindowOpen();
   const gridChip = discountChipDisplay(item, new Date(), activeFestival);
+  const defaultVar =
+    item.variants.find((v) => /500/i.test(v.weight || v.label || "")) ?? item.variants[0];
+  const fromPrice = defaultVar?.price ?? Math.min(...item.variants.map((v) => v.price));
+  const listPrice = defaultVar
+    ? listPriceForVariant(item, defaultVar.id, fromPrice, new Date(), activeFestival)
+    : null;
+  const showStepper = qty > 0;
+  const actionSpring = { type: "spring" as const, stiffness: 420, damping: 32, mass: 0.75 };
 
   useEffect(() => {
     setLoaded(false);
   }, [imgSrc]);
 
+  const handleAdd = () => {
+    if (!orderingOpen) return;
+    onUpdate(1);
+  };
+
+  const handleMinus = () => {
+    onUpdate(-1);
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       style={{
-        background: "rgba(255,255,255,0.72)",
+        background: "rgba(255,255,255,0.88)",
         backdropFilter: "blur(16px) saturate(180%)",
         WebkitBackdropFilter: "blur(16px) saturate(180%)",
-        borderRadius: 30,
-        overflow: "visible",
-        border: "1px solid rgba(0,0,0,0.06)",
+        borderRadius: 24,
+        overflow: "hidden",
+        border: `1px solid ${C.border}`,
         boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
         display: "flex",
         flexDirection: "column",
-        height: 260, // Increased to accommodate taller image
-        padding: "10px",
+        height: 286,
       }}
     >
+      <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
+      {/* Photo — tap for dish details */}
       <motion.button
         type="button"
         whileTap={{ scale: 0.98 }}
-        onClick={open}
+        onClick={onOpenDetail}
         aria-label={`View details for ${cleanName}`}
         style={{
           position: "relative",
           width: "100%",
-          height: "65%",
-          marginBottom: 12,
-          overflow: "hidden",
-          borderRadius: 22,
+          height: 112,
+          borderRadius: 18,
           border: "none",
           padding: 0,
-          background: "rgba(0,0,0,0.03)",
+          background: "rgba(0,0,0,0.04)",
           cursor: "pointer",
-          display: "block",
+          overflow: "hidden",
+          flexShrink: 0,
         }}
       >
         <AnimatePresence>
@@ -3739,15 +3827,9 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
               key="grid-skel"
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
               className="vk-skeleton-shimmer"
               aria-hidden
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: 22,
-                zIndex: 1,
-              }}
+              style={{ position: "absolute", inset: 0, zIndex: 1 }}
             />
           )}
         </AnimatePresence>
@@ -3755,14 +3837,13 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           <span
             style={{
               position: "absolute",
-              top: 10,
-              left: 10,
+              top: 8,
+              left: 8,
               zIndex: 3,
               padding: "4px 8px",
               borderRadius: 8,
               fontSize: 10,
               fontWeight: 800,
-              letterSpacing: "0.02em",
               pointerEvents: "none",
               ...discountChipSurface(gridChip.variant),
             }}
@@ -3779,90 +3860,233 @@ function MenuGridCard({ item, qty, onUpdate, onOpenDetail }: {
           style={{
             objectFit: "cover",
             opacity: loaded ? 1 : 0,
-            transform: loaded ? "scale(1)" : "scale(1.06)",
-            transition: "opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: "opacity 0.45s ease",
           }}
         />
       </motion.button>
-      
-      <div style={{ flex: 1, padding: "0 10px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      </div>
+
+      {/* Center stack: name → price */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          padding: "8px 10px 6px",
+          minHeight: 0,
+        }}
+      >
         <motion.button
           type="button"
           whileTap={{ scale: 0.99 }}
-          onClick={open}
-          aria-label={`View details for ${cleanName}`}
+          onClick={onOpenDetail}
           style={{
-            height: 52,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
             background: "none",
             border: "none",
             padding: 0,
             cursor: "pointer",
-            textAlign: "left",
             font: "inherit",
             color: "inherit",
+            width: "100%",
           }}
         >
-          <h4 style={HT.cardNameClamp}>
+          <h4
+            style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 800,
+              lineHeight: 1.3,
+              color: C.text,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
             {cleanName}
           </h4>
           {tag && (
-            <span style={HT.microTag}>
+            <span
+              style={{
+                display: "inline-block",
+                marginTop: 4,
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                color: C.red,
+                opacity: 0.85,
+              }}
+            >
               {tag}
             </span>
           )}
         </motion.button>
-        
-        {/* Fake Notch matching background */}
-        <div style={{
-          position: "absolute",
-          bottom: -1, right: -1,
-          width: 52, height: 52,
-          borderRadius: "50%",
-          background: C.bg,
-          zIndex: 1,
-        }} />
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, position: "relative", zIndex: 3 }}>
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.98 }}
-            onClick={open}
-            aria-label={`View details, from ₹${Math.min(...item.variants.map(v => v.price))}`}
-            style={{
-              ...HT.price,
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, marginRight: 4 }}>From</span>
-            ₹{Math.min(...item.variants.map(v => v.price)).toLocaleString("en-IN")}
-          </motion.button>
-          
-          {/* Plus Button inside notch */}
-          <div style={{ position: "absolute", bottom: -6, right: -6, zIndex: 2 }}>
-            <motion.button
-              whileTap={{ scale: isOrderingWindowOpen() ? 0.8 : 1 }}
-              onClick={(e) => { e.stopPropagation(); isOrderingWindowOpen() && open(); }}
+        <button
+          type="button"
+          onClick={onOpenDetail}
+          style={{
+            marginTop: 8,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            fontFamily: C.mono,
+          }}
+        >
+          {listPrice != null && listPrice > fromPrice && (
+            <span
               style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: isOrderingWindowOpen() ? C.red : "rgba(0,0,0,0.06)", 
-                border: "none",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: isOrderingWindowOpen() ? "0 4px 10px rgba(189,35,32,0.3)" : "none",
-                cursor: isOrderingWindowOpen() ? "pointer" : "not-allowed",
-                opacity: isOrderingWindowOpen() ? 1 : 0.5,
+                display: "block",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "rgba(0,0,0,0.45)",
+                textDecoration: "line-through",
+                marginBottom: 2,
               }}
             >
-              <Plus size={16} weight="bold" color="white" />
+              ₹{listPrice.toLocaleString("en-IN")}
+            </span>
+          )}
+          <span style={{ fontSize: 16, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
+            ₹{fromPrice.toLocaleString("en-IN")}
+          </span>
+        </button>
+      </div>
+
+      {/* Full-width ADD bar ↔ qty stepper */}
+      <div style={{ flexShrink: 0, height: 42 }}>
+        <AnimatePresence mode="wait" initial={false}>
+          {showStepper ? (
+            <motion.div
+              key="stepper"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={actionSpring}
+              style={{
+                height: 42,
+                background: C.red,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 8px",
+              }}
+            >
+              <button
+                type="button"
+                aria-label={qty <= 1 ? "Remove from cart" : "Decrease quantity"}
+                onClick={handleMinus}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255,255,255,0.22)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Minus size={12} weight="bold" />
+              </button>
+              <motion.span
+                key={qty}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  fontSize: 14,
+                  fontWeight: 900,
+                  color: "#fff",
+                  minWidth: 28,
+                  textAlign: "center",
+                  fontFamily: C.mono,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {String(qty).padStart(2, "0")}
+              </motion.span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => onUpdate(1)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255,255,255,0.32)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Plus size={12} weight="bold" />
+              </button>
+            </motion.div>
+          ) : (
+            <motion.button
+              key="add"
+              type="button"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={actionSpring}
+              whileTap={{ scale: orderingOpen ? 0.985 : 1 }}
+              aria-label={`Add ${cleanName} to cart`}
+              onClick={handleAdd}
+              style={{
+                width: "100%",
+                height: 42,
+                border: "none",
+                background: orderingOpen ? C.red : "rgba(0,0,0,0.08)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                cursor: orderingOpen ? "pointer" : "not-allowed",
+                opacity: orderingOpen ? 1 : 0.5,
+                fontFamily: C.mono,
+              }}
+            >
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.95)",
+                  color: orderingOpen ? C.red : "rgba(0,0,0,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Plus size={12} weight="bold" />
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Add
+              </span>
             </motion.button>
-          </div>
-        </div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

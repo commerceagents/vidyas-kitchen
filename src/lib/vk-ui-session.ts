@@ -7,6 +7,7 @@ export type VkUiSession = {
   step?: "login" | "location" | "location_marked" | "home" | "checkout";
   cart?: Record<string, number>;
   checkoutSourceDishId?: string | null;
+  checkoutPhase?: "cart" | "schedule";
   activeNav?: string;
   activeScreen?: "home" | "menu";
   dishDetailId?: string | null;

@@ -388,6 +388,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               onCheckout={(fromDishId) => {
                 setReturnToCheckoutAfterBrowse(false);
                 setCheckoutSourceDishId(fromDishId ?? null);
+                writeUiSession({ checkoutPhase: "cart" });
                 setStep("checkout");
               }}
               resumeDishDetail={resumeDishDetail}
@@ -397,6 +398,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 returnToCheckoutAfterBrowse
                   ? () => {
                       setReturnToCheckoutAfterBrowse(false);
+                      writeUiSession({ checkoutPhase: "cart" });
                       setStep("checkout");
                     }
                   : undefined
@@ -590,7 +592,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 onClick={() => {
                   const kind = paymentFeedback?.kind;
                   if (kind === "success") setCart({});
-                  else if ((kind === "error" || kind === "cancelled") && location) setStep("checkout");
+                  else if ((kind === "error" || kind === "cancelled") && location) {
+                    writeUiSession({ checkoutPhase: "cart" });
+                    setStep("checkout");
+                  }
                   setPaymentFeedback(null);
                 }}
                 style={{

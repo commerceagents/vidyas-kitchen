@@ -1,8 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Minus, Plus, MapPin, Lightning, CreditCard, Money, ArrowRight } from "@phosphor-icons/react";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Minus,
+  Plus,
+  MapPin,
+  Lightning,
+  CreditCard,
+  Money,
+  Sun,
+  ForkKnife,
+  Moon,
+  CaretDown,
+  BowlFood,
+} from "@phosphor-icons/react";
 
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
 import {
@@ -12,23 +27,26 @@ import {
   isOrderingWindowOpen,
 } from "@/lib/delivery-slots";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
+import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 
-// ─── Design Tokens ─────────────────────────────────────────────────────────
 const C = {
-  bg:           "#F5F5F7",
-  surface:      "rgba(255,255,255,0.72)",
-  glass:        "rgba(255,255,255,0.55)",
-  border:       "rgba(0,0,0,0.06)",
-  red:          "#BD2320",
-  redGlow:      "rgba(189,35,32,0.25)",
-  white:        "#ffffff",
-  text:         "#1A1A1A",
-  mono:         "var(--font-outfit), system-ui, -apple-system, sans-serif",
+  bg: "#F5F5F7",
+  surface: "rgba(255,255,255,0.88)",
+  border: "rgba(0,0,0,0.06)",
+  red: "#BD2320",
+  redGlow: "rgba(189,35,32,0.25)",
+  redFaint: "rgba(189,35,32,0.08)",
+  white: "#ffffff",
+  text: "#1A1A1A",
+  muted: "rgba(0,0,0,0.42)",
+  mono: "var(--font-outfit), system-ui, -apple-system, sans-serif",
 };
 
 const sp = (n: number) => n * 8;
 
-/** Wait until the browser has painted (so loading UI can appear before heavy work / redirect). */
+type CheckoutPhase = "cart" | "schedule";
+
 function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
@@ -38,10 +56,9 @@ function waitForPaint(): Promise<void> {
 }
 
 function toTitleCase(str: string) {
-  return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, match => match.toUpperCase());
+  return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, (match) => match.toUpperCase());
 }
 
-/** Same as home — strip (MOM'S RECIPE) etc. for layout; tag becomes a chip. */
 function parseRecipeTag(name: string) {
   const regex = /[\(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[\)]?/i;
   const match = name.match(regex);
@@ -53,7 +70,61 @@ function parseRecipeTag(name: string) {
   return { cleanName: name, tag: null };
 }
 
-import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+function MealSlotIcon({ kind, active, disabled }: { kind: DeliverySlotKind; active: boolean; disabled: boolean }) {
+  const color = disabled ? "rgba(0,0,0,0.28)" : active ? C.red : "rgba(0,0,0,0.55)";
+  const bg = disabled ? "rgba(0,0,0,0.04)" : active ? C.redFaint : "rgba(0,0,0,0.04)";
+  const Icon = kind === "breakfast" ? Sun : kind === "lunch" ? ForkKnife : Moon;
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        background: bg,
+        border: `1px solid ${active && !disabled ? "rgba(189,35,32,0.22)" : "rgba(0,0,0,0.05)"}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={22} weight={active && !disabled ? "fill" : "duotone"} color={color} />
+    </span>
+  );
+}
+
+function StepDots({ phase }: { phase: CheckoutPhase }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        marginTop: 4,
+      }}
+    >
+      {(["cart", "schedule"] as const).map((p) => {
+        const on = phase === p;
+        const done = phase === "schedule" && p === "cart";
+        return (
+          <span
+            key={p}
+            style={{
+              height: 4,
+              width: on ? 22 : 8,
+              borderRadius: 999,
+              background: on || done ? C.red : "rgba(0,0,0,0.12)",
+              transition: "width 0.28s ease, background 0.28s ease",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 interface CheckoutScreenProps {
   onBack: () => void;
@@ -62,12 +133,10 @@ interface CheckoutScreenProps {
   updateQty: (id: string, delta: number) => void;
   locationLabel: string;
   onChangeLocation: () => void;
-  /** Apply a saved place from map flow (Home / Work / Other) when configured. */
   onSelectSavedLocation?: (place: SavedPlace) => void;
   onAddMore: () => void;
   phone: string;
   customerName: string;
-  /** Pin saved at location step — stored on order for driver proximity + map. */
   deliveryLat?: number;
   deliveryLng?: number;
 }
@@ -86,25 +155,32 @@ export function CheckoutScreen({
   deliveryLat,
   deliveryLng,
 }: CheckoutScreenProps) {
+  const [phase, setPhase] = useState<CheckoutPhase>(() => {
+    const saved = readUiSession()?.checkoutPhase;
+    return saved === "schedule" ? "schedule" : "cart";
+  });
+  const [phaseDir, setPhaseDir] = useState<1 | -1>(1);
   const [paymentMethod, setPaymentMethod] = useState("upi");
   const [placing, setPlacing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [chargesOpen, setChargesOpen] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
   const dayOptions = useMemo(() => iterDeliveryDateOptions(14), []);
   const [deliveryDateYmd, setDeliveryDateYmd] = useState(() => dayOptions[0]?.istYmd ?? "");
   const [slotKind, setSlotKind] = useState<DeliverySlotKind | null>(null);
 
-  /** Changing day clears slot so the user must explicitly pick a meal window. */
   useEffect(() => {
     setSlotKind(null);
   }, [deliveryDateYmd]);
 
+  useEffect(() => {
+    writeUiSession({ checkoutPhase: phase });
+  }, [phase]);
+
   const slotCards = useMemo(() => slotCardsForIstDate(deliveryDateYmd), [deliveryDateYmd]);
 
   const refreshSavedPlaces = useCallback(() => {
-    setSavedPlaces(
-      loadSavedPlaces().filter((p) => p.lat !== 0 && p.lng !== 0),
-    );
+    setSavedPlaces(loadSavedPlaces().filter((p) => p.lat !== 0 && p.lng !== 0));
   }, []);
 
   useEffect(() => {
@@ -113,35 +189,72 @@ export function CheckoutScreen({
     return () => window.removeEventListener("focus", refreshSavedPlaces);
   }, [refreshSavedPlaces]);
 
-  // Filter items that are in cart with variant support
   const cartEntries = useMemo(() => {
-    return Object.entries(cart).map(([key, qty]) => {
-      const [id, weight] = key.split(":");
-      const item = items.find(i => i.id === id);
-      if (!item) return null;
-      const variant = item.variants?.find(v => v.weight === weight);
-      if (!variant) return null;
-      return { 
-        key, // item.id:weight
-        id: item.id,
-        variantId: variant.id,
-        name: item.name,
-        price: variant.price,
-        weight: variant.weight,
-        weightLabel: variant.label,
-        quantity: qty 
-      };
-    }).filter(Boolean) as { key: string; id: string; variantId: string; name: string; price: number; weight: string; weightLabel: string; quantity: number }[];
+    return Object.entries(cart)
+      .map(([key, qty]) => {
+        const [id, weight] = key.split(":");
+        const item = items.find((i) => i.id === id);
+        if (!item) return null;
+        const variant = item.variants?.find((v) => v.weight === weight);
+        if (!variant) return null;
+        return {
+          key,
+          id: item.id,
+          variantId: variant.id,
+          name: item.name,
+          image: item.image || item.image_url || "/VK_Logo.webp",
+          price: variant.price,
+          weight: variant.weight,
+          weightLabel: variant.label,
+          quantity: qty,
+        };
+      })
+      .filter(Boolean) as {
+      key: string;
+      id: string;
+      variantId: string;
+      name: string;
+      image: string;
+      price: number;
+      weight: string;
+      weightLabel: string;
+      quantity: number;
+    }[];
   }, [cart, items]);
 
+  useEffect(() => {
+    if (cartEntries.length === 0 && phase === "schedule") {
+      setPhaseDir(-1);
+      setPhase("cart");
+    }
+  }, [cartEntries.length, phase]);
+
   const itemTotal = cartEntries.reduce((acc, it) => acc + it.price * it.quantity, 0);
-  
-  // Static charges as discussed
   const packagingFee = 20;
-  const deliveryFee  = 35;
-  const tax          = Math.round(itemTotal * 0.05); // 5% GST
-  const grandTotal   = itemTotal + packagingFee + deliveryFee + tax;
+  const deliveryFee = 35;
+  const tax = Math.round(itemTotal * 0.05);
+  const otherCharges = packagingFee + tax;
+  const grandTotal = itemTotal + packagingFee + deliveryFee + tax;
   const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen();
+  const cartEmpty = cartEntries.length === 0;
+
+  const goSchedule = () => {
+    if (cartEmpty) return;
+    setCheckoutError(null);
+    setPhaseDir(1);
+    setPhase("schedule");
+  };
+
+  const goCart = () => {
+    setCheckoutError(null);
+    setPhaseDir(-1);
+    setPhase("cart");
+  };
+
+  const handleHeaderBack = () => {
+    if (phase === "schedule") goCart();
+    else onBack();
+  };
 
   const handlePlaceOrder = async () => {
     if (paymentMethod === "cod") {
@@ -174,7 +287,12 @@ export function CheckoutScreen({
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
           paymentMethod,
-          lines: cartEntries.map((it) => ({ menuItemId: it.variantId, quantity: it.quantity, variant: it.weight, weightLabel: it.weightLabel })),
+          lines: cartEntries.map((it) => ({
+            menuItemId: it.variantId,
+            quantity: it.quantity,
+            variant: it.weight,
+            weightLabel: it.weightLabel,
+          })),
           ...(typeof deliveryLat === "number" &&
           typeof deliveryLng === "number" &&
           Number.isFinite(deliveryLat) &&
@@ -191,6 +309,7 @@ export function CheckoutScreen({
       } catch {
         /* noop */
       }
+      writeUiSession({ checkoutPhase: "cart" });
       window.location.assign(data.paymentUrl);
     } catch (e) {
       setCheckoutError(e instanceof Error ? e.message : "Something went wrong");
@@ -198,501 +317,991 @@ export function CheckoutScreen({
     }
   };
 
-  const fadeUp = {
-    initial: { opacity: 0, y: 16 },
-    animate: { opacity: 1, y: 0 },
-    transition: { type: "spring" as const, stiffness: 350, damping: 30 },
+  const pageVariants = {
+    enter: (dir: number) => ({ x: dir > 0 ? "28%" : "-28%", opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? "-18%" : "18%", opacity: 0 }),
   };
 
+  const selectedDay = dayOptions.find((d) => d.istYmd === deliveryDateYmd);
+  const selectedSlot = slotCards.find((c) => c.kind === slotKind);
+
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: C.bg, zIndex: 200,
-      display: "flex", flexDirection: "column", color: C.text,
-      fontFamily: C.mono, overflow: "hidden",
-      filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9) opacity(0.6)",
-      transition: "filter 0.5s ease, opacity 0.5s ease",
-    }}>
-      {/* ── Header (centered title, back balances width) ─────────────────── */}
-      <div style={{
-        padding: `max(16px, env(safe-area-inset-top)) ${sp(2.5)}px 16px`,
-        display: "grid",
-        gridTemplateColumns: "44px 1fr 44px",
-        alignItems: "center",
-        columnGap: 10,
-        background: `linear-gradient(to bottom, ${C.bg} 80%, transparent)`,
-        flexShrink: 0, zIndex: 10,
-      }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: C.bg,
+        zIndex: 200,
+        display: "flex",
+        flexDirection: "column",
+        color: C.text,
+        fontFamily: C.mono,
+        overflow: "hidden",
+        filter: isOrderingWindowOpen() ? "none" : "grayscale(0.9) opacity(0.6)",
+        transition: "filter 0.5s ease, opacity 0.5s ease",
+      }}
+    >
+      {/* Soft atmosphere */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: "-8%",
+          right: "-12%",
+          width: "55%",
+          height: "32%",
+          background: "radial-gradient(circle, rgba(189,35,32,0.07) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          padding: `max(16px, env(safe-area-inset-top)) ${sp(2.5)}px 10px`,
+          display: "grid",
+          gridTemplateColumns: "44px 1fr 44px",
+          alignItems: "center",
+          columnGap: 10,
+          flexShrink: 0,
+          zIndex: 10,
+        }}
+      >
         <motion.button
+          type="button"
           whileTap={{ scale: 0.9 }}
-          onClick={onBack}
+          onClick={handleHeaderBack}
+          aria-label={phase === "schedule" ? "Back to cart" : "Back"}
           style={{
-            width: 44, height: 44, borderRadius: "50%",
-            background: C.surface, border: `1px solid ${C.border}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             cursor: "pointer",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
           }}
         >
           <ArrowLeft size={20} weight="bold" color={C.text} />
         </motion.button>
-        <h2 style={{ ...TYPO.title, margin: 0, textAlign: "center" }}>Checkout</h2>
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ ...TYPO.title, margin: 0 }}>
+            {phase === "cart" ? "My Cart" : "Schedule"}
+          </h2>
+          <StepDots phase={phase} />
+        </div>
         <div style={{ width: 44 }} aria-hidden />
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: `0 ${sp(2.5)}px 140px` }} className="no-scrollbar">
-        
-        {/* ── Cart Items ──────────────────────────────────────────────────── */}
-        <motion.section {...fadeUp} style={{ marginTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h3 style={{ ...TYPO.sectionTitle, margin: 0, opacity: 0.72 }}>Your Order</h3>
-            <button 
-              onClick={onAddMore}
+      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+        <AnimatePresence custom={phaseDir} mode="wait" initial={false}>
+          {phase === "cart" ? (
+            <motion.div
+              key="cart"
+              custom={phaseDir}
+              variants={pageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.85 }}
               style={{
-                background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.08)",
-                borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700,
-                color: C.red, cursor: "pointer"
-              }}
-            >
-              + Add more
-            </button>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {cartEntries.map((item) => {
-              const { cleanName, tag } = parseRecipeTag(item.name);
-              return (
-              <div key={item.key} style={{
-                background: C.surface, borderRadius: 18,
-                padding: "12px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                gap: 12,
-                border: `1px solid ${C.border}`,
-                boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{toTitleCase(cleanName)}</p>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.4)", fontFamily: C.mono }}>
-                      ({item.weightLabel})
-                    </span>
-                  </div>
-                  {tag ? (
-                    <span
-                      style={{
-                        display: "inline-block",
-                        marginTop: 4,
-                        padding: "3px 9px",
-                        borderRadius: 8,
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.03em",
-                        background: "rgba(189,35,32,0.14)",
-                        border: "1px solid rgba(189,35,32,0.32)",
-                        color: C.red,
-                        fontFamily: C.mono,
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {toTitleCase(tag)}
-                    </span>
-                  ) : null}
-                  <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800, color: C.text }}>₹{item.price}</p>
-                </div>
-
-                <div style={{
-                  height: 32, borderRadius: 16, background: C.red, display: "flex",
-                  alignItems: "center", justifyContent: "space-between", padding: "0 4px",
-                  boxShadow: "0 4px 12px rgba(189,35,32,0.4)", width: 80, flexShrink: 0,
-                  alignSelf: "center",
-                }}>
-                  <button onClick={() => updateQty(item.key, -1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Minus size={12} weight="bold" color="white" />
-                  </button>
-                  <span style={{ fontSize: 13, fontWeight: 900 }}>{item.quantity}</span>
-                  <button onClick={() => updateQty(item.key, 1)} style={{ background: "none", border: "none", color: "white", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Plus size={12} weight="bold" color="white" />
-                  </button>
-                </div>
-              </div>
-            );
-            })}
-          </div>
-        </motion.section>
-
-        {/* ── Address ─────────────────────────────────────────────────────── */}
-        <motion.section {...fadeUp} style={{ transitionDelay: "0.1s", marginTop: 32 }}>
-          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Delivery To</h3>
-          <div style={{
-            background: C.surface, borderRadius: 18,
-            padding: "16px", display: "flex", alignItems: "center", gap: 14,
-            border: `1px solid ${C.border}`,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 12, background: "rgba(189,35,32,0.12)",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-            }}>
-              <MapPin size={20} weight="fill" color={C.red} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{locationLabel}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(0,0,0,0.4)", fontWeight: 500 }}>
-                Scheduled meal · pick your date & slot below
-              </p>
-            </div>
-            <button onClick={onChangeLocation} style={{ background: "none", border: "none", color: C.red, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Change</button>
-          </div>
-          {savedPlaces.length > 0 && onSelectSavedLocation && (
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                overflowX: "auto",
-                marginTop: 10,
-                paddingBottom: 4,
+                position: "absolute",
+                inset: 0,
+                overflowY: "auto",
+                padding: `8px ${sp(2.5)}px 140px`,
                 WebkitOverflowScrolling: "touch",
               }}
               className="no-scrollbar"
             >
-              {savedPlaces.map((place) => (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 14,
+                }}
+              >
+                <h3 style={{ ...TYPO.sectionTitle, margin: 0, opacity: 0.72 }}>Your order</h3>
                 <button
-                  key={place.id}
                   type="button"
-                  onClick={() => onSelectSavedLocation(place)}
+                  onClick={onAddMore}
                   style={{
-                    flex: "0 0 auto",
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    border: `1px solid ${C.border}`,
-                    background: C.surface,
-                    color: C.text,
-                    fontSize: 12,
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "6px 2px",
+                    fontSize: 13,
                     fontWeight: 800,
+                    color: C.red,
                     cursor: "pointer",
                     fontFamily: C.mono,
                   }}
                 >
-                  {place.label}
+                  + Add more
                 </button>
-              ))}
-            </div>
-          )}
-        </motion.section>
+              </div>
 
-        {/* ── Delivery date & slots (24h rule) ─────────────────────────────── */}
-        <motion.section {...fadeUp} style={{ transitionDelay: "0.11s", marginTop: 28 }}>
-          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 10px", opacity: 0.72 }}>
-            Delivery day
-          </h3>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              overflowX: "auto",
-              paddingBottom: 6,
-              WebkitOverflowScrolling: "touch",
-            }}
-            className="no-scrollbar"
-          >
-            {dayOptions.map((d) => {
-              const hasAny = d.cards.some((c) => c.available);
-              const on = d.istYmd === deliveryDateYmd;
-              return (
-                <button
-                  key={d.istYmd}
-                  type="button"
-                  disabled={!hasAny}
-                  onClick={() => setDeliveryDateYmd(d.istYmd)}
+              {cartEmpty ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
                   style={{
-                    flex: "0 0 auto",
-                    padding: "10px 14px",
-                    borderRadius: 14,
-                    border: `1.5px solid ${on ? C.red : "rgba(0,0,0,0.08)"}`,
-                    background: on ? "rgba(189,35,32,0.08)" : C.surface,
-                    color: hasAny ? C.text : "rgba(0,0,0,0.35)",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: hasAny ? "pointer" : "not-allowed",
-                    fontFamily: C.mono,
+                    background: C.surface,
+                    borderRadius: 24,
+                    border: `1px solid ${C.border}`,
+                    padding: "36px 24px",
+                    textAlign: "center",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.04)",
                   }}
                 >
-                  {d.weekendLabel}
-                </button>
-              );
-            })}
-          </div>
-          <h3 style={{ ...TYPO.sectionTitle, margin: "18px 0 8px", opacity: 0.72 }}>
-            Meal time
-          </h3>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "rgba(0,0,0,0.4)", fontWeight: 600, lineHeight: 1.45 }}>
-            Book at least 24 hours before the start of the window (IST).
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {slotCards.map((c) => {
-              const on = slotKind === c.kind;
-              const disabled = !c.available;
-              return (
-                <button
-                  key={c.kind}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => !disabled && setSlotKind(c.kind)}
-                  style={{
-                    textAlign: "left",
-                    padding: "14px 16px",
-                    borderRadius: 16,
-                    border: `1.5px solid ${disabled ? "rgba(0,0,0,0.06)" : on ? C.red : "rgba(0,0,0,0.08)"}`,
-                    background: disabled
-                      ? "rgba(0,0,0,0.02)"
-                      : on
-                        ? "rgba(189,35,32,0.08)"
-                        : C.surface,
-                    color: disabled ? "rgba(0,0,0,0.35)" : C.text,
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: disabled ? "not-allowed" : "pointer",
-                    lineHeight: 1.35,
-                    fontFamily: C.mono,
-                  }}
-                >
-                  <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <span>
-                      {c.label}{" "}
-                      <span style={{ opacity: 0.55, fontWeight: 700 }}>({c.rangeLabel})</span>
-                    </span>
-                    {disabled ? (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(189,35,32,0.6)", maxWidth: "46%" }}>
-                        Not available — order at least 24 hrs ahead
-                      </span>
-                    ) : (
-                      <span
+                  <span
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 20,
+                      background: C.redFaint,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <BowlFood size={32} weight="duotone" color={C.red} />
+                  </span>
+                  <p style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800 }}>Your cart is empty</p>
+                  <p style={{ margin: "0 0 20px", fontSize: 13, fontWeight: 600, color: C.muted, lineHeight: 1.45 }}>
+                    Add a dish from the menu to continue.
+                  </p>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.97 }}
+                    onClick={onAddMore}
+                    style={{
+                      border: "none",
+                      borderRadius: 999,
+                      padding: "14px 28px",
+                      background: C.red,
+                      color: "#fff",
+                      fontSize: 15,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      fontFamily: C.mono,
+                      boxShadow: `0 8px 24px ${C.redGlow}`,
+                    }}
+                  >
+                    Browse menu
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {cartEntries.map((item, idx) => {
+                      const { cleanName, tag } = parseRecipeTag(item.name);
+                      const line = item.price * item.quantity;
+                      return (
+                        <motion.div
+                          key={item.key}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Math.min(idx * 0.04, 0.2) }}
+                          style={{
+                            background: C.surface,
+                            borderRadius: 20,
+                            padding: 12,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            border: `1px solid ${C.border}`,
+                            boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              position: "relative",
+                              width: 72,
+                              height: 72,
+                              borderRadius: 16,
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              background: "rgba(0,0,0,0.04)",
+                            }}
+                          >
+                            <Image
+                              src={item.image}
+                              alt={cleanName}
+                              fill
+                              sizes="72px"
+                              style={{ objectFit: "cover" }}
+                            />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 15,
+                                fontWeight: 800,
+                                lineHeight: 1.25,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {toTitleCase(cleanName)}
+                            </p>
+                            <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 700, color: C.muted }}>
+                              {item.weightLabel}
+                              {tag ? ` · ${toTitleCase(tag)}` : ""}
+                            </p>
+                            <p style={{ margin: "6px 0 0", fontSize: 16, fontWeight: 900, color: C.red }}>
+                              ₹{line.toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                          <div
+                            style={{
+                              height: 36,
+                              borderRadius: 999,
+                              background: C.red,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "0 4px",
+                              boxShadow: `0 6px 16px ${C.redGlow}`,
+                              width: 92,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              aria-label="Decrease quantity"
+                              onClick={() => updateQty(item.key, -1)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "white",
+                                width: 28,
+                                height: 28,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Minus size={13} weight="bold" color="white" />
+                            </button>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", minWidth: 22, textAlign: "center" }}>
+                              {String(item.quantity).padStart(2, "0")}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Increase quantity"
+                              onClick={() => updateQty(item.key, 1)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "white",
+                                width: 28,
+                                height: 28,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Plus size={13} weight="bold" color="white" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+
+                  <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
+                    Order summary
+                  </h3>
+                  <div
+                    style={{
+                      background: C.surface,
+                      borderRadius: 22,
+                      padding: "18px 18px 16px",
+                      border: `1px solid ${C.border}`,
+                      boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: C.muted,
+                      }}
+                    >
+                      Bill details
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                        <span style={{ color: C.muted, fontWeight: 600 }}>Item total</span>
+                        <span style={{ fontWeight: 700 }}>₹{itemTotal.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                        <span style={{ color: C.muted, fontWeight: 600 }}>Delivery fee</span>
+                        <span style={{ fontWeight: 700 }}>₹{deliveryFee}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setChargesOpen((v) => !v)}
                         style={{
-                          fontSize: 10,
-                          fontWeight: 900,
-                          color: "#16a34a",
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          width: "100%",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          fontFamily: C.mono,
+                          fontSize: 14,
+                          color: C.text,
                         }}
                       >
-                        Available
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </motion.section>
+                        <span style={{ color: C.muted, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          GST & other charges
+                          <CaretDown
+                            size={14}
+                            weight="bold"
+                            color={C.muted}
+                            style={{
+                              transform: chargesOpen ? "rotate(180deg)" : "none",
+                              transition: "transform 0.2s ease",
+                            }}
+                          />
+                        </span>
+                        <span style={{ fontWeight: 700 }}>₹{otherCharges}</span>
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {chargesOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.22 }}
+                            style={{ overflow: "hidden" }}
+                          >
+                            <div
+                              style={{
+                                marginTop: 2,
+                                padding: "10px 12px",
+                                borderRadius: 12,
+                                background: "rgba(0,0,0,0.03)",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 6,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "rgba(0,0,0,0.55)",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span>Packaging</span>
+                                <span>₹{packagingFee}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span>GST (5%)</span>
+                                <span>₹{tax}</span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "4px 0" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.04em" }}>TO PAY</span>
+                        <span style={{ fontSize: 22, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
+                          ₹{grandTotal.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="schedule"
+              custom={phaseDir}
+              variants={pageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.85 }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflowY: "auto",
+                padding: `8px ${sp(2.5)}px 150px`,
+                WebkitOverflowScrolling: "touch",
+              }}
+              className="no-scrollbar"
+            >
+              {/* Compact order strip */}
+              <button
+                type="button"
+                onClick={goCart}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: 18,
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  marginBottom: 22,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+                  fontFamily: C.mono,
+                }}
+              >
+                <div style={{ display: "flex", marginRight: 2 }}>
+                  {cartEntries.slice(0, 3).map((it, i) => (
+                    <div
+                      key={it.key}
+                      style={{
+                        position: "relative",
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        marginLeft: i === 0 ? 0 : -10,
+                        border: `2px solid ${C.bg}`,
+                        background: "rgba(0,0,0,0.04)",
+                        zIndex: 3 - i,
+                      }}
+                    >
+                      <Image src={it.image} alt="" fill sizes="34px" style={{ objectFit: "cover" }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>
+                    {cartEntries.reduce((n, i) => n + i.quantity, 0)} item
+                    {cartEntries.reduce((n, i) => n + i.quantity, 0) === 1 ? "" : "s"} · ₹
+                    {grandTotal.toLocaleString("en-IN")}
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: C.muted }}>
+                    Tap to edit cart
+                  </p>
+                </div>
+                <ArrowRight size={16} weight="bold" color={C.muted} />
+              </button>
 
-        {/* ── Bill Details ────────────────────────────────────────────────── */}
-        <motion.section {...fadeUp} style={{ transitionDelay: "0.2s", marginTop: 32 }}>
-          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Bill Details</h3>
-          <div style={{
-            background: C.surface, borderRadius: 22,
-            padding: "20px", border: `1px solid ${C.border}`,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-            display: "flex", flexDirection: "column", gap: 12
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ opacity: 0.5 }}>Item Total</span>
-              <span style={{ fontWeight: 600 }}>₹{itemTotal}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ opacity: 0.5 }}>Packaging Fee</span>
-              <span style={{ fontWeight: 600 }}>₹{packagingFee}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ opacity: 0.5 }}>Delivery Fee</span>
-              <span style={{ fontWeight: 600 }}>₹{deliveryFee}</span>
-            </div>
-            <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "4px 0" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 900 }}>
-              <span>Grand Total</span>
-              <span>₹{grandTotal}</span>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* ── Payment Mode ────────────────────────────────────────────────── */}
-        <motion.section {...fadeUp} style={{ transitionDelay: "0.3s", marginTop: 32 }}>
-          <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Payment Mode</h3>
-          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} className="no-scrollbar">
-            {(
-              [
-                {
-                  id: "upi",
-                  label: "UPI (GPay/PhonePe)",
-                  icon: (
-                    <Lightning size={26} weight="fill" color="rgba(0,0,0,0.7)" />
-                  ),
-                },
-                {
-                  id: "card",
-                  label: "Debit/Credit Card",
-                  icon: (
-                    <CreditCard size={26} weight="regular" color="rgba(0,0,0,0.7)" />
-                  ),
-                },
-                {
-                  id: "cod",
-                  label: "Cash on Delivery",
-                  icon: (
-                    <Money size={26} weight="regular" color="rgba(0,0,0,0.7)" />
-                  ),
-                  disabled: true,
-                },
-              ] as const
-            ).map((p) => {
-              const disabled = "disabled" in p && p.disabled;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => !disabled && setPaymentMethod(p.id)}
+              <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Delivery to</h3>
+              <div
+                style={{
+                  background: C.surface,
+                  borderRadius: 20,
+                  padding: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  border: `1px solid ${C.border}`,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div
                   style={{
-                    flex: "0 0 140px", padding: "16px", borderRadius: 16,
-                    opacity: disabled ? 0.45 : 1,
-                    background: paymentMethod === p.id ? "rgba(189,35,32,0.08)" : C.surface,
-                    border: `1.5px solid ${paymentMethod === p.id ? C.red : "rgba(0,0,0,0.06)"}`,
-                    display: "flex", flexDirection: "column", gap: 8, textAlign: "left",
-                    cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s"
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: C.redFaint,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  {p.icon}
-                  <span style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.2 }}>{p.label}</span>
+                  <MapPin size={22} weight="fill" color={C.red} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {locationLabel}
+                  </p>
+                  <p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted, fontWeight: 600 }}>
+                    Home-style meal, delivered to your pin
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onChangeLocation}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: C.red,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    fontFamily: C.mono,
+                    flexShrink: 0,
+                  }}
+                >
+                  Change
                 </button>
-              );
-            })}
-          </div>
-        </motion.section>
+              </div>
+
+              {savedPlaces.length > 0 && onSelectSavedLocation && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    overflowX: "auto",
+                    marginTop: 10,
+                    paddingBottom: 4,
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                  className="no-scrollbar"
+                >
+                  {savedPlaces.map((place) => (
+                    <button
+                      key={place.id}
+                      type="button"
+                      onClick={() => onSelectSavedLocation(place)}
+                      style={{
+                        flex: "0 0 auto",
+                        padding: "8px 14px",
+                        borderRadius: 999,
+                        border: `1px solid ${C.border}`,
+                        background: C.surface,
+                        color: C.text,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        fontFamily: C.mono,
+                      }}
+                    >
+                      {place.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
+                Delivery day
+              </h3>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  overflowX: "auto",
+                  paddingBottom: 6,
+                  WebkitOverflowScrolling: "touch",
+                }}
+                className="no-scrollbar"
+              >
+                {dayOptions.map((d) => {
+                  const hasAny = d.cards.some((c) => c.available);
+                  const on = d.istYmd === deliveryDateYmd;
+                  const parts = d.weekendLabel.split(",");
+                  const weekday = (parts[0] || d.weekendLabel).trim();
+                  const rest = (parts[1] || "").trim();
+                  return (
+                    <motion.button
+                      key={d.istYmd}
+                      type="button"
+                      whileTap={hasAny ? { scale: 0.96 } : undefined}
+                      disabled={!hasAny}
+                      onClick={() => setDeliveryDateYmd(d.istYmd)}
+                      style={{
+                        flex: "0 0 auto",
+                        minWidth: 72,
+                        padding: "12px 14px",
+                        borderRadius: 18,
+                        border: `1.5px solid ${on ? C.red : "rgba(0,0,0,0.07)"}`,
+                        background: on ? C.redFaint : C.surface,
+                        color: hasAny ? C.text : "rgba(0,0,0,0.3)",
+                        cursor: hasAny ? "pointer" : "not-allowed",
+                        fontFamily: C.mono,
+                        boxShadow: on ? `0 6px 18px ${C.redGlow}` : "none",
+                      }}
+                    >
+                      <span style={{ display: "block", fontSize: 11, fontWeight: 700, opacity: 0.55 }}>
+                        {weekday}
+                      </span>
+                      <span style={{ display: "block", marginTop: 4, fontSize: 14, fontWeight: 900 }}>
+                        {rest || weekday}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              <h3 style={{ ...TYPO.sectionTitle, margin: "26px 0 6px", opacity: 0.72 }}>Meal time</h3>
+              <p style={{ margin: "0 0 14px", fontSize: 12, color: C.muted, fontWeight: 600, lineHeight: 1.45 }}>
+                Book at least 24 hours before the window starts (IST).
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {slotCards.map((c) => {
+                  const on = slotKind === c.kind;
+                  const disabled = !c.available;
+                  return (
+                    <motion.button
+                      key={c.kind}
+                      type="button"
+                      whileTap={disabled ? undefined : { scale: 0.985 }}
+                      disabled={disabled}
+                      onClick={() => !disabled && setSlotKind(c.kind)}
+                      style={{
+                        textAlign: "left",
+                        padding: "12px 14px",
+                        borderRadius: 20,
+                        border: `1.5px solid ${
+                          disabled ? "rgba(0,0,0,0.05)" : on ? C.red : "rgba(0,0,0,0.07)"
+                        }`,
+                        background: disabled ? "rgba(0,0,0,0.02)" : on ? C.redFaint : C.surface,
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        fontFamily: C.mono,
+                        boxShadow: on && !disabled ? `0 8px 22px ${C.redGlow}` : "0 2px 10px rgba(0,0,0,0.03)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
+                    >
+                      <MealSlotIcon kind={c.kind} active={on} disabled={disabled} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: 15,
+                            fontWeight: 900,
+                            color: disabled ? "rgba(0,0,0,0.35)" : C.text,
+                          }}
+                        >
+                          {c.label}
+                        </span>
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: 2,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: disabled ? "rgba(0,0,0,0.28)" : C.muted,
+                          }}
+                        >
+                          {c.rangeLabel}
+                        </span>
+                      </span>
+                      {disabled ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "rgba(0,0,0,0.35)",
+                            maxWidth: 88,
+                            textAlign: "right",
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          Book 24 hrs ahead
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            color: on ? C.red : "rgba(22,163,74,0.9)",
+                            padding: "5px 8px",
+                            borderRadius: 999,
+                            background: on ? "rgba(189,35,32,0.1)" : "rgba(22,163,74,0.1)",
+                          }}
+                        >
+                          {on ? "Selected" : "Open"}
+                        </span>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
+                Payment
+              </h3>
+              <div
+                style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}
+                className="no-scrollbar"
+              >
+                {(
+                  [
+                    {
+                      id: "upi",
+                      label: "UPI",
+                      sub: "GPay / PhonePe",
+                      icon: <Lightning size={22} weight="fill" color="rgba(0,0,0,0.7)" />,
+                    },
+                    {
+                      id: "card",
+                      label: "Card",
+                      sub: "Debit / Credit",
+                      icon: <CreditCard size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
+                    },
+                    {
+                      id: "cod",
+                      label: "Cash",
+                      sub: "Coming soon",
+                      icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
+                      disabled: true,
+                    },
+                  ] as const
+                ).map((p) => {
+                  const disabled = "disabled" in p && p.disabled;
+                  const on = paymentMethod === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => !disabled && setPaymentMethod(p.id)}
+                      style={{
+                        flex: "0 0 118px",
+                        padding: "14px 12px",
+                        borderRadius: 18,
+                        opacity: disabled ? 0.45 : 1,
+                        background: on ? C.redFaint : C.surface,
+                        border: `1.5px solid ${on ? C.red : "rgba(0,0,0,0.06)"}`,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        textAlign: "left",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        fontFamily: C.mono,
+                      }}
+                    >
+                      {p.icon}
+                      <span style={{ fontSize: 13, fontWeight: 900 }}>{p.label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}>{p.sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(selectedDay || selectedSlot) && (
+                <p
+                  style={{
+                    margin: "18px 0 0",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: C.muted,
+                    lineHeight: 1.45,
+                    textAlign: "center",
+                  }}
+                >
+                  {[selectedDay?.weekendLabel, selectedSlot ? `${selectedSlot.label} · ${selectedSlot.rangeLabel}` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* ── Bottom Action Bar ───────────────────────────────────────────── */}
-      <div style={{
-        padding: "24px 24px max(24px, env(safe-area-inset-bottom))",
-        background: `linear-gradient(to top, ${C.bg} 80%, transparent)`,
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30
-      }}>
-        {checkoutError && (
-          <p style={{
-            margin: "0 0 12px", padding: "12px 14px", borderRadius: 14,
-            background: "rgba(189,35,32,0.15)", border: "1px solid rgba(189,35,32,0.35)",
-            color: C.red, fontSize: 13, fontWeight: 600, lineHeight: 1.4
-          }}>
+      {/* Sticky CTA */}
+      <div
+        style={{
+          padding: "16px 20px max(20px, env(safe-area-inset-bottom))",
+          background: `linear-gradient(to top, ${C.bg} 70%, transparent)`,
+          position: "relative",
+          zIndex: 30,
+          flexShrink: 0,
+        }}
+      >
+        {checkoutError && phase === "schedule" && (
+          <p
+            style={{
+              margin: "0 0 12px",
+              padding: "12px 14px",
+              borderRadius: 14,
+              background: "rgba(189,35,32,0.12)",
+              border: "1px solid rgba(189,35,32,0.28)",
+              color: C.red,
+              fontSize: 13,
+              fontWeight: 600,
+              lineHeight: 1.4,
+            }}
+          >
             {checkoutError}
           </p>
         )}
-        <motion.button
-          whileTap={{ scale: orderCtaDisabled ? 1 : 0.96 }}
-          onClick={handlePlaceOrder}
-          disabled={orderCtaDisabled}
-          style={{
-            width: "100%", height: 60, borderRadius: 20,
-            background: placing
-              ? "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)"
-              : slotKind == null
-                ? "rgba(0,0,0,0.06)"
-                : "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
-            border: slotKind == null && !placing ? "1.5px solid rgba(0,0,0,0.1)" : "none",
-            color: slotKind == null && !placing ? "rgba(0,0,0,0.35)" : "white",
-            fontSize: 17, fontWeight: 900,
-            letterSpacing: "0.02em",
-            cursor: placing ? "wait" : slotKind == null ? "not-allowed" : "pointer",
-            opacity: placing ? 0.92 : slotKind == null ? 0.85 : 1,
-            boxShadow:
-              slotKind == null && !placing
-                ? "none"
-                : `0 8px 30px ${C.redGlow}, 0 2px 0 rgba(255,255,255,0.15) inset`,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: placing ? 0 : 12,
-            position: "relative",
-          }}
-        >
-          {placing ? (
-            <motion.div
-              role="status"
-              aria-label="Creating payment link"
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                border: "3px solid rgba(255,255,255,0.22)",
-                borderTopColor: "#fff",
-                borderRightColor: "rgba(255,255,255,0.5)",
-                flexShrink: 0,
-              }}
-            />
-          ) : !isOrderingWindowOpen() ? (
-            "Ordering is closed (6 AM – 6 PM)"
-          ) : (
-            <>
-              Place Order • ₹{grandTotal}
-              <ArrowRight size={20} weight="bold" color="currentColor" aria-hidden />
-            </>
-          )}
-        </motion.button>
-      </div>
 
-      {/* ── Bottom Vignette ──────────────────────────────────────────────── */}
-      {!isOrderingWindowOpen() && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 0, left: 0, right: 0,
-            height: 220,
-            background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
-            pointerEvents: "none",
-            zIndex: 205,
-          }}
-        />
-      )}
-
-      {/* ── Floating Warning Pill (Rule 1) ─────────────────────────────── */}
-      {!isOrderingWindowOpen() && (
-        <motion.div
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
-          style={{
-            position: "fixed",
-            bottom: 32, left: 16, right: 16,
-            zIndex: 210,
-            display: "flex", justifyContent: "center",
-            paddingBottom: "env(safe-area-inset-bottom)",
-            pointerEvents: "none",
-          }}
-        >
-          <div
+        {phase === "cart" ? (
+          <motion.button
+            type="button"
+            whileTap={{ scale: cartEmpty ? 1 : 0.97 }}
+            onClick={goSchedule}
+            disabled={cartEmpty}
             style={{
-              display: "flex", gap: 14, alignItems: "center",
-              flex: 1,
+              width: "100%",
+              height: 58,
+              borderRadius: 20,
+              border: "none",
+              background: cartEmpty ? "rgba(0,0,0,0.06)" : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+              color: cartEmpty ? "rgba(0,0,0,0.32)" : "#fff",
+              fontSize: 16,
+              fontWeight: 900,
+              cursor: cartEmpty ? "not-allowed" : "pointer",
+              fontFamily: C.mono,
+              boxShadow: cartEmpty ? "none" : `0 10px 28px ${C.redGlow}`,
+              display: "flex",
+              alignItems: "center",
               justifyContent: "center",
-              padding: "16px 24px",
-              background: "rgba(189, 35, 32, 0.18)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              borderRadius: 999,
-              border: "1px solid rgba(189, 35, 32, 0.35)",
-              boxShadow: "0 12px 32px rgba(189,35,32,0.2)",
-              pointerEvents: "auto",
+              gap: 10,
             }}
           >
-            <div style={{ 
-              width: 36, height: 36, borderRadius: "50%", 
-              background: "rgba(189,35,32,0.2)", 
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <ArrowLeft size={20} weight="bold" color="#f87171" style={{ transform: "rotate(90deg)" }} />
+            {cartEmpty ? (
+              "Checkout"
+            ) : (
+              <>
+                Checkout · ₹{grandTotal.toLocaleString("en-IN")}
+                <span
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.2)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ArrowRight size={14} weight="bold" color="#fff" />
+                </span>
+              </>
+            )}
+          </motion.button>
+        ) : (
+          <motion.button
+            type="button"
+            whileTap={{ scale: orderCtaDisabled ? 1 : 0.97 }}
+            onClick={handlePlaceOrder}
+            disabled={orderCtaDisabled}
+            style={{
+              width: "100%",
+              height: 58,
+              borderRadius: 20,
+              border: slotKind == null && !placing ? "1.5px solid rgba(0,0,0,0.08)" : "none",
+              background: placing
+                ? `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`
+                : slotKind == null
+                  ? "rgba(0,0,0,0.06)"
+                  : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+              color: slotKind == null && !placing ? "rgba(0,0,0,0.35)" : "#fff",
+              fontSize: 16,
+              fontWeight: 900,
+              cursor: placing ? "wait" : slotKind == null ? "not-allowed" : "pointer",
+              fontFamily: C.mono,
+              boxShadow: slotKind == null && !placing ? "none" : `0 10px 28px ${C.redGlow}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: placing ? 0 : 10,
+            }}
+          >
+            {placing ? (
+              <motion.div
+                role="status"
+                aria-label="Creating payment link"
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  border: "3px solid rgba(255,255,255,0.22)",
+                  borderTopColor: "#fff",
+                  flexShrink: 0,
+                }}
+              />
+            ) : !isOrderingWindowOpen() ? (
+              "Ordering closed (6 AM – 6 PM)"
+            ) : slotKind == null ? (
+              "Pick a meal time"
+            ) : (
+              <>
+                Place order · ₹{grandTotal.toLocaleString("en-IN")}
+                <ArrowRight size={18} weight="bold" color="currentColor" />
+              </>
+            )}
+          </motion.button>
+        )}
+      </div>
+
+      {!isOrderingWindowOpen() && (
+        <>
+          <div
+            style={{
+              position: "fixed",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 220,
+              background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
+              pointerEvents: "none",
+              zIndex: 205,
+            }}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.2 }}
+            style={{
+              position: "fixed",
+              bottom: 32,
+              left: 16,
+              right: 16,
+              zIndex: 210,
+              display: "flex",
+              justifyContent: "center",
+              paddingBottom: "env(safe-area-inset-bottom)",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                flex: 1,
+                justifyContent: "center",
+                padding: "14px 20px",
+                background: "rgba(189, 35, 32, 0.16)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                borderRadius: 999,
+                border: "1px solid rgba(189, 35, 32, 0.32)",
+                boxShadow: "0 12px 32px rgba(189,35,32,0.18)",
+                pointerEvents: "auto",
+              }}
+            >
+              <span style={{ fontSize: 13, color: C.red, fontWeight: 800, fontFamily: C.mono }}>
+                Ordering is open daily from 6 AM to 6 PM.
+              </span>
             </div>
-            <span style={{ 
-              fontSize: 14, color: C.red, fontWeight: 800, 
-              letterSpacing: "0.01em", fontFamily: C.mono 
-            }}>
-              Ordering is open daily from 6 AM to 6 PM. See you then!
-            </span>
-          </div>
-        </motion.div>
+          </motion.div>
+        </>
       )}
     </div>
   );
