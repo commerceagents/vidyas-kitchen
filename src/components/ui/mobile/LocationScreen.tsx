@@ -315,6 +315,9 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [outOfRangeModal, setOutOfRangeModal] = useState(false);
+  /** True once the user has explicitly picked a spot (search, GPS, saved place, or map tap/drag). */
+  const [hasPicked, setHasPicked] = useState(false);
+  const geocodeGenRef = useRef(0);
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -439,7 +442,11 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, []);
 
   useEffect(() => {
-    return () => stopCameraAnimation();
+    return () => {
+      stopCameraAnimation();
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+      if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
+    };
   }, [stopCameraAnimation]);
 
   const showTip = useCallback((text: string, tone: TipTone = "info") => {
@@ -489,22 +496,27 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, []);
 
   const handleSuggestionSelect = (feature: GeoFeature) => {
+    geocodeGenRef.current += 1; // invalidate any in-flight reverse-geocode from a previous pin drop
     const [lng, lat] = feature.center;
     setSearchText(feature.place_name);
     setSuggestions([]);
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
+    setHasPicked(true);
     animateCameraTo(lng, lat, 1600);
   };
 
   const applyPin = useCallback(
     async (lat: number, lng: number) => {
+      const gen = ++geocodeGenRef.current;
       setPinCoords({ lat, lng });
       setSelectedSaved(null);
       setSearchText("Locating address...");
+      setHasPicked(true);
       animateCameraRoute(lng, lat);
       const addr = await resolveAddress(lat, lng);
-      setSearchText(addr);
+      // Discard stale responses — a newer pin drop may have started (and resolved) since this one began.
+      if (gen === geocodeGenRef.current) setSearchText(addr);
     },
     [animateCameraRoute, resolveAddress]
   );
@@ -566,13 +578,16 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   }, [animateCameraTo, pinCoords]);
 
   const handleMapPinSet = useCallback(async (lat: number, lng: number) => {
+    const gen = ++geocodeGenRef.current;
     setPinCoords({ lat, lng });
     setSelectedSaved(null);
+    setHasPicked(true);
     // Keep addingPlace — user is moving the pin to set their saved location
     setSuggestions([]);
     setSearchText("Locating address...");
     const addr = await resolveAddress(lat, lng);
-    setSearchText(addr);
+    // Discard stale responses if the pin has since moved again (rapid taps/drags).
+    if (gen === geocodeGenRef.current) setSearchText(addr);
   }, [resolveAddress]);
 
   const handleSavedSelect = (place: SavedPlace) => {
@@ -608,10 +623,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     }
 
     // Select and navigate to saved place
+    geocodeGenRef.current += 1; // invalidate any in-flight reverse-geocode from a previous pin drop
     setSelectedSaved(place.id);
     setAddingPlace(null);
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
+    setHasPicked(true);
     animateCameraTo(place.lng, place.lat, 1700);
   };
 
@@ -666,7 +683,18 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     showTip(`${place.label} cleared`, "info");
   };
 
+  const isResolvingAddress = searchText === "Locating address...";
+  const confirmDisabled = !hasPicked || isResolvingAddress;
+
   const handleConfirm = () => {
+    if (!hasPicked) {
+      showTip("Search, drop a pin, or pick a saved place first", "warn");
+      return;
+    }
+    if (isResolvingAddress) {
+      showTip("Hang on, locating that address…", "info");
+      return;
+    }
     const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, KITCHEN_CENTER.lat, KITCHEN_CENTER.lng);
     if (dist > MAX_DISTANCE_KM) {
       setOutOfRangeModal(true);
@@ -676,10 +704,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       ? savedPlaces.find((p) => p.id === selectedSaved)?.label || "Saved Location"
       : searchText.trim() || "Current Location";
     onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange: true });
-  };
-
-  const handleSkip = () => {
-    onLocationSet({ label: DELIVERY_ZONE.name, lat: KITCHEN_CENTER.lat, lng: KITCHEN_CENTER.lng, inRange: true });
   };
 
   const hasToken = MAPBOX_TOKEN.length > 0;
@@ -717,7 +741,6 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                   ? "rgba(34,197,94,0.5)"
                   : "rgba(0,0,0,0.1)"
               }`,
-              color: "#1A1A1A",
               ...LOC.tip,
               boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
               pointerEvents: "none",
@@ -1268,7 +1291,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 border: "none", borderRadius: 16,
                 padding: "16px",
                 cursor: "pointer",
-                color: "#fff", ...LOC.cta,
+                ...LOC.cta,
                 boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 12,
@@ -1290,33 +1313,40 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
             </motion.button>
           ) : (
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={confirmDisabled ? undefined : { scale: 0.97 }}
               onClick={handleConfirm}
+              aria-disabled={confirmDisabled}
               style={{
                 width: "100%",
-                background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
+                background: confirmDisabled
+                  ? "rgba(0,0,0,0.15)"
+                  : "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)",
                 border: "none", borderRadius: 16,
                 padding: "16px",
-                cursor: "pointer",
-                color: "#fff", ...LOC.cta,
-                boxShadow: "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
+                cursor: confirmDisabled ? "not-allowed" : "pointer",
+                opacity: confirmDisabled ? 0.6 : 1,
+                ...LOC.cta,
+                boxShadow: confirmDisabled ? "none" : "0 4px 20px rgba(189,35,32,0.35), 0 1px 0 rgba(255,255,255,0.1) inset",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 marginBottom: 24,
                 position: "relative",
                 overflow: "hidden",
+                transition: "background 0.2s ease, opacity 0.2s ease",
               }}
             >
-              <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
-                style={{
-                  position: "absolute", inset: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
-                  skewX: -20,
-                }}
-              />
-              Confirm Location
+              {!confirmDisabled && (
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "100%" }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                  style={{
+                    position: "absolute", inset: 0,
+                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+                    skewX: -20,
+                  }}
+                />
+              )}
+              {isResolvingAddress ? "Locating address…" : hasPicked ? "Confirm Location" : "Pick a location to continue"}
             </motion.button>
           )}
         </motion.div>
@@ -1374,9 +1404,12 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => {
+                    geocodeGenRef.current += 1;
                     setOutOfRangeModal(false);
                     setSearchText("");
                     setSuggestions([]);
+                    setSelectedSaved(null);
+                    setHasPicked(false);
                     setPinCoords(KITCHEN_CENTER);
                     animateCameraTo(KITCHEN_CENTER.lng, KITCHEN_CENTER.lat, 1400);
                   }}
