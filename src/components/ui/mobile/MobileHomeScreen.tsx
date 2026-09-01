@@ -3953,7 +3953,7 @@ function MenuGridCard({
             <span
               style={{
                 display: "block",
-                fontSize: 11.5,
+                fontSize: 14,
                 fontWeight: 700,
                 color: "rgba(0,0,0,0.45)",
                 textDecoration: "line-through",
