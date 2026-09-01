@@ -3768,9 +3768,6 @@ function MenuGridCard({
   const defaultVar =
     item.variants.find((v) => /500/i.test(v.weight || v.label || "")) ?? item.variants[0];
   const fromPrice = defaultVar?.price ?? Math.min(...item.variants.map((v) => v.price));
-  const listPrice = defaultVar
-    ? listPriceForVariant(item, defaultVar.id, fromPrice, new Date(), activeFestival)
-    : null;
   const showStepper = qty > 0;
   const actionSpring = { type: "spring" as const, stiffness: 420, damping: 32, mass: 0.75 };
 
@@ -3949,20 +3946,6 @@ function MenuGridCard({
             fontFamily: C.mono,
           }}
         >
-          {listPrice != null && listPrice > fromPrice && (
-            <span
-              style={{
-                display: "block",
-                fontSize: 14,
-                fontWeight: 700,
-                color: "rgba(0,0,0,0.45)",
-                textDecoration: "line-through",
-                marginBottom: 2,
-              }}
-            >
-              ₹{listPrice.toLocaleString("en-IN")}
-            </span>
-          )}
           <span style={{ fontSize: 17.5, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
             ₹{fromPrice.toLocaleString("en-IN")}
           </span>
