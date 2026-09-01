@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, WarningCircle } from "@phosphor-icons/react";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
+import { PwaInstallBanner } from "@/components/ui/PwaInstallBanner";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
@@ -457,6 +458,8 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PwaInstallBanner active={step === "login"} />
 
       <AnimatePresence>
         {paymentFeedback && (

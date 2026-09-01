@@ -13,12 +13,21 @@ import {
   Star, 
   ShieldCheck, 
   CaretRight,
-  PencilSimple
+  PencilSimple,
+  DownloadSimple,
 } from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { loadSavedPlaces } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
+import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
+import {
+  isAppleTouchDevice,
+  isAlreadyInstalled,
+  hasNativePrompt,
+  triggerNativeInstall,
+  subscribePwaInstall,
+} from "@/lib/pwa-install";
 
 const VK_NOTIFY_KEY = "vk_whatsapp_order_updates";
 const sp = (n: number) => n * 8;
@@ -92,6 +101,10 @@ function IconStar() {
 
 function IconShield() {
   return <ShieldCheck size={20} weight="regular" color={ICON_STROKE} />;
+}
+
+function IconDownload() {
+  return <DownloadSimple size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function ChevronRight() {
@@ -285,6 +298,9 @@ export function AccountTabPanel({
   const [mounted, setMounted] = useState(false);
   const [draftName, setDraftName] = useState(displayName);
   const [savedSummary, setSavedSummary] = useState("Home, Work, Other");
+  const [canInstall, setCanInstall] = useState(false);
+  const [isAppleInstall, setIsAppleInstall] = useState(false);
+  const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
 
   useEffect(() => {
     setDraftName(displayName);
@@ -326,6 +342,28 @@ export function AccountTabPanel({
       window.removeEventListener("vk_saved_places_updated", refresh as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    const recompute = () => {
+      if (isAlreadyInstalled()) {
+        setCanInstall(false);
+        return;
+      }
+      const apple = isAppleTouchDevice();
+      setIsAppleInstall(apple);
+      setCanInstall(apple || hasNativePrompt());
+    };
+    recompute();
+    return subscribePwaInstall(recompute);
+  }, []);
+
+  const handleInstallApp = useCallback(async () => {
+    if (isAppleInstall) {
+      setShowIosInstallGuide(true);
+      return;
+    }
+    await triggerNativeInstall();
+  }, [isAppleInstall]);
 
   const toggleNotify = useCallback(() => {
     setNotifyOn((prev) => {
@@ -543,6 +581,18 @@ export function AccountTabPanel({
           title="WhatsApp Number"
           showChevron={false}
         />
+        {canInstall && (
+          <PressRow
+            icon={
+              <AccountRowIcon>
+                <IconDownload />
+              </AccountRowIcon>
+            }
+            subtitle="Faster ordering, right from your Home Screen"
+            title="Install App"
+            onClick={handleInstallApp}
+          />
+        )}
       </Section>
 
       <Section title="Support" titleStyle={sectionLabelStyle}>
@@ -645,6 +695,16 @@ export function AccountTabPanel({
               onCancel={cancelNameEdit}
             />
           ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
+
+    {mounted &&
+      createPortal(
+        <AnimatePresence>
+          {showIosInstallGuide && (
+            <PwaInstallGuide key="vk-account-ios-guide" onClose={() => setShowIosInstallGuide(false)} />
+          )}
         </AnimatePresence>,
         document.body,
       )}

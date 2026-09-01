@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { SmoothScroll } from "@/components/effects/SmoothScroll";
-import { PwaInstallBanner } from "@/components/ui/PwaInstallBanner";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -13,10 +12,5 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  return (
-    <SmoothScroll>
-      <PwaInstallBanner />
-      {children}
-    </SmoothScroll>
-  );
+  return <SmoothScroll>{children}</SmoothScroll>;
 }
