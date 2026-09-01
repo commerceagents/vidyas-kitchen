@@ -29,6 +29,8 @@ export async function POST(request: Request) {
       paymentMethod?: string;
       deliveryLat?: number;
       deliveryLng?: number;
+      recipientName?: string;
+      recipientPhone?: string;
     };
 
     const phone = String(body.phone || "").trim();
@@ -38,6 +40,9 @@ export async function POST(request: Request) {
     const deliverySlotRaw = String(body.deliverySlot || "").trim().toLowerCase();
     const lines = Array.isArray(body.lines) ? body.lines : [];
     const paymentMethod = String(body.paymentMethod || "upi").toLowerCase();
+    const recipientName = String(body.recipientName || "").trim();
+    const recipientPhoneDigits = String(body.recipientPhone || "").replace(/\D/g, "");
+    const orderingForSomeoneElse = recipientName.length > 0 || recipientPhoneDigits.length > 0;
     const latRaw = body.deliveryLat;
     const lngRaw = body.deliveryLng;
     const deliveryLat =
@@ -53,6 +58,12 @@ export async function POST(request: Request) {
     }
     if (!deliveryAddress) {
       return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
+    }
+    if (orderingForSomeoneElse && (!recipientName || recipientPhoneDigits.length < 10)) {
+      return NextResponse.json(
+        { error: "Enter a valid name and phone number for the recipient." },
+        { status: 400 },
+      );
     }
     if (!isOrderingWindowOpen()) {
       return NextResponse.json({ error: "Ordering is open 6 AM – 6 PM. Come back tomorrow!" }, { status: 400 });
@@ -147,6 +158,9 @@ export async function POST(request: Request) {
         cancellable: true, // Rule 2 ensures it starts as cancellable (at least 12h window)
         ...(deliveryLat != null && deliveryLng != null
           ? { delivery_lat: deliveryLat, delivery_lng: deliveryLng }
+          : {}),
+        ...(orderingForSomeoneElse
+          ? { recipient_name: recipientName, recipient_phone: recipientPhoneDigits }
           : {}),
       })
       .select("id")

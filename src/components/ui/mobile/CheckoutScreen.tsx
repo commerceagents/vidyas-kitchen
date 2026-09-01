@@ -17,6 +17,7 @@ import {
   Moon,
   CaretDown,
   BowlFood,
+  UserPlus,
 } from "@phosphor-icons/react";
 
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
@@ -168,6 +169,9 @@ export function CheckoutScreen({
   const dayOptions = useMemo(() => iterDeliveryDateOptions(14), []);
   const [deliveryDateYmd, setDeliveryDateYmd] = useState(() => dayOptions[0]?.istYmd ?? "");
   const [slotKind, setSlotKind] = useState<DeliverySlotKind | null>(null);
+  const [forSomeoneElse, setForSomeoneElse] = useState(false);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
 
   useEffect(() => {
     setSlotKind(null);
@@ -235,7 +239,9 @@ export function CheckoutScreen({
   const tax = Math.round(itemTotal * 0.05);
   const otherCharges = packagingFee + tax;
   const grandTotal = itemTotal + packagingFee + deliveryFee + tax;
-  const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen();
+  const recipientIncomplete =
+    forSomeoneElse && (!recipientName.trim() || recipientPhone.replace(/\D/g, "").length < 10);
+  const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen() || recipientIncomplete;
   const cartEmpty = cartEntries.length === 0;
 
   const goSchedule = () => {
@@ -273,6 +279,18 @@ export function CheckoutScreen({
       setCheckoutError("Ordering is only open between 6 AM and 6 PM IST.");
       return;
     }
+    const recipientNameTrim = recipientName.trim();
+    const recipientPhoneDigits = recipientPhone.replace(/\D/g, "");
+    if (forSomeoneElse) {
+      if (!recipientNameTrim) {
+        setCheckoutError("Enter the recipient's name.");
+        return;
+      }
+      if (recipientPhoneDigits.length < 10) {
+        setCheckoutError("Enter a valid phone number for the recipient.");
+        return;
+      }
+    }
     setCheckoutError(null);
     setPlacing(true);
     await waitForPaint();
@@ -287,6 +305,9 @@ export function CheckoutScreen({
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
           paymentMethod,
+          ...(forSomeoneElse
+            ? { recipientName: recipientNameTrim, recipientPhone: recipientPhoneDigits }
+            : {}),
           lines: cartEntries.map((it) => ({
             menuItemId: it.variantId,
             quantity: it.quantity,
@@ -897,6 +918,125 @@ export function CheckoutScreen({
                   ))}
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => setForSomeoneElse((v) => !v)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: "none",
+                  border: "none",
+                  padding: "16px 2px 0",
+                  cursor: "pointer",
+                  fontFamily: C.mono,
+                  width: "100%",
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    background: forSomeoneElse ? C.redFaint : "rgba(0,0,0,0.04)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserPlus size={16} weight="bold" color={forSomeoneElse ? C.red : C.muted} />
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flex: 1, textAlign: "left" }}>
+                  Ordering for someone else?
+                </span>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 38,
+                    height: 22,
+                    borderRadius: 999,
+                    background: forSomeoneElse ? C.red : "rgba(0,0,0,0.12)",
+                    position: "relative",
+                    transition: "background 0.2s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <motion.span
+                    animate={{ x: forSomeoneElse ? 17 : 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                    style={{
+                      position: "absolute",
+                      top: 1,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                    }}
+                  />
+                </span>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {forSomeoneElse && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                      <input
+                        type="text"
+                        inputMode="text"
+                        placeholder="Recipient's name"
+                        value={recipientName}
+                        onChange={(e) => setRecipientName(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "13px 14px",
+                          borderRadius: 14,
+                          border: `1px solid ${C.border}`,
+                          background: C.surface,
+                          color: C.text,
+                          fontFamily: C.mono,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="Recipient's phone number"
+                        value={recipientPhone}
+                        onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
+                        style={{
+                          width: "100%",
+                          padding: "13px 14px",
+                          borderRadius: 14,
+                          border: `1px solid ${C.border}`,
+                          background: C.surface,
+                          color: C.text,
+                          fontFamily: C.mono,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+                    <p style={{ margin: "8px 2px 0", fontSize: 11, color: C.muted, fontWeight: 600, lineHeight: 1.45 }}>
+                      Our delivery partner will contact them directly at the address above.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
                 Delivery day

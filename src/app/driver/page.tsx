@@ -17,6 +17,8 @@ type Row = {
   delivery_slot?: string | null;
   delivery_slot_kind?: string | null;
   phone_number?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
   users?: { full_name?: string | null; phone_number?: string | null } | null;
   order_items?: { quantity?: number | null; menu_items?: { name?: string | null; image_url?: string | null } | null }[] | null;
 };
@@ -172,7 +174,8 @@ export default function DriverHubPage() {
 }
 
 function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
-  const customerName = order.users?.full_name?.trim() || "Customer";
+  const customerName = order.recipient_name?.trim() || order.users?.full_name?.trim() || "Customer";
+  const hasRecipient = Boolean(order.recipient_name?.trim() || order.recipient_phone?.trim());
   const summary = itemsSummary(order);
   const img = firstImage(order);
   const slotLine = formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined);
@@ -208,7 +211,14 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
-          <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{toTitleCase(customerName)}</p>
+          <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+            {toTitleCase(customerName)}
+            {hasRecipient && (
+              <span style={{ padding: "1px 6px", borderRadius: "5px", background: `${YELLOW}20`, color: YELLOW, fontSize: "8.5px", fontWeight: 800, flexShrink: 0 }}>
+                RECIPIENT
+              </span>
+            )}
+          </p>
           {amount && <span style={{ fontSize: "13px", fontWeight: 800, color: YELLOW, flexShrink: 0, marginLeft: "8px" }}>{amount}</span>}
         </div>
         <p style={{ margin: 0, fontSize: "12px", color: "#888", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</p>

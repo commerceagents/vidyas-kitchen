@@ -35,6 +35,8 @@ type DriverOrder = {
   delivery_lat?: number | null;
   delivery_lng?: number | null;
   phone_number?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
   users?: UserRef;
   order_items?: ItemRow[] | null;
 };
@@ -367,8 +369,10 @@ export default function DriverOrderDetailPage() {
     }
   };
 
-  const customerName = order?.users?.full_name?.trim() || "Customer";
-  const callPhone = order?.users?.phone_number || order?.phone_number || "";
+  const orderedByName = order?.users?.full_name?.trim() || "Customer";
+  const hasRecipient = Boolean(order?.recipient_name?.trim() || order?.recipient_phone?.trim());
+  const customerName = order?.recipient_name?.trim() || orderedByName;
+  const callPhone = order?.recipient_phone?.trim() || order?.users?.phone_number || order?.phone_number || "";
   const items = order?.order_items || [];
   const slotLine = formatSlotLineForCustomer(order?.delivery_slot ?? undefined, order?.delivery_slot_kind ?? undefined);
 
@@ -496,8 +500,18 @@ export default function DriverOrderDetailPage() {
                 <User size={22} style={{ color: YELLOW }} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff" }}>{toTitleCase(customerName)}</h2>
-                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#666", fontWeight: 600 }}>Order #{orderId.slice(0, 8).toUpperCase()}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff" }}>{toTitleCase(customerName)}</h2>
+                  {hasRecipient && (
+                    <span style={{ padding: "2px 7px", borderRadius: "6px", background: `${YELLOW}20`, color: YELLOW, fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.02em" }}>
+                      RECIPIENT
+                    </span>
+                  )}
+                </div>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#666", fontWeight: 600 }}>
+                  {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
+                  Order #{orderId.slice(0, 8).toUpperCase()}
+                </p>
               </div>
             </div>
             {slotLine && (
