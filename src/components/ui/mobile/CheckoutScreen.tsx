@@ -983,7 +983,7 @@ export function CheckoutScreen({
                       </AnimatePresence>
                       <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "4px 0" }} />
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.04em" }}>TO PAY</span>
+                        <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.01em" }}>To pay</span>
                         <span style={{ fontSize: 22, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
                           ₹{grandTotal.toLocaleString("en-IN")}
                         </span>
