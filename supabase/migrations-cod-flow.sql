@@ -39,3 +39,10 @@ CREATE TABLE IF NOT EXISTS cod_blocks (
   reason TEXT,
   order_id UUID REFERENCES orders(id) ON DELETE SET NULL
 );
+
+-- Same posture as `drivers`: the dashboard and API routes run on the anon key.
+ALTER TABLE cod_blocks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all for anon" ON cod_blocks;
+CREATE POLICY "Allow all for anon" ON cod_blocks
+  FOR ALL USING (true) WITH CHECK (true);

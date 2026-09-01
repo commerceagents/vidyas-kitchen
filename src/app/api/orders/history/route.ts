@@ -22,31 +22,44 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  const BASE_COLUMNS = `
+    id, order_number, status, created_at, updated_at, total_amount,
+    delivery_slot, delivery_slot_kind, delivery_address,
+    payment_method, rating_stars,
+    order_items ( quantity, menu_items ( name, image_url ) )
+  `;
+
   try {
     const supabase = createServerSupabase();
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        `
-        id, order_number, status, created_at, updated_at, total_amount,
-        delivery_slot, delivery_slot_kind, delivery_address,
-        payment_method, payment_status, rating_stars,
-        order_items ( quantity, menu_items ( name, image_url ) )
-      `,
-      )
-      // Numbers are stored inconsistently (+91… vs plain 10 digits), so match on
-      // the trailing 10 digits rather than an exact string compare.
-      .like("phone_number", `%${key}`)
-      .order("created_at", { ascending: false })
-      .limit(MAX_ORDERS);
+
+    // Numbers are stored inconsistently (+91… vs plain 10 digits), so match on
+    // the trailing 10 digits rather than an exact string compare.
+    const query = (columns: string) =>
+      supabase
+        .from("orders")
+        .select(columns)
+        .like("phone_number", `%${key}`)
+        .order("created_at", { ascending: false })
+        .limit(MAX_ORDERS);
+
+    let { data, error } = await query(`${BASE_COLUMNS}, payment_status`);
+
+    // payment_status arrives with the COD migration. Until that has been run,
+    // fall back rather than showing the customer an error for their whole
+    // order history.
+    if (error?.code === "42703") {
+      console.warn("[orders/history] payment_status missing — run supabase/migrations-cod-flow.sql");
+      ({ data, error } = await query(BASE_COLUMNS));
+    }
 
     if (error) {
       console.error("[orders/history]", error.message);
       return NextResponse.json({ error: "Could not load orders" }, { status: 500 });
     }
 
-    const orders = (data ?? []).map((row) => {
-      const rawItems = (row as { order_items?: unknown }).order_items;
+    const rows = (data ?? []) as unknown as Record<string, unknown>[];
+    const orders = rows.map((row) => {
+      const rawItems = row.order_items;
       const items = Array.isArray(rawItems)
         ? (rawItems as { quantity?: number; menu_items?: { name?: string; image_url?: string } | null }[]).map((it) => ({
             name: it.menu_items?.name ? String(it.menu_items.name) : "Item",
@@ -59,14 +72,14 @@ export async function GET(request: Request) {
         orderId: String(row.id),
         orderNumber: row.order_number != null ? Number(row.order_number) : null,
         status: String(row.status ?? ""),
-        createdAt: row.created_at ?? null,
+        createdAt: (row.created_at as string | null) ?? null,
         totalAmount: row.total_amount != null ? Number(row.total_amount) : null,
-        deliverySlot: row.delivery_slot ?? null,
-        deliverySlotKind: row.delivery_slot_kind ?? null,
-        deliveryAddress: row.delivery_address ?? null,
-        paymentMethod: (row as { payment_method?: string | null }).payment_method ?? null,
-        paymentStatus: (row as { payment_status?: string | null }).payment_status ?? null,
-        ratingStars: (row as { rating_stars?: number | null }).rating_stars ?? null,
+        deliverySlot: (row.delivery_slot as string | null) ?? null,
+        deliverySlotKind: (row.delivery_slot_kind as string | null) ?? null,
+        deliveryAddress: (row.delivery_address as string | null) ?? null,
+        paymentMethod: (row.payment_method as string | null) ?? null,
+        paymentStatus: (row.payment_status as string | null) ?? null,
+        ratingStars: (row.rating_stars as number | null) ?? null,
         items,
       };
     });

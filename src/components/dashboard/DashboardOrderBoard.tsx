@@ -1545,6 +1545,7 @@ function OrderCard({
       </div>
 
       {isDispatched ? <DriverTrackRow order={order} /> : null}
+      {isUndelivered ? <CodBlockRow order={order} /> : null}
 
       {/* Footer — totals left, actions right (compact when cards are narrow) */}
       <div
@@ -1568,6 +1569,96 @@ function OrderCard({
       </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * A failed cash collection bars that number from COD. The kitchen decides when
+ * to trust them again, so the undo lives here on the order that caused it.
+ */
+function CodBlockRow({ order }: { order: DashboardOrder }) {
+  const [blocked, setBlocked] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const phone = order.phone_number;
+
+  useEffect(() => {
+    if (!phone) {
+      setBlocked(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/orders/cod-block?phone=${encodeURIComponent(phone)}`)
+      .then((r) => r.json())
+      .then((d: { blocked?: boolean }) => {
+        if (!cancelled) setBlocked(Boolean(d.blocked));
+      })
+      .catch(() => {
+        if (!cancelled) setBlocked(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [phone]);
+
+  if (!phone || blocked !== true) return null;
+
+  const unblock = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/orders/cod-block", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) throw new Error("Could not unblock");
+      setBlocked(false);
+      toast.show("Cash on delivery re-enabled for this number", "success");
+    } catch {
+      toast.show("Could not re-enable cash on delivery", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 12,
+        padding: "9px 12px",
+        borderRadius: 10,
+        border: "1px solid rgba(251,191,36,0.3)",
+        background: "rgba(251,191,36,0.07)",
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#FBBF24" }}>
+        Cash on delivery blocked for this number
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={unblock}
+        style={{
+          flexShrink: 0,
+          padding: "5px 10px",
+          borderRadius: 8,
+          border: "1px solid rgba(251,191,36,0.45)",
+          background: "transparent",
+          color: "#FBBF24",
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: busy ? "wait" : "pointer",
+          fontFamily: FONT,
+          opacity: busy ? 0.6 : 1,
+        }}
+      >
+        {busy ? "…" : "Allow again"}
+      </button>
+    </div>
   );
 }
 
