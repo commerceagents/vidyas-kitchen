@@ -85,7 +85,15 @@ export default function DashboardHome() {
   };
 
   const tabCounts = useMemo(() => {
-    const c: Record<DashboardTab, number> = { new: 0, preparing: 0, awaiting: 0, dispatched: 0, completed: 0, cancelled: 0 };
+    const c: Record<DashboardTab, number> = {
+      new: 0,
+      preparing: 0,
+      awaiting: 0,
+      dispatched: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+    };
     for (const o of orders) c[tabForOrder(o.status)]++;
     return c;
   }, [orders]);

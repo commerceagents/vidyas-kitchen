@@ -10,17 +10,17 @@ import {
   Navigation,
   Phone,
   Package,
-  User,
-  Clock,
+  Check,
+  X,
+  Banknote,
 } from "lucide-react";
 import { haversineMeters } from "@/lib/geo";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
+import { D, RADIUS } from "../../driver-theme";
 
-const YELLOW = "#f5e32d";
-const FONT = "var(--font-outfit), system-ui, sans-serif";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
+const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 type MenuRef = { name?: string | null; image_url?: string | null } | null;
 type ItemRow = { quantity?: number | null; menu_items?: MenuRef };
@@ -38,6 +38,8 @@ type DriverOrder = {
   recipient_name?: string | null;
   recipient_phone?: string | null;
   payment_method?: string | null;
+  payment_status?: string | null;
+  cod_collected_at?: string | null;
   total_amount?: number | null;
   users?: UserRef;
   order_items?: ItemRow[] | null;
@@ -50,14 +52,24 @@ function toTitleCase(s: string): string {
   return s.toLowerCase().replace(/(?:^|\s|[-/])\S/g, (c) => c.toUpperCase());
 }
 
-// ─── Swipe-to-Deliver Button ─────────────────────────────────────────────────
-function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; disabled?: boolean; label: string }) {
+// ─── Swipe to confirm ────────────────────────────────────────────────────────
+function SwipeAction({
+  onSwipe,
+  disabled,
+  label,
+  doneLabel,
+}: {
+  onSwipe: () => void;
+  disabled?: boolean;
+  label: string;
+  doneLabel: string;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [offsetX, setOffsetX] = useState(0);
   const [completed, setCompleted] = useState(false);
   const startXRef = useRef(0);
-  const HANDLE = 56;
+  const HANDLE = 52;
 
   const getMaxOffset = () => {
     if (!trackRef.current) return 200;
@@ -72,9 +84,7 @@ function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; dis
 
   const handleMove = (clientX: number) => {
     if (!dragging) return;
-    const max = getMaxOffset();
-    const x = Math.max(0, Math.min(clientX - startXRef.current, max));
-    setOffsetX(x);
+    setOffsetX(Math.max(0, Math.min(clientX - startXRef.current, getMaxOffset())));
   };
 
   const handleEnd = () => {
@@ -84,8 +94,8 @@ function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; dis
     if (offsetX > max * 0.85) {
       setCompleted(true);
       setOffsetX(max);
-      if (navigator.vibrate) navigator.vibrate(100);
-      setTimeout(onSwipe, 200);
+      if (navigator.vibrate) navigator.vibrate(60);
+      setTimeout(onSwipe, 180);
     } else {
       setOffsetX(0);
     }
@@ -98,14 +108,14 @@ function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; dis
       ref={trackRef}
       style={{
         position: "relative",
-        height: "64px",
-        borderRadius: "16px",
-        background: completed ? "#22c55e" : "#1a1a1a",
-        border: `1px solid ${completed ? "#22c55e" : "#2a2a2a"}`,
+        height: 60,
+        borderRadius: RADIUS.control,
+        background: completed ? D.green : "rgba(0,0,0,0.05)",
+        border: `1px solid ${completed ? D.green : D.border}`,
         overflow: "hidden",
         touchAction: "none",
         userSelect: "none",
-        opacity: disabled ? 0.4 : 1,
+        opacity: disabled ? 0.45 : 1,
         transition: "background 0.3s ease, border 0.3s ease",
       }}
       onTouchStart={(e) => handleStart(e.touches[0].clientX)}
@@ -116,21 +126,6 @@ function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; dis
       onMouseUp={handleEnd}
       onMouseLeave={() => { if (dragging) handleEnd(); }}
     >
-      {/* Progress fill */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: `${Math.max(0, offsetX + HANDLE + 8)}px`,
-          background: `linear-gradient(90deg, ${YELLOW}20, ${YELLOW}40)`,
-          borderRadius: "16px",
-          transition: dragging ? "none" : "width 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
-      />
-
-      {/* Label */}
       <div
         style={{
           position: "absolute",
@@ -138,52 +133,53 @@ function SwipeToDeliver({ onSwipe, disabled, label }: { onSwipe: () => void; dis
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "15px",
-          fontWeight: 700,
-          fontFamily: FONT,
-          color: completed ? "#fff" : `rgba(255,255,255,${0.5 - progress * 0.4})`,
+          fontSize: 15,
+          fontWeight: 800,
+          fontFamily: D.font,
+          color: completed ? "#fff" : D.muted,
+          opacity: completed ? 1 : 1 - progress * 0.8,
           letterSpacing: "-0.01em",
-          transition: dragging ? "none" : "color 0.3s ease",
           pointerEvents: "none",
         }}
       >
-        {completed ? "Delivered!" : label}
+        {completed ? doneLabel : label}
       </div>
 
-      {/* Draggable handle */}
       <div
         style={{
           position: "absolute",
-          top: "4px",
-          left: `${4 + offsetX}px`,
-          width: `${HANDLE}px`,
-          height: `${HANDLE}px`,
-          borderRadius: "14px",
-          background: completed ? "#fff" : YELLOW,
+          top: 4,
+          left: 4 + offsetX,
+          width: HANDLE,
+          height: HANDLE,
+          borderRadius: 12,
+          background: completed ? "#fff" : D.red,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: `0 4px 16px ${YELLOW}40`,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
           cursor: disabled ? "not-allowed" : "grab",
-          transition: dragging ? "none" : "left 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: dragging ? "none" : "left 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={completed ? "#22c55e" : "#000"} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          {completed ? (
-            <polyline points="20 6 9 17 4 12" />
-          ) : (
-            <>
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </>
-          )}
+        <svg
+          width="19"
+          height="19"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={completed ? D.green : "#fff"}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {completed ? <polyline points="20 6 9 17 4 12" /> : <><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>}
         </svg>
       </div>
     </div>
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Main page ───────────────────────────────────────────────────────────────
 export default function DriverOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -192,6 +188,10 @@ export default function DriverOrderDetailPage() {
   const [order, setOrder] = useState<DriverOrder | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [pickingUp, setPickingUp] = useState(false);
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [failOpen, setFailOpen] = useState(false);
+  const [failing, setFailing] = useState(false);
 
   const [geoLat, setGeoLat] = useState<number | null>(null);
   const [geoLng, setGeoLng] = useState<number | null>(null);
@@ -233,8 +233,8 @@ export default function DriverOrderDetailPage() {
   }, [load]);
 
   const nStatus = order ? normalizeOrderStatus(order.status) : "";
-  const isReady = nStatus === OrderStatus.READY || nStatus === "ready";
-  const isOut = nStatus === OrderStatus.OUT_FOR_DELIVERY || nStatus === "out" || nStatus === "out_for_delivery";
+  const isReady = nStatus === OrderStatus.READY;
+  const isOut = nStatus === OrderStatus.OUT_FOR_DELIVERY;
 
   const dropLat = order?.delivery_lat != null ? Number(order.delivery_lat) : null;
   const dropLng = order?.delivery_lng != null ? Number(order.delivery_lng) : null;
@@ -245,13 +245,17 @@ export default function DriverOrderDetailPage() {
     return haversineMeters(geoLat, geoLng, dropLat!, dropLng!);
   }, [hasDropPin, geoLat, geoLng, dropLat, dropLng]);
 
-  const canMarkDelivered =
+  const withinRange =
     !hasDropPin || (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M) || process.env.NODE_ENV === "development";
 
-  // GPS tracking
+  const isCod = (order?.payment_method || "").toLowerCase() === "cod";
+  const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
+  const canMarkDelivered = withinRange && (!cashOutstanding || cashConfirmed);
+
+  // GPS tracking while en route
   useEffect(() => {
     if (!isOut || typeof window === "undefined") return;
-    if (!navigator.geolocation) { setGeoErr("Location not supported"); return; }
+    if (!navigator.geolocation) { setGeoErr("Location not supported on this device"); return; }
 
     const tick = () => {
       const p = lastPos.current;
@@ -260,13 +264,12 @@ export default function DriverOrderDetailPage() {
 
     watchId.current = navigator.geolocation.watchPosition(
       (p) => {
-        const lat = p.coords.latitude;
-        const lng = p.coords.longitude;
-        lastPos.current = { lat, lng };
-        setGeoLat(lat);
-        setGeoLng(lng);
+        lastPos.current = { lat: p.coords.latitude, lng: p.coords.longitude };
+        setGeoLat(p.coords.latitude);
+        setGeoLng(p.coords.longitude);
+        setGeoErr(null);
       },
-      (err) => setGeoErr(err.message || "Location error"),
+      (err) => setGeoErr(err.message || "Location unavailable"),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
     postTimer.current = setInterval(tick, LOCATION_POST_MS);
@@ -279,7 +282,6 @@ export default function DriverOrderDetailPage() {
     };
   }, [isOut, postLocation]);
 
-  // Mapbox initialization
   useEffect(() => {
     if (!MAPBOX_TOKEN || !mapContainerRef.current || !hasDropPin || mapRef.current) return;
 
@@ -299,9 +301,8 @@ export default function DriverOrderDetailPage() {
         interactive: true,
       });
 
-      // Customer pin (yellow)
       const customerEl = document.createElement("div");
-      customerEl.innerHTML = `<div style="width:32px;height:32px;border-radius:10px;background:${YELLOW};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(245,227,45,0.4)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`;
+      customerEl.innerHTML = `<div style="width:30px;height:30px;border-radius:50%;background:${D.red};border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`;
       new mapboxgl.Marker({ element: customerEl }).setLngLat([dropLng!, dropLat!]).addTo(map);
 
       mapRef.current = map;
@@ -310,7 +311,6 @@ export default function DriverOrderDetailPage() {
     return () => { cancelled = true; };
   }, [hasDropPin, dropLat, dropLng]);
 
-  // Update driver marker on GPS change
   useEffect(() => {
     if (!mapRef.current || geoLat == null || geoLng == null) return;
 
@@ -318,24 +318,24 @@ export default function DriverOrderDetailPage() {
       const mapboxgl = (await import("mapbox-gl")).default;
       if (!driverMarkerRef.current) {
         const el = document.createElement("div");
-        el.innerHTML = `<div style="width:20px;height:20px;border-radius:50%;background:#22c55e;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`;
+        el.innerHTML = `<div style="width:18px;height:18px;border-radius:50%;background:${D.green};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25)"></div>`;
         driverMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat([geoLng, geoLat]).addTo(mapRef.current!);
       } else {
         driverMarkerRef.current.setLngLat([geoLng, geoLat]);
       }
 
-      // Fit map to show both pins
       if (hasDropPin) {
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([dropLng!, dropLat!]);
         bounds.extend([geoLng, geoLat]);
-        mapRef.current!.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 1000 });
+        mapRef.current!.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 900 });
       }
     })();
   }, [geoLat, geoLng, hasDropPin, dropLat, dropLng]);
 
   const handlePickup = async () => {
     setPickingUp(true);
+    setActionErr(null);
     try {
       const res = await fetch("/api/orders/driver/pickup", {
         method: "POST",
@@ -346,7 +346,7 @@ export default function DriverOrderDetailPage() {
       if (!res.ok) throw new Error(j.error || "Pickup failed");
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Pickup failed");
+      setActionErr(e instanceof Error ? e.message : "Pickup failed");
     } finally {
       setPickingUp(false);
     }
@@ -354,30 +354,51 @@ export default function DriverOrderDetailPage() {
 
   const handleComplete = async () => {
     if (geoLat == null || geoLng == null) {
-      alert("Waiting for GPS — enable location and try again.");
+      setActionErr("Waiting for GPS — turn on location and try again.");
       return;
     }
+    setActionErr(null);
     try {
       const res = await fetch("/api/orders/driver/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, lat: geoLat, lng: geoLng }),
+        body: JSON.stringify({ orderId, lat: geoLat, lng: geoLng, codCollected: cashOutstanding ? true : undefined }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not complete");
       router.push("/driver");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not complete");
+      setActionErr(e instanceof Error ? e.message : "Could not complete");
+    }
+  };
+
+  const handleFailed = async (reason: string) => {
+    setFailing(true);
+    setActionErr(null);
+    try {
+      const res = await fetch("/api/orders/driver/undelivered", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, reason }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(j.error || "Could not update order");
+      router.push("/driver");
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Could not update order");
+      setFailOpen(false);
+    } finally {
+      setFailing(false);
     }
   };
 
   const orderedByName = order?.users?.full_name?.trim() || "Customer";
   const hasRecipient = Boolean(order?.recipient_name?.trim() || order?.recipient_phone?.trim());
-  const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const customerName = order?.recipient_name?.trim() || orderedByName;
   const callPhone = order?.recipient_phone?.trim() || order?.users?.phone_number || order?.phone_number || "";
   const items = order?.order_items || [];
   const slotLine = formatSlotLineForCustomer(order?.delivery_slot ?? undefined, order?.delivery_slot_kind ?? undefined);
+  const amount = order?.total_amount != null ? Math.round(Number(order.total_amount)) : null;
 
   const mapsUrl = hasDropPin
     ? `https://www.google.com/maps/dir/?api=1&destination=${dropLat},${dropLng}`
@@ -385,247 +406,189 @@ export default function DriverOrderDetailPage() {
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address)}`
       : "";
 
-  // ── Loading / Error states ──
   if (loadErr) {
     return (
-      <div style={{ minHeight: "100dvh", background: "#0d0d0d", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", gap: "16px", fontFamily: FONT }}>
-        <p style={{ color: "#f87171", fontWeight: 600, fontSize: "15px" }}>{loadErr}</p>
-        <Link href="/driver" style={{ color: `${YELLOW}90`, fontSize: "14px", textDecoration: "underline" }}>Back to queue</Link>
-      </div>
+      <Shell>
+        <p style={{ color: D.red, fontWeight: 700, fontSize: 15, margin: 0 }}>{loadErr}</p>
+        <Link href="/driver" style={{ color: D.muted, fontSize: 14, textDecoration: "underline" }}>Back to queue</Link>
+      </Shell>
     );
   }
 
   if (!order) {
     return (
-      <div style={{ minHeight: "100dvh", background: "#0d0d0d", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", fontFamily: FONT }}>
-        <Loader2 size={32} style={{ color: YELLOW, animation: "spin 1s linear infinite" }} />
-        <p style={{ color: "#666", fontSize: "14px" }}>Loading order...</p>
+      <Shell>
+        <Loader2 size={26} style={{ color: D.faint, animation: "spin 1s linear infinite" }} />
+        <p style={{ color: D.muted, fontSize: 14, margin: 0, fontWeight: 600 }}>Loading order…</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </Shell>
     );
   }
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#0d0d0d", fontFamily: FONT, display: "flex", flexDirection: "column", color: "#fff" }}>
-      {/* ── Map Section ── */}
-      <div style={{ position: "relative", width: "100%", height: "45dvh", minHeight: "280px", flexShrink: 0 }}>
-        {/* Map container */}
+    <div style={{ minHeight: "100dvh", background: D.bg, fontFamily: D.font, display: "flex", flexDirection: "column", color: D.text }}>
+      {/* Map */}
+      <div style={{ position: "relative", width: "100%", height: "40dvh", minHeight: 250, flexShrink: 0 }}>
         {MAPBOX_TOKEN && hasDropPin ? (
           <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
         ) : (
-          <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <MapPin size={48} style={{ color: "#333" }} />
+          <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <MapPin size={38} strokeWidth={1.4} style={{ color: D.faint }} />
           </div>
         )}
 
-        {/* Overlay: Back button */}
         <Link
           href="/driver"
           style={{
             position: "absolute",
-            top: "max(16px, env(safe-area-inset-top, 12px))",
-            left: "16px",
-            width: "44px",
-            height: "44px",
-            borderRadius: "12px",
-            background: "rgba(13,13,13,0.85)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid #2a2a2a",
+            top: "max(14px, env(safe-area-inset-top, 12px))",
+            left: 16,
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            background: D.surface,
+            border: `1px solid ${D.border}`,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#fff",
+            color: D.text,
             textDecoration: "none",
             zIndex: 10,
           }}
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={19} strokeWidth={2.2} />
         </Link>
 
-        {/* Overlay: Navigation title */}
-        <div style={{
-          position: "absolute",
-          top: "max(20px, env(safe-area-inset-top, 16px))",
-          left: "72px",
-          zIndex: 10,
-        }}>
-          <p style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.6)", letterSpacing: "-0.02em" }}>Navigation</p>
-        </div>
-
-        {/* Distance badge */}
         {distanceM != null && (
-          <div style={{
-            position: "absolute",
-            top: "max(20px, env(safe-area-inset-top, 16px))",
-            right: "16px",
-            zIndex: 10,
-            padding: "6px 14px",
-            borderRadius: "10px",
-            background: "rgba(13,13,13,0.85)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid #2a2a2a",
-          }}>
-            <span style={{ fontSize: "14px", fontWeight: 800, color: YELLOW }}>
-              {distanceM < 1000 ? `${Math.round(distanceM)}m` : `${(distanceM / 1000).toFixed(1)}km`}
+          <div
+            style={{
+              position: "absolute",
+              top: "max(14px, env(safe-area-inset-top, 12px))",
+              right: 16,
+              zIndex: 10,
+              padding: "9px 14px",
+              borderRadius: 12,
+              background: D.surface,
+              border: `1px solid ${D.border}`,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+            }}
+          >
+            <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: "-0.01em" }}>
+              {distanceM < 1000 ? `${Math.round(distanceM)} m away` : `${(distanceM / 1000).toFixed(1)} km away`}
             </span>
           </div>
         )}
-
-        {/* Gradient fade to card */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "80px", background: "linear-gradient(to top, #0d0d0d, transparent)", pointerEvents: "none" }} />
       </div>
 
-      {/* ── Bottom Card ── */}
-      <div style={{
-        flex: 1,
-        marginTop: "-24px",
-        borderRadius: "24px 24px 0 0",
-        background: "#0d0d0d",
-        position: "relative",
-        zIndex: 5,
-        display: "flex",
-        flexDirection: "column",
-        padding: "0 20px",
-        paddingBottom: "max(24px, env(safe-area-inset-bottom, 16px))",
-        gap: "16px",
-      }}>
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
-          <div style={{ width: "36px", height: "4px", borderRadius: "4px", background: "#333" }} />
+      {/* Sheet */}
+      <div
+        style={{
+          flex: 1,
+          marginTop: -20,
+          borderRadius: "22px 22px 0 0",
+          background: D.bg,
+          position: "relative",
+          zIndex: 5,
+          display: "flex",
+          flexDirection: "column",
+          padding: "0 18px",
+          paddingBottom: "max(22px, env(safe-area-inset-bottom, 16px))",
+          gap: 12,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", padding: "9px 0 5px" }}>
+          <div style={{ width: 34, height: 4, borderRadius: 4, background: "rgba(0,0,0,0.14)" }} />
         </div>
 
-        {/* Customer info card */}
-        <div style={{ background: "#1a1a1a", borderRadius: "16px", border: "1px solid #2a2a2a", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: `${YELLOW}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <User size={22} style={{ color: YELLOW }} />
+        {/* Customer */}
+        <div style={{ background: D.surface, borderRadius: RADIUS.card, border: `1px solid ${D.border}`, padding: 15, display: "flex", flexDirection: "column", gap: 13 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" }}>{toTitleCase(customerName)}</h2>
+                {hasRecipient && (
+                  <span style={{ padding: "2px 7px", borderRadius: 6, background: "rgba(0,0,0,0.05)", color: D.muted, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em" }}>
+                    RECIPIENT
+                  </span>
+                )}
               </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff" }}>{toTitleCase(customerName)}</h2>
-                  {hasRecipient && (
-                    <span style={{ padding: "2px 7px", borderRadius: "6px", background: `${YELLOW}20`, color: YELLOW, fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.02em" }}>
-                      RECIPIENT
-                    </span>
-                  )}
-                </div>
-                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#666", fontWeight: 600 }}>
-                  {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
-                  Order #{orderId.slice(0, 8).toUpperCase()}
-                </p>
-              </div>
+              <p style={{ margin: "3px 0 0", fontSize: 12, color: D.muted, fontWeight: 600 }}>
+                {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
+                #{orderId.slice(0, 8).toUpperCase()}
+              </p>
             </div>
             {slotLine && (
-              <span style={{ padding: "4px 10px", borderRadius: "8px", background: `${YELLOW}15`, color: YELLOW, fontSize: "11px", fontWeight: 700 }}>
+              <span style={{ padding: "5px 10px", borderRadius: 9, background: "rgba(0,0,0,0.05)", color: D.text, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                 {slotLine}
               </span>
             )}
           </div>
 
-          {isCod && (
+          {cashOutstanding && amount != null && (
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 12px",
-                borderRadius: "10px",
-                background: "rgba(34,197,94,0.12)",
-                border: "1px solid rgba(34,197,94,0.3)",
+                gap: 11,
+                padding: "13px 14px",
+                borderRadius: 12,
+                background: D.redFaint,
+                border: `1px solid rgba(189,35,32,0.2)`,
               }}
             >
-              <span style={{ fontSize: "12px", fontWeight: 800, color: "#22c55e", letterSpacing: "0.02em" }}>
-                CASH ON DELIVERY
-              </span>
-              {order?.total_amount != null && (
-                <span style={{ fontSize: "14px", fontWeight: 800, color: "#22c55e" }}>
-                  Collect ₹{Math.round(order.total_amount)}
-                </span>
-              )}
+              <Banknote size={22} strokeWidth={1.9} style={{ color: D.red, flexShrink: 0 }} />
+              <div>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: D.red, letterSpacing: "0.08em" }}>COLLECT CASH</p>
+                <p style={{ margin: "1px 0 0", fontSize: 20, fontWeight: 800, color: D.red, letterSpacing: "-0.02em" }}>
+                  ₹{amount.toLocaleString("en-IN")}
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Address */}
-          <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-            <MapPin size={16} style={{ color: YELLOW, flexShrink: 0, marginTop: "2px" }} />
-            <p style={{ margin: 0, fontSize: "13px", color: "#999", lineHeight: 1.5 }}>{order.delivery_address || "No address provided"}</p>
-          </div>
-
-          {/* Items summary */}
-          {items.length > 0 && (
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <Package size={16} style={{ color: YELLOW, flexShrink: 0 }} />
-              <p style={{ margin: 0, fontSize: "13px", color: "#999" }}>
-                {items.map((it, i) => {
-                  const q = Math.max(1, Math.floor(Number(it.quantity) || 1));
-                  const name = it.menu_items?.name || "Item";
-                  return `${q}× ${toTitleCase(name)}`;
-                }).join(", ")}
-              </p>
+          {isCod && !cashOutstanding && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: D.greenFaint }}>
+              <Check size={16} strokeWidth={2.6} style={{ color: D.green }} />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: D.green }}>Cash already collected</span>
             </div>
+          )}
+
+          <Row icon={<MapPin size={15} strokeWidth={2} style={{ color: D.faint }} />}>
+            {order.delivery_address || "No address provided"}
+          </Row>
+
+          {items.length > 0 && (
+            <Row icon={<Package size={15} strokeWidth={2} style={{ color: D.faint }} />}>
+              {items
+                .map((it) => `${Math.max(1, Math.floor(Number(it.quantity) || 1))}× ${toTitleCase(it.menu_items?.name || "Item")}`)
+                .join(", ")}
+            </Row>
           )}
         </div>
 
-        {/* Action buttons: Call + Navigate */}
-        <div style={{ display: "flex", gap: "12px" }}>
+        {/* Call / Navigate */}
+        <div style={{ display: "flex", gap: 10 }}>
           {callPhone && (
-            <a
-              href={`tel:${callPhone.replace(/\s/g, "")}`}
-              style={{
-                flex: 1,
-                height: "52px",
-                borderRadius: "14px",
-                background: "#1a1a1a",
-                border: "1px solid #2a2a2a",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                color: "#fff",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: 700,
-                fontFamily: FONT,
-              }}
-            >
-              <Phone size={18} style={{ color: YELLOW }} />
+            <SecondaryLink href={`tel:${callPhone.replace(/\s/g, "")}`} icon={<Phone size={17} strokeWidth={2.1} />}>
               Call
-            </a>
+            </SecondaryLink>
           )}
           {mapsUrl && (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                flex: 1,
-                height: "52px",
-                borderRadius: "14px",
-                background: "#1a1a1a",
-                border: "1px solid #2a2a2a",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                color: "#fff",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: 700,
-                fontFamily: FONT,
-              }}
-            >
-              <Navigation size={18} style={{ color: YELLOW }} />
+            <SecondaryLink href={mapsUrl} external icon={<Navigation size={17} strokeWidth={2.1} />}>
               Navigate
-            </a>
+            </SecondaryLink>
           )}
         </div>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minHeight: 12 }} />
 
-        {/* Action area */}
+        {actionErr && (
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: D.red, background: D.redFaint, padding: "10px 12px", borderRadius: 11 }}>
+            {actionErr}
+          </p>
+        )}
+
         {isReady && (
           <button
             type="button"
@@ -633,56 +596,292 @@ export default function DriverOrderDetailPage() {
             onClick={() => void handlePickup()}
             style={{
               width: "100%",
-              height: "56px",
-              borderRadius: "14px",
+              height: 56,
+              borderRadius: RADIUS.control,
               border: "none",
-              background: YELLOW,
-              color: "#000",
-              fontSize: "16px",
+              background: D.red,
+              color: "#fff",
+              fontSize: 16,
               fontWeight: 800,
-              fontFamily: FONT,
+              fontFamily: D.font,
               cursor: pickingUp ? "wait" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px",
-              boxShadow: `0 8px 24px ${YELLOW}30`,
+              gap: 9,
             }}
           >
-            {pickingUp ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /> : <Package size={20} />}
-            {pickingUp ? "Picking up..." : "Picked Up Order"}
+            {pickingUp ? <Loader2 size={19} style={{ animation: "spin 1s linear infinite" }} /> : <Package size={19} strokeWidth={2.1} />}
+            {pickingUp ? "Picking up…" : "Picked up order"}
           </button>
         )}
 
         {isOut && (
           <>
             {geoErr && (
-              <p style={{ fontSize: "13px", color: `${YELLOW}cc`, margin: 0, padding: "8px 12px", background: `${YELLOW}10`, borderRadius: "10px", border: `1px solid ${YELLOW}20` }}>{geoErr}</p>
-            )}
-            {!canMarkDelivered && distanceM != null && (
-              <p style={{ fontSize: "12px", color: "#666", margin: 0, textAlign: "center" }}>
-                ~{Math.round(distanceM)}m away. Move within {PROXIMITY_UNLOCK_M}m to deliver.
+              <p style={{ fontSize: 12.5, color: D.amber, margin: 0, padding: "9px 12px", background: D.amberFaint, borderRadius: 11, fontWeight: 600 }}>
+                {geoErr}
               </p>
             )}
-            <SwipeToDeliver
-              label="Swipe to Deliver"
+
+            {cashOutstanding && amount != null && (
+              <button
+                type="button"
+                onClick={() => setCashConfirmed((v) => !v)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 11,
+                  width: "100%",
+                  padding: "13px 14px",
+                  borderRadius: RADIUS.control,
+                  background: cashConfirmed ? D.greenFaint : D.surface,
+                  border: `1px solid ${cashConfirmed ? "rgba(18,131,63,0.35)" : D.border}`,
+                  cursor: "pointer",
+                  fontFamily: D.font,
+                  textAlign: "left",
+                }}
+              >
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 7,
+                    flexShrink: 0,
+                    background: cashConfirmed ? D.green : "transparent",
+                    border: `2px solid ${cashConfirmed ? D.green : D.borderStrong}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {cashConfirmed && <Check size={14} strokeWidth={3.2} style={{ color: "#fff" }} />}
+                </span>
+                <span style={{ fontSize: 14.5, fontWeight: 700, color: cashConfirmed ? D.green : D.text }}>
+                  I collected ₹{amount.toLocaleString("en-IN")} in cash
+                </span>
+              </button>
+            )}
+
+            {!withinRange && distanceM != null && (
+              <p style={{ fontSize: 12, color: D.muted, margin: 0, textAlign: "center", fontWeight: 600 }}>
+                {Math.round(distanceM)} m away — move within {PROXIMITY_UNLOCK_M} m to deliver.
+              </p>
+            )}
+
+            <SwipeAction
+              label={cashOutstanding && !cashConfirmed ? "Confirm cash first" : "Swipe to mark delivered"}
+              doneLabel="Delivered"
               disabled={!canMarkDelivered}
               onSwipe={handleComplete}
             />
+
+            <button
+              type="button"
+              onClick={() => setFailOpen(true)}
+              style={{
+                background: "none",
+                border: "none",
+                color: D.muted,
+                fontSize: 13.5,
+                fontWeight: 700,
+                fontFamily: D.font,
+                padding: "6px 0",
+                cursor: "pointer",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+              }}
+            >
+              Couldn&apos;t deliver this order
+            </button>
           </>
         )}
 
         {!isReady && !isOut && (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <p style={{ color: "#666", fontSize: "14px", margin: 0 }}>
-              This order is no longer in the driver queue.
-            </p>
-            <Link href="/driver" style={{ color: `${YELLOW}90`, fontSize: "14px", textDecoration: "underline", marginTop: "8px", display: "inline-block" }}>Back to list</Link>
+          <div style={{ textAlign: "center", padding: "22px 0" }}>
+            <p style={{ color: D.muted, fontSize: 14, margin: 0, fontWeight: 600 }}>This order is no longer in your queue.</p>
+            <Link href="/driver" style={{ color: D.red, fontSize: 14, fontWeight: 700, textDecoration: "underline", marginTop: 8, display: "inline-block" }}>
+              Back to list
+            </Link>
           </div>
         )}
       </div>
 
+      {failOpen && (
+        <FailSheet
+          busy={failing}
+          isCod={isCod}
+          onClose={() => setFailOpen(false)}
+          onPick={(reason) => void handleFailed(reason)}
+        />
+      )}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ─── Pieces ──────────────────────────────────────────────────────────────────
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: D.bg,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 14,
+        fontFamily: D.font,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <span style={{ flexShrink: 0, marginTop: 2 }}>{icon}</span>
+      <p style={{ margin: 0, fontSize: 13.5, color: D.muted, lineHeight: 1.45, fontWeight: 600 }}>{children}</p>
+    </div>
+  );
+}
+
+function SecondaryLink({
+  href,
+  icon,
+  children,
+  external,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  external?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      style={{
+        flex: 1,
+        height: 50,
+        borderRadius: RADIUS.control,
+        background: D.surface,
+        border: `1px solid ${D.border}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        color: D.text,
+        textDecoration: "none",
+        fontSize: 14.5,
+        fontWeight: 700,
+        fontFamily: D.font,
+      }}
+    >
+      {icon}
+      {children}
+    </a>
+  );
+}
+
+function FailSheet({
+  busy,
+  isCod,
+  onClose,
+  onPick,
+}: {
+  busy: boolean;
+  isCod: boolean;
+  onClose: () => void;
+  onPick: (reason: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "flex-end",
+        fontFamily: D.font,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          background: D.surface,
+          borderRadius: "22px 22px 0 0",
+          padding: "18px 18px max(22px, env(safe-area-inset-bottom, 16px))",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>What went wrong?</h3>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: D.muted, fontWeight: 600, lineHeight: 1.45 }}>
+              {isCod
+                ? "The kitchen will follow up, and this number won't be able to use cash on delivery again."
+                : "The kitchen will be notified to follow up with the customer."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              border: "none",
+              background: "rgba(0,0,0,0.05)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <X size={16} strokeWidth={2.4} style={{ color: D.muted }} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {Object.entries(COD_FAILURE_REASONS).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              disabled={busy}
+              onClick={() => onPick(key)}
+              style={{
+                width: "100%",
+                padding: "15px 16px",
+                borderRadius: RADIUS.control,
+                border: `1px solid ${D.border}`,
+                background: D.bg,
+                color: D.text,
+                fontSize: 14.5,
+                fontWeight: 700,
+                fontFamily: D.font,
+                textAlign: "left",
+                cursor: busy ? "wait" : "pointer",
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

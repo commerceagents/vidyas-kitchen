@@ -72,6 +72,9 @@ function mapOrderRow(row: Record<string, unknown>): DashboardOrder {
     created_at: String(row.created_at ?? ""),
     delivery_slot: (row.delivery_slot as string | null) ?? null,
     delivery_slot_kind: (row.delivery_slot_kind as string | null) ?? null,
+    payment_method: (row.payment_method as string | null) ?? null,
+    payment_status: (row.payment_status as string | null) ?? null,
+    cod_failure_reason: (row.cod_failure_reason as string | null) ?? null,
     items,
   };
 }

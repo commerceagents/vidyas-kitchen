@@ -16,7 +16,7 @@ import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemWeight } from "@/lib/menu/order-item-weight";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 
 export type DashboardNotification = {
   id: string;
@@ -101,6 +101,9 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       created_at: createdAt,
       delivery_slot: deliverySlot,
       delivery_slot_kind: "dinner",
+      payment_method: "cod",
+      payment_status: PaymentStatus.PENDING,
+      cod_failure_reason: null,
       items: dinnerItems,
     },
     {
@@ -113,6 +116,9 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
       delivery_slot: deliverySlot,
       delivery_slot_kind: "breakfast",
+      payment_method: "online",
+      payment_status: PaymentStatus.PAID,
+      cod_failure_reason: null,
       items: [
         {
           quantity: 1,
@@ -164,6 +170,9 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
     created_at: String(row.created_at ?? ""),
     delivery_slot: (row.delivery_slot as string | null) ?? null,
     delivery_slot_kind: (row.delivery_slot_kind as string | null) ?? null,
+    payment_method: (row.payment_method as string | null) ?? null,
+    payment_status: (row.payment_status as string | null) ?? null,
+    cod_failure_reason: (row.cod_failure_reason as string | null) ?? null,
     items,
   };
 }
@@ -183,6 +192,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       .from("orders")
       .select(`
         id, order_number, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
+        payment_method, payment_status, cod_failure_reason,
         order_items ( id, quantity, unit_price, menu_item_id, menu_items ( name, image_url, price ) )
       `)
       .order("order_number", { ascending: false, nullsFirst: false })

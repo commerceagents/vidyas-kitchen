@@ -10,11 +10,26 @@ export const OrderStatus = {
   READY: "ready",
   OUT_FOR_DELIVERY: "out_for_delivery",
   DELIVERED: "delivered",
+  /** Driver reached the door but couldn't hand the order over (COD refused, nobody there). */
+  UNDELIVERED: "undelivered",
   CANCELLED: "cancelled",
   REJECTED: "rejected",
 } as const;
 
 export type OrderStatusValue = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+/**
+ * Where the money is. Deliberately separate from `OrderStatus`, which tracks
+ * where the food is — a COD order is cooked and dispatched while its payment
+ * is still `pending`.
+ */
+export const PaymentStatus = {
+  PENDING: "pending",
+  PAID: "paid",
+  FAILED: "failed",
+} as const;
+
+export type PaymentStatusValue = (typeof PaymentStatus)[keyof typeof PaymentStatus];
 
 /** Allowed monotonic transitions (kitchen / driver / payment). */
 const EDGES: Record<string, string[]> = {
@@ -23,8 +38,11 @@ const EDGES: Record<string, string[]> = {
   [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
   [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
   [OrderStatus.READY]: [OrderStatus.OUT_FOR_DELIVERY],
-  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
+  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED, OrderStatus.UNDELIVERED],
   [OrderStatus.DELIVERED]: [],
+  // Kitchen can still settle an undelivered order afterwards (customer paid
+  // later, or the food came back and the order is written off).
+  [OrderStatus.UNDELIVERED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.REJECTED]: [],
 };
@@ -72,6 +90,8 @@ export function kitchenLabelForStatus(status: string): string {
       return "Dispatched";
     case OrderStatus.DELIVERED:
       return "Delivered";
+    case OrderStatus.UNDELIVERED:
+      return "Not Delivered";
     case OrderStatus.CANCELLED:
       return "Cancelled";
     case OrderStatus.REJECTED:
@@ -79,4 +99,29 @@ export function kitchenLabelForStatus(status: string): string {
     default:
       return titleizeWords(s);
   }
+}
+
+/** Reasons a driver can give when an order can't be handed over. */
+export const COD_FAILURE_REASONS = {
+  refused: "Customer refused to pay",
+  unreachable: "Customer not reachable",
+  wrong_address: "Wrong or unreachable address",
+  other: "Other reason",
+} as const;
+
+export type CodFailureReason = keyof typeof COD_FAILURE_REASONS;
+
+export function codFailureLabel(reason: string | null | undefined): string {
+  if (!reason) return "Not delivered";
+  return COD_FAILURE_REASONS[reason as CodFailureReason] ?? titleizeWords(reason);
+}
+
+/** True when the order still owes money (COD that hasn't been collected). */
+export function isPaymentOutstanding(
+  paymentStatus: string | null | undefined,
+  status: string | null | undefined,
+): boolean {
+  if (normalizeOrderStatus(String(status ?? "")) === OrderStatus.CANCELLED) return false;
+  const p = String(paymentStatus ?? "").toLowerCase();
+  return p === PaymentStatus.PENDING || p === PaymentStatus.FAILED;
 }

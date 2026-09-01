@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MapPin, Package, Loader2, ChevronRight, Clock, Truck } from "lucide-react";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { MapPin, Package, Loader2, ChevronRight, Clock } from "lucide-react";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
-
-const YELLOW = "#f5e32d";
-const FONT = "var(--font-outfit), system-ui, sans-serif";
+import { D, RADIUS } from "./driver-theme";
 
 type Row = {
   id: string;
@@ -20,6 +18,7 @@ type Row = {
   recipient_name?: string | null;
   recipient_phone?: string | null;
   payment_method?: string | null;
+  payment_status?: string | null;
   users?: { full_name?: string | null; phone_number?: string | null } | null;
   order_items?: { quantity?: number | null; menu_items?: { name?: string | null; image_url?: string | null } | null }[] | null;
 };
@@ -47,6 +46,14 @@ function firstImage(order: Row): string | null {
   return url;
 }
 
+/** Cash still to be collected on this order. */
+export function codOutstanding(order: { payment_method?: string | null; payment_status?: string | null }): boolean {
+  return (
+    String(order.payment_method || "").toLowerCase() === "cod" &&
+    String(order.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID
+  );
+}
+
 export default function DriverHubPage() {
   const [orders, setOrders] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,101 +73,83 @@ export default function DriverHubPage() {
     return () => { cancel = true; clearInterval(t); };
   }, []);
 
-  const pickup = orders.filter((o) => {
-    const s = normalizeOrderStatus(o.status);
-    return s === OrderStatus.READY || s === "ready";
-  });
-  const enRoute = orders.filter((o) => {
-    const s = normalizeOrderStatus(o.status);
-    return s === OrderStatus.OUT_FOR_DELIVERY || s === "out";
-  });
+  const pickup = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.READY);
+  const enRoute = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.OUT_FOR_DELIVERY);
+  const cashToCollect = orders.reduce(
+    (sum, o) => (codOutstanding(o) ? sum + Math.round(Number(o.total_amount) || 0) : sum),
+    0,
+  );
 
   return (
-    <div style={{
-      minHeight: "100dvh",
-      background: "#0d0d0d",
-      fontFamily: FONT,
-      color: "#fff",
-      display: "flex",
-      flexDirection: "column",
-      paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))",
-    }}>
-      {/* Header */}
-      <header style={{
-        padding: "max(20px, env(safe-area-inset-top, 16px)) 20px 16px",
-        flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-          <div style={{ width: "44px", height: "44px", borderRadius: "50%", overflow: "hidden", border: "1px solid #222", background: "#161616", flexShrink: 0 }}>
-            <img src="/vk_logo_full.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: D.bg,
+        fontFamily: D.font,
+        color: D.text,
+        display: "flex",
+        flexDirection: "column",
+        paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))",
+      }}
+    >
+      <header
+        style={{
+          padding: "max(18px, env(safe-area-inset-top, 14px)) 20px 14px",
+          flexShrink: 0,
+          background: D.surface,
+          borderBottom: `1px solid ${D.border}`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div>
-            <p style={{ margin: 0, fontSize: "12px", fontWeight: 600, color: "#666" }}>Vidya's Kitchen</p>
-            <h1 style={{ margin: "2px 0 0", fontSize: "22px", fontWeight: 800, letterSpacing: "-0.02em" }}>Driver</h1>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: D.faint, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Vidya&apos;s Kitchen
+            </p>
+            <h1 style={{ margin: "3px 0 0", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em" }}>Deliveries</h1>
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{ width: "8px", height: "8px", borderRadius: "4px", background: "#22c55e", animation: "pulse 2s ease-in-out infinite" }} />
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "#22c55e" }}>Live</span>
-          </div>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 4, background: D.green, animation: "pulse 2s ease-in-out infinite" }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Live</span>
+          </span>
         </div>
 
-        {/* Stats bar */}
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div style={{ flex: 1, background: "#1a1a1a", borderRadius: "14px", border: "1px solid #2a2a2a", padding: "14px 16px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: `${YELLOW}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Package size={18} style={{ color: YELLOW }} />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>{pickup.length}</p>
-              <p style={{ margin: 0, fontSize: "11px", color: "#666", fontWeight: 600 }}>Pickup</p>
-            </div>
-          </div>
-          <div style={{ flex: 1, background: "#1a1a1a", borderRadius: "14px", border: "1px solid #2a2a2a", padding: "14px 16px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(34,197,94,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Truck size={18} style={{ color: "#22c55e" }} />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>{enRoute.length}</p>
-              <p style={{ margin: 0, fontSize: "11px", color: "#666", fontWeight: 600 }}>On Route</p>
-            </div>
-          </div>
+        <div style={{ display: "flex", gap: 18, marginTop: 16 }}>
+          <Stat value={pickup.length} label="To pick up" />
+          <Divider />
+          <Stat value={enRoute.length} label="On the road" />
+          {cashToCollect > 0 && (
+            <>
+              <Divider />
+              <Stat value={`₹${cashToCollect.toLocaleString("en-IN")}`} label="Cash to collect" tone={D.red} />
+            </>
+          )}
         </div>
       </header>
 
-      {/* Content */}
-      <div style={{ flex: 1, padding: "0 20px", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: "18px 20px 0", overflowY: "auto" }}>
         {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: "12px" }}>
-            <Loader2 size={28} style={{ color: YELLOW, animation: "spin 1s linear infinite" }} />
-            <p style={{ color: "#666", fontSize: "14px", margin: 0 }}>Loading deliveries...</p>
-          </div>
+          <Centered>
+            <Loader2 size={24} style={{ color: D.faint, animation: "spin 1s linear infinite" }} />
+            <p style={{ color: D.muted, fontSize: 14, margin: 0, fontWeight: 600 }}>Loading deliveries…</p>
+          </Centered>
         ) : orders.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: "12px" }}>
-            <Package size={48} style={{ color: "#333" }} />
-            <p style={{ color: "#666", fontSize: "15px", fontWeight: 600, margin: 0 }}>No deliveries right now</p>
-            <p style={{ color: "#444", fontSize: "13px", margin: 0 }}>New orders will appear here automatically</p>
-          </div>
+          <Centered>
+            <Package size={36} strokeWidth={1.5} style={{ color: D.faint }} />
+            <p style={{ color: D.text, fontSize: 15, fontWeight: 700, margin: 0 }}>No deliveries right now</p>
+            <p style={{ color: D.muted, fontSize: 13, margin: 0 }}>New orders appear here automatically</p>
+          </Centered>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px", paddingBottom: "20px" }}>
-            {/* Pickup section */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 22, paddingBottom: 24 }}>
             {pickup.length > 0 && (
-              <section>
-                <h2 style={{ margin: "0 0 10px 2px", fontSize: "14px", fontWeight: 700, color: "#888", letterSpacing: "0.02em" }}>Pickup at Kitchen</h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {pickup.map((o) => <OrderCard key={o.id} order={o} />)}
-                </div>
-              </section>
+              <Section title="Pick up at kitchen" count={pickup.length}>
+                {pickup.map((o) => <OrderCard key={o.id} order={o} />)}
+              </Section>
             )}
-
-            {/* En route section */}
             {enRoute.length > 0 && (
-              <section>
-                <h2 style={{ margin: "0 0 10px 2px", fontSize: "14px", fontWeight: 700, color: "#888", letterSpacing: "0.02em" }}>On the Road</h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {enRoute.map((o) => <OrderCard key={o.id} order={o} isEnRoute />)}
-                </div>
-              </section>
+              <Section title="On the road" count={enRoute.length}>
+                {enRoute.map((o) => <OrderCard key={o.id} order={o} isEnRoute />)}
+              </Section>
             )}
           </div>
         )}
@@ -168,9 +157,50 @@ export default function DriverHubPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
       `}</style>
     </div>
+  );
+}
+
+function Stat({ value, label, tone }: { value: number | string; label: string; tone?: string }) {
+  return (
+    <div>
+      <p style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: tone ?? D.text }}>{value}</p>
+      <p style={{ margin: "1px 0 0", fontSize: 11, color: D.muted, fontWeight: 600 }}>{label}</p>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={{ width: 1, alignSelf: "stretch", background: D.border }} />;
+}
+
+function Centered({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "70px 0", gap: 10 }}>
+      {children}
+    </div>
+  );
+}
+
+function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2
+        style={{
+          margin: "0 0 10px 2px",
+          fontSize: 11,
+          fontWeight: 800,
+          color: D.muted,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+        }}
+      >
+        {title} · {count}
+      </h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>
+    </section>
   );
 }
 
@@ -180,8 +210,8 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
   const summary = itemsSummary(order);
   const img = firstImage(order);
   const slotLine = formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined);
-  const amount = order.total_amount != null ? `₹${Math.round(order.total_amount)}` : "";
-  const isCod = (order.payment_method || "").toLowerCase() === "cod";
+  const amount = order.total_amount != null ? `₹${Math.round(order.total_amount).toLocaleString("en-IN")}` : "";
+  const collectCash = codOutstanding(order);
 
   return (
     <Link
@@ -189,62 +219,115 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "14px",
-        padding: "14px",
-        background: "#1a1a1a",
-        borderRadius: "16px",
-        border: isEnRoute ? "1px solid rgba(34,197,94,0.2)" : "1px solid #2a2a2a",
+        gap: 13,
+        padding: 13,
+        background: D.surface,
+        borderRadius: RADIUS.card,
+        border: `1px solid ${isEnRoute ? "rgba(18,131,63,0.28)" : D.border}`,
         textDecoration: "none",
-        color: "#fff",
-        transition: "all 0.2s ease",
+        color: D.text,
       }}
     >
-      {/* Dish thumbnail */}
-      <div style={{ width: "52px", height: "52px", borderRadius: "12px", overflow: "hidden", flexShrink: 0, background: "#222" }}>
+      <div style={{ width: 50, height: 50, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.05)" }}>
         {img ? (
           <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Package size={20} style={{ color: "#555" }} />
+            <Package size={18} strokeWidth={1.6} style={{ color: D.faint }} />
           </div>
         )}
       </div>
 
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
-          <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 15,
+              fontWeight: 800,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              letterSpacing: "-0.01em",
+            }}
+          >
             {toTitleCase(customerName)}
-            {hasRecipient && (
-              <span style={{ padding: "1px 6px", borderRadius: "5px", background: `${YELLOW}20`, color: YELLOW, fontSize: "8.5px", fontWeight: 800, flexShrink: 0 }}>
-                RECIPIENT
-              </span>
-            )}
           </p>
-          <span style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0, marginLeft: "8px" }}>
-            {isCod && (
-              <span style={{ padding: "1px 6px", borderRadius: "5px", background: "rgba(34,197,94,0.16)", color: "#22c55e", fontSize: "8.5px", fontWeight: 800 }}>
-                COD
+          {amount && (
+            <span style={{ fontSize: 14, fontWeight: 800, flexShrink: 0, letterSpacing: "-0.01em" }}>{amount}</span>
+          )}
+        </div>
+
+        <p
+          style={{
+            margin: "3px 0 0",
+            fontSize: 12.5,
+            color: D.muted,
+            fontWeight: 600,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {summary}
+        </p>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
+          <MapPin size={11} strokeWidth={2} style={{ color: D.faint, flexShrink: 0 }} />
+          <p
+            style={{
+              margin: 0,
+              fontSize: 11.5,
+              color: D.faint,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {order.delivery_address || "—"}
+          </p>
+        </div>
+
+        {(slotLine || collectCash || hasRecipient) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+            {collectCash && <Chip tone="red">Collect cash</Chip>}
+            {hasRecipient && <Chip tone="plain">Recipient</Chip>}
+            {slotLine && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <Clock size={10} strokeWidth={2.2} style={{ color: D.faint }} />
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: D.muted }}>{slotLine}</span>
               </span>
             )}
-            {amount && <span style={{ fontSize: "13px", fontWeight: 800, color: YELLOW }}>{amount}</span>}
-          </span>
-        </div>
-        <p style={{ margin: 0, fontSize: "12px", color: "#888", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px" }}>
-          <MapPin size={11} style={{ color: "#555", flexShrink: 0 }} />
-          <p style={{ margin: 0, fontSize: "11px", color: "#555", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{order.delivery_address || "—"}</p>
-        </div>
-        {slotLine && (
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
-            <Clock size={10} style={{ color: YELLOW, flexShrink: 0 }} />
-            <span style={{ fontSize: "10px", fontWeight: 700, color: `${YELLOW}cc` }}>{slotLine}</span>
           </div>
         )}
       </div>
 
-      {/* Arrow */}
-      <ChevronRight size={18} style={{ color: "#444", flexShrink: 0 }} />
+      <ChevronRight size={17} strokeWidth={2} style={{ color: D.faint, flexShrink: 0 }} />
     </Link>
+  );
+}
+
+function Chip({ tone, children }: { tone: "red" | "green" | "plain"; children: React.ReactNode }) {
+  const palette =
+    tone === "red"
+      ? { bg: D.redFaint, fg: D.red }
+      : tone === "green"
+        ? { bg: D.greenFaint, fg: D.green }
+        : { bg: "rgba(0,0,0,0.05)", fg: D.muted };
+  return (
+    <span
+      style={{
+        padding: "2px 7px",
+        borderRadius: 6,
+        background: palette.bg,
+        color: palette.fg,
+        fontSize: 9.5,
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </span>
   );
 }

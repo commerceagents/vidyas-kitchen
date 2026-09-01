@@ -278,6 +278,37 @@ export function notifyOrderPaid(shortId: string, slotLine?: string): string {
   ].filter((l) => l !== "").join("\n");
 }
 
+/** Cash on delivery — nothing has been paid yet, so never say "payment received". */
+export function notifyOrderPlacedCod(shortId: string, amtStr: string, slotLine?: string): string {
+  return [
+    `*Order confirmed* (#${shortId})`,
+    ``,
+    slotLine ? `*Delivery slot:* ${slotLine}` : "",
+    slotLine ? `` : "",
+    `*Payment:* Cash on delivery — please keep *${amtStr}* ready.`,
+    ``,
+    `Our kitchen will begin preparing your order shortly. We will keep you updated on the status.`,
+  ].filter((l) => l !== "").join("\n");
+}
+
+export function notifyCodCollected(shortId: string, amtStr: string): string {
+  return [
+    `*Payment received* (#${shortId})`,
+    ``,
+    `We have received *${amtStr}* in cash. Thank you for your order.`,
+  ].join("\n");
+}
+
+export function notifyOrderUndelivered(shortId: string, reasonLine: string): string {
+  return [
+    `*Delivery unsuccessful* (#${shortId})`,
+    ``,
+    `Our driver could not complete this delivery: ${reasonLine}.`,
+    ``,
+    `Please reply here and our team will help you sort this out.`,
+  ].join("\n");
+}
+
 export function notifyOrderAccepted(shortId: string, slotLine?: string): string {
   return [
     `*Order accepted* (#${shortId})`,
@@ -329,11 +360,13 @@ export function notifyOrderCancelled(shortId: string): string {
   ].join("\n");
 }
 
-export function notifyOrderRejected(shortId: string, amtStr: string): string {
+export function notifyOrderRejected(shortId: string, amtStr: string, wasPaid = true): string {
   return [
     `We are sorry — we were unable to accept order *#${shortId}*.`,
     ``,
-    `A full refund of *${amtStr}* has been initiated and should reach you within 5–7 working days.`,
+    wasPaid
+      ? `A full refund of *${amtStr}* has been initiated and should reach you within 5–7 working days.`
+      : `You have not been charged for this order.`,
     ``,
     `We apologise for the inconvenience. Please let us know if we can assist you further.`,
   ].join("\n");

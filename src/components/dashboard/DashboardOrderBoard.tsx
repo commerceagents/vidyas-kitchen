@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, codFailureLabel } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal, getOrderDisplayTotal, orderItemsSubtotal } from "@/lib/order-pricing";
 import { useToast } from "@/components/dashboard/DashboardToast";
@@ -19,9 +19,11 @@ import {
   mealChipStyle,
   mealTypeLabel,
   tabForOrder,
+  paymentBadgeForOrder,
   type DashboardOrder,
   type DashboardOrderItem,
   type DashboardTab,
+  type PaymentBadge,
 } from "@/lib/dashboard/orders";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -230,6 +232,7 @@ const TABS: { id: DashboardTab; label: string }[] = [
   { id: "awaiting", label: "Ready" },
   { id: "dispatched", label: "Dispatch" },
   { id: "completed", label: "Complete" },
+  { id: "failed", label: "Not Delivered" },
   { id: "cancelled", label: "Cancelled" },
 ];
 
@@ -524,6 +527,7 @@ export function DashboardOrderBoard({
       awaiting: [],
       dispatched: [],
       completed: [],
+      failed: [],
       cancelled: [],
     };
     for (const o of orders) g[tabForOrder(o.status)].push(o);
@@ -780,6 +784,37 @@ function MealChip({ label, style }: { label: string; style: { bg: string; color:
       lineHeight: 1,
     }}>
       {label}
+    </span>
+  );
+}
+
+const PAYMENT_CHIP_STYLES: Record<PaymentBadge["tone"], { bg: string; color: string; border: string }> = {
+  paid: { bg: "rgba(52,211,153,0.14)", color: "#34D399", border: "rgba(52,211,153,0.32)" },
+  pending: { bg: "rgba(251,191,36,0.14)", color: "#FBBF24", border: "rgba(251,191,36,0.32)" },
+  failed: { bg: "rgba(248,113,113,0.14)", color: "#F87171", border: "rgba(248,113,113,0.32)" },
+};
+
+function PaymentChip({ badge }: { badge: PaymentBadge }) {
+  const s = PAYMENT_CHIP_STYLES[badge.tone];
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "5px 10px",
+        borderRadius: "8px",
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        color: s.color,
+        fontSize: "11px",
+        fontWeight: 800,
+        letterSpacing: "0.2px",
+        flexShrink: 0,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {badge.label}
     </span>
   );
 }
@@ -1270,12 +1305,14 @@ function OrderCard({
   const isAwaiting = status === OrderStatus.READY;
   const isDispatched = status === OrderStatus.OUT_FOR_DELIVERY;
   const isDelivered = status === OrderStatus.DELIVERED;
+  const isUndelivered = status === OrderStatus.UNDELIVERED;
   const isCancelled = status === OrderStatus.REJECTED || status === OrderStatus.CANCELLED;
 
   const items = order.items || [];
   const hiddenItemCount = Math.max(0, items.length - MAX_VISIBLE_ITEMS);
   const totalAmount = getOrderDisplayTotal(order);
-  const showActions = !isDelivered && !isCancelled;
+  const showActions = !isDelivered && !isCancelled && !isUndelivered;
+  const payment = paymentBadgeForOrder(order);
 
   const mealType = mealTypeLabel(order.delivery_slot_kind);
   const chipStyle = mealChipStyle(order.delivery_slot_kind);
@@ -1288,6 +1325,15 @@ function OrderCard({
           label="DELIVERED"
           color="#34D399"
           icon={<Check size={14} strokeWidth={3} />}
+        />
+      );
+    }
+    if (isUndelivered) {
+      return (
+        <StatusActionButton
+          label={codFailureLabel(order.cod_failure_reason).toUpperCase()}
+          color="#FBBF24"
+          icon={<X size={14} strokeWidth={3} />}
         />
       );
     }
@@ -1436,7 +1482,10 @@ function OrderCard({
         }}>
           {orderLabel}
         </span>
-        {mealType ? <MealChip label={mealType} style={chipStyle} /> : null}
+        <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <PaymentChip badge={payment} />
+          {mealType ? <MealChip label={mealType} style={chipStyle} /> : null}
+        </span>
       </div>
 
       <div style={{

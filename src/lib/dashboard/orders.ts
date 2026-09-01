@@ -1,4 +1,4 @@
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { getOrderRevenueAmount } from "@/lib/order-pricing";
 
 export type DashboardOrderItem = {
@@ -22,6 +22,9 @@ export type DashboardOrder = {
   created_at: string;
   delivery_slot: string | null;
   delivery_slot_kind: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
+  cod_failure_reason: string | null;
   items: DashboardOrderItem[];
 };
 
@@ -255,7 +258,14 @@ export function isNewPaidOrder(status: string) {
   return normalizeOrderStatus(status) === OrderStatus.PAID;
 }
 
-export type DashboardTab = "new" | "preparing" | "awaiting" | "dispatched" | "completed" | "cancelled";
+export type DashboardTab =
+  | "new"
+  | "preparing"
+  | "awaiting"
+  | "dispatched"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export function tabForOrder(status: string): DashboardTab {
   const s = normalizeOrderStatus(status);
@@ -264,7 +274,26 @@ export function tabForOrder(status: string): DashboardTab {
   if (s === OrderStatus.READY) return "awaiting";
   if (s === OrderStatus.OUT_FOR_DELIVERY) return "dispatched";
   if (s === OrderStatus.DELIVERED) return "completed";
+  if (s === OrderStatus.UNDELIVERED) return "failed";
   return "cancelled";
+}
+
+export type PaymentBadge = { label: string; tone: "paid" | "pending" | "failed" };
+
+/** How the kitchen should read this order's money state. */
+export function paymentBadgeForOrder(
+  order: Pick<DashboardOrder, "payment_method" | "payment_status" | "status">,
+): PaymentBadge {
+  const isCod = String(order.payment_method || "").toLowerCase() === "cod";
+  const pay = String(order.payment_status || "").toLowerCase();
+
+  if (pay === PaymentStatus.FAILED) return { label: "Not collected", tone: "failed" };
+  if (pay === PaymentStatus.PAID) return { label: isCod ? "Cash collected" : "Paid", tone: "paid" };
+  return { label: isCod ? "Pending — COD" : "Awaiting payment", tone: "pending" };
+}
+
+export function isCodOrder(order: Pick<DashboardOrder, "payment_method">): boolean {
+  return String(order.payment_method || "").toLowerCase() === "cod";
 }
 
 export function isDevPreviewOrder(order: Pick<DashboardOrder, "id">): boolean {
@@ -292,15 +321,21 @@ export function isOrderToday(order: DashboardOrder): boolean {
   return d === todayCalendarDateIST();
 }
 
-/** Paid / active orders that count toward revenue (excludes rejected, cancelled, unpaid). */
+/** Orders whose money is booked or still expected (excludes rejected, cancelled, failed). */
 export function isBillableOrder(order: DashboardOrder): boolean {
   if (isDevPreviewOrder(order)) return false;
   const s = normalizeOrderStatus(order.status);
-  return (
-    s !== OrderStatus.REJECTED &&
-    s !== OrderStatus.CANCELLED &&
-    s !== OrderStatus.PENDING_PAYMENT
-  );
+  if (s === OrderStatus.REJECTED || s === OrderStatus.CANCELLED || s === OrderStatus.PENDING_PAYMENT) {
+    return false;
+  }
+  // Cash the driver couldn't collect is never revenue.
+  return String(order.payment_status || "").toLowerCase() !== PaymentStatus.FAILED;
+}
+
+/** Money actually in hand — COD still in transit doesn't count. */
+export function isCollectedOrder(order: DashboardOrder): boolean {
+  if (!isBillableOrder(order)) return false;
+  return String(order.payment_status || PaymentStatus.PAID).toLowerCase() === PaymentStatus.PAID;
 }
 
 /** Newest order numbers first; falls back to created_at. */
@@ -318,8 +353,12 @@ export function sortDashboardOrders(orders: DashboardOrder[]): DashboardOrder[] 
 export function computeTodayDashboardStats(orders: DashboardOrder[]) {
   const todayOrders = orders.filter(isOrderToday);
   const billableToday = todayOrders.filter(isBillableOrder);
+  const pendingCash = billableToday.filter((o) => !isCollectedOrder(o));
   return {
     todayOrderCount: todayOrders.length,
     revenue: billableToday.reduce((sum, o) => sum + getOrderRevenueAmount(o), 0),
+    /** Part of today's revenue that is COD still to be collected. */
+    pendingCash: pendingCash.reduce((sum, o) => sum + getOrderRevenueAmount(o), 0),
+    pendingCashCount: pendingCash.length,
   };
 }

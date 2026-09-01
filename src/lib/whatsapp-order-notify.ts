@@ -1,9 +1,12 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
-import { OrderStatus } from "@/lib/order-status";
+import { OrderStatus, codFailureLabel } from "@/lib/order-status";
 import { sendText, sendButtons, sendCtaUrl } from "@/lib/whatsapp-send";
 import {
   notifyOrderPaid,
+  notifyOrderPlacedCod,
+  notifyCodCollected,
+  notifyOrderUndelivered,
   notifyOrderAccepted,
   notifyOrderPreparing,
   notifyOrderOutForDelivery,
@@ -51,7 +54,15 @@ type NotifyOrderRow = {
   delivery_slot?: string | null;
   delivery_slot_kind?: string | null;
   total_amount?: number | null;
+  payment_method?: string | null;
+  /** Set for the synthetic cod_collected / undelivered events. */
+  cod_failure_reason?: string | null;
 };
+
+/** Events that aren't order statuses but still notify the customer. */
+export const OrderNotifyEvent = {
+  COD_COLLECTED: "cod_collected",
+} as const;
 
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
   const to = order.phone_number ? toPhone(order.phone_number) : null;
@@ -60,11 +71,26 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const trackUrl = `${publicSiteOrigin()}/?track=${order.id}`;
   const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind);
   const short = order.id.slice(0, 8).toUpperCase();
+  const isCod = String(order.payment_method || "").toLowerCase() === "cod";
+  const amtStr =
+    order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "the order amount";
 
   switch (order.status) {
     case OrderStatus.PAID: {
-      const body = notifyOrderPaid(short, slotLine || undefined);
+      // A COD order reaches `paid` (= placed) with nothing collected yet, so it
+      // must never claim we received money.
+      const body = isCod
+        ? notifyOrderPlacedCod(short, amtStr, slotLine || undefined)
+        : notifyOrderPaid(short, slotLine || undefined);
       await sendCtaUrl(to, body, trackUrl, "Track Order");
+      break;
+    }
+    case OrderNotifyEvent.COD_COLLECTED: {
+      await sendText(to, notifyCodCollected(short, amtStr));
+      break;
+    }
+    case OrderStatus.UNDELIVERED: {
+      await sendText(to, notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase()));
       break;
     }
     case OrderStatus.CONFIRMED: {
@@ -97,8 +123,8 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       break;
     }
     case OrderStatus.REJECTED: {
-      const amt = order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "your payment";
-      await sendText(to, notifyOrderRejected(short, amt));
+      // Nothing was collected on a COD order, so don't promise a refund.
+      await sendText(to, notifyOrderRejected(short, amtStr, !isCod));
       break;
     }
     default:

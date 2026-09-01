@@ -10,7 +10,9 @@ import {
 } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
-import { markOrderPaidAndNotify } from "@/lib/order-transition";
+import { markOrderPaidAndNotify, isCodBlocked } from "@/lib/order-transition";
+import { PaymentStatus } from "@/lib/order-status";
+import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
 
 type LineInput = { menuItemId: string; quantity: number };
 
@@ -142,6 +144,28 @@ export async function POST(request: Request) {
 
     const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal);
 
+    // Re-check COD eligibility server-side: the client hides the option, but the
+    // total is only trustworthy once it's been recomputed from the menu here.
+    if (paymentMethod === "cod") {
+      if (grandTotal > COD_MAX_ORDER_VALUE) {
+        return NextResponse.json(
+          {
+            error: `Cash on delivery is available on orders up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}. Please pay online.`,
+          },
+          { status: 400 },
+        );
+      }
+      if (await isCodBlocked(supabase, phone)) {
+        return NextResponse.json(
+          {
+            error:
+              "Cash on delivery isn't available on this number after a previous uncollected order. Please pay online.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const cancellationDeadline = new Date(new Date(slotStartIso).getTime() - 12 * 60 * 60 * 1000).toISOString();
 
     const { data: order, error: orderErr } = await supabase
@@ -158,6 +182,7 @@ export async function POST(request: Request) {
         cancellation_deadline: cancellationDeadline,
         cancellable: true, // Rule 2 ensures it starts as cancellable (at least 12h window)
         payment_method: paymentMethod,
+        payment_status: PaymentStatus.PENDING,
         ...(deliveryLat != null && deliveryLng != null
           ? { delivery_lat: deliveryLat, delivery_lng: deliveryLng }
           : {}),
@@ -193,9 +218,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not save line items." }, { status: 500 });
     }
 
-    // Cash on delivery — there's no online payment to collect, so skip Razorpay
-    // entirely and mark the order paid/confirmed right away (same transition +
-    // WhatsApp/push notifications the Razorpay callback would trigger).
+    // Cash on delivery — skip Razorpay and push the order straight into the
+    // kitchen queue. `markOrderPaidAndNotify` moves the FOOD forward; it leaves
+    // `payment_status = pending` for COD, so the cash is only counted once the
+    // driver collects it at the door.
     if (paymentMethod === "cod") {
       const marked = await markOrderPaidAndNotify(supabase, orderId, null);
       if (!marked.ok) {

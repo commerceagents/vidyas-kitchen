@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { transitionOrderStatusInDb } from "@/lib/order-transition";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { transitionOrderStatusInDb, markCodCollected } from "@/lib/order-transition";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { haversineMeters } from "@/lib/geo";
 
 function isUuid(s: string) {
@@ -12,9 +12,14 @@ const MAX_METRES = 120; // ~100m + GPS jitter
 
 /** Driver: complete delivery (proximity-checked when drop-off pin exists). */
 export async function POST(request: Request) {
-  let body: { orderId?: string; lat?: number; lng?: number };
+  let body: { orderId?: string; lat?: number; lng?: number; codCollected?: boolean };
   try {
-    body = (await request.json()) as { orderId?: string; lat?: number; lng?: number };
+    body = (await request.json()) as {
+      orderId?: string;
+      lat?: number;
+      lng?: number;
+      codCollected?: boolean;
+    };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -29,7 +34,7 @@ export async function POST(request: Request) {
   const supabase = createServerSupabase();
   const { data: row, error: fe } = await supabase
     .from("orders")
-    .select("id, status, delivery_lat, delivery_lng")
+    .select("id, status, delivery_lat, delivery_lng, payment_method, payment_status")
     .eq("id", orderId)
     .single();
 
@@ -40,6 +45,17 @@ export async function POST(request: Request) {
   const st = normalizeOrderStatus(String(row.status));
   if (st !== OrderStatus.OUT_FOR_DELIVERY && st !== "out") {
     return NextResponse.json({ error: "Order is not out for delivery" }, { status: 400 });
+  }
+
+  // A COD order can only be closed once the driver states the cash is in hand —
+  // that's the whole point of the separate payment_status.
+  const isCod = String(row.payment_method || "").toLowerCase() === "cod";
+  const alreadySettled = String(row.payment_status || "") === PaymentStatus.PAID;
+  if (isCod && !alreadySettled && body.codCollected !== true) {
+    return NextResponse.json(
+      { error: "Confirm the cash was collected before completing this delivery." },
+      { status: 400 },
+    );
   }
 
   const dlat = row.delivery_lat as number | null | undefined;
@@ -55,8 +71,19 @@ export async function POST(request: Request) {
     }
   }
 
+  // Settle the cash first: if the delivery transition then fails we'd rather
+  // have the money recorded than lose it.
+  if (isCod && !alreadySettled) {
+    const collected = await markCodCollected(supabase, orderId);
+    if (!collected.ok) {
+      console.error("[driver/complete] markCodCollected", collected.error);
+      return NextResponse.json({ error: collected.error }, { status: 400 });
+    }
+  }
+
   const r = await transitionOrderStatusInDb(supabase, orderId, OrderStatus.DELIVERED);
   if (!r.ok) {
+    console.error("[driver/complete] transition", r.error);
     return NextResponse.json({ error: r.error }, { status: 400 });
   }
   return NextResponse.json({ ok: true });
