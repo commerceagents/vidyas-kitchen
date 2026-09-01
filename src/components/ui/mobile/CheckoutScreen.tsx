@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -167,11 +167,35 @@ export function CheckoutScreen({
   const [chargesOpen, setChargesOpen] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
   const dayOptions = useMemo(() => iterDeliveryDateOptions(14), []);
-  const [deliveryDateYmd, setDeliveryDateYmd] = useState(() => dayOptions[0]?.istYmd ?? "");
+  // Today is almost always past the 24h booking cutoff — default to the first day that
+  // actually has an open slot instead of landing on a picked-but-unbookable "today".
+  const [deliveryDateYmd, setDeliveryDateYmd] = useState(() => {
+    const firstAvailable = dayOptions.find((d) => d.cards.some((c) => c.available));
+    return (firstAvailable ?? dayOptions[0])?.istYmd ?? "";
+  });
   const [slotKind, setSlotKind] = useState<DeliverySlotKind | null>(null);
   const [forSomeoneElse, setForSomeoneElse] = useState(false);
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [dayTip, setDayTip] = useState<string | null>(null);
+  const dayTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dayTipTimerRef.current) clearTimeout(dayTipTimerRef.current);
+    };
+  }, []);
+
+  const handleDayTap = (istYmd: string, hasAny: boolean, dayLabel: string) => {
+    if (!hasAny) {
+      if (dayTipTimerRef.current) clearTimeout(dayTipTimerRef.current);
+      setDayTip(`All slots for ${dayLabel} are booked — pick another date`);
+      dayTipTimerRef.current = setTimeout(() => setDayTip(null), 2400);
+      return;
+    }
+    setDayTip(null);
+    setDeliveryDateYmd(istYmd);
+  };
 
   useEffect(() => {
     setSlotKind(null);
@@ -363,6 +387,43 @@ export function CheckoutScreen({
         transition: "filter 0.5s ease, opacity 0.5s ease",
       }}
     >
+      {/* Unavailable-day tap feedback */}
+      <AnimatePresence>
+        {dayTip && (
+          <motion.div
+            key={dayTip}
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85, y: 10 }}
+            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            style={{
+              position: "fixed",
+              bottom: 110,
+              left: 0,
+              right: 0,
+              margin: "0 auto",
+              width: "fit-content",
+              maxWidth: "82vw",
+              zIndex: 9999,
+              padding: "10px 18px",
+              borderRadius: 24,
+              background: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(189,35,32,0.35)",
+              boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
+              color: C.text,
+              fontSize: 12.5,
+              fontWeight: 700,
+              textAlign: "center",
+              pointerEvents: "none",
+            }}
+          >
+            {dayTip}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Soft atmosphere */}
       <div
         aria-hidden
@@ -1053,7 +1114,7 @@ export function CheckoutScreen({
               >
                 {dayOptions.map((d) => {
                   const hasAny = d.cards.some((c) => c.available);
-                  const on = d.istYmd === deliveryDateYmd;
+                  const on = hasAny && d.istYmd === deliveryDateYmd;
                   const parts = d.weekendLabel.split(",");
                   const weekday = (parts[0] || d.weekendLabel).trim();
                   const rest = (parts[1] || "").trim();
@@ -1061,9 +1122,9 @@ export function CheckoutScreen({
                     <motion.button
                       key={d.istYmd}
                       type="button"
-                      whileTap={hasAny ? { scale: 0.96 } : undefined}
-                      disabled={!hasAny}
-                      onClick={() => setDeliveryDateYmd(d.istYmd)}
+                      whileTap={{ scale: 0.96 }}
+                      aria-disabled={!hasAny}
+                      onClick={() => handleDayTap(d.istYmd, hasAny, rest || weekday)}
                       style={{
                         flex: "0 0 auto",
                         minWidth: 72,
