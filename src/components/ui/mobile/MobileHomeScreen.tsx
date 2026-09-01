@@ -3802,7 +3802,7 @@ function MenuGridCard({
         boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
         display: "flex",
         flexDirection: "column",
-        height: 286,
+        height: 336,
       }}
     >
       <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
@@ -3815,7 +3815,7 @@ function MenuGridCard({
         style={{
           position: "relative",
           width: "100%",
-          height: 112,
+          height: 148,
           borderRadius: 18,
           border: "none",
           padding: 0,
@@ -3870,38 +3870,47 @@ function MenuGridCard({
       </motion.button>
       </div>
 
-      {/* Center stack: name → price */}
+      {/* Center stack: name chip → price */}
       <div
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          justifyContent: "center",
           textAlign: "center",
           padding: "8px 10px 6px",
           minHeight: 0,
+          gap: 6,
         }}
       >
+        {/* Name chip — fixed min-height so 1-line and 2-line names occupy the same footprint */}
         <motion.button
           type="button"
           whileTap={{ scale: 0.99 }}
           onClick={onOpenDetail}
           style={{
-            background: "none",
+            background: "rgba(0,0,0,0.035)",
             border: "none",
-            padding: 0,
+            borderRadius: 14,
+            padding: "8px 10px",
             cursor: "pointer",
             font: "inherit",
             color: "inherit",
             width: "100%",
+            minHeight: 52,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <h4
             style={{
               margin: 0,
-              fontSize: 13,
+              fontSize: 14.5,
               fontWeight: 800,
-              lineHeight: 1.3,
+              lineHeight: 1.28,
               color: C.text,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -3916,7 +3925,7 @@ function MenuGridCard({
               style={{
                 display: "inline-block",
                 marginTop: 4,
-                fontSize: 9,
+                fontSize: 9.5,
                 fontWeight: 800,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
@@ -3933,7 +3942,6 @@ function MenuGridCard({
           type="button"
           onClick={onOpenDetail}
           style={{
-            marginTop: 8,
             background: "none",
             border: "none",
             padding: 0,
@@ -3945,7 +3953,7 @@ function MenuGridCard({
             <span
               style={{
                 display: "block",
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: 700,
                 color: "rgba(0,0,0,0.45)",
                 textDecoration: "line-through",
@@ -3955,14 +3963,14 @@ function MenuGridCard({
               ₹{listPrice.toLocaleString("en-IN")}
             </span>
           )}
-          <span style={{ fontSize: 16, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
+          <span style={{ fontSize: 17.5, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
             ₹{fromPrice.toLocaleString("en-IN")}
           </span>
         </button>
       </div>
 
       {/* Full-width ADD bar ↔ qty stepper */}
-      <div style={{ flexShrink: 0, height: 42 }}>
+      <div style={{ flexShrink: 0, height: 46 }}>
         <AnimatePresence mode="wait" initial={false}>
           {showStepper ? (
             <motion.div
@@ -3972,7 +3980,7 @@ function MenuGridCard({
               exit={{ opacity: 0, y: 6 }}
               transition={actionSpring}
               style={{
-                height: 42,
+                height: 46,
                 background: C.red,
                 display: "flex",
                 alignItems: "center",
@@ -3985,8 +3993,8 @@ function MenuGridCard({
                 aria-label={qty <= 1 ? "Remove from cart" : "Decrease quantity"}
                 onClick={handleMinus}
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: 32,
+                  height: 32,
                   borderRadius: "50%",
                   border: "none",
                   background: "rgba(255,255,255,0.22)",
@@ -3998,14 +4006,14 @@ function MenuGridCard({
                   flexShrink: 0,
                 }}
               >
-                <Minus size={12} weight="bold" />
+                <Minus size={13} weight="bold" />
               </button>
               <motion.span
                 key={qty}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: 900,
                   color: "#fff",
                   minWidth: 28,
@@ -4021,8 +4029,8 @@ function MenuGridCard({
                 aria-label="Increase quantity"
                 onClick={() => onUpdate(1)}
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: 32,
+                  height: 32,
                   borderRadius: "50%",
                   border: "none",
                   background: "rgba(255,255,255,0.32)",
@@ -4034,7 +4042,7 @@ function MenuGridCard({
                   flexShrink: 0,
                 }}
               >
-                <Plus size={12} weight="bold" />
+                <Plus size={13} weight="bold" />
               </button>
             </motion.div>
           ) : (
@@ -4050,7 +4058,7 @@ function MenuGridCard({
               onClick={handleAdd}
               style={{
                 width: "100%",
-                height: 42,
+                height: 46,
                 border: "none",
                 background: orderingOpen ? C.red : "rgba(0,0,0,0.08)",
                 color: "#fff",
@@ -4065,8 +4073,8 @@ function MenuGridCard({
             >
               <span
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 23,
+                  height: 23,
                   borderRadius: "50%",
                   background: "rgba(255,255,255,0.95)",
                   color: orderingOpen ? C.red : "rgba(0,0,0,0.35)",
@@ -4076,11 +4084,11 @@ function MenuGridCard({
                   flexShrink: 0,
                 }}
               >
-                <Plus size={12} weight="bold" />
+                <Plus size={13} weight="bold" />
               </span>
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 12.5,
                   fontWeight: 900,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
