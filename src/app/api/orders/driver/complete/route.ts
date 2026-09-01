@@ -86,5 +86,13 @@ export async function POST(request: Request) {
     console.error("[driver/complete] transition", r.error);
     return NextResponse.json({ error: r.error }, { status: 400 });
   }
+
+  // The run is over, so the last GPS fix is now just the driver's home address
+  // sitting in our database. Drop it.
+  await supabase
+    .from("orders")
+    .update({ driver_last_lat: null, driver_last_lng: null, driver_location_at: null })
+    .eq("id", orderId);
+
   return NextResponse.json({ ok: true });
 }

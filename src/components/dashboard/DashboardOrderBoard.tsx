@@ -20,6 +20,7 @@ import {
   mealTypeLabel,
   tabForOrder,
   paymentBadgeForOrder,
+  driverFixForOrder,
   type DashboardOrder,
   type DashboardOrderItem,
   type DashboardTab,
@@ -1543,6 +1544,8 @@ function OrderCard({
         )}
       </div>
 
+      {isDispatched ? <DriverTrackRow order={order} /> : null}
+
       {/* Footer — totals left, actions right (compact when cards are narrow) */}
       <div
         className="vk-order-card-footer"
@@ -1565,6 +1568,63 @@ function OrderCard({
       </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Live driver position on an out-for-delivery card. The driver app posts GPS
+ * every 12s while en route; anything older than a few minutes is reported as
+ * "no recent fix" rather than shown as a pin the kitchen would act on.
+ */
+function DriverTrackRow({ order }: { order: DashboardOrder }) {
+  const [, setTick] = useState(0);
+  const fix = driverFixForOrder(order);
+
+  // The label is relative to now, so re-render on a timer or "12s ago" would
+  // sit there reading 12s for the whole delivery.
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 12,
+        padding: "9px 12px",
+        borderRadius: 10,
+        border: "1px solid #2a2a2a",
+        background: "#141414",
+      }}
+    >
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: fix ? "#34D399" : "#555",
+        }}
+        aria-hidden
+      />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: fix ? "#bbb" : "#777" }}>
+        {fix ? `Driver seen ${fix.agoLabel}` : "No recent driver fix"}
+      </span>
+      {fix ? (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${fix.lat},${fix.lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 12, fontWeight: 700, color: YELLOW, textDecoration: "none", flexShrink: 0 }}
+        >
+          View map
+        </a>
+      ) : null}
+    </div>
   );
 }
 

@@ -113,6 +113,18 @@ function trackStage(status: string): number {
   }
 }
 
+/**
+ * A driver fix older than this is treated as no fix at all — a pin frozen ten
+ * minutes ago next to the words "updating live" is worse than no pin.
+ */
+const DRIVER_FIX_MAX_AGE_MS = 3 * 60 * 1000;
+
+function isFreshDriverFix(at: string | null | undefined): boolean {
+  if (!at) return false;
+  const t = new Date(at).getTime();
+  return Number.isFinite(t) && Date.now() - t < DRIVER_FIX_MAX_AGE_MS;
+}
+
 function mapStaticUrl(
   userLat: number,
   userLng: number,
@@ -312,7 +324,16 @@ export function OrderTrackingPanel({
   const hero = heroCopy(trackSnap?.status ?? "");
   const eta = etaParts(trackSnap?.deliverySlot);
   const undelivered = n === "undelivered";
-  const showLiveMap = outForDelivery && !!location && !!mapToken;
+  // Prefer the address the order was actually placed against; the `location`
+  // prop is just this device's current session pin, which drifts if the
+  // customer changes their address after checkout (or is ordering for someone
+  // else entirely).
+  const pinLat = trackSnap?.deliveryLat ?? location?.lat ?? null;
+  const pinLng = trackSnap?.deliveryLng ?? location?.lng ?? null;
+  const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
+  const driverLat = driverFixFresh ? trackSnap?.driverLastLat ?? null : null;
+  const driverLng = driverFixFresh ? trackSnap?.driverLastLng ?? null : null;
+  const showLiveMap = outForDelivery && pinLat != null && pinLng != null && !!mapToken;
   const codPending =
     (trackSnap?.paymentMethod || "").toLowerCase() === "cod" &&
     (trackSnap?.paymentStatus || "pending") !== "paid" &&
@@ -445,10 +466,10 @@ export function OrderTrackingPanel({
                       : "linear-gradient(140deg, rgba(189,35,32,0.10) 0%, rgba(189,35,32,0.03) 60%, rgba(0,0,0,0.02) 100%)",
                   }}
                 >
-                  {showLiveMap && location && mapToken ? (
+                  {showLiveMap && pinLat != null && pinLng != null ? (
                     <img
-                      src={mapStaticUrl(location.lat, location.lng, mapToken, trackSnap.driverLastLat, trackSnap.driverLastLng)}
-                      alt="Live delivery map"
+                      src={mapStaticUrl(pinLat, pinLng, mapToken, driverLat, driverLng)}
+                      alt={driverLat != null ? "Delivery map with driver position" : "Delivery map"}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                   ) : null}
@@ -822,7 +843,7 @@ export function OrderTrackingPanel({
                     textAlign: "center",
                   }}
                 >
-                  {trackSnap.driverLastLat != null && trackSnap.driverLastLng != null
+                  {driverLat != null
                     ? "Red pin is your address, dark pin is your driver — updating live."
                     : "Your driver's location will appear on the map once they share it."}
                 </p>

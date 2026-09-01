@@ -25,8 +25,35 @@ export type DashboardOrder = {
   payment_method: string | null;
   payment_status: string | null;
   cod_failure_reason: string | null;
+  driver_last_lat: number | null;
+  driver_last_lng: number | null;
+  driver_location_at: string | null;
   items: DashboardOrderItem[];
 };
+
+/**
+ * A driver fix older than this is not worth showing as their position — the
+ * kitchen should see "no recent fix" rather than a stale pin.
+ */
+export const DRIVER_FIX_MAX_AGE_MS = 3 * 60 * 1000;
+
+export type DriverFix = { lat: number; lng: number; agoLabel: string } | null;
+
+/** The driver's position if we have a recent enough fix, otherwise null. */
+export function driverFixForOrder(order: DashboardOrder): DriverFix {
+  const { driver_last_lat: lat, driver_last_lng: lng, driver_location_at: at } = order;
+  if (lat == null || lng == null || !at) return null;
+  const t = new Date(at).getTime();
+  if (!Number.isFinite(t)) return null;
+  const age = Date.now() - t;
+  if (age > DRIVER_FIX_MAX_AGE_MS) return null;
+  const secs = Math.max(0, Math.round(age / 1000));
+  return {
+    lat,
+    lng,
+    agoLabel: secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)} min ago`,
+  };
+}
 
 export type MonthKey = { year: number; month: number };
 

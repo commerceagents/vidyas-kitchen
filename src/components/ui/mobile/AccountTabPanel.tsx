@@ -7,20 +7,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   MapPin, 
   ClockCounterClockwise, 
-  ForkKnife, 
   Bell, 
   Phone, 
-  Star, 
   ShieldCheck, 
   CaretRight,
   PencilSimple,
   DownloadSimple,
+  Question,
+  Receipt,
 } from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { loadSavedPlaces } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
+import { HelpSheet } from "@/components/ui/mobile/HelpSheet";
 import {
   isAppleTouchDevice,
   isAlreadyInstalled,
@@ -29,20 +30,9 @@ import {
   subscribePwaInstall,
 } from "@/lib/pwa-install";
 
-const VK_NOTIFY_KEY = "vk_whatsapp_order_updates";
 const sp = (n: number) => n * 8;
 
 const ICON_STROKE = C.red;
-const svgBase = {
-  width: 20 as const,
-  height: 20 as const,
-  viewBox: "0 0 24 24" as const,
-  fill: "none" as const,
-  stroke: ICON_STROKE,
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
 
 function AccountRowIcon({ children }: { children: ReactNode }) {
   return (
@@ -72,8 +62,12 @@ function IconHistory() {
   return <ClockCounterClockwise size={20} weight="regular" color={ICON_STROKE} />;
 }
 
-function IconUtensils() {
-  return <ForkKnife size={20} weight="regular" color={ICON_STROKE} />;
+function IconQuestion() {
+  return <Question size={20} weight="regular" color={ICON_STROKE} />;
+}
+
+function IconReceipt() {
+  return <Receipt size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconBell() {
@@ -93,10 +87,6 @@ function IconWhatsApp() {
       />
     </svg>
   );
-}
-
-function IconStar() {
-  return <Star size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconShield() {
@@ -293,7 +283,6 @@ export function AccountTabPanel({
   onSignOut,
   children,
 }: AccountTabPanelProps) {
-  const [notifyOn, setNotifyOn] = useState(true);
   const [editing, setEditing] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [draftName, setDraftName] = useState(displayName);
@@ -301,6 +290,7 @@ export function AccountTabPanel({
   const [canInstall, setCanInstall] = useState(false);
   const [isAppleInstall, setIsAppleInstall] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     setDraftName(displayName);
@@ -318,15 +308,6 @@ export function AccountTabPanel({
       document.body.style.overflow = prev;
     };
   }, [editing, mounted]);
-
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem(VK_NOTIFY_KEY);
-      setNotifyOn(v !== "0");
-    } catch {
-      /* noop */
-    }
-  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -364,18 +345,6 @@ export function AccountTabPanel({
     }
     await triggerNativeInstall();
   }, [isAppleInstall]);
-
-  const toggleNotify = useCallback(() => {
-    setNotifyOn((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(VK_NOTIFY_KEY, next ? "1" : "0");
-      } catch {
-        /* noop */
-      }
-      return next;
-    });
-  }, []);
 
   const firstInitial = (displayName.trim().charAt(0) || "?").toUpperCase();
 
@@ -516,61 +485,13 @@ export function AccountTabPanel({
         <PressRow
           icon={
             <AccountRowIcon>
-              <IconUtensils />
+              <IconBell />
             </AccountRowIcon>
           }
-          subtitle="Veg, Non-Veg, Egg, Jain"
-          title="Dietary Preferences"
+          subtitle="Order updates are sent to your WhatsApp"
+          title="Notifications"
           showChevron={false}
         />
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "12px 0",
-            borderBottom: `1px solid ${C.border}`,
-            marginBottom: 0,
-          }}
-        >
-          <AccountRowIcon>
-            <IconBell />
-          </AccountRowIcon>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ ...TYPO.bodyMedium, margin: 0, color: C.text }}>Notifications</p>
-            <p style={{ ...TYPO.caption, margin: "4px 0 0" }}>WhatsApp · Order Updates</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={notifyOn}
-            onClick={toggleNotify}
-            style={{
-              width: 48,
-              height: 28,
-              borderRadius: 999,
-              border: "none",
-              padding: 3,
-              background: notifyOn ? C.red : "rgba(0,0,0,0.1)",
-              cursor: "pointer",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: notifyOn ? "flex-end" : "flex-start",
-              transition: "background 0.2s",
-            }}
-          >
-            <span
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                background: C.white,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-              }}
-            />
-          </button>
-        </div>
         <PressRow
           icon={
             <AccountRowIcon>
@@ -595,7 +516,17 @@ export function AccountTabPanel({
         )}
       </Section>
 
-      <Section title="Support" titleStyle={sectionLabelStyle}>
+      <Section title="Help & support" titleStyle={sectionLabelStyle}>
+        <PressRow
+          icon={
+            <AccountRowIcon>
+              <IconQuestion />
+            </AccountRowIcon>
+          }
+          subtitle="Delivery, cancellations, cash on delivery"
+          title="Common Questions"
+          onClick={() => setShowHelp(true)}
+        />
         <a
           href={`https://wa.me/${SUPPORT_PHONE_E164.replace(/\D/g, "")}`}
           target="_blank"
@@ -608,20 +539,32 @@ export function AccountTabPanel({
                 <IconWhatsApp />
               </AccountRowIcon>
             }
-            subtitle="Message On WhatsApp"
-            title="Contact Us"
+            subtitle="Fastest way to reach the kitchen"
+            title="Chat On WhatsApp"
             showChevron
           />
         </a>
-        <Link href="/contact" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+        <a href={`tel:${SUPPORT_PHONE_E164}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
           <PressRow
             icon={
               <AccountRowIcon>
-                <IconStar />
+                <IconPhone />
               </AccountRowIcon>
             }
-            subtitle="Share Your Feedback"
-            title="Rate The App"
+            subtitle={formatInPhone(SUPPORT_PHONE_E164)}
+            title="Call The Kitchen"
+            showChevron
+          />
+        </a>
+        <Link href="/refund-policy" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+          <PressRow
+            icon={
+              <AccountRowIcon>
+                <IconReceipt />
+              </AccountRowIcon>
+            }
+            subtitle="When we cancel and how refunds work"
+            title="Refunds & Cancellations"
             showChevron
           />
         </Link>
@@ -705,6 +648,14 @@ export function AccountTabPanel({
           {showIosInstallGuide && (
             <PwaInstallGuide key="vk-account-ios-guide" onClose={() => setShowIosInstallGuide(false)} />
           )}
+        </AnimatePresence>,
+        document.body,
+      )}
+
+    {mounted &&
+      createPortal(
+        <AnimatePresence>
+          {showHelp && <HelpSheet key="vk-account-help" onClose={() => setShowHelp(false)} />}
         </AnimatePresence>,
         document.body,
       )}
