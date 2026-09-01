@@ -612,8 +612,11 @@ function BestSellingCard({
               x: imgX,
               position: "absolute",
               top: 0,
-              left: "-12%",
-              width: "124%",
+              // Overscan must fully cover the pan distance: `imgX` is a % of THIS element's
+              // own (enlarged) width, so 14% of a 144%-wide box ≈ 20.2% of the card — the old
+              // 12%/124% buffer was too small and exposed a gap at the edges while panning.
+              left: "-22%",
+              width: "144%",
               height: "100%",
               willChange: "transform",
             }}
