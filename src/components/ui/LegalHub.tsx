@@ -108,7 +108,7 @@ const content = {
         
         <section id="cancellation" style={{ scrollMarginTop: '100px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Order Cancellation</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Cancellations are only permitted within 15 minutes of placing the order. Once food preparation has started, we cannot accept cancellations.</p>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Cancellations are permitted up to 12 hours before your scheduled delivery slot. You can cancel yourself from the Order tab while that window is open. Once it closes we have already bought ingredients for your slot, so we cannot accept cancellations.</p>
         </section>
 
         <section id="eligibility" style={{ scrollMarginTop: '100px' }}>
@@ -123,7 +123,9 @@ const content = {
 
         <section id="process" style={{ scrollMarginTop: '100px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Refund Process</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days.</p>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>If you cancel within the window above, or we are unable to accept your order, the refund is raised automatically — you do not need to ask for it. The money goes back to whatever you paid with through Razorpay and typically reaches you within 5-7 business days.</p>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>For a quality issue, message us on WhatsApp with photos within 1 hour of delivery. Once approved, the refund follows the same route and timeline.</p>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>Cash on Delivery orders are only paid for at the door, so a cancelled order has nothing to refund.</p>
         </section>
       </div>
     )

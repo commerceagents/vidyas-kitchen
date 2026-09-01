@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         payment_method, payment_status, cod_failure_reason,
         delivery_lat, delivery_lng, cancellation_deadline,
         driver_last_lat, driver_last_lng, driver_location_at,
+        refund_status, refund_amount,
         order_items (
           quantity,
           unit_price,
@@ -91,6 +92,8 @@ export async function GET(request: Request) {
       driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
       driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
       cancellationDeadline: (row as { cancellation_deadline?: string | null }).cancellation_deadline ?? null,
+      refundStatus: (row as { refund_status?: string | null }).refund_status ?? null,
+      refundAmount: (row as { refund_amount?: number | null }).refund_amount ?? null,
       lines,
       breakdown: {
         itemsSubtotal: breakdown.itemsSubtotal,

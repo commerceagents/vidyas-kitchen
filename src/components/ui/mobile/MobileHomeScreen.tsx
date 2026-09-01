@@ -1797,6 +1797,8 @@ type TrackSnapshot = {
   paymentMethod?: string | null;
   paymentStatus?: string | null;
   codFailureReason?: string | null;
+  refundStatus?: string | null;
+  refundAmount?: number | null;
   lines?: { name: string; quantity: number; unitPrice: number }[];
   breakdown?: {
     itemsSubtotal: number;
@@ -1830,6 +1832,8 @@ function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
     paymentMethod: str(raw.paymentMethod),
     paymentStatus: str(raw.paymentStatus),
     codFailureReason: str(raw.codFailureReason),
+    refundStatus: str(raw.refundStatus),
+    refundAmount: num(raw.refundAmount),
     lines: Array.isArray(raw.lines) ? (raw.lines as TrackSnapshot["lines"]) : [],
     breakdown:
       raw.breakdown && typeof raw.breakdown === "object"

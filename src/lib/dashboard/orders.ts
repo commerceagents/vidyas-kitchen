@@ -25,6 +25,9 @@ export type DashboardOrder = {
   payment_method: string | null;
   payment_status: string | null;
   cod_failure_reason: string | null;
+  /** initiated | refunded | refund_failed — set when an order is cancelled or rejected. */
+  refund_status: string | null;
+  refund_amount: number | null;
   driver_last_lat: number | null;
   driver_last_lng: number | null;
   driver_location_at: string | null;
@@ -309,10 +312,17 @@ export type PaymentBadge = { label: string; tone: "paid" | "pending" | "failed" 
 
 /** How the kitchen should read this order's money state. */
 export function paymentBadgeForOrder(
-  order: Pick<DashboardOrder, "payment_method" | "payment_status" | "status">,
+  order: Pick<DashboardOrder, "payment_method" | "payment_status" | "status" | "refund_status">,
 ): PaymentBadge {
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
   const pay = String(order.payment_status || "").toLowerCase();
+  const refund = String(order.refund_status || "").toLowerCase();
+
+  // A refund outranks everything else: the customer has already been told their
+  // money is on the way, so a stuck one needs chasing today, not at month end.
+  if (refund === "refund_failed") return { label: "Refund failed", tone: "failed" };
+  if (refund === "refunded") return { label: "Refunded", tone: "paid" };
+  if (refund === "initiated") return { label: "Refunding…", tone: "pending" };
 
   if (pay === PaymentStatus.FAILED) return { label: "Not collected", tone: "failed" };
   if (pay === PaymentStatus.PAID) return { label: isCod ? "Cash collected" : "Paid", tone: "paid" };

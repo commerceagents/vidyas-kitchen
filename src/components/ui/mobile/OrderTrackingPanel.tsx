@@ -48,6 +48,8 @@ export type OrderTrackSnap = {
   paymentMethod?: string | null;
   paymentStatus?: string | null;
   codFailureReason?: string | null;
+  refundStatus?: string | null;
+  refundAmount?: number | null;
   deliveryLat?: number | null;
   deliveryLng?: number | null;
   driverLastLat?: number | null;
@@ -378,6 +380,24 @@ export function OrderTrackingPanel({
       setCancelSubmitting(false);
     }
   };
+  // What actually happened to the money on a cancelled order. A COD order never
+  // took any, and a refund we failed to push through shouldn't be described as
+  // "on its way".
+  const refundCopy = (() => {
+    const amt = trackSnap?.refundAmount != null ? `₹${Math.round(trackSnap.refundAmount).toLocaleString("en-IN")}` : null;
+    switch (String(trackSnap?.refundStatus || "").toLowerCase()) {
+      case "refunded":
+        return `${amt ?? "Your refund"} has been sent back to your original payment method. Banks usually take 5–7 working days to show it.`;
+      case "initiated":
+        return `${amt ?? "Your refund"} is being processed back to your original payment method.`;
+      case "refund_failed":
+        return "We couldn't push your refund through automatically. Message us on WhatsApp and we'll sort it out today.";
+      default:
+        return (trackSnap?.paymentMethod || "").toLowerCase() === "cod"
+          ? "You hadn't paid for this order yet, so there's nothing to refund."
+          : "You'll see the same update on WhatsApp. Reply there if you need help with a refund.";
+    }
+  })();
   const addressDisplay =
     trackSnap?.deliveryAddress?.trim() ||
     location?.label?.trim() ||
@@ -639,7 +659,7 @@ export function OrderTrackingPanel({
                       lineHeight: 1.55,
                     }}
                   >
-                    You’ll see the same update on WhatsApp. Reply there if you need help with a refund.
+                    {refundCopy}
                   </p>
                 </div>
               ) : null}

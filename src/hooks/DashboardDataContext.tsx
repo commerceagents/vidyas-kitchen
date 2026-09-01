@@ -104,6 +104,8 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       payment_method: "cod",
       payment_status: PaymentStatus.PENDING,
       cod_failure_reason: null,
+    refund_status: null,
+    refund_amount: null,
     driver_last_lat: null,
     driver_last_lng: null,
     driver_location_at: null,
@@ -122,6 +124,8 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       payment_method: "online",
       payment_status: PaymentStatus.PAID,
       cod_failure_reason: null,
+    refund_status: null,
+    refund_amount: null,
     driver_last_lat: null,
     driver_last_lng: null,
     driver_location_at: null,
@@ -179,6 +183,8 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
     payment_method: (row.payment_method as string | null) ?? null,
     payment_status: (row.payment_status as string | null) ?? null,
     cod_failure_reason: (row.cod_failure_reason as string | null) ?? null,
+    refund_status: (row.refund_status as string | null) ?? null,
+    refund_amount: row.refund_amount != null ? Number(row.refund_amount) : null,
     driver_last_lat: row.driver_last_lat != null ? Number(row.driver_last_lat) : null,
     driver_last_lng: row.driver_last_lng != null ? Number(row.driver_last_lng) : null,
     driver_location_at: (row.driver_location_at as string | null) ?? null,
@@ -203,6 +209,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         id, order_number, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
         payment_method, payment_status, cod_failure_reason,
         driver_last_lat, driver_last_lng, driver_location_at,
+        refund_status, refund_amount,
         order_items ( id, quantity, unit_price, menu_item_id, menu_items ( name, image_url, price ) )
       `)
       .order("order_number", { ascending: false, nullsFirst: false })

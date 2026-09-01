@@ -75,6 +75,8 @@ function mapOrderRow(row: Record<string, unknown>): DashboardOrder {
     payment_method: (row.payment_method as string | null) ?? null,
     payment_status: (row.payment_status as string | null) ?? null,
     cod_failure_reason: (row.cod_failure_reason as string | null) ?? null,
+    refund_status: null,
+    refund_amount: null,
     driver_last_lat: null,
     driver_last_lng: null,
     driver_location_at: null,

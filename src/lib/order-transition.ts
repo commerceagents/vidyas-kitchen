@@ -90,10 +90,19 @@ export async function transitionOrderStatusInDb(
         console.error("[order-transition] Razorpay refund error", e);
         return { ok: false as const, error: "Refund exception" };
       });
-      const refundStatus = refResult.ok ? "refunded" : "refund_failed";
+      if (!refResult.ok) {
+        // The customer has already been messaged that their money is coming
+        // back, so a silent failure here is money quietly stuck. Loud log plus
+        // a dashboard badge so someone retries it by hand in Razorpay.
+        console.error(`[order-transition] REFUND FAILED order=${orderId} payment=${paymentId}: ${refResult.error}`);
+      }
       await supabase
         .from("orders")
-        .update({ refund_status: refundStatus, refund_amount: totalAmount })
+        .update({
+          refund_status: refResult.ok ? "refunded" : "refund_failed",
+          refund_amount: totalAmount,
+          refund_id: refResult.ok ? refResult.refundId : null,
+        })
         .eq("id", orderId);
     }
   }

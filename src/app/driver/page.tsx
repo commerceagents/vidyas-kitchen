@@ -47,7 +47,7 @@ function firstImage(order: Row): string | null {
 }
 
 /** Cash still to be collected on this order. */
-export function codOutstanding(order: { payment_method?: string | null; payment_status?: string | null }): boolean {
+function codOutstanding(order: { payment_method?: string | null; payment_status?: string | null }): boolean {
   return (
     String(order.payment_method || "").toLowerCase() === "cod" &&
     String(order.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID
