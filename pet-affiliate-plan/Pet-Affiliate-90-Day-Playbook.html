@@ -1,0 +1,816 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>Pet Affiliate Playbook</title><style>
+@page { size: A4; margin: 15mm 14mm 15mm 14mm; }
+
+:root{
+  --ink:#16232e; --ink2:#31424f; --muted:#65788a; --faint:#8d9daa;
+  --accent:#0f6f66; --accent-d:#0a4f49; --accent-l:#e6f2f0;
+  --warm:#b1560c; --warm-l:#fdf1e4;
+  --line:#dde5ea; --soft:#f5f8f9;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:9.4pt; line-height:1.5; color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{ font-family:"Iowan Old Style",Georgia,"Times New Roman",serif; font-weight:600; }
+p{ margin:0 0 7pt; }
+b,strong{ font-weight:600; color:var(--ink); }
+i,em{ font-style:italic; }
+a{ color:var(--accent-d); text-decoration:none; }
+.pb{ page-break-before:always; }
+.avoid{ page-break-inside:avoid; }
+
+/* ---------- cover ---------- */
+.cover{ height:262mm; display:flex; flex-direction:column; justify-content:space-between; }
+.cover-top .eyebrow{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:14mm;
+}
+.cover h1{ font-size:40pt; line-height:1.04; margin:0 0 6mm; letter-spacing:-.01em; }
+.cover .sub{ font-family:"Iowan Old Style",Georgia,serif; font-size:15pt; line-height:1.35; color:var(--ink2); margin:0 0 9mm; max-width:135mm; }
+.cover .rule{ width:34mm; height:3px; background:var(--accent); margin:0 0 9mm; }
+.cover .scope{ font-size:10.5pt; color:var(--muted); letter-spacing:.04em; }
+.cover-mid{ margin-top:8mm; }
+.cover-box{
+  border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--soft);
+  padding:6mm 7mm; max-width:150mm;
+}
+.cover-box h4{ margin:0 0 3mm; font-size:11pt; }
+.cover-box ul{ margin:0; padding-left:5mm; }
+.cover-box li{ margin-bottom:1.6mm; color:var(--ink2); font-size:9.2pt; }
+.cover-bot{ border-top:1px solid var(--line); padding-top:5mm; font-size:8.6pt; color:var(--faint); }
+.cover-bot .row{ display:flex; justify-content:space-between; }
+
+/* ---------- section headers ---------- */
+.sec{ margin:0 0 6mm; }
+.sec .num{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.6pt; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--accent); font-weight:600;
+}
+.sec h2{ font-size:22pt; line-height:1.12; margin:1.5mm 0 2.5mm; letter-spacing:-.005em; }
+.sec .lede{ font-size:10pt; color:var(--ink2); max-width:158mm; line-height:1.55; margin:0; }
+h3.blk{ font-size:13pt; margin:8mm 0 3mm; page-break-after:avoid; }
+h3.blk:first-child{ margin-top:0; }
+h4.mini{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin:5mm 0 2mm;
+  padding-bottom:1.5mm; border-bottom:1px solid var(--line); page-break-after:avoid;
+}
+h4.mini + p{ page-break-before:avoid; }
+
+/* ---------- tables ---------- */
+table{ width:100%; border-collapse:collapse; font-size:8.5pt; margin:0 0 5mm; }
+th{
+  text-align:left; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-weight:600;
+  font-size:7.4pt; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--accent-d);
+  padding:2.6mm 2.4mm; vertical-align:bottom;
+}
+td{ padding:2.4mm 2.4mm; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink2); }
+tr{ page-break-inside:avoid; }
+tbody tr:nth-child(even) td{ background:#fafcfc; }
+td b{ color:var(--ink); }
+.t-num{ color:var(--faint); font-size:8pt; width:7mm; }
+.t-tight td, .t-tight th{ padding:2mm 2.2mm; }
+.t-dense td{ padding:1.4mm 2.2mm; }
+.t-dense th{ padding:2.2mm 2.2mm; }
+
+/* ---------- pills / tags ---------- */
+.pill{
+  display:inline-block; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:6.6pt;
+  letter-spacing:.09em; text-transform:uppercase; font-weight:600; padding:.9mm 1.8mm;
+  border-radius:2px; white-space:nowrap;
+}
+.p-added{ background:var(--warm); color:#fff; }
+.p-split{ background:#d9e6ea; color:#3c5560; }
+.p-yours{ background:#eef3f5; color:var(--faint); }
+.p-a{ background:var(--accent-d); color:#fff; }
+.p-b{ background:#4d7f8c; color:#fff; }
+.p-c{ background:#cdd9de; color:#41545e; }
+.p-dog{ background:#eaf1f3; color:#3c5560; }
+.p-cat{ background:#f6eee6; color:#8a5423; }
+.p-both{ background:#e9f1ef; color:#0a4f49; }
+
+.kind{
+  display:inline-block; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:6.5pt;
+  letter-spacing:.09em; font-weight:600; padding:.9mm 1.6mm; border-radius:2px; min-width:13mm;
+  text-align:center; margin-right:2mm;
+}
+.k-BLOG{ background:var(--accent-d); color:#fff; }
+.k-REEL{ background:var(--warm); color:#fff; }
+.k-SHORT{ background:#8a3d6b; color:#fff; }
+.k-LONG{ background:#1f4e6b; color:#fff; }
+.k-ROUNDUP{ background:#5d6f2e; color:#fff; }
+.k-ADMIN{ background:#e7edf0; color:#5f717c; }
+.k-AUDIT{ background:#2b2b2b; color:#fff; }
+
+/* ---------- callouts ---------- */
+.call{ border-left:3px solid var(--accent); background:var(--accent-l); padding:4mm 5mm; margin:0 0 6mm; font-size:9pt; }
+.call.warm{ border-left-color:var(--warm); background:var(--warm-l); }
+.call.dark{ border-left-color:var(--ink); background:#eef2f4; }
+.call p:last-child{ margin-bottom:0; }
+.call .lbl{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.2pt; letter-spacing:.16em;
+  text-transform:uppercase; font-weight:600; color:var(--accent-d); display:block; margin-bottom:2mm;
+}
+.call.warm .lbl{ color:var(--warm); }
+.call.dark .lbl{ color:var(--ink); }
+
+/* ---------- issue cards ---------- */
+.issue{ border-top:1px solid var(--line); padding:4mm 0 1mm; page-break-inside:avoid; }
+.issue h4{ font-size:11pt; margin:0 0 2mm; }
+.issue h4 .n{ color:var(--warm); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8.5pt; margin-right:2.5mm; }
+.issue .p{ color:var(--ink2); margin:0 0 2.5mm; }
+.issue .fix{ background:var(--soft); border-left:2px solid var(--accent); padding:2.5mm 4mm; font-size:8.8pt; }
+.issue .fix .lbl{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7pt; letter-spacing:.14em; text-transform:uppercase; font-weight:600; color:var(--accent); }
+
+/* ---------- category groups ---------- */
+.cgroup{ margin-bottom:5mm; page-break-inside:avoid; }
+.cgroup-h{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.14em;
+  text-transform:uppercase; font-weight:600; color:var(--warm); background:var(--warm-l);
+  padding:2mm 3mm; margin-bottom:0;
+}
+
+/* ---------- deep dive cards ---------- */
+.dd{ border:1px solid var(--line); border-top:3px solid var(--accent); padding:4.5mm 5mm; margin-bottom:5mm; page-break-inside:avoid; }
+.dd h3{ font-size:13pt; margin:0 0 1mm; }
+.dd h3 .n{ color:var(--accent); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:9pt; margin-right:2mm; }
+.dd .grid{ margin-top:2.5mm; }
+.dd .r{ display:flex; gap:3mm; padding:1.6mm 0; border-top:1px solid #edf2f4; font-size:8.6pt; }
+.dd .r:first-child{ border-top:none; }
+.dd .r .k{
+  flex:0 0 26mm; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.2pt;
+  letter-spacing:.1em; text-transform:uppercase; font-weight:600; color:var(--faint); padding-top:.6mm;
+}
+.dd .r .v{ flex:1; color:var(--ink2); }
+.dd .kw{ font-family:"SF Mono",Menlo,monospace; font-size:7.6pt; color:var(--accent-d); line-height:1.6; }
+.dd ul.h{ margin:0; padding-left:4mm; }
+.dd ul.h li{ margin-bottom:1mm; font-style:italic; color:var(--ink); }
+
+/* ---------- persona ---------- */
+.per{ border:1px solid var(--line); background:#fcfdfd; padding:4mm 4.5mm; margin-bottom:4mm; page-break-inside:avoid; }
+.per h4{ font-size:11.5pt; margin:0 0 1.5mm; }
+.per .meta{ font-size:7.6pt; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; margin-bottom:2.5mm; }
+.per .d{ color:var(--ink2); margin-bottom:2.5mm; font-size:8.8pt; }
+.per .l{ font-size:8.5pt; margin-bottom:1.4mm; color:var(--ink2); }
+.per .l span{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.2pt; letter-spacing:.1em; text-transform:uppercase; font-weight:600; color:var(--accent); margin-right:2mm; }
+.per .l.avoid span{ color:var(--warm); }
+
+/* ---------- hooks ---------- */
+.hooks{ column-count:2; column-gap:8mm; }
+.hgrp{ page-break-inside:avoid; break-inside:avoid; margin-bottom:4mm; }
+.hgrp h4{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.6pt; letter-spacing:.13em; text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 1.5mm; }
+.hgrp ul{ margin:0; padding-left:4mm; }
+.hgrp li{ font-size:8.5pt; margin-bottom:.9mm; color:var(--ink2); line-height:1.42; }
+
+/* ---------- week blocks ---------- */
+.wk{ margin-bottom:5mm; page-break-inside:avoid; }
+.wk-h{ border-bottom:2px solid var(--accent-d); padding-bottom:1.4mm; margin-bottom:0; }
+.wk-h .top{ display:flex; justify-content:space-between; align-items:baseline; }
+.wk-h .w{ font-family:"Iowan Old Style",Georgia,serif; font-size:13pt; font-weight:600; }
+.wk-h .m{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.2pt; letter-spacing:.14em; text-transform:uppercase; color:var(--warm); font-weight:600; }
+.wk-h .th{ font-size:9.2pt; color:var(--accent-d); font-weight:600; margin-top:.4mm; }
+.wk-goal{ background:var(--soft); padding:1.7mm 3mm; font-size:8.1pt; color:var(--ink2); border-left:2px solid var(--accent); }
+.wk-goal span{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7pt; letter-spacing:.13em; text-transform:uppercase; font-weight:600; color:var(--accent); margin-right:2mm; }
+table.cal{ margin-top:1.8mm; margin-bottom:0; font-size:8.2pt; }
+table.cal th{ background:#31424f; padding:1.8mm 2.4mm; }
+table.cal td{ padding:1.3mm 2.4mm; line-height:1.38; }
+table.cal td.d{ width:13mm; color:var(--ink); }
+table.cal td.d b{ font-size:9.2pt; }
+table.cal td.d i{ font-style:normal; color:var(--faint); font-size:7.4pt; display:block; }
+table.cal td.c{ width:24mm; font-size:7.4pt; color:var(--faint); }
+table.cal .item{ margin-bottom:.9mm; }
+table.cal .item:last-child{ margin-bottom:0; }
+
+/* ---------- checklist ---------- */
+.ck{ margin-bottom:4mm; page-break-inside:avoid; }
+.ck h4{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 2mm; }
+.ck ul{ list-style:none; margin:0; padding:0; }
+.ck li{ font-size:8.7pt; color:var(--ink2); padding-left:6mm; position:relative; margin-bottom:1.8mm; }
+.ck li:before{ content:"☐"; position:absolute; left:0; color:var(--accent); font-size:10pt; }
+.ck.tight li{ margin-bottom:1.1mm; }
+
+/* ---------- flow ---------- */
+.flow{ margin-bottom:5mm; }
+.flow .step{ display:flex; gap:4mm; padding:2.6mm 0; border-top:1px solid var(--line); page-break-inside:avoid; }
+.flow .step .a{ flex:0 0 40mm; font-weight:600; color:var(--accent-d); font-size:9pt; }
+.flow .step .b{ flex:1; color:var(--ink2); font-size:8.7pt; }
+
+/* ---------- research ---------- */
+.rd{ border:1px solid var(--line); padding:4mm 4.5mm; margin-bottom:4.5mm; page-break-inside:avoid; }
+.rd h4{ font-size:11.5pt; margin:0 0 2mm; color:var(--accent-d); }
+.rd .p{ color:var(--ink2); font-size:8.8pt; margin-bottom:2.5mm; }
+.rd .tools{ background:var(--soft); padding:2.5mm 3mm; }
+.rd .tools .lbl{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:6.9pt; letter-spacing:.14em; text-transform:uppercase; font-weight:600; color:var(--faint); display:block; margin-bottom:1.5mm; }
+.rd .tools ul{ margin:0; padding-left:4mm; }
+.rd .tools li{ font-size:8.2pt; color:var(--ink2); margin-bottom:.9mm; }
+
+.foot{ margin-top:10mm; border-top:1px solid var(--line); padding-top:4mm; font-size:8pt; color:var(--faint); }
+</style></head><body>
+<div class="cover">
+  <div class="cover-top">
+    <div class="eyebrow">Affiliate Marketing · Research &amp; Execution Brief</div>
+    <h1>The Pet<br>Affiliate<br>Playbook</h1>
+    <div class="rule"></div>
+    <p class="sub">90-Day Launch Plan, Category Master List &amp; Research Brief</p>
+    <div class="scope">India &nbsp;·&nbsp; Dogs &amp; Cats Only</div>
+  </div>
+  <div class="cover-mid">
+    <div class="cover-box">
+      <h4>What's inside</h4>
+      <ul>
+        <li>A review of the existing three-month plan — what works, and seven things to fix</li>
+        <li>The complete category master list: 28 categories for dogs and cats in India, with 12 additions to the original 16</li>
+        <li>A category scorecard — order value, commission, competition and priority tier</li>
+        <li>Deep dives on the ten categories that will actually earn</li>
+        <li>Seven audience personas and a bank of 48 tested hook formats</li>
+        <li>The full 90-day calendar: 13 weeks, mapped day by day, Day 1 to Day 91</li>
+        <li>Affiliate programs and commission rates in India, with the monetisation maths</li>
+        <li>Disclosure and compliance rules, realistic KPIs, and the seasonality calendar</li>
+        <li>Five research deliverables with deadlines and the tools to produce them</li>
+      </ul>
+    </div>
+  </div>
+  <div class="cover-bot">
+    <div class="row"><div>Digital Marketing Freelancer — Research &amp; Execution Brief</div><div>v1.0 &nbsp;·&nbsp; August 2026</div></div>
+  </div>
+</div>
+<div class="pb">
+<div class="sec"><div class="num">Section 01</div><h2>The plan, reviewed</h2><p class="lede">The cadence in the existing plan is realistic for one person and the ramp from broad to focused is the right shape. Below is the plan as it stands, then seven gaps worth closing before Day 1.</p></div>
+<h4 class="mini">The plan as submitted</h4>
+<table class="t-tight"><thead><tr><th>Phase</th><th>Window</th><th>Blog</th><th>Reels</th><th>Shorts</th><th>Long-form</th><th>Focus</th></tr></thead><tbody>
+<tr><td><b>Month 1</b></td><td>Days 1–35 (Wk 1–5)</td><td>3 blogs/wk (Mon·Wed·Fri)</td><td>4 Reels/wk</td><td>2 Shorts/wk (Tue·Thu)</td><td>—</td><td>Cast a wide net. Publish 15 posts. Find which categories and hooks stick.</td></tr>
+<tr><td><b>Month 2</b></td><td>Days 36–63 (Wk 6–9)</td><td>2 blogs/wk (Mon·Thu)</td><td>5 Reels/wk</td><td>2 Shorts/wk (Tue·Thu)</td><td>1 long video / 2 wks</td><td>Double down on Month-1 winners. Move into higher-value categories.</td></tr>
+<tr><td><b>Month 3</b></td><td>Days 64–91 (Wk 10–13)</td><td>2 blogs/wk (Mon·Thu)</td><td>5 Reels/wk + Sunday roundup</td><td>2 Shorts/wk (Tue·Thu)</td><td>1 long video / 2 wks</td><td>Authority + high-AOV categories. Sunday roundup Reel of top-performing products.</td></tr>
+</tbody></table>
+<div class="call"><span class="lbl">One structural change to note</span><p>Thirty days does not divide into calendar weeks, and switching cadence mid-week breaks the batching rhythm that makes this workload survivable. So the calendar in this document runs Month-1 cadence for five weeks (Days 1–35), Month-2 cadence for four weeks (Days 36–63) and Month-3 cadence for four weeks (Days 64–91). Day 30, Day 60 and Day 90 are all marked in place so nothing is lost against the original brief — and the extra Month-1 week is precisely what makes the 15–20 post target reachable.</p></div>
+<h4 class="mini">Seven gaps to close</h4>
+<div class="issue"><h4><span class="n">01</span>The Month-1 blog maths doesn't reach 15–20 posts</h4><p class="p">Mon/Wed/Fri for four weeks is 12 posts, not 15–20. Three posts a week only reaches 15 at the end of week five.</p><div class="fix"><span class="lbl">Fix</span> Two changes. (1) Run the Month-1 cadence for five weeks instead of four, which lands exactly on 15 posts by Day 35. (2) Add a pre-launch week (Week 0) where five cornerstone posts are written and published on Day 1, so the site never looks empty to a first-time visitor. Together that is 20 posts by Day 35, which is the top of the stated target.</div></div>
+<div class="issue"><h4><span class="n">02</span>Month-3 'organic search traffic' is 4–6 months early</h4><p class="p">A 60-day-old domain in the Indian pet niche will get very little Google traffic. Realistic timelines for a new site are 4–8 months to meaningful rankings, longer for commercial keywords like 'best dog food in India'.</p><div class="fix"><span class="lbl">Fix</span> For the 90-day window, treat Pinterest, Instagram search and YouTube search as the traffic engine, and Google as the 6–12 month engine. Keep publishing SEO-structured posts — they compound — but do not set Month-3 KPIs against Google sessions. Set them against Reel saves, YouTube watch time and affiliate link clicks.</div></div>
+<div class="issue"><h4><span class="n">03</span>Pinterest is missing, and it is the fastest organic channel in this niche</h4><p class="p">Pinterest is a search engine, is heavily female-skewed (matching pet-parent purchase decisions), indexes new accounts in weeks rather than months, and every blog post already produces the assets a Pin needs.</p><div class="fix"><span class="lbl">Fix</span> Add 5 Pins per blog post. Zero extra research, roughly 20 minutes per post. It costs nothing to test and is the single most likely source of the first ₹1,000 of commission.</div></div>
+<div class="issue"><h4><span class="n">04</span>No audience capture — every visitor is a one-time visitor</h4><p class="p">Affiliate income is fragile when 100% of traffic is rented from algorithms. There is no list in the current plan.</p><div class="fix"><span class="lbl">Fix</span> Ship one lead magnet by Week 2 — 'New Puppy / New Kitten Shopping Checklist (PDF, with prices)'. Collect on WhatsApp (broadcast list or Channel) rather than email; in India, WhatsApp open rates massively outperform email for this audience.</div></div>
+<div class="issue"><h4><span class="n">05</span>No defined ratio of money pages to supporting pages</h4><p class="p">Commissions come from commercial-intent posts ('best X', 'X vs Y', 'X under ₹2,000'). Informational posts build topical authority but rarely convert. With no ratio defined, the calendar drifts toward whichever is easier to write.</p><div class="fix"><span class="lbl">Fix</span> Month 1: 40% money pages / 60% supporting. Month 3: 60% money / 40% supporting. Every money page must name specific products, show a comparison table, and state a clear 'best for' verdict.</div></div>
+<div class="issue"><h4><span class="n">06</span>No repurposing rule, so every asset is researched from scratch</h4><p class="p">Three blogs, four Reels and two Shorts a week is nine original ideas per week if treated as nine separate jobs. That is the number-one reason solo content plans collapse in week three.</p><div class="fix"><span class="lbl">Fix</span> One rule: every blog post is the parent asset. It becomes 2 Reels, 1 Short, 5 Pins, 1 carousel and 1 WhatsApp broadcast. Research once per week (three topics), produce nine assets. See the Repurposing Engine page.</div></div>
+<div class="issue"><h4><span class="n">07</span>No seasonality anchor</h4><p class="p">Pet buying in India is intensely seasonal — monsoon ticks and skin, summer cooling, Diwali noise anxiety, and the Great Indian Festival / Big Billion Days sale window which is the highest-earning three weeks of the affiliate year.</p><div class="fix"><span class="lbl">Fix</span> Fix the launch date against the seasonality calendar in this document, and place the seasonal category in Week 9 so it lands inside its buying season. If the 90 days overlap late September to October, rewrite Weeks 9–12 around the sale events.</div></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 02</div><h2>Category master list</h2><p class="lede">Twenty-eight categories covering dogs and cats in the Indian market. The sixteen from the original handwritten list are all here — mostly with names tightened and sub-categories filled in. Twelve are new, marked in orange. The most important omission was food and nutrition, which is the single largest revenue pool in Indian pet care.</p></div>
+<div class="cgroup"><div class="cgroup-h">Core Consumables — bought again every month</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">1</td><td style="width:44mm"><b>Dog Food &amp; Nutrition</b><br><span class="pill p-dog">Dog</span> <span class="pill p-added">Added</span></td><td>Dry kibble; wet food &amp; gravy pouches; puppy / adult / senior; breed-size specific; grain-free &amp; limited-ingredient; veterinary &amp; prescription diets; fresh / home-style subscriptions; toppers &amp; broths</td></tr>
+<tr><td class="t-num">2</td><td style="width:44mm"><b>Cat Food &amp; Nutrition</b><br><span class="pill p-cat">Cat</span> <span class="pill p-added">Added</span></td><td>Dry kibble; wet pouches &amp; cans; kitten / adult / senior; indoor formula; hairball control; urinary &amp; renal care; high-protein &amp; grain-free; prescription diets</td></tr>
+<tr><td class="t-num">3</td><td style="width:44mm"><b>Treats, Chews &amp; Dental Sticks</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Training treats; biscuits &amp; cookies; jerky &amp; freeze-dried meat; dental sticks &amp; chews; bully sticks, antlers, hooves; creamy lickable tubes; catnip &amp; silvervine treats; birthday cakes</td></tr>
+<tr><td class="t-num">4</td><td style="width:44mm"><b>Supplements &amp; Nutraceuticals</b><br><span class="pill p-both">Both</span> <span class="pill p-split">Split out</span></td><td>Multivitamins; calcium &amp; bone; joint &amp; hip (glucosamine, MSM); skin &amp; coat (omega-3, fish oil); probiotics &amp; gut health; liver tonics; immunity boosters; hairball &amp; digestive pastes</td></tr>
+<tr><td class="t-num">5</td><td style="width:44mm"><b>Cat Litter (the substrate itself)</b><br><span class="pill p-cat">Cat</span> <span class="pill p-added">Added</span></td><td>Bentonite clumping; tofu / plant-based; silica crystal; paper pellet; wood pellet; scented vs unscented; low-dust variants</td></tr>
+<tr><td class="t-num">6</td><td style="width:44mm"><b>Flea, Tick &amp; Deworming</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Spot-on pipettes; tick collars; anti-tick sprays &amp; shampoos; oral chewables; deworming syrups &amp; tablets; home &amp; kennel sprays; tick combs; mite &amp; ear-mite treatment</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Health, Hygiene &amp; Care</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">7</td><td style="width:44mm"><b>Health, First Aid &amp; Recovery</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Wound sprays &amp; antiseptics; bandages; thermometer; E-collar / recovery cone; post-surgery suits; pill pockets &amp; pill poppers; eye &amp; ear cleaners; syringes &amp; feeders; diapers &amp; belly bands; mobility ramps &amp; slings</td></tr>
+<tr><td class="t-num">8</td><td style="width:44mm"><b>Dental &amp; Oral Care</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Finger brushes &amp; toothbrushes; enzymatic toothpaste; water additives; dental gels; dental toys &amp; ropes; breath sprays</td></tr>
+<tr><td class="t-num">9</td><td style="width:44mm"><b>Grooming &amp; Coat Care</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Shampoo &amp; conditioner; dry &amp; waterless shampoo; medicated / anti-fungal shampoo; deshedding tools; slicker brushes &amp; rakes; nail clippers &amp; grinders; clippers &amp; trimmers; grooming gloves; paw balm; wipes; blow dryers; grooming tables &amp; tubs</td></tr>
+<tr><td class="t-num">10</td><td style="width:44mm"><b>Anxiety, Calming &amp; Behaviour Aids</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Pheromone diffusers &amp; sprays; calming collars; anxiety / compression vests; calming chews &amp; supplements; snuffle mats; heartbeat plush toys; ear defenders; covered anxiety beds</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Feeding Gear</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">11</td><td style="width:44mm"><b>Bowls, Feeders &amp; Water</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Stainless steel &amp; ceramic bowls; anti-skid &amp; anti-ant bowls; elevated / tilted bowls; slow feeders &amp; maze bowls; water fountains; automatic &amp; gravity feeders; travel bottles; collapsible bowls; placemats &amp; spill mats</td></tr>
+<tr><td class="t-num">12</td><td style="width:44mm"><b>Food Storage &amp; Accessories</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Airtight storage containers; food scoops; can lids &amp; covers; treat jars; portable food pouches; feeding schedule boards</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Toilet, Waste &amp; Home Hygiene</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">13</td><td style="width:44mm"><b>Litter Boxes &amp; Toilet Setup</b><br><span class="pill p-cat">Cat</span> <span class="pill p-yours">In your list</span></td><td>Open trays; hooded / covered boxes; top-entry boxes; self-cleaning &amp; smart boxes; litter scoops; litter mats; disposal bins &amp; liners; litter deodorisers</td></tr>
+<tr><td class="t-num">14</td><td style="width:44mm"><b>Potty Training &amp; Waste Management</b><br><span class="pill p-both">Both</span> <span class="pill p-split">Split out</span></td><td>Pee / training pads; washable pads; pad holders; poop bags &amp; biodegradable bags; bag dispensers; poop scoopers; indoor grass patches; potty training sprays &amp; attractants; potty bells</td></tr>
+<tr><td class="t-num">15</td><td style="width:44mm"><b>Home Cleaning, Odour &amp; Stain</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Enzymatic cleaners; odour eliminators &amp; neutralisers; pet-safe floor cleaners; stain removers; lint rollers; pet hair removers; pet-hair vacuums; sofa, mattress &amp; car seat protectors; laundry aids</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Comfort, Furniture &amp; Containment</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">16</td><td style="width:44mm"><b>Beds, Mats &amp; Comfort</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Bolster &amp; donut beds; orthopedic / memory foam; mattresses; cave &amp; hooded beds; blankets &amp; throws; sofa nests; crate pads; waterproof mats; cooling-gel beds; raised cots</td></tr>
+<tr><td class="t-num">17</td><td style="width:44mm"><b>Cooling &amp; Warming (Seasonal)</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Cooling gel mats; cooling bandanas &amp; vests; elevated mesh cots; ice-lick toys &amp; frozen treat moulds; pet fans; heating pads; self-warming beds; winter blankets; sweaters (see Apparel)</td></tr>
+<tr><td class="t-num">18</td><td style="width:44mm"><b>Cat Furniture &amp; Scratchers</b><br><span class="pill p-cat">Cat</span> <span class="pill p-added">Added</span></td><td>Cat trees &amp; condos; scratching posts, pads &amp; ramps; wall shelves &amp; catwalks; window hammocks &amp; perches; tunnels; hideouts &amp; igloos; cat-proof furniture protectors</td></tr>
+<tr><td class="t-num">19</td><td style="width:44mm"><b>Crates, Carriers, Playpens &amp; Gates</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Wire &amp; folding crates; soft crates; IATA-approved flight carriers; hard-shell carriers; backpack carriers; slings; trolleys &amp; strollers; playpens; safety gates; balcony &amp; window nets</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Wear, Walk &amp; Safety</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">20</td><td style="width:44mm"><b>Collars, Harnesses, Leashes &amp; Ropes</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Flat &amp; martingale collars; no-pull front-clip harnesses; step-in &amp; vest harnesses; standard, retractable &amp; bungee leashes; hands-free &amp; running leashes; long training lines; head halters; car seat-belt tethers; cat harnesses</td></tr>
+<tr><td class="t-num">21</td><td style="width:44mm"><b>Clothing &amp; Apparel</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>T-shirts &amp; sweaters; hoodies &amp; jackets; raincoats &amp; monsoon wear; boots &amp; socks; bandanas &amp; bow ties; festive &amp; Diwali outfits; birthday wear; cooling shirts; post-surgery bodysuits</td></tr>
+<tr><td class="t-num">22</td><td style="width:44mm"><b>ID, Safety &amp; Visibility</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Engraved ID tags; QR-code tags; reflective collars &amp; vests; LED collars &amp; clip lights; basket muzzles; nail caps; microchip accessories; 'do not pet' patches; lost-pet kits</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Play, Enrichment &amp; Training</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">23</td><td style="width:44mm"><b>Toys, Play &amp; Enrichment</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Rubber chew toys &amp; stuffables; rope &amp; tug toys; fetch balls &amp; launchers; squeaky &amp; plush toys; teething toys; puzzle &amp; treat-dispensing toys; lick mats; snuffle mats; wand teasers; laser pointers; crinkle balls; catnip toys; automatic ball throwers</td></tr>
+<tr><td class="t-num">24</td><td style="width:44mm"><b>Training &amp; Behaviour Tools</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Clickers; treat pouches; target sticks; whistles; long training leads; agility sets; potty bells; deterrent &amp; anti-chew sprays; training mats &amp; place beds; books, courses &amp; online training</td></tr>
+</tbody></table></div>
+<div class="cgroup"><div class="cgroup-h">Travel, Tech &amp; Adjacent Revenue</div>
+<table class="t-tight"><tbody>
+<tr><td class="t-num">25</td><td style="width:44mm"><b>Travel &amp; Outdoor Essentials</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>Car seats &amp; boosters; hammock seat covers; seat belts; travel water bottles; collapsible bowls; travel litter trays; portable pee pads; camping &amp; hiking gear; travel first-aid kits; airline documentation folders</td></tr>
+<tr><td class="t-num">26</td><td style="width:44mm"><b>Smart Pet Tech</b><br><span class="pill p-both">Both</span> <span class="pill p-yours">In your list</span></td><td>GPS trackers &amp; AirTag holders; pet cameras with treat-toss; smart automatic feeders; smart water fountains; self-cleaning litter boxes; activity &amp; health collars; smart doors &amp; flaps; interactive robot toys</td></tr>
+<tr><td class="t-num">27</td><td style="width:44mm"><b>Services, Subscriptions &amp; Digital</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Pet insurance; vet teleconsultation plans; food subscription boxes; boarding, daycare &amp; grooming bookings; online training courses; dog-walking apps; pet DNA &amp; allergy tests; pet-friendly travel bookings</td></tr>
+<tr><td class="t-num">28</td><td style="width:44mm"><b>Pet-Parent Lifestyle &amp; Gifting</b><br><span class="pill p-both">Both</span> <span class="pill p-added">Added</span></td><td>Pet-parent apparel &amp; merch; mugs &amp; totes; custom pet portraits &amp; photo gifts; birthday party kits; memorial &amp; keepsake items; pet-themed home décor; adoption gift hampers</td></tr>
+</tbody></table></div>
+<div class="call warm"><span class="lbl">The highest-converting format isn't a category</span><p>One more thing that is not a category but behaves like the highest-converting one: <b>Starter Kits &amp; Checklists.</b> 'New Puppy Checklist', 'New Kitten Checklist', '₹5,000 Starter Setup', 'Monsoon Kit', 'Travel Kit'. These bundle 10–25 products into a single page, so one visitor can generate ten commissions instead of one, and they catch the buyer at the exact moment they have decided to spend and have no idea what to buy. Treat this as its own content format and revisit it every month.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 03</div><h2>Which categories actually sell</h2><p class="lede">Every category scored on repeat-purchase rate, typical order value in India, realistic commission per sale, search competition and how easily the benefit can be shown on camera. Tiers indicate publishing priority, not category size.</p></div>
+<div class="call dark"><span class="lbl">Read this first</span><p><b>The distinction that matters most:</b> the best-<i>selling</i> categories and the best categories for a brand-new affiliate site are not the same list. Food, litter and treats sell the most — and are also where every established Indian pet site and quick-commerce app already competes. The fastest money for a 90-day-old site sits in categories with a visible, filmable before-and-after and low SEO competition: deshedding tools, slow feeders and lick mats, enzymatic odour cleaners, cat trees and scratchers, cooling mats, water fountains, GPS trackers and automatic feeders. Publish for both — Tier A for the compounding search asset, the visual quick-wins for revenue inside 90 days.</p></div>
+<table class="t-dense"><thead><tr><th style="width:8mm">Tier</th><th>Category</th><th>Repeat purchase</th><th>Typical order value</th><th>₹ per sale</th><th>SEO competition</th><th>Reel-ability</th></tr></thead><tbody>
+<tr><td><span class="pill p-a">A</span></td><td><b>Cat Litter</b></td><td>Very high — monthly</td><td>₹400 – 1,200</td><td>₹20 – 400</td><td>Low–Med</td><td>Medium</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Grooming &amp; Coat Care</b></td><td>High</td><td>₹250 – 2,500</td><td>₹15 – 400</td><td>Medium</td><td>Very high</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Flea, Tick &amp; Deworming</b></td><td>High — seasonal spike</td><td>₹300 – 1,200</td><td>₹15 – 400</td><td>Medium</td><td>High</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Dog Food &amp; Nutrition</b></td><td>Very high — monthly</td><td>₹800 – 5,000</td><td>₹40 – 400</td><td>Very high</td><td>Medium</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Cat Food &amp; Nutrition</b></td><td>Very high — monthly</td><td>₹400 – 3,000</td><td>₹20 – 400</td><td>High</td><td>Medium</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Toys, Play &amp; Enrichment</b></td><td>High</td><td>₹200 – 1,500</td><td>₹10 – 400</td><td>Medium</td><td>Very high</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Treats, Chews &amp; Dental</b></td><td>Very high</td><td>₹150 – 800</td><td>₹8 – 400</td><td>Medium</td><td>High</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Bowls, Feeders &amp; Water</b></td><td>Low — durable</td><td>₹300 – 4,500</td><td>₹15 – 400</td><td>Low–Med</td><td>Very high</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Home Cleaning &amp; Odour</b></td><td>High</td><td>₹300 – 3,000</td><td>₹15 – 400</td><td>Low</td><td>Very high</td></tr>
+<tr><td><span class="pill p-a">A</span></td><td><b>Beds, Mats &amp; Comfort</b></td><td>Low–Med</td><td>₹800 – 6,000</td><td>₹40 – 400</td><td>Medium</td><td>High</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Cat Furniture &amp; Scratchers</b></td><td>Low</td><td>₹1,500 – 12,000</td><td>₹70 – 900</td><td>Low</td><td>Very high</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Collars, Harnesses &amp; Leashes</b></td><td>Med</td><td>₹400 – 2,500</td><td>₹20 – 400</td><td>Medium</td><td>High</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Anxiety &amp; Calming Aids</b></td><td>Med</td><td>₹500 – 3,000</td><td>₹25 – 400</td><td>Low</td><td>High</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Smart Pet Tech</b></td><td>Low</td><td>₹2,500 – 40,000</td><td>₹120 – 1,900</td><td>Low</td><td>Very high</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Supplements &amp; Nutraceuticals</b></td><td>Very high</td><td>₹300 – 1,500</td><td>₹15 – 400</td><td>Medium</td><td>Low</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Cooling &amp; Warming (Seasonal)</b></td><td>Low — annual</td><td>₹500 – 3,000</td><td>₹25 – 400</td><td>Low</td><td>Very high</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Litter Boxes &amp; Toilet Setup</b></td><td>Low</td><td>₹800 – 45,000</td><td>₹40 – 2,100</td><td>Low–Med</td><td>High</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Crates, Carriers &amp; Gates</b></td><td>Low</td><td>₹1,200 – 8,000</td><td>₹60 – 600</td><td>Low–Med</td><td>Medium</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Potty Training &amp; Waste</b></td><td>Very high</td><td>₹200 – 1,000</td><td>₹10 – 400</td><td>Low</td><td>Medium</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Health, First Aid &amp; Recovery</b></td><td>Med</td><td>₹200 – 1,500</td><td>₹10 – 400</td><td>Low</td><td>Medium</td></tr>
+<tr><td><span class="pill p-b">B</span></td><td><b>Services &amp; Subscriptions</b></td><td>Recurring</td><td>Lead / signup</td><td>₹100 – 1,500</td><td>Low</td><td>Low</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Clothing &amp; Apparel</b></td><td>Med — seasonal</td><td>₹400 – 2,000</td><td>₹20 – 400</td><td>Medium</td><td>Very high</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Travel &amp; Outdoor</b></td><td>Low</td><td>₹500 – 5,000</td><td>₹25 – 400</td><td>Low</td><td>Medium</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Training &amp; Behaviour Tools</b></td><td>Low</td><td>₹300 – 2,000</td><td>₹15 – 400</td><td>Low–Med</td><td>High</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>ID, Safety &amp; Visibility</b></td><td>Low</td><td>₹200 – 1,500</td><td>₹10 – 400</td><td>Low</td><td>Medium</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Dental &amp; Oral Care</b></td><td>Med</td><td>₹150 – 900</td><td>₹8 – 400</td><td>Low</td><td>Medium</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Food Storage &amp; Accessories</b></td><td>Low</td><td>₹500 – 2,000</td><td>₹25 – 400</td><td>Very low</td><td>Low</td></tr>
+<tr><td><span class="pill p-c">C</span></td><td><b>Lifestyle &amp; Gifting</b></td><td>Low</td><td>₹400 – 2,500</td><td>₹20 – 400</td><td>Low</td><td>High</td></tr>
+</tbody></table>
+<p style="font-size:7.8pt;color:#8d9daa;margin-top:-2mm">Order values are typical Indian online price bands, August 2026. "₹ per sale" spans the range between a percentage program (Amazon.in, 4.7% on pet products) and a flat-fee program (Supertails-style, ₹250–400 per qualifying new-customer order) — which is why the low end looks small and the high end does not.</p>
+<h4 class="mini">Tier A — start here (Weeks 1–8)</h4><p>Highest combination of search demand, repeat purchase and content volume. These ten categories should carry roughly 70% of everything published in the first two months. Note that food is in Tier A on demand alone; it is the hardest to rank for and the most brand-loyal, so treat it as a long-term SEO investment rather than a source of quick commissions.</p>
+<h4 class="mini">Tier B — expand into (Weeks 6–13)</h4><p>Lower search volume but much lower competition and, in several cases, dramatically higher value per sale. Cat furniture, smart tech and self-cleaning litter boxes are where a single conversion is worth 20 toy sales. This is where a 90-day-old site can realistically win.</p>
+<h4 class="mini">Tier C — fill and seasonal</h4><p>Good for Reels and engagement, weak for search revenue. Use these to keep the social calendar full, to ride festive and seasonal spikes, and to feed the top of the funnel. Do not build cornerstone blog content here in the first 90 days.</p>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 04</div><h2>The ten categories that will earn</h2><p class="lede">For each: why it earns, who buys it, the moment that triggers the purchase, the search terms to target, three ready-to-use hooks, and the practical catch.</p></div>
+
+<div class="dd">
+  <h3><span class="n">01</span>Cat Litter &amp; Litter Boxes</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">The single highest repeat-purchase item in the entire cat category — bought every 3–5 weeks, forever. Cat ownership is the fastest-growing segment in urban India, and litter is the first problem every new cat parent has.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Women 20–35, metro and Tier-1, first cat within the last 12 months, living in a rented 1–2BHK. Highly reachable on Instagram, extremely price- and smell-sensitive.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">The flat smells. Litter is tracking across the floor. The cat has started going outside the box.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">best cat litter india · tofu litter vs bentonite · cat litter smell solution · cheapest cat litter monthly cost · top entry litter box india · cat litter mat tracking</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Your house doesn't smell like cat. It smells like your litter choice.</li><li>I tried every litter sold in India. Here's the cost per month of each.</li><li>The 1-inch rule: why your ₹900 litter stops clumping.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Cheap product, tiny percentage commission — but flat-fee programs pay the same ₹250–400 on a ₹900 litter order as on a ₹9,000 order. This category is where flat-fee affiliate programs beat percentage programs by 10x.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">02</span>Grooming &amp; Coat Care</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">The most filmable category in the niche. Deshedding, matt removal and nail trims produce satisfying before-and-after footage that carries on Reels and Shorts without any paid promotion. Indian double-coated breeds shed heavily year-round.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Dog parents 25–45 with Golden Retrievers, Labs, Huskies, Indies and Persians. Also budget-conscious parents trying to stop paying ₹1,200 per salon visit.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Hair on every surface. Matted coat after monsoon. A ₹1,500 grooming bill. Visible skin irritation or itching.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">best dog shampoo india · deshedding tool for golden retriever · dog grooming kit india price · dog smells bad after bath · how to trim dog nails at home · anti fungal shampoo dog monsoon</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>This came off a Golden in ten minutes.</li><li>Stop paying ₹1,200 a visit. Here's the ₹2,400 kit that replaces it.</li><li>Human shampoo on a dog: what it actually does to their skin.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Best entry category for a new account. Highest ratio of view volume to production effort, and it leads naturally into shampoo, tools, dryers and flea control — four categories from one shoot.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">03</span>Dog Food &amp; Nutrition</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">The biggest revenue pool in Indian pet care and the largest search volume of any category. Also the most competitive and the most brand-loyal. Commercial pet food penetration in India is still in single digits, so the category is growing fast.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Two distinct buyers: the anxious first-time puppy parent comparing brands for the first time, and the premium parent (household income ₹15L+) actively trading up to imported or fresh food.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">New puppy. Vet said switch. Loose stools. Dull coat. Price shock at the pet store.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">best dog food in india · best puppy food india price · drools vs pedigree vs royal canin · dog food cost per month india · grain free dog food india · best dog food for indie dogs</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>₹18 a day versus ₹95 a day. Here's what actually changes.</li><li>'Chicken flavour' is not chicken. Read the label with me.</li><li>What feeding an Indie dog actually costs per month.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Write these posts for the long game — they will not rank in 90 days but they are the highest-value asset on the site by month eight. Avoid all medical claims; every food post gets a 'consult your vet' block.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">04</span>Flea, Tick &amp; Deworming</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">Acute, urgent, emotional pain point with a hard seasonal peak across the Indian monsoon. Buyers are in panic-purchase mode, which is the highest-converting mindset in affiliate marketing.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">All dog parents, and increasingly cat parents. Strongest with parents of outdoor-walked dogs and community/Indie feeders. Skews slightly older and more male than the grooming audience.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Found a tick. Dog scratching constantly. Ticks visible in the house. Vet mentioned tick fever.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">best tick medicine for dogs india · tick fever dog symptoms · spot on vs tick collar · how to remove tick from dog · anti tick spray for home india · deworming schedule puppy india</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Found one tick? There are hundreds you can't see. Three-step reset.</li><li>The step everyone skips: you have to treat the house, not the dog.</li><li>Where ticks actually hide — check these five places tonight.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">This is a health-adjacent topic. Never give dosages, never name a prescription product as a recommendation, always route to a vet. Amazon pays 0% on prescription pet medication, so stick to over-the-counter products.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">05</span>Cat Furniture &amp; Scratchers</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">High order value (₹1,500–12,000), remarkably low SEO competition in India, and visually spectacular on Reels. A single cat tree conversion is worth twenty toy conversions.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Urban cat parents in rentals, 22–35. Strong overlap with interior-design and small-space content — which means the content also reaches an audience outside the pet niche.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">The cat is destroying the sofa. The cat is bored and vocal at 3am. Moving into a new flat.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">cat tree india price · best scratching post for cats india · cat wall shelves diy · stop cat scratching sofa · cat furniture for small apartment · sisal vs cardboard scratcher</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Your cat isn't ruining the sofa. The scratcher is in the wrong place.</li><li>A full cat setup in a rental, no drilling.</li><li>I gave my cat vertical space. Her behaviour changed in a week.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Best risk-adjusted category in the list for a new site: low competition, high value, high reel-ability. Prioritise in Weeks 8–10.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">06</span>Home Cleaning, Odour &amp; Stain</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">Almost no dedicated Indian pet content covers this well, yet it is a universal daily problem. Includes ₹8,000–30,000 pet-hair vacuums, which carry meaningful commission.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Every pet parent, but especially renters worried about deposits and multi-pet households. Also the pet-parent's family members, which widens the audience.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Accident on the carpet. Visitor commented on the smell. Landlord inspection. Hair in the food.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">pet urine smell remover india · enzymatic cleaner for pet urine · best vacuum for pet hair india · pet safe floor cleaner india · remove dog hair from sofa · cat pee smell on mattress</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Blacklight test: this is what your 'clean' floor looks like.</li><li>Regular floor cleaner doesn't remove pet urine. It hides it — and the cat re-marks the spot.</li><li>Three products and my flat stopped smelling like a pet shop.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Extremely low competition, strong search intent, and an easy visual demo. Underrated — treat as a Tier A quick win.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">07</span>Smart Pet Tech</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">Highest value per sale in the entire list. GPS trackers, treat-toss cameras, automatic feeders and self-cleaning litter boxes run ₹2,500 to ₹45,000. Almost no credible Indian review content exists.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Working professionals 26–40 who leave pets alone 8–10 hours, dual-income households, gadget-inclined, higher disposable income. Converts on demonstration, not on price.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Going back to office. Pet alone all day. Pet escaped once. Travelling for work. Guilt.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">best pet camera india · gps tracker for dogs india · airtag dog collar india · automatic cat feeder india · self cleaning litter box india price · smart water fountain for cats</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>I left for eight hours and recorded everything. Here's what he did.</li><li>Does an AirTag actually work to find a lost dog in India? I tested it.</li><li>₹40,000 litter box versus a ₹1,200 tray. Thirty days later.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Requires you to actually own or borrow the device — you cannot fake this content and audiences detect it instantly. Budget for one hero device per month, or partner with a brand for a loaner.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">08</span>Anxiety, Calming &amp; Festive Noise</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">Sharply seasonal around Diwali and festival fireworks, with almost no competition and a highly emotional, urgent buyer. Also covers the year-round separation-anxiety audience.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Pet parents in dense urban areas, and specifically the large group of Indian pet parents who dread October. Also parents of newly adopted rescue dogs.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Diwali is in three weeks. Dog hid under the bed all night. Neighbours complaining about barking. New rescue is shut down.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">how to calm dog during diwali · fireworks anxiety dog india · pheromone diffuser for cats india · calming chews for dogs india · thundershirt india · separation anxiety dog training</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Diwali is three weeks away. Build the safe room now, not on the night.</li><li>Does a compression vest actually work? Two-week test.</li><li>Your dog isn't being dramatic. This is what fireworks sound like to them.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Publish four weeks before the festival, not during. Be honest about what does not work — calming products have a high placebo rate and audiences reward the creator who says so.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">09</span>Bowls, Feeders &amp; Water Fountains</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">Cheap to buy, easy to demonstrate, and the fastest-converting 'small win' in the niche. Slow feeders, lick mats and water fountains all produce an immediate visible behaviour change on camera.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Broad — anyone with a fast eater, a fussy drinker, or a bored pet. Very low purchase friction at the ₹300–900 price band.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Dog vomits after eating. Dog eats in nine seconds. Cat won't drink water. Ants in the food.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">slow feeder bowl india · best water fountain for cats india · elevated dog bowl india · lick mat for dogs india · automatic pet feeder india · anti ant pet bowl</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>My dog ate in nine seconds. This ₹399 bowl fixed it.</li><li>Cats drink twice as much from moving water. Seven-day test.</li><li>A lick mat buys you twenty minutes of silence.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">Best category for a beginner's first ten Reels: cheap to buy, easy to film, instant result, low return rate.</div></div>
+  </div>
+</div>
+
+<div class="dd">
+  <h3><span class="n">10</span>Senior Pet Care &amp; Supplements</h3>
+  <div class="grid">
+    <div class="r"><div class="k">Why it earns</div><div class="v">The 2015–2020 Indian adoption wave is now ageing into its senior years, and virtually nobody is serving this audience. High order value (orthopedic beds, ramps, joint supplements) and extremely loyal, high-intent readers.</div></div>
+    <div class="r"><div class="k">Who buys</div><div class="v">Pet parents 30–50 with a 9+ year old dog or 11+ year old cat. Emotionally invested, willing to spend, and desperate for credible information.</div></div>
+    <div class="r"><div class="k">Buying trigger</div><div class="v">Dog struggling with stairs. Slower on walks. Incontinence. Vet mentioned arthritis. Weight loss.</div></div>
+    <div class="r"><div class="k">Keywords</div><div class="v kw">joint supplement for dogs india · orthopedic dog bed india · dog ramp for stairs india · senior dog food india · dog diapers india · signs of arthritis in dogs</div></div>
+    <div class="r"><div class="k">Hooks</div><div class="v"><ul class="h"><li>Signs of pain that dog parents consistently miss.</li><li>He stopped using the sofa. It wasn't age — it was his hips.</li><li>Which joint supplements have actual evidence behind them, and which don't.</li></ul></div></div>
+    <div class="r"><div class="k">The catch</div><div class="v">The clearest under-served gap in Indian pet content today. Requires the most careful medical language — no diagnosis, no dosage, vet disclaimer on every page — but the least competition of any category here.</div></div>
+  </div>
+</div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 05</div><h2>Who you are writing for</h2><p class="lede">Seven distinct buyers. Most Indian pet content is written for exactly one of them — the English-speaking metro dog parent — which is why the other six are commercially interesting.</p></div>
+
+<div class="per">
+  <h4>The Panicked New Puppy Parent</h4>
+  <div class="meta">22–32 &nbsp;·&nbsp; Metro / Tier-1 &nbsp;·&nbsp; Spends ₹8,000–20,000 in the first month, then ₹3,000–5,000/mo</div>
+  <div class="d">Brought a puppy home in the last 60 days. Buying in a panic, over-buying, and returning things. Googles everything at 1am.</div>
+  <div class="l"><span>Buys</span>Starter checklists, puppy food, crate, pee pads, toys, collar, deworming, training treats</div>
+  <div class="l"><span>Reach them</span>Instagram Reels and Google 'how do I' searches. Highest lifetime value of any persona — win them in week one and they buy from you for a decade.</div>
+  <div class="l avoid"><span>Don't</span>Do not lead with premium products. Lead with 'what you actually need versus what the store will upsell you'.</div>
+</div>
+
+<div class="per">
+  <h4>The First-Time Kitten Parent</h4>
+  <div class="meta">20–30, women-skewed &nbsp;·&nbsp; Metro rentals &nbsp;·&nbsp; Spends ₹4,000–9,000 setup, then ₹1,500–3,000/mo</div>
+  <div class="d">Often adopted an Indie or rescue kitten rather than buying. Space-constrained, landlord-conscious, smell-conscious.</div>
+  <div class="l"><span>Buys</span>Litter, litter box, scratcher, wet food, wand toys, water fountain, carrier</div>
+  <div class="l"><span>Reach them</span>Instagram and Pinterest. Highly responsive to aesthetic, small-space and 'rental-friendly' framing.</div>
+  <div class="l avoid"><span>Don't</span>Do not assume a house with a yard. Every recommendation must work in a 1BHK.</div>
+</div>
+
+<div class="per">
+  <h4>The Premium Trade-Up Parent</h4>
+  <div class="meta">30–45 &nbsp;·&nbsp; Metro, income ₹15L+ &nbsp;·&nbsp; Spends ₹6,000–15,000/mo</div>
+  <div class="d">Second or third year of pet parenting. Has moved past 'cheapest' and is actively buying better — imported food, orthopedic beds, smart tech.</div>
+  <div class="l"><span>Buys</span>Premium and fresh food, supplements, orthopedic beds, smart tech, grooming tools, insurance</div>
+  <div class="l"><span>Reach them</span>YouTube long-form and detailed blog comparisons. Reads before buying. Wants specifications, tests and honest downsides.</div>
+  <div class="l avoid"><span>Don't</span>Thin content kills trust with this group instantly. They will check whether you actually own the product.</div>
+</div>
+
+<div class="per">
+  <h4>The Value-First Parent (Tier 2–3)</h4>
+  <div class="meta">24–40 &nbsp;·&nbsp; Tier 2 / Tier 3 cities &nbsp;·&nbsp; Spends ₹800–2,500/mo</div>
+  <div class="d">The largest and fastest-growing group by volume. Hard budget ceiling, buys on offers, heavy WhatsApp and YouTube user.</div>
+  <div class="l"><span>Buys</span>Value dog food, basic collar, shampoo, deworming, cheap toys, home remedies</div>
+  <div class="l"><span>Reach them</span>YouTube (often in Hindi or regional language) and WhatsApp forwards. Enormously under-served by English metro content.</div>
+  <div class="l avoid"><span>Don't</span>Never recommend a ₹6,000 bed to this group. 'Under ₹500' and 'under ₹1,000' framing converts.</div>
+</div>
+
+<div class="per">
+  <h4>The Indie &amp; Community Feeder</h4>
+  <div class="meta">25–45 &nbsp;·&nbsp; All cities &nbsp;·&nbsp; Spends ₹2,000–6,000/mo, spread across many animals</div>
+  <div class="d">Feeds or fosters street dogs and cats. Buys in bulk, prioritises cost per kilo, deeply engaged and highly vocal community.</div>
+  <div class="l"><span>Buys</span>Bulk food, deworming, tick control, basic first aid, reflective collars, feeding bowls</div>
+  <div class="l"><span>Reach them</span>Instagram community and Facebook groups. Lower order value but exceptional shares and saves — the best amplification audience you have.</div>
+  <div class="l avoid"><span>Don't</span>Never treat Indies as second-class. Indie-specific content is under-served and earns enormous goodwill.</div>
+</div>
+
+<div class="per">
+  <h4>The Apartment / No-Yard Parent</h4>
+  <div class="meta">25–40 &nbsp;·&nbsp; High-density urban &nbsp;·&nbsp; Spends ₹3,000–6,000/mo</div>
+  <div class="d">Every problem is a space or a neighbour problem — barking complaints, no place to toilet, no room to burn energy.</div>
+  <div class="l"><span>Buys</span>Pee pads, indoor grass, enrichment and puzzle toys, balcony nets, anti-bark training, odour control, gates</div>
+  <div class="l"><span>Reach them</span>Instagram Reels solving one specific space problem. 'In a 1BHK' is the single highest-performing phrase in this niche.</div>
+  <div class="l avoid"><span>Don't</span>Generic advice written for American backyards. Rewrite everything for 600 square feet.</div>
+</div>
+
+<div class="per">
+  <h4>The Senior Pet Parent</h4>
+  <div class="meta">30–50 &nbsp;·&nbsp; Metro / Tier-1 &nbsp;·&nbsp; Spends ₹5,000–12,000/mo, rising</div>
+  <div class="d">Pet is 9+ years old. Emotionally invested, spending more than ever, and finding almost no Indian content for this stage.</div>
+  <div class="l"><span>Buys</span>Joint supplements, orthopedic beds, ramps, senior food, diapers, mobility aids, vet plans</div>
+  <div class="l"><span>Reach them</span>Google search and long-form YouTube. Low volume, very high intent, almost zero competition.</div>
+  <div class="l avoid"><span>Don't</span>Anything that reads as medical advice. Route to a vet on every page — and say so plainly.</div>
+</div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 06</div><h2>The hook bank</h2><p class="lede">Forty-eight hooks across eight formats, all written for this niche and this market. Use them as written, or swap the product and keep the structure — the structure is what does the work.</p></div>
+<div class="hooks">
+<div class="hgrp"><h4>Problem-first (highest CTR in this niche)</h4><ul><li>Your house doesn't smell like your cat. It smells like your litter.</li><li>Your dog isn't naughty. He's under-stimulated, and it takes 15 minutes to fix.</li><li>Your cat isn't ruining the sofa. The scratcher is in the wrong place.</li><li>Your dog pulls because of the collar, not because of the training.</li><li>If your dog vomits after eating, it's the bowl.</li><li>If your cat won't drink water, it's not the water. It's that it isn't moving.</li></ul></div>
+<div class="hgrp"><h4>Price contrast</h4><ul><li>₹18 a day versus ₹95 a day dog food. Here's what actually changes.</li><li>₹800 bed versus ₹6,000 orthopedic bed. Thirty days later.</li><li>₹250 grooming kit versus ₹2,500. Is it worth it?</li><li>₹40,000 litter box versus a ₹1,200 tray. Honest verdict.</li><li>Everything my puppy needed, under ₹5,000. Full list.</li><li>What one Indie dog actually costs per month. Real numbers.</li></ul></div>
+<div class="hgrp"><h4>Mistake / warning</h4><ul><li>Nine out of ten new cat parents get the litter depth wrong.</li><li>Three things in your first-aid box that are unsafe for pets.</li><li>Never use human shampoo on your dog. Here's what it does.</li><li>Found one tick? There are hundreds you can't see.</li><li>The step everyone skips when treating fleas: the house.</li><li>Five things the pet store will upsell you that you do not need.</li></ul></div>
+<div class="hgrp"><h4>Before / after and satisfying</h4><ul><li>This came off a Golden in ten minutes.</li><li>Blacklight test: this is what your 'clean' floor actually looks like.</li><li>Crate training, day 1 versus day 5.</li><li>Cat harness training, day 1 versus day 10.</li><li>Potty training in a flat, day 1 to day 14.</li><li>I gave my cat vertical space. Watch what changed.</li></ul></div>
+<div class="hgrp"><h4>Test / proof (builds authority fastest)</h4><ul><li>I tested six 'indestructible' toys on a Labrador.</li><li>I tried every cat litter sold in India. Cost per month for each.</li><li>Does an AirTag actually work to find a lost dog in India?</li><li>Water fountain versus bowl. Seven-day intake test.</li><li>Does a compression vest actually calm an anxious dog? Two weeks.</li><li>Three pet gadgets I returned, and why.</li></ul></div>
+<div class="hgrp"><h4>Myth-busting</h4><ul><li>'Chicken flavour' is not chicken. Let's read the label.</li><li>Which joint supplements have actual evidence, and which don't.</li><li>Grain-free is not automatically better. Here's when it matters.</li><li>Trainers hate retractable leashes. They're right.</li><li>Your dog does not need a sweater. Unless it's one of these breeds.</li><li>Coconut oil does not treat mange. Here's what does.</li></ul></div>
+<div class="hgrp"><h4>List / speed</h4><ul><li>Five cat toys under ₹300 that actually get used.</li><li>Fourteen things in a pet first-aid kit for an Indian home.</li><li>Twenty-seven things to buy before your puppy comes home.</li><li>Post-walk paw routine in five minutes.</li><li>Airline pet rules in India, in forty seconds.</li><li>Bed sizing: measure your dog in fifteen seconds.</li></ul></div>
+<div class="hgrp"><h4>POV / emotional</h4><ul><li>POV: it's your first night with a puppy and nobody warned you.</li><li>This is what fireworks sound like to your dog.</li><li>Signs of pain that dog parents consistently miss.</li><li>My eleven-year-old dog's daily routine.</li><li>He stopped using the sofa. It wasn't age. It was his hips.</li><li>Things I'd never buy again for my dog.</li></ul></div>
+</div>
+</div>
+<div class="pb"><h4 class="mini" style="margin-top:0">Six rules that matter more than the hooks</h4><div class="ck tight"><ul>
+<li>The first three seconds decide everything. Name the problem or show the result — never introduce yourself.</li>
+<li>One Reel, one product problem. Two products is two Reels.</li>
+<li>Say the price out loud on video, but never write a price in a blog post as fact — link to the live listing instead (and note that Amazon's terms prohibit stating prices outside their approved tools).</li>
+<li>Track saves and shares, not likes. Saves are the buying-intent signal, and they are what the algorithm rewards.</li>
+<li>Put the affiliate link where the audience already is: bio link-in-bio for Instagram, pinned comment plus description for YouTube, and inline in blog posts. Never bury it.</li>
+<li>Repeat winning hooks with a different product. If a hook format works, it will work five more times.</li>
+</ul></div></div><div style="margin-top:8mm">
+<div class="sec"><div class="num">Section 07</div><h2>The repurposing engine</h2><p class="lede">Nine published assets a week is not nine ideas a week. Research three topics, produce nine assets. This is the single mechanism that decides whether the calendar survives past week three.</p></div>
+<div class="flow">
+<div class="step"><div class="a">1 blog post</div><div class="b">The parent asset. Research once. 1,500–2,500 words, comparison table, clear 'best for' verdicts, affiliate links on every product mention plus one in the first 200 words.</div></div>
+<div class="step"><div class="a">→ 2 Instagram Reels</div><div class="b">Reel A: the single strongest hook from the post, 15–25s. Reel B: the comparison or the before/after, 20–35s. Both end on 'full list in bio'.</div></div>
+<div class="step"><div class="a">→ 1 YouTube Short</div><div class="b">The most instructive 30–45 seconds. Different hook wording from the Reels so the two platforms don't feel like reposts. Affiliate link in the description and pinned comment.</div></div>
+<div class="step"><div class="a">→ 5 Pinterest Pins</div><div class="b">One vertical image per product plus one for the comparison table. Keyword-rich titles and descriptions, all pointing at the blog post. Twenty minutes total, and the highest-ROI twenty minutes in this plan.</div></div>
+<div class="step"><div class="a">→ 1 Instagram carousel</div><div class="b">Slide 1 the hook, slides 2–6 one product each with price band and 'best for', slide 7 the CTA. Carousels get saved far more than Reels, and saves are the buying signal.</div></div>
+<div class="step"><div class="a">→ 1 WhatsApp broadcast</div><div class="b">Two lines and one link. Send only when there is a genuine offer or a genuinely useful list — this channel dies fast if abused.</div></div>
+<div class="step"><div class="a">→ 1 Story set</div><div class="b">Three to five frames with a poll or question sticker, plus the link sticker. Feeds the algorithm and generates the research questions for next week's content.</div></div>
+</div>
+<div class="call"><span class="lbl">The weekly rhythm</span><p><b>Sunday:</b> pick three topics, write the shot list, buy or borrow any products needed. <b>Monday:</b> shoot everything for the week in one two-to-three hour block — all Reels, all Shorts, all Pin images. <b>Tuesday to Thursday:</b> write the blog posts. <b>Friday:</b> edit and schedule the whole week. <b>Saturday:</b> engagement only — reply to every comment and DM, because early-stage reach comes from conversation. One shoot day, one edit day. Never film daily; that is what kills content plans.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 08</div><h2>Week 0 — Pre-Launch</h2><p class="lede">Do this in the seven days before Day 1. It is the difference between launching with a site and launching with an empty shell.</p></div>
+<div class="ck"><h4>Foundation</h4><ul>
+<li>Lock the niche positioning in one sentence: who it's for, which pets, which country, what promise.</li>
+<li>Domain + hosting live. Fast theme, mobile-first, under 2.5s load on 4G.</li>
+<li>Pages published: About, Contact, Privacy Policy, Affiliate Disclosure, Editorial Policy.</li>
+<li>Google Analytics 4 + Google Search Console verified. Sitemap submitted.</li>
+<li>Affiliate link management plugin or redirect setup so links can be swapped in one place later.</li>
+</ul></div>
+<div class="ck"><h4>Monetisation</h4><ul>
+<li>Amazon.in Associates application submitted (needs a live site with real content — this is why Week 0 exists).</li>
+<li>Cuelinks and EarnKaro accounts created — these give access to Flipkart, Supertails, Zigly and HUFT without individual approvals.</li>
+<li>Shortlist and save 30 hero product links across the Tier A categories.</li>
+<li>Decide the primary merchant per category using the flat-fee versus percentage logic on the monetisation page.</li>
+</ul></div>
+<div class="ck"><h4>Content bank</h4><ul>
+<li>Five cornerstone posts written and scheduled to go live on Day 1: New Puppy Checklist · New Kitten Checklist · Best Dog Food in India · Best Cat Litter in India · Monthly Cost of Keeping a Dog in India.</li>
+<li>Brand kit: two fonts, three colours, one caption template, one thumbnail template, one Reel outro.</li>
+<li>Twenty B-roll clips banked (own pets, licensed stock, or brand-supplied) so no day is blocked on footage.</li>
+<li>Keyword sheet started — 100 keywords minimum, columns per the research brief at the end of this document.</li>
+</ul></div>
+<div class="ck"><h4>Channels</h4><ul>
+<li>Instagram, YouTube and Pinterest handles claimed with the same name. Bios written with a single link-in-bio.</li>
+<li>Instagram bio link tool set up with a category-wise product list page.</li>
+<li>WhatsApp Channel or broadcast list created for the lead magnet.</li>
+<li>Follow 50 accounts in the niche; save 30 competitor Reels with their hooks logged.</li>
+</ul></div>
+<div class="call warm"><span class="lbl">Why Week 0 is not optional</span><p>Amazon Associates will not approve an empty site, and a visitor who lands on a one-post blog does not come back. Five posts live on Day 1 solves both problems, and it front-loads the Month-1 post count so the 15–20 target is comfortable rather than desperate.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 09</div><h2>The 90-day calendar</h2><p class="lede">Thirteen weeks, Day 1 to Day 91, every publishing slot filled with a specific deliverable. Blog titles are written to be published as-is. Sundays in Months 1 and 2 are deliberately kept free of publishing — that is the review and planning slot, and removing it is the fastest way to burn out.</p></div>
+<div class="call"><span class="lbl">Legend</span><p><span class="kind k-BLOG">BLOG</span> long-form post &nbsp; <span class="kind k-REEL">REEL</span> Instagram Reel &nbsp; <span class="kind k-SHORT">SHORT</span> YouTube Short &nbsp; <span class="kind k-LONG">LONG</span> long-form YouTube &nbsp; <span class="kind k-ROUNDUP">ROUND</span> Sunday roundup &nbsp; <span class="kind k-ADMIN">ADMIN</span> no publishing &nbsp; <span class="kind k-AUDIT">AUDIT</span> formal review</p></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 1</div><div class="m">Month 1 &nbsp;·&nbsp; Days 1–7</div></div><div class="th">Starter kits — puppy &amp; kitten</div></div>
+<div class="wk-goal"><span>Goal</span>Three money posts live. Instagram identity established. First 100 followers. Baseline metrics recorded.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>1</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>New Puppy Checklist India: 27 Things to Buy Before Day 1 (₹4,000 / ₹9,000 / ₹18,000 tiers)</div><div class="item"><span class="kind k-REEL">REEL</span>Everything I bought for my new puppy under ₹5,000 — fast-cut haul with price overlays</div></td><td class="c">Starter kit</td></tr>
+<tr><td class="d"><b>2</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Five puppy things you're wasting money on</div></td><td class="c">Starter kit</td></tr>
+<tr><td class="d"><b>3</b><i>Wed</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Puppy Food in India 2026: nine options from ₹18/day to ₹95/day</div><div class="item"><span class="kind k-REEL">REEL</span>₹18 a day versus ₹95 a day puppy food — what actually changes</div></td><td class="c">Dog food</td></tr>
+<tr><td class="d"><b>4</b><i>Thu</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>How much food does a 3-month-old puppy actually need? (chart on screen)</div></td><td class="c">Dog food</td></tr>
+<tr><td class="d"><b>5</b><i>Fri</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>New Kitten Checklist: 21 essentials for an Indian 1BHK (₹4,200 setup)</div><div class="item"><span class="kind k-REEL">REEL</span>Full kitten setup in a 1BHK — no yard, no problem</div></td><td class="c">Starter kit</td></tr>
+<tr><td class="d"><b>6</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>The litter box mistake nine out of ten new cat parents make</div></td><td class="c">Litter</td></tr>
+<tr><td class="d"><b>7</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Record baseline metrics. Save 15 product links. Build next week's shot list. Apply to two more affiliate networks.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 2</div><div class="m">Month 1 &nbsp;·&nbsp; Days 8–14</div></div><div class="th">Food &amp; feeding gear</div></div>
+<div class="wk-goal"><span>Goal</span>Claim the highest-value keyword cluster. Test two distinct hook styles and log which wins. Lead magnet live.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>8</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Dog Food in India 2026: budget, mid and premium compared (cost-per-kg table)</div><div class="item"><span class="kind k-REEL">REEL</span>Reading an Indian dog food label in 30 seconds</div></td><td class="c">Dog food</td></tr>
+<tr><td class="d"><b>9</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>'Chicken flavour' versus 'chicken meal' — why the wording matters</div></td><td class="c">Dog food</td></tr>
+<tr><td class="d"><b>10</b><i>Wed</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Cat Food in India: dry vs wet vs mixed feeding, with monthly cost</div><div class="item"><span class="kind k-REEL">REEL</span>Why your cat isn't drinking water — and why wet food fixes it</div></td><td class="c">Cat food</td></tr>
+<tr><td class="d"><b>11</b><i>Thu</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Three signs the food isn't working for your dog</div></td><td class="c">Dog food</td></tr>
+<tr><td class="d"><b>12</b><i>Fri</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Slow Feeders, Lick Mats &amp; Elevated Bowls: which bowl for which dog</div><div class="item"><span class="kind k-REEL">REEL</span>My dog ate in nine seconds. This ₹399 bowl fixed it.</div></td><td class="c">Bowls &amp; feeders</td></tr>
+<tr><td class="d"><b>13</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Water fountain versus bowl — seven-day cat intake test</div></td><td class="c">Bowls &amp; feeders</td></tr>
+<tr><td class="d"><b>14</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Publish lead magnet (Puppy/Kitten Checklist PDF) + WhatsApp capture. First hook-performance read.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 3</div><div class="m">Month 1 &nbsp;·&nbsp; Days 15–21</div></div><div class="th">Grooming &amp; coat care</div></div>
+<div class="wk-goal"><span>Goal</span>Highest reel-ability category. Push for the first 10,000-view Reel. Ten Pins per post from here on.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>15</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Dog Shampoo in India for every coat type and skin problem</div><div class="item"><span class="kind k-REEL">REEL</span>Deshedding a Golden Retriever — ten minutes, one tool (satisfying cut)</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>16</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Never use human shampoo on your dog — here's what it does</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>17</b><i>Wed</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Deshedding Tools Ranked: slicker vs rake vs deshedder for Indian coats</div><div class="item"><span class="kind k-REEL">REEL</span>The hair pile that came off in ten minutes</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>18</b><i>Thu</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Nail trimming without the drama — four steps</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>19</b><i>Fri</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Cat Grooming at Home: brushes, nail caps and dry shampoo cats tolerate</div><div class="item"><span class="kind k-REEL">REEL</span>Brushing a cat that hates being brushed</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>20</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>₹250 grooming kit versus ₹2,500 — worth it?</div></td><td class="c">Grooming</td></tr>
+<tr><td class="d"><b>21</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Save ten top competitor grooming Reels. Log every hook and first-three-seconds framing.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 4</div><div class="m">Month 1 &nbsp;·&nbsp; Days 22–28</div></div><div class="th">Litter, toilet &amp; home hygiene</div></div>
+<div class="wk-goal"><span>Goal</span>The highest repeat-purchase cluster in the niche. Test problem-first hooks against price-contrast hooks.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>22</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Cat Litter in India: bentonite vs tofu vs silica — smell, dust and cost per month</div><div class="item"><span class="kind k-REEL">REEL</span>Your house doesn't smell like your cat. It smells like your litter.</div></td><td class="c">Litter</td></tr>
+<tr><td class="d"><b>23</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>The one-inch rule for litter depth</div></td><td class="c">Litter</td></tr>
+<tr><td class="d"><b>24</b><i>Wed</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Litter Boxes for Indian Homes: hooded, top-entry and self-cleaning compared</div><div class="item"><span class="kind k-REEL">REEL</span>Top-entry litter box — 30 days later</div></td><td class="c">Litter box</td></tr>
+<tr><td class="d"><b>25</b><i>Thu</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Litter tracking across the whole house? Do this.</div></td><td class="c">Litter box</td></tr>
+<tr><td class="d"><b>26</b><i>Fri</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Pee Pads &amp; Indoor Toilet Setup for Apartment Dogs (full potty-training kit)</div><div class="item"><span class="kind k-REEL">REEL</span>Potty training a puppy in a flat — day 1 to day 14</div></td><td class="c">Potty training</td></tr>
+<tr><td class="d"><b>27</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Enzyme cleaner versus regular floor cleaner — the blacklight test</div></td><td class="c">Home cleaning</td></tr>
+<tr><td class="d"><b>28</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Mid-month audit: top five posts by affiliate clicks, top five Reels by saves.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 5</div><div class="m">Month 1 close &nbsp;·&nbsp; Days 29–35</div></div><div class="th">Toys, play &amp; enrichment</div></div>
+<div class="wk-goal"><span>Goal</span>Hit the 15-post target (20 including Week 0). Complete the full Month-1 audit and lock the Month-2 plan.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>29</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Indestructible Dog Toys in India: what actually survives a Labrador</div><div class="item"><span class="kind k-REEL">REEL</span>I tested six 'indestructible' toys on a Lab</div></td><td class="c">Toys</td></tr>
+<tr><td class="d"><b>30</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Your dog isn't naughty — he's under-stimulated  ·  ⟵ Day 30, end of Month 1</div></td><td class="c">Toys</td></tr>
+<tr><td class="d"><b>31</b><i>Wed</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Cat Enrichment on a Budget: wands, tunnels and DIY (₹0–₹1,500)</div><div class="item"><span class="kind k-REEL">REEL</span>Five cat toys under ₹300 that actually get used</div></td><td class="c">Toys</td></tr>
+<tr><td class="d"><b>32</b><i>Thu</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Rotate, don't buy — the toy rotation trick</div></td><td class="c">Toys</td></tr>
+<tr><td class="d"><b>33</b><i>Fri</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Puzzle Toys &amp; Lick Mats: the 15-minute fix for a bored dog</div><div class="item"><span class="kind k-REEL">REEL</span>A lick mat buys you twenty minutes of silence</div></td><td class="c">Enrichment</td></tr>
+<tr><td class="d"><b>34</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Toy graveyard: what we'll never buy again</div></td><td class="c">Toys</td></tr>
+<tr><td class="d"><b>35</b><i>Sun</i></td><td><div class="item"><span class="kind k-AUDIT">AUDIT</span>MONTH 1 DEEP AUDIT — earnings per post, top hooks, kill list, Month-2 plan locked. See the audit template.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 6</div><div class="m">Month 2 &nbsp;·&nbsp; Days 36–42</div></div><div class="th">Walk gear — collars, harnesses, leashes, ID &amp; safety</div></div>
+<div class="wk-goal"><span>Goal</span>Cadence shifts: 2 blogs, 5 Reels, 2 Shorts. Double down on whichever Month-1 category performed best.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>36</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>No-Pull Harnesses in India: seven tested on pullers (and two to avoid)</div><div class="item"><span class="kind k-REEL">REEL</span>Your dog pulls because of the collar, not the training</div></td><td class="c">Harness</td></tr>
+<tr><td class="d"><b>37</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Front-clip versus back-clip in twenty seconds</div><div class="item"><span class="kind k-REEL">REEL</span>Harness fitting: the two-finger rule</div></td><td class="c">Harness</td></tr>
+<tr><td class="d"><b>38</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Retractable leashes: why trainers hate them</div></td><td class="c">Leash</td></tr>
+<tr><td class="d"><b>39</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Dog ID Tags, QR Tags &amp; GPS: what actually gets a lost dog home in India</div><div class="item"><span class="kind k-SHORT">SHORT</span>Engraved tag versus QR tag — which one works?</div></td><td class="c">ID &amp; safety</td></tr>
+<tr><td class="d"><b>40</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Night walks: reflective versus LED collar test</div></td><td class="c">ID &amp; safety</td></tr>
+<tr><td class="d"><b>41</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Cat harness training — day 1 versus day 10</div></td><td class="c">Harness</td></tr>
+<tr><td class="d"><b>42</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Repurpose the two best Month-1 Reels with new hooks. Refresh two old posts with better links.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 7</div><div class="m">Month 2 &nbsp;·&nbsp; Days 43–49</div></div><div class="th">Health basics — flea, tick, deworming, first aid</div></div>
+<div class="wk-goal"><span>Goal</span>Highest pain-point cluster. First long-form video. Add the vet-disclaimer block to every health page.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>43</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Tick &amp; Flea Control in India: spot-on vs collar vs oral (monsoon guide)</div><div class="item"><span class="kind k-REEL">REEL</span>Found one tick? There are hundreds you can't see. Three-step reset.</div></td><td class="c">Flea &amp; tick</td></tr>
+<tr><td class="d"><b>44</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Where ticks actually hide on your dog — check these five places</div><div class="item"><span class="kind k-REEL">REEL</span>Tick comb versus tweezers — the correct removal method</div></td><td class="c">Flea &amp; tick</td></tr>
+<tr><td class="d"><b>45</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>The step everyone skips: you have to treat the house, not the dog</div></td><td class="c">Flea &amp; tick</td></tr>
+<tr><td class="d"><b>46</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Pet First-Aid Kit for Indian Homes: 14 items, and what to never use</div><div class="item"><span class="kind k-SHORT">SHORT</span>Three things in your first-aid box that are unsafe for pets</div></td><td class="c">First aid</td></tr>
+<tr><td class="d"><b>47</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Deworming schedule, laid out on a calendar</div></td><td class="c">Deworming</td></tr>
+<tr><td class="d"><b>48</b><i>Sat</i></td><td><div class="item"><span class="kind k-LONG">LONG</span>LONG VIDEO #1 (8–14 min) — 'Monsoon Pet Care in India: ticks, skin, paws and smell — the full protocol'</div><div class="item"><span class="kind k-REEL">REEL</span>Teaser cut from the long video</div></td><td class="c">Flea &amp; tick</td></tr>
+<tr><td class="d"><b>49</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>YouTube retention review: where do viewers drop off in the long video? Fix that point next time.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 8</div><div class="m">Month 2 &nbsp;·&nbsp; Days 50–56</div></div><div class="th">Beds, comfort &amp; cat furniture</div></div>
+<div class="wk-goal"><span>Goal</span>First high-order-value week. Cat furniture is the best risk-adjusted category in the whole plan — give it real effort.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>50</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Best Dog Beds in India: orthopedic, cooling and chew-proof, by size and age</div><div class="item"><span class="kind k-REEL">REEL</span>₹800 bed versus ₹6,000 orthopedic — thirty-day test</div></td><td class="c">Beds</td></tr>
+<tr><td class="d"><b>51</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Why your dog sleeps on the floor instead of the bed you bought</div><div class="item"><span class="kind k-REEL">REEL</span>Bed sizing: measure your dog in fifteen seconds</div></td><td class="c">Beds</td></tr>
+<tr><td class="d"><b>52</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>A full cat tree setup in a rental — no drilling</div></td><td class="c">Cat furniture</td></tr>
+<tr><td class="d"><b>53</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Cat Trees &amp; Scratchers for Indian Apartments: sisal, cardboard and wall shelves</div><div class="item"><span class="kind k-SHORT">SHORT</span>Scratching the sofa? It's a placement problem, not a behaviour problem.</div></td><td class="c">Cat furniture</td></tr>
+<tr><td class="d"><b>54</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>I gave my cat vertical space. Here's what changed in a week.</div></td><td class="c">Cat furniture</td></tr>
+<tr><td class="d"><b>55</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Washable versus non-washable bed — one monsoon later</div></td><td class="c">Beds</td></tr>
+<tr><td class="d"><b>56</b><i>Sun</i></td><td><div class="item"><span class="kind k-ADMIN">ADMIN</span>Day-56 checkpoint. Choose the Week-9 seasonal angle based on the actual launch month.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 9</div><div class="m">Month 2 close &nbsp;·&nbsp; Days 57–63</div></div><div class="th">Seasonal essentials — pick your season</div></div>
+<div class="wk-goal"><span>Goal</span>Swap in summer, monsoon or winter depending on the calendar. Second long video. Month-2 audit on Sunday.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>57</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>[SEASONAL] Cooling Mats, Fountains &amp; Paw Protection: surviving the Indian summer  —  swap for monsoon or winter as needed</div><div class="item"><span class="kind k-REEL">REEL</span>Hot pavement test: seven seconds on the back of your hand</div></td><td class="c">Cooling</td></tr>
+<tr><td class="d"><b>58</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Cooling mat versus wet towel — what actually cools a dog</div><div class="item"><span class="kind k-REEL">REEL</span>Frozen lick mat, three ingredients</div></td><td class="c">Cooling</td></tr>
+<tr><td class="d"><b>59</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>A raincoat that actually stays on</div></td><td class="c">Apparel</td></tr>
+<tr><td class="d"><b>60</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Paw Care in India: balms, boots and the five-minute post-walk routine</div><div class="item"><span class="kind k-SHORT">SHORT</span>Post-walk paw routine  ·  ⟵ Day 60, end of Month 2</div></td><td class="c">Paw care</td></tr>
+<tr><td class="d"><b>61</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Winter sweaters: which breeds actually need one</div></td><td class="c">Apparel</td></tr>
+<tr><td class="d"><b>62</b><i>Sat</i></td><td><div class="item"><span class="kind k-LONG">LONG</span>LONG VIDEO #2 — 'Everything I'd Buy Again for My Dog in India (full ₹ breakdown, one year in)'</div><div class="item"><span class="kind k-REEL">REEL</span>Teaser cut from the long video</div></td><td class="c">Multi</td></tr>
+<tr><td class="d"><b>63</b><i>Sun</i></td><td><div class="item"><span class="kind k-AUDIT">AUDIT</span>MONTH 2 AUDIT — traffic source mix, earnings per category, decide what to scale in Month 3.</div></td><td class="c">—</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 10</div><div class="m">Month 3 &nbsp;·&nbsp; Days 64–70</div></div><div class="th">Smart pet tech &amp; high-value products</div></div>
+<div class="wk-goal"><span>Goal</span>Highest value per sale in the plan. Sunday roundup Reel starts this week and runs every week from here.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>64</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Pet Cameras, GPS Trackers &amp; Automatic Feeders in India: what's actually worth it</div><div class="item"><span class="kind k-REEL">REEL</span>I left home for eight hours and recorded everything</div></td><td class="c">Smart tech</td></tr>
+<tr><td class="d"><b>65</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Does an AirTag actually work to find a lost dog in India?</div><div class="item"><span class="kind k-REEL">REEL</span>The automatic feeder that fixed my mornings</div></td><td class="c">Smart tech</td></tr>
+<tr><td class="d"><b>66</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Self-cleaning litter box — thirty days, honest verdict</div></td><td class="c">Litter box</td></tr>
+<tr><td class="d"><b>67</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Smart Water Fountains for Cats: do they really increase water intake?</div><div class="item"><span class="kind k-SHORT">SHORT</span>Cats drink twice as much from moving water</div></td><td class="c">Bowls &amp; feeders</td></tr>
+<tr><td class="d"><b>68</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>₹40,000 litter box versus a ₹1,200 tray — is it worth it?</div></td><td class="c">Litter box</td></tr>
+<tr><td class="d"><b>69</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Three pet gadgets I returned, and why</div></td><td class="c">Smart tech</td></tr>
+<tr><td class="d"><b>70</b><i>Sun</i></td><td><div class="item"><span class="kind k-ROUNDUP">ROUND</span>WEEKLY ROUNDUP REEL #1 — top three most-clicked products of the week, with view and save counts on screen</div></td><td class="c">Multi</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 11</div><div class="m">Month 3 &nbsp;·&nbsp; Days 71–77</div></div><div class="th">Travel, carriers &amp; crates</div></div>
+<div class="wk-goal"><span>Goal</span>High-intent, low-competition search cluster. Airline and travel content ranks well and ages slowly.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>71</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Flying With a Pet in India: IATA carriers, airline rules and the full checklist</div><div class="item"><span class="kind k-REEL">REEL</span>IATA carrier: how to measure your pet correctly</div></td><td class="c">Carriers</td></tr>
+<tr><td class="d"><b>72</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Airline pet rules in India, in forty seconds</div><div class="item"><span class="kind k-REEL">REEL</span>Crate training in five days</div></td><td class="c">Crates</td></tr>
+<tr><td class="d"><b>73</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Car travel: hammock seat cover versus seat belt tether</div></td><td class="c">Travel</td></tr>
+<tr><td class="d"><b>74</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Road Trips With Dogs: car seats, motion sickness and the eight-item kit</div><div class="item"><span class="kind k-SHORT">SHORT</span>Motion sickness: what to do two hours before you leave</div></td><td class="c">Travel</td></tr>
+<tr><td class="d"><b>75</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>The cat carrier your cat walks into voluntarily</div></td><td class="c">Carriers</td></tr>
+<tr><td class="d"><b>76</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Packing for a pet trip — sixty-second checklist</div></td><td class="c">Travel</td></tr>
+<tr><td class="d"><b>77</b><i>Sun</i></td><td><div class="item"><span class="kind k-ROUNDUP">ROUND</span>WEEKLY ROUNDUP REEL #2 + admin: refresh the three highest-earning posts with updated links</div></td><td class="c">Multi</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 12</div><div class="m">Month 3 &nbsp;·&nbsp; Days 78–84</div></div><div class="th">Training, behaviour, anxiety &amp; festive noise</div></div>
+<div class="wk-goal"><span>Goal</span>Publish the festival anxiety content four weeks before the festival, not during it. Highest emotional engagement of the quarter.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>78</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Diwali &amp; Fireworks Anxiety: calming products that help, and the myths that don't</div><div class="item"><span class="kind k-REEL">REEL</span>Build a safe room in ten minutes</div></td><td class="c">Calming</td></tr>
+<tr><td class="d"><b>79</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Does a compression vest actually work?</div><div class="item"><span class="kind k-REEL">REEL</span>Pheromone diffuser — two-week cat test</div></td><td class="c">Calming</td></tr>
+<tr><td class="d"><b>80</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Clicker training: 'sit' in ninety seconds</div></td><td class="c">Training</td></tr>
+<tr><td class="d"><b>81</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Dog Training Kit for Beginners: clicker, pouch, long line and treats that work</div><div class="item"><span class="kind k-SHORT">SHORT</span>The treat value ladder — why your dog ignores biscuits</div></td><td class="c">Training</td></tr>
+<tr><td class="d"><b>82</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Separation anxiety: the departure drill</div></td><td class="c">Calming</td></tr>
+<tr><td class="d"><b>83</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Barking at the door — three-step fix</div></td><td class="c">Training</td></tr>
+<tr><td class="d"><b>84</b><i>Sun</i></td><td><div class="item"><span class="kind k-ROUNDUP">ROUND</span>WEEKLY ROUNDUP REEL #3 + admin</div></td><td class="c">Multi</td></tr>
+</tbody></table></div>
+<div class="wk">
+<div class="wk-h"><div class="top"><div class="w">Week 13</div><div class="m">Month 3 close &nbsp;·&nbsp; Days 85–91</div></div><div class="th">Senior pets, supplements &amp; the 90-day scale plan</div></div>
+<div class="wk-goal"><span>Goal</span>The most under-served audience in Indian pet content. Close the quarter with a full audit and a Q2 plan.</div>
+<table class="cal"><thead><tr><th>Day</th><th>Publish</th><th>Category</th></tr></thead><tbody>
+<tr><td class="d"><b>85</b><i>Mon</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Senior Dog Care in India: joint supplements, ramps, orthopedic beds and diapers</div><div class="item"><span class="kind k-REEL">REEL</span>My eleven-year-old dog's daily routine</div></td><td class="c">Senior care</td></tr>
+<tr><td class="d"><b>86</b><i>Tue</i></td><td><div class="item"><span class="kind k-SHORT">SHORT</span>Joint supplements: what the label should say</div><div class="item"><span class="kind k-REEL">REEL</span>Ramp versus lifting — his hips thanked me</div></td><td class="c">Senior care</td></tr>
+<tr><td class="d"><b>87</b><i>Wed</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Signs of pain that dog parents consistently miss</div></td><td class="c">Senior care</td></tr>
+<tr><td class="d"><b>88</b><i>Thu</i></td><td><div class="item"><span class="kind k-BLOG">BLOG</span>Pet Supplements in India: which ones have evidence, and which don't</div><div class="item"><span class="kind k-SHORT">SHORT</span>Fish oil: the one question to ask your vet</div></td><td class="c">Supplements</td></tr>
+<tr><td class="d"><b>89</b><i>Fri</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Senior cat: the litter box changes that help</div></td><td class="c">Senior care</td></tr>
+<tr><td class="d"><b>90</b><i>Sat</i></td><td><div class="item"><span class="kind k-REEL">REEL</span>Ninety days of this channel — what I'd do differently  ·  ⟵ Day 90</div></td><td class="c">Meta</td></tr>
+<tr><td class="d"><b>91</b><i>Sun</i></td><td><div class="item"><span class="kind k-AUDIT">AUDIT</span>WEEKLY ROUNDUP REEL #4 + 90-DAY AUDIT and the Quarter-2 plan.</div></td><td class="c">Multi</td></tr>
+</tbody></table></div>
+<div class="call dark"><span class="lbl">Output after 91 days</span><p>31 blog posts (36 with Week 0) · 62 Instagram Reels · 26 YouTube Shorts · 2 long-form YouTube videos · 4 Sunday roundups · roughly 180 Pinterest Pins · 31 carousels. Three formal audits at Day 35, Day 63 and Day 91.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 10</div><h2>Affiliate programs &amp; the monetisation maths</h2><p class="lede">Rates verified against published schedules in August 2026. All of them change without notice — check your own dashboard before quoting a rate in any content or client report.</p></div>
+<table class="t-tight"><thead><tr><th>Program</th><th>Rate</th><th>Cookie</th><th>Notes</th></tr></thead><tbody>
+<tr><td><b>Amazon.in Associates</b></td><td>4.7% on Pet Products (Aug 2026 fee schedule)</td><td>24 hours</td><td>Widest catalogue and the highest buyer trust in India. But 4.7% of a ₹900 litter order is ₹42. Note: prescription pet medication earns 0%, and Amazon's terms restrict quoting prices outside their approved tools.</td></tr>
+<tr><td><b>Flipkart</b></td><td>Up to ~12%, category-dependent</td><td>30 min direct / up to 24h via networks</td><td>Direct sign-ups are frequently paused. Join through Cuelinks, EarnKaro or Admitad instead — you also get a much longer tracking window, which matters for higher-value orders.</td></tr>
+<tr><td><b>Supertails</b></td><td>~₹250–400 flat per qualifying new-customer order</td><td>~30 days</td><td>Flat fee, which makes it dramatically better than percentage programs on low-value repeat items like litter, treats and food. Access via EarnKaro or Cuelinks.</td></tr>
+<tr><td><b>Heads Up For Tails</b></td><td>~5–6% flat</td><td>~30 days</td><td>Strong brand recognition and higher average order value, especially on beds, accessories and apparel. Good fit for the premium-parent persona.</td></tr>
+<tr><td><b>Zigly</b></td><td>Advertised up to ~32% on selected products</td><td>~30 days</td><td>The headline rate is product- and cohort-dependent — verify in the dashboard before you build content around it. Worth testing because the upside is large if it holds.</td></tr>
+<tr><td><b>Cuelinks / EarnKaro / Admitad / vCommission</b></td><td>Varies by merchant</td><td>Varies</td><td>Aggregators. One login gives access to dozens of Indian pet merchants without applying to each. Start here on Day 1 — approval is fast and it removes the Amazon-approval bottleneck.</td></tr>
+<tr><td><b>Brand direct — Wiggles, Drools, Captain Zack, Farmina</b></td><td>Negotiable, often 8–15%</td><td>Varies</td><td>Worth approaching directly once you have 90 days of traffic data. Direct deals also unlock free product for reviews, which is what unlocks the Smart Tech and high-AOV categories.</td></tr>
+<tr><td><b>Services — pet insurance, vet teleconsult, DNA tests</b></td><td>₹100–1,500 per lead or signup</td><td>Varies</td><td>Highest payout per conversion in the whole list, and almost nobody in Indian pet content is promoting them. Pays on a lead, not a purchase, so the conversion bar is much lower.</td></tr>
+</tbody></table>
+<div class="call warm"><span class="lbl">The maths that changes everything</span><p><b>The one calculation that should shape every product link you place.</b> A ₹1,200 cat litter order pays roughly ₹56 on Amazon at 4.7%. The same order through a flat-fee program like Supertails can pay ₹250–400 for a new customer — five to seven times more. So: route <b>low-value, high-repeat</b> items (litter, treats, food, poop bags) to flat-fee programs, and route <b>high-value or long-tail</b> items (₹15,000 self-cleaning litter box, obscure brands, anything where Prime delivery closes the sale) to Amazon. Put both links on the page — 'Buy on Amazon' and 'Buy on Supertails' — and let the reader choose. You get paid either way, and conversion goes up because you removed a decision.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 11</div><h2>Disclosure, compliance &amp; risk</h2><p class="lede">Six rules. The first two protect the income; the third protects against something worse. None of this is optional and all of it takes about ten minutes a week to get right.</p></div>
+<div class="issue"><h4><span class="n">01</span>Disclosure is not optional, and it goes first</h4><p class="p">India's ASCI influencer guidelines require disclosure that is upfront and unmissable — in the first two lines of a caption, as an on-screen label held for at least three seconds in video, and clearly worded (#ad, #affiliate, 'paid link'). Burying it at the end of a caption or in a hashtag block does not comply.</p></div>
+<div class="issue"><h4><span class="n">02</span>Amazon has its own specific wording</h4><p class="p">Amazon Associates requires the statement 'As an Amazon Associate I earn from qualifying purchases' on any page or channel carrying their links. Their terms also prohibit using affiliate links in email, PDFs and (in practice) closed messaging, and restrict quoting prices outside their approved tools. Read the Operating Agreement once, properly — accounts get closed for these, and closure is usually permanent.</p></div>
+<div class="issue"><h4><span class="n">03</span>Health content is the biggest risk in this niche</h4><p class="p">Anything touching illness, dosage, medication or diagnosis is high-stakes both legally and for search rankings. Rules to hold to: never diagnose, never state a dosage, never recommend a prescription medication, always name the vet as the decision-maker, and put a visible disclaimer block on every health page. This also protects the site from Google's quality assessments of health content.</p></div>
+<div class="issue"><h4><span class="n">04</span>Don't claim a test you didn't run</h4><p class="p">'I tested six toys' is the highest-converting content format in this plan — and the fastest way to lose an audience if it isn't true. If the product wasn't used, frame it as 'what to look for' or 'what reviewers report' instead. Audiences in this niche are unusually good at detecting fake reviews.</p></div>
+<div class="issue"><h4><span class="n">05</span>Use images you have the right to use</h4><p class="p">Brand product photos, other creators' clips and stock without a licence are all liability. Shoot your own, use properly licensed stock, or use the brand's official affiliate creative assets.</p></div>
+<div class="issue"><h4><span class="n">06</span>Keep prices out of evergreen copy</h4><p class="p">Prices move constantly in Indian e-commerce. Use price <i>bands</i> ('₹800–1,200') in blog posts and let the live link carry the exact figure. Speaking a price out loud on video is fine; hard-coding it in an evergreen post creates a credibility problem within weeks.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 12</div><h2>Targets worth measuring</h2><p class="lede">Output targets are commitments. Revenue targets are ranges, and the range is wide because this niche is genuinely unpredictable at small scale.</p></div>
+<table class="t-tight"><thead><tr><th>Phase</th><th>Output</th><th>Sessions/day</th><th>IG followers</th><th>YT subs</th><th>Commission</th><th>What actually matters this month</th></tr></thead><tbody>
+<tr><td><b>Month 1</b></td><td>15 blogs (20 with Week 0) · 20 Reels · 10 Shorts</td><td>0–50/day, almost all social</td><td>500–2,000</td><td>0–300</td><td>₹0 – 2,000</td><td>Reels published on schedule · saves per Reel · which two categories produced the most saves</td></tr>
+<tr><td><b>Month 2</b></td><td>8 blogs · 22 Reels · 8 Shorts · 2 long videos</td><td>50–250/day, social + first Pinterest</td><td>2,000–6,000</td><td>300–1,200</td><td>₹1,500 – 10,000</td><td>Affiliate link CTR · earnings per post · YouTube average view duration · Search Console impression curve starting to lift</td></tr>
+<tr><td><b>Month 3</b></td><td>8 blogs · 26 Reels · 8 Shorts · 2 long videos · 4 roundups</td><td>150–600/day, Pinterest becoming material</td><td>5,000–15,000</td><td>1,000–4,000</td><td>₹6,000 – 30,000</td><td>Revenue per 1,000 sessions · top three categories by revenue · WhatsApp list size · repeat-visitor share</td></tr>
+</tbody></table>
+<div class="call dark"><span class="lbl">Calibration</span><p><b>Read these as ranges, not promises.</b> They assume no paid promotion and no existing audience. The variance in this niche is extreme — one Reel that reaches a million views can beat the entire rest of the quarter, and it is normal for months one and two to look like nothing is working while the assets quietly accumulate. The number to watch is not revenue in Month 1. It is whether the publishing schedule was actually met, and whether saves per Reel are trending up.</p></div>
+<h4 class="mini">The six leading indicators</h4>
+<div class="flow">
+<div class="step"><div class="a">Saves + shares per Reel</div><div class="b">The buying-intent signal, and what the algorithm actually rewards. Likes are noise.</div></div>
+<div class="step"><div class="a">Affiliate link click-through rate</div><div class="b">Per post. Under 2% means the links are badly placed or the products don't match intent.</div></div>
+<div class="step"><div class="a">Earnings per post (EPC)</div><div class="b">Total commission divided by clicks, per post. This is what tells you which categories to scale.</div></div>
+<div class="step"><div class="a">YouTube average view duration</div><div class="b">Under 30% on Shorts means the hook failed. Fix the first three seconds, not the topic.</div></div>
+<div class="step"><div class="a">Search Console impressions</div><div class="b">Will move long before clicks do. Rising impressions in month two is the signal that the SEO investment is working, even at zero traffic.</div></div>
+<div class="step"><div class="a">Pinterest outbound clicks</div><div class="b">The earliest real traffic source for a new site in this niche. Check weekly.</div></div>
+</div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 13</div><h2>The Indian pet seasonality calendar</h2><p class="lede">Pet buying in India is intensely seasonal. Fixing the launch date against this calendar is worth more than any individual piece of content in the plan.</p></div>
+<table class="t-tight"><thead><tr><th style="width:22mm">Month</th><th>What drives buying</th><th>Categories to push</th></tr></thead><tbody>
+<tr><td><b>Jan</b></td><td>Winter wear (North India), New Year adoption spike, 'new pet' checklist searches peak</td><td>Apparel · Beds · Starter kits</td></tr>
+<tr><td><b>Feb</b></td><td>Shedding begins as weather warms. Feb 20 — Love Your Pet Day</td><td>Grooming · Deshedding tools</td></tr>
+<tr><td><b>Mar</b></td><td>Summer prep, shedding peaks, heat begins in the South and West</td><td>Cooling · Grooming · Water fountains</td></tr>
+<tr><td><b>Apr–May</b></td><td>Peak summer. Paw burns, dehydration, heat stress. Tick season opens. Apr 11 — National Pet Day</td><td>Cooling mats · Fountains · Paw balm · Flea &amp; tick</td></tr>
+<tr><td><b>Jun–Aug</b></td><td>MONSOON — the biggest pet-problem season in India. Ticks and fleas peak, fungal skin infections, wet-dog odour, muddy paws, indoor boredom. Aug 8 International Cat Day, Aug 26 International Dog Day</td><td>Flea &amp; tick · Anti-fungal shampoo · Raincoats · Paw care · Odour control · Indoor enrichment</td></tr>
+<tr><td><b>Sep</b></td><td>Post-monsoon skin and ear problems. Ganesh Chaturthi noise. Sale-season content prep starts</td><td>Grooming · Ear care · Calming</td></tr>
+<tr><td><b>Oct–Nov</b></td><td>THE REVENUE WINDOW. Amazon Great Indian Festival and Flipkart Big Billion Days — the highest-earning three weeks of the affiliate year. Diwali fireworks anxiety. Festive outfits. Gifting</td><td>Everything · Calming &amp; anxiety · Apparel · Smart tech · High-AOV</td></tr>
+<tr><td><b>Dec</b></td><td>Winter wear, heating pads, Christmas gifting, year-end 'best of' and 'what I'd buy again' content</td><td>Apparel · Warming · Gifting · Lifestyle</td></tr>
+</tbody></table>
+<div class="call warm"><span class="lbl">Highest-leverage decision in this document</span><p><b>If the 90-day window overlaps late September to early November, rewrite the plan around it.</b> The Great Indian Festival and Big Billion Days sale period will out-earn everything else combined. Build deal-comparison and 'best offers' content three weeks in advance, have every product link pre-placed, and publish daily during the sale.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">Section 14</div><h2>Research brief — five deliverables</h2><p class="lede">This is the part to hand over directly. Each deliverable has a deadline, a defined output, and the tools to produce it. Everything here can be done on free tools.</p></div>
+<div class="rd"><h4>Deliverable 1 — Keyword sheet (by Day 7)</h4><p class="p">Three hundred India-targeted keywords in one spreadsheet. Columns: keyword · monthly volume (India) · difficulty · intent (informational / commercial / transactional) · category from the master list · target URL · current top-3 results · best affiliate program for that keyword · notes. Sort by commercial intent and low difficulty — that sorted list is the blog calendar for months four to six.</p><div class="tools"><span class="lbl">Tools &amp; sources</span><ul><li>Google Keyword Planner (free with any Ads account)</li><li>Google Search Console once the site has data</li><li>Ahrefs free keyword generator · Ubersuggest free tier</li><li>AnswerThePublic for question-shaped keywords</li><li>Google Trends set to India, with state-level breakdown</li><li>Amazon.in and Flipkart search autocomplete — the purest commercial-intent source there is</li><li>Instagram, YouTube and Pinterest search suggestions</li></ul></div></div>
+<div class="rd"><h4>Deliverable 2 — Competitor teardown (by Day 10)</h4><p class="p">Ten competitors: five Indian pet blogs and five Indian pet Instagram or YouTube channels. For each, log their top ten pages or posts, which categories they cover well, which they ignore entirely, which affiliate programs they use, and their posting frequency. The gaps are the opportunity — and based on the category analysis in this document, expect the gaps to be senior pet care, home odour control, smart tech and cat furniture.</p><div class="tools"><span class="lbl">Tools &amp; sources</span><ul><li>Ubersuggest or Ahrefs free site overview for top pages</li><li>Instagram: sort profile by 'most viewed' Reels</li><li>YouTube: sort channel by 'most popular'</li><li>Save 30 competitor Reels with hook, first three seconds, and CTA logged</li></ul></div></div>
+<div class="rd"><h4>Deliverable 3 — Category validation scores (by Day 14)</h4><p class="p">Score all 28 categories from the master list, one to five, on four axes: search demand in India · rupees earned per sale · reel-ability (can the benefit be shown in eight seconds?) · competition. Multiply demand × rupees-per-sale × reel-ability, divide by competition. That ranking, not intuition, decides what gets published in months four to six.</p><div class="tools"><span class="lbl">Tools &amp; sources</span><ul><li>Use the scorecard in this document as the starting hypothesis, then verify with real keyword data</li><li>Check actual commission per sale in each affiliate dashboard rather than trusting published rates</li><li>Reddit — r/IndianPets, r/india, r/CatAdvice, r/Dogtraining — for real problem language in the audience's own words</li><li>Quora India and Indian pet Facebook groups for the same reason</li></ul></div></div>
+<div class="rd"><h4>Deliverable 4 — Hero SKU price tracker (ongoing, weekly)</h4><p class="p">Twenty hero products across the Tier A categories, price-checked weekly across Amazon, Flipkart, Supertails and Zigly. Affiliate content lives or dies on price accuracy — a post recommending a product that is now out of stock or 40% more expensive loses the reader permanently.</p><div class="tools"><span class="lbl">Tools &amp; sources</span><ul><li>A simple Google Sheet with a weekly manual check is enough at this scale</li><li>Flag any product that goes out of stock and swap the link the same day</li><li>Note which merchant is cheapest per product — that is the link that should be first on the page</li></ul></div></div>
+<div class="rd"><h4>Deliverable 5 — Weekly one-page report (every Sunday)</h4><p class="p">One page, same format every week: what was published · top three assets by saves and by clicks · bottom three · affiliate clicks and earnings · one thing to change next week. If a report takes more than twenty minutes to produce, it is too detailed to be useful.</p><div class="tools"><span class="lbl">Tools &amp; sources</span><ul><li>Google Analytics 4 for sessions and link clicks</li><li>Affiliate dashboards for clicks, orders and earnings</li><li>Instagram and YouTube native analytics for saves, shares and retention</li><li>Keep every week's report in one document so trends are visible at a glance</li></ul></div></div>
+<div class="call"><span class="lbl">In closing</span><p>The plan the freelancer built is fundamentally sound — the cadence is realistic for one person, the ramp from broad to focused is right, and the shift from blog-heavy to video-heavy matches where attention actually is in India. The changes in this document are additions, not corrections: five weeks of Month-1 cadence instead of four so the post target is actually reachable, Pinterest added because it is the only organic channel that can produce results inside 90 days, a repurposing rule so nine assets a week comes from three research sessions, twelve product categories added to the list (led by food, which was the notable omission and is the largest revenue pool in the market), and realistic expectations for what search traffic will and will not do in the first quarter.</p></div>
+<div class="foot">Pet Affiliate Playbook · India · Dogs &amp; Cats · v1.0, August 2026. Commission rates, market figures and program terms were verified against published sources in August 2026 and change frequently — verify in the relevant dashboard before relying on any figure here.</div>
+</div></body></html>

@@ -1,0 +1,395 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>Vidya's Kitchen — 8-Week Launch Marketing Brief</title><style>
+@page { size: A4; margin: 15mm 14mm 16mm 14mm; }
+
+:root{
+  --ink:#1c1614; --ink2:#3d3230; --muted:#6b5c58; --faint:#8a7a75;
+  --accent:#BD2320; --accent-d:#8a1a18; --accent-l:#f8eaea;
+  --warm:#8a5a12; --warm-l:#f8f0e4;
+  --line:#e8ddd9; --soft:#faf6f4;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:9.3pt; line-height:1.48; color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{ font-family:"Iowan Old Style",Georgia,"Times New Roman",serif; font-weight:600; }
+p{ margin:0 0 6.5pt; }
+b,strong{ font-weight:600; color:var(--ink); }
+i,em{ font-style:italic; }
+a{ color:var(--accent-d); text-decoration:none; }
+.pb{ page-break-before:always; }
+.avoid{ page-break-inside:avoid; }
+
+.cover{ height:262mm; display:flex; flex-direction:column; justify-content:space-between; }
+.cover-top .eyebrow{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:12mm;
+}
+.cover h1{ font-size:34pt; line-height:1.06; margin:0 0 6mm; letter-spacing:-.01em; }
+.cover .sub{ font-family:"Iowan Old Style",Georgia,serif; font-size:14pt; line-height:1.35; color:var(--ink2); margin:0 0 8mm; max-width:148mm; }
+.cover .rule{ width:34mm; height:3px; background:var(--accent); margin:0 0 8mm; }
+.cover .scope{ font-size:10pt; color:var(--muted); letter-spacing:.04em; }
+.cover-box{
+  border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--soft);
+  padding:6mm 7mm; max-width:158mm;
+}
+.cover-box h4{ margin:0 0 3mm; font-size:11pt; }
+.cover-box ul{ margin:0; padding-left:5mm; }
+.cover-box li{ margin-bottom:1.5mm; color:var(--ink2); font-size:9.1pt; }
+.cover-bot{ border-top:1px solid var(--line); padding-top:5mm; font-size:8.4pt; color:var(--faint); }
+.cover-bot .row{ display:flex; justify-content:space-between; }
+
+.sec{ margin:0 0 5.5mm; }
+.sec .num{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.5pt; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--accent); font-weight:600;
+}
+.sec h2{ font-size:20.5pt; line-height:1.12; margin:1.4mm 0 2.2mm; letter-spacing:-.005em; }
+.sec .lede{ font-size:9.6pt; color:var(--ink2); max-width:162mm; line-height:1.5; margin:0; }
+h3.blk{ font-size:12.5pt; margin:7mm 0 2.5mm; page-break-after:avoid; }
+h3.blk:first-child{ margin-top:0; }
+h4.mini{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.8pt; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin:5mm 0 2mm;
+  padding-bottom:1.4mm; border-bottom:1px solid var(--line); page-break-after:avoid;
+}
+
+table{ width:100%; border-collapse:collapse; font-size:8.3pt; margin:0 0 5mm; }
+th{
+  text-align:left; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-weight:600;
+  font-size:7.2pt; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--accent-d);
+  padding:2.4mm 2.2mm; vertical-align:bottom;
+}
+td{ padding:2.1mm 2.2mm; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink2); }
+tr{ page-break-inside:avoid; }
+tbody tr:nth-child(even) td{ background:#fdfafa; }
+td b{ color:var(--ink); }
+.t-num{ width:7mm; color:var(--faint); }
+.r{ text-align:right; white-space:nowrap; }
+.t-dense td{ padding:1.5mm 2mm; }
+.t-dense th{ padding:2mm; }
+
+.call{ border-left:3px solid var(--accent); background:var(--accent-l); padding:4mm 5mm; margin:0 0 5.5mm; font-size:9pt; }
+.call.warm{ border-left-color:var(--warm); background:var(--warm-l); }
+.call.dark{ border-left-color:var(--ink); background:#f0ecea; }
+.call p:last-child{ margin-bottom:0; }
+.call .lbl{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.1pt; letter-spacing:.16em;
+  text-transform:uppercase; font-weight:600; color:var(--accent-d); display:block; margin-bottom:1.8mm;
+}
+.call.warm .lbl{ color:var(--warm); }
+.call.dark .lbl{ color:var(--ink); }
+
+.kind{
+  display:inline-block; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:6.4pt;
+  letter-spacing:.08em; font-weight:600; padding:.7mm 1.5mm; border-radius:2px; margin-right:1.8mm;
+}
+.k-POST{ background:var(--accent-d); color:#fff; }
+.k-REEL{ background:var(--warm); color:#fff; }
+.k-STORY{ background:#5c3d38; color:#fff; }
+.k-WA{ background:#128C7E; color:#fff; }
+
+.flow{ margin-bottom:4mm; }
+.flow .step{ display:flex; gap:4mm; padding:2.4mm 0; border-top:1px solid var(--line); page-break-inside:avoid; }
+.flow .step .a{ flex:0 0 38mm; font-weight:600; color:var(--accent-d); font-size:9pt; }
+.flow .step .b{ flex:1; color:var(--ink2); font-size:8.6pt; }
+
+.wk{ margin-bottom:4.5mm; page-break-inside:avoid; }
+.wk-h{ border-bottom:2px solid var(--accent-d); padding-bottom:1.3mm; }
+.wk-h .top{ display:flex; justify-content:space-between; align-items:baseline; }
+.wk-h .w{ font-family:"Iowan Old Style",Georgia,serif; font-size:12.5pt; font-weight:600; }
+.wk-h .m{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.1pt; letter-spacing:.14em; text-transform:uppercase; color:var(--warm); font-weight:600; }
+.item{ margin-bottom:1.1mm; }
+.item:last-child{ margin-bottom:0; }
+
+.hooks{ column-count:2; column-gap:8mm; }
+.hgrp{ break-inside:avoid; margin-bottom:4mm; }
+.hgrp h4{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.5pt; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 1.4mm;
+}
+.hgrp ul{ margin:0; padding-left:4mm; }
+.hgrp li{ font-size:8.4pt; margin-bottom:.85mm; color:var(--ink2); line-height:1.4; }
+
+.ck{ margin-bottom:4mm; page-break-inside:avoid; }
+.ck h4{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:8pt; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 2mm;
+}
+.ck ul{ list-style:none; margin:0; padding:0; }
+.ck li{ font-size:8.6pt; color:var(--ink2); padding-left:6mm; position:relative; margin-bottom:1.6mm; }
+.ck li:before{ content:"☐"; position:absolute; left:0; color:var(--accent); font-size:10pt; }
+
+.foot{ margin-top:8mm; border-top:1px solid var(--line); padding-top:3.5mm; font-size:7.8pt; color:var(--faint); }
+.two{ display:flex; gap:6mm; }
+.two > div{ flex:1; }
+</style></head><body>
+<div class="cover">
+  <div class="cover-top">
+    <div class="eyebrow">Launch marketing brief · grounded in the live product</div>
+    <h1>Vidya's Kitchen<br>8-week launch</h1>
+    <div class="rule"></div>
+    <p class="sub">Sivakasi home-style gravies. Ordered today, delivered tomorrow. WhatsApp bot + app.</p>
+    <div class="scope">Sep–Oct 2026  ·  Sivakasi 15 km  ·  Against-order only  ·  v1.0 from live product</div>
+  </div>
+  <div class="cover-mid">
+    <div class="cover-box">
+      <h4>This brief is written from the actual app</h4>
+      <ul>
+        <li>17 against-order dishes · 500gm and 1kg · Chicken / Egg / Mutton only</li>
+        <li>Home screen Kitchen picks (not fake best-sellers) and the real checkout path</li>
+        <li>WhatsApp bot + PWA — two doors, one kitchen</li>
+        <li>Hard rules: 24-hour lead, Sivakasi 15 km, Razorpay only, no COD, no subscription</li>
+        <li>Week-by-week quota: 15 posts + 5 Reels, with Week 1 named dish-by-dish</li>
+      </ul>
+    </div>
+  </div>
+  <div class="cover-bot">
+    <div class="row">
+      <span>vidyaskitchenhome.com &nbsp;·&nbsp; WhatsApp +91 75500 28179</span>
+      <span>For the marketing person + kitchen · Sep–Oct 2026</span>
+    </div>
+  </div>
+</div>
+<div class="pb">
+<div class="sec"><div class="num">01  ·  Product truth</div><h2>What we actually sell</h2><p class="lede">Do not market this as Swiggy. The app is against-order home gravies from a Sivakasi kitchen. Default add-to-cart is 500gm. 1kg is the family/guest size. Breakfast, lunch and dinner in the app are delivery windows — there is no breakfast menu.</p></div>
+<div class="call warm"><span class="lbl">One-line positioning (use this, not “fast food”)</span><p><b>Sivakasi's home-style gourmet kitchen.</b> Chicken, mutton and egg specials, cooked fresh against order. Order today — we deliver tomorrow. No rush orders.</p></div>
+<div class="flow">
+<div class="step"><div class="a">Site / app</div><div class="b">https://vidyaskitchenhome.com — mobile PWA. Not on Play Store or App Store.</div></div>
+<div class="step"><div class="a">Order WhatsApp</div><div class="b">+91 75500 28179 — Vidya Bot. Prefill: “Hi Vidya's Kitchen! I'd like to place an order.”</div></div>
+<div class="step"><div class="a">Support</div><div class="b">+91 93840 20119 · hello.vidyaskitchen@gmail.com</div></div>
+<div class="step"><div class="a">Area</div><div class="b">Sivakasi, Tamil Nadu — 15 km of the kitchen. Ads geo-locked here only.</div></div>
+<div class="step"><div class="a">Order window</div><div class="b">6 AM–6 PM IST. Slot must start at least 24 hours after the order.</div></div>
+<div class="step"><div class="a">Slots</div><div class="b">Breakfast 7–9 AM · Lunch 12–2 PM · Dinner 7–9 PM (delivery windows).</div></div>
+<div class="step"><div class="a">Pay</div><div class="b">Razorpay — UPI, card, net banking. COD is Coming soon. Do not advertise cash.</div></div>
+<div class="step"><div class="a">Fees</div><div class="b">Packaging ₹20 + delivery ₹35 + GST 5% on items. Cancel ≥12 hours before the slot.</div></div>
+<div class="step"><div class="a">Cart</div><div class="b">App: unlimited. WhatsApp bot: max 3 items. Bot nudges users to Open App for photos.</div></div>
+</div></div><div class="pb">
+<div class="sec"><div class="num">02  ·  The 17 dishes</div><h2>Quote the weight. Quote the app price.</h2><p class="lede">These numbers are from the customer app (mobileMenuData). WhatsApp catalog uses a single “order” price that tracks the 1kg figure — never mix the two in one caption. 500gm serves 1–2; 1kg serves 3–4.</p></div>
+<div class="call"><span class="lbl">Kitchen picks — home screen row until we have real sales</span><p>Until 8 paid units exist, the app shows these five as <b>Kitchen picks</b>, not “best sellers”. All launch ads and Week 1 content start here. Do not invent order counts.</p></div>
+<table class="t-dense"><thead><tr><th>Dish</th><th class='r'>500gm</th><th class='r'>1kg</th><th>Offer in app</th><th>Caption note</th></tr></thead><tbody>
+<tr><td><b>Mom's Recipe — Chicken Gravy</b></td><td class='r'>₹349</td><td class='r'>₹699</td><td>20% OFF</td><td>Comfort coconut-masala. First dish to advertise.</td></tr>
+<tr><td><b>Sister's Recipe — Chicken Gravy</b></td><td class='r'>₹349</td><td class='r'>₹699</td><td>20% OFF</td><td>Same price band, different family story.</td></tr>
+<tr><td><b>Sister-in-law's Pepper Chicken</b></td><td class='r'>₹425</td><td class='r'>₹849</td><td>15% OFF</td><td>Bold pepper. Hero Reel dish.</td></tr>
+<tr><td><b>Idli Special Chicken Gravy</b></td><td class='r'>₹425</td><td class='r'>₹849</td><td>15% OFF</td><td>Sell with idli/dosa — breakfast SLOT, not breakfast menu.</td></tr>
+<tr><td><b>Egg Curry</b></td><td class='r'>₹149</td><td class='r'>₹299</td><td>25% OFF</td><td>Entry price. 'Try us' offer. Default 500gm add.</td></tr>
+</tbody></table>
+<h4 class='mini'>Chicken — 8 dishes</h4>
+<table class="t-dense"><thead><tr><th>Dish</th><th class='r'>500gm</th><th class='r'>1kg</th><th>Offer in app</th><th>Caption note</th></tr></thead><tbody>
+<tr><td><b>Mom's Recipe — Chicken Gravy</b></td><td class='r'>₹349</td><td class='r'>₹699</td><td>20% OFF</td><td>Comforting home-style masala with coconut undertones.</td></tr>
+<tr><td><b>Sister's Recipe — Chicken Gravy</b></td><td class='r'>₹349</td><td class='r'>₹699</td><td>20% OFF</td><td>Spiced home-style gravy with a unique family touch.</td></tr>
+<tr><td><b>Chicken Wings</b></td><td class='r'>₹375</td><td class='r'>₹749</td><td>—</td><td>Crisp outside, juicy inside — curry leaves and cracked pepper.</td></tr>
+<tr><td><b>Black Pepper Chicken Gravy</b></td><td class='r'>₹399</td><td class='r'>₹799</td><td>—</td><td>Freshly ground pepper, onion-tomato base. Rice or parotta.</td></tr>
+<tr><td><b>Idli Special Chicken Gravy</b></td><td class='r'>₹425</td><td class='r'>₹849</td><td>15% OFF</td><td>Packed for soft idlis.</td></tr>
+<tr><td><b>Sister-in-law's Recipe — Pepper Chicken</b></td><td class='r'>₹425</td><td class='r'>₹849</td><td>15% OFF</td><td>Bold pepper and caramelised onions.</td></tr>
+<tr><td><b>Chilly Chicken Gravy</b></td><td class='r'>₹599</td><td class='r'>₹1199</td><td>—</td><td>Tangy, spicy, bold chilly punch.</td></tr>
+<tr><td><b>Chilly Chicken (Dry)</b></td><td class='r'>₹599</td><td class='r'>₹1199</td><td>—</td><td>Wok-tossed capsicum, onion, chilli-garlic glaze.</td></tr>
+</tbody></table>
+<h4 class='mini'>Egg — 2 dishes (the try-us door)</h4>
+<table class="t-dense"><thead><tr><th>Dish</th><th class='r'>500gm</th><th class='r'>1kg</th><th>Offer in app</th><th>Caption note</th></tr></thead><tbody>
+<tr><td><b>Egg Curry</b></td><td class='r'>₹149</td><td class='r'>₹299</td><td>25% OFF</td><td>Boiled eggs in tangy onion-tomato gravy — lunchbox favourite.</td></tr>
+<tr><td><b>Egg Chalna</b></td><td class='r'>₹175</td><td class='r'>₹349</td><td>25% OFF</td><td>Spiced dry-ish masala that clings to every bite.</td></tr>
+</tbody></table>
+<h4 class='mini'>Mutton — 7 dishes (Sunday / guests, not weekday lunchbox)</h4>
+<table class="t-dense"><thead><tr><th>Dish</th><th class='r'>500gm</th><th class='r'>1kg</th><th>Offer in app</th><th>Caption note</th></tr></thead><tbody>
+<tr><td><b>Grandma Mutton Keema</b></td><td class='r'>₹975</td><td class='r'>₹1949</td><td>—</td><td>Minced mutton, traditional spices. Family recipe.</td></tr>
+<tr><td><b>Mutton Curry</b></td><td class='r'>₹975</td><td class='r'>₹1949</td><td>—</td><td>Bone-in, slow cooked till the oil splits. Sunday energy.</td></tr>
+<tr><td><b>Mutton Chukka</b></td><td class='r'>₹975</td><td class='r'>₹1950</td><td>—</td><td>Dry roast, pepper-forward, caramelised onions.</td></tr>
+<tr><td><b>Mutton Keema Gravy</b></td><td class='r'>₹999</td><td class='r'>₹1999</td><td>—</td><td>Fine mince — idli, dosa or rice.</td></tr>
+<tr><td><b>Spicy Mutton Gravy</b></td><td class='r'>₹999</td><td class='r'>₹1999</td><td>—</td><td>For the brave. Bold spices, tender mutton.</td></tr>
+<tr><td><b>Fresh Cream Mutton Curry</b></td><td class='r'>₹1049</td><td class='r'>₹2099</td><td>—</td><td>Rich, creamy, smooth finish. Guest table.</td></tr>
+<tr><td><b>Mutton Stew</b></td><td class='r'>₹1050</td><td class='r'>₹2100</td><td>—</td><td>Light and fragrant. Easy on the stomach.</td></tr>
+</tbody></table>
+<div class="call dark"><span class="lbl">Price ladder for ads</span><p><b>Try us:</b> Egg Curry 500gm ₹149 (25% OFF). <b>Everyday:</b> Mom's / Sister's 500gm ₹349. <b>Signature:</b> SIL pepper or Idli Special 500gm ₹425. <b>Sunday table:</b> any 1kg chicken ₹699–1,199. <b>Guests:</b> mutton 1kg ₹1,949–2,100. Do not lead ads with mutton.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">03  ·  App + WhatsApp</div><h2>Every ad must land on a real screen</h2><p class="lede">Click-to-WhatsApp is the primary paid CTA. “Open App” is the second door (photos, deals, track). Never send Sivakasi traffic to a store listing.</p></div>
+<h4 class='mini'>Customer path in the PWA</h4>
+<div class="flow">
+<div class="step"><div class="a">1. Splash</div><div class="b">First visit only (~5s). Returning users skip it. Never advertise a loading screen.</div></div>
+<div class="step"><div class="a">2. Phone OTP</div><div class="b">Name + Indian mobile. Firebase OTP. WhatsApp deep link (?phone=&name=) can skip login.</div></div>
+<div class="step"><div class="a">3. Pin location</div><div class="b">Must be inside 15 km of Sivakasi kitchen (9.452, 77.798). Out of range = cannot order. Test flag is currently Chennai — flip before ads.</div></div>
+<div class="step"><div class="a">4. Home</div><div class="b">Greeting + Kitchen picks (5 dishes) or Best Selling once real volume exists. Vidya Bot row. Explore Menu. Favourites tab.</div></div>
+<div class="step"><div class="a">5. Browse Menu</div><div class="b">Three tabs only: Chicken · Egg · Mutton. Quick-add defaults to 500gm. Photo tap opens dish detail.</div></div>
+<div class="step"><div class="a">6. Dish detail</div><div class="b">500gm (serves 1–2) or 1kg (serves 3–4). Rating, highly-reordered, reviews, favourite heart. Add to cart.</div></div>
+<div class="step"><div class="a">7. Cart</div><div class="b">Review items, quantities, strikethrough prices if a dish is on offer.</div></div>
+<div class="step"><div class="a">8. Schedule</div><div class="b">Pick a day in the next 14 IST days. Slot only if ≥24 hours before window start. Breakfast 7–9 AM / Lunch 12–2 PM / Dinner 7–9 PM. These are delivery windows, not a breakfast menu.</div></div>
+<div class="step"><div class="a">9. Pay</div><div class="b">Razorpay (UPI / card / net banking). COD is 'Coming soon' — do not advertise cash. Packaging ₹20 + delivery ₹35 + GST 5%.</div></div>
+<div class="step"><div class="a">10. Track</div><div class="b">Orders tab. WhatsApp help from tracking. Cancel allowed ≥12 hours before the slot.</div></div>
+</div>
+<h4 class='mini'>Bot vs app — use this in captions</h4>
+<table class='t-dense'><thead><tr>
+<th>Door</th>
+<th>WhatsApp bot</th>
+<th>App (PWA)</th>
+</tr></thead><tbody>
+<tr><td>Open</td><td>wa.me/917550028179</td><td>vidyaskitchenhome.com</td></tr>
+<tr><td>Prefill / first line</td><td>"Hi Vidya's Kitchen! I'd like to place an order."</td><td>Splash → OTP → location → home</td></tr>
+<tr><td>Menu</td><td>List / catalog, image + name + price</td><td>Photos, Kitchen picks, Browse, dish detail</td></tr>
+<tr><td>Cart</td><td>Max 3 items</td><td>Unlimited</td></tr>
+<tr><td>Size</td><td>500gm / 1kg</td><td>500gm / 1kg (default add = 500gm)</td></tr>
+<tr><td>Pay</td><td>Razorpay link in chat</td><td>Razorpay in checkout</td></tr>
+<tr><td>Best for ads</td><td>Click-to-WhatsApp (primary CTA)</td><td>Open App button (photos + deals)</td></tr>
+</tbody></table>
+<div class="call"><span class="lbl">Ad landing rule</span><p>Primary button: <b>WhatsApp</b> to +91 75500 28179. Secondary: <b>Order on the app</b> → vidyaskitchenhome.com. If the geofence is still on Chennai, pause paid traffic.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">04  ·  Claims we will not make</div><h2>If it is not in the product, it is not in the caption</h2><p class="lede">These are the fastest ways to create angry chats the kitchen cannot fulfil.</p></div>
+<table><thead><tr><th>Do not say</th><th>What the product actually does</th></tr></thead><tbody>
+<tr><td><b>Same-day / 30-minute delivery</b></td><td>Hard rule: order at least 24 hours before the slot. Copy already says we do not accept rush orders.</td></tr>
+<tr><td><b>Cash on delivery</b></td><td>UI shows Coming soon. API rejects COD. Payment is Razorpay only.</td></tr>
+<tr><td><b>Weekly subscription / tiffin plan</b></td><td>Removed from product. Against-order only.</td></tr>
+<tr><td><b>Breakfast dishes / full thali / veg menu</b></td><td>Menu is chicken, mutton, egg only. Breakfast is a delivery SLOT (7–9 AM) for the same gravies.</td></tr>
+<tr><td><b>Play Store / App Store download</b></td><td>This is a website app (PWA). Send people to WhatsApp or vidyaskitchenhome.com.</td></tr>
+<tr><td><b>Delivery all over Tamil Nadu</b></td><td>Sivakasi, 15 km of the kitchen. Geo-target ads inside that radius only.</td></tr>
+<tr><td><b>Fake 'best seller' counts</b></td><td>Home shows Kitchen picks until 8 real units are sold. Do not invent '2,000 orders this week'.</td></tr>
+<tr><td><b>Quote 1kg price as if it were 500gm</b></td><td>App prices are per weight. Default add is 500gm. Always say the weight in the caption.</td></tr>
+</tbody></table></div><div class="pb">
+<div class="sec"><div class="num">05  ·  What we still need</div><h2>Facebook Business is the shell, not the campaign</h2><p class="lede">Split the ask. The marketing person brings accounts and posting. The kitchen brings capacity, the Sivakasi geofence, and the five kitchen-pick videos.</p></div>
+<div class="two">
+<div class="ck"><h4>From the marketing person</h4><ul>
+<li><b>Admin on the same Facebook Business Manager.</b> Page, Instagram, WhatsApp and Ads must live in one BM.</li>
+<li><b>Instagram Professional linked to the Page.</b> Reels + ads run as one identity.</li>
+<li><b>Ads Manager + kitchen's payment card.</b> Never a personal card.</li>
+<li><b>WhatsApp Business Account on that BM.</b> Required for Click-to-WhatsApp ads. Order number is +91 75500 28179.</li>
+<li><b>Google Business Profile ownership.</b> Maps search: Vidya kitchen Sivakasi.</li>
+<li><b>Tamil / Tanglish captions + 15s Reel editing.</b> English-only ads will under-convert.</li>
+<li><b>Daily 20 min for comments and DMs.</b> Or route every reply to kitchen WhatsApp +91 93840 20119.</li>
+<li><b>Friday report: spend, chats, orders, cost per order.</b> Kill anything over ₹150 per WhatsApp chat.</li>
+</ul></div>
+<div class="ck"><h4>From the kitchen / Vidya</h4><ul>
+<li><b>Max orders the kitchen can cook per day.</b> This caps ad spend. Over-selling destroys reviews.</li>
+<li><b>Exact delivery wards / pincodes inside 15 km.</b> Geo-target ads to the real radius.</li>
+<li><b>Flip app geofence from Chennai test → Sivakasi.</b> Do not run ads while the app is in test zone.</li>
+<li><b>First-order offer they can afford.</b> Push Egg Curry 500gm at ₹149 (already 25% OFF), not 40% off mutton.</li>
+<li><b>20 food photos + 10 cooking/plating clips.</b> Phone vertical is enough. Shoot the five kitchen picks first.</li>
+<li><b>Deepavali guest combos (1kg chicken + mutton).</b> October is the money month. Confirm surge capacity.</li>
+<li><b>Who answers +91 75500 28179 vs +91 93840 20119.</b> Bot number vs support number. Ads create chats; silence kills them.</li>
+<li><b>Permission to use customer plate photos.</b> Week 3 onwards we need real UGC.</li>
+</ul></div></div>
+<div class="call"><span class="lbl">We install on our side</span><p>Meta Pixel on vidyaskitchenhome.com, UTM into the WhatsApp prefill, Google Business categories. Do not wait for the marketing person to touch the codebase.</p></div>
+</div><div class="pb">
+<div class="sec"><div class="num">06  ·  Weekly quota</div><h2>15 posts + 5 Reels. Named, not 'content'.</h2><p class="lede">Cross-post every feed item to Instagram and the Facebook Page. Stories = 2/day. WhatsApp status = daily in September. Every caption ends with WhatsApp.</p></div>
+<table class='t-dense'><thead><tr><th>Week</th><th>Dates</th><th class='r'>Posts</th><th class='r'>Reels</th><th class='r'>Stories</th><th class='r'>WA</th><th>Theme (from the real menu)</th></tr></thead><tbody>
+<tr><td><b>W1</b></td><td>1–7 Sep</td><td class='r'>15</td><td class='r'>5</td><td class='r'>14</td><td class='r'>7</td><td>Who we are + kitchen picks + how to order</td></tr>
+<tr><td><b>W2</b></td><td>8–14 Sep</td><td class='r'>15</td><td class='r'>5</td><td class='r'>14</td><td class='r'>7</td><td>App walkthrough + 24h cut-off as a feature</td></tr>
+<tr><td><b>W3</b></td><td>15–21 Sep</td><td class='r'>15</td><td class='r'>5</td><td class='r'>14</td><td class='r'>7</td><td>Family chicken recipes + first reviews</td></tr>
+<tr><td><b>W4</b></td><td>22–30 Sep</td><td class='r'>15</td><td class='r'>5</td><td class='r'>14</td><td class='r'>7</td><td>Weekend 1kg + first mutton</td></tr>
+<tr><td><b>W5</b></td><td>1–7 Oct</td><td class='r'>15</td><td class='r'>6</td><td class='r'>14</td><td class='r'>7</td><td>Guest table combos</td></tr>
+<tr><td><b>W6</b></td><td>8–14 Oct</td><td class='r'>15</td><td class='r'>6</td><td class='r'>14</td><td class='r'>7</td><td>Navratri visitors + Idli Special</td></tr>
+<tr><td><b>W7</b></td><td>15–21 Oct</td><td class='r'>18</td><td class='r'>7</td><td class='r'>21</td><td class='r'>10</td><td>Pre-Deepavali cut-off</td></tr>
+<tr><td><b>W8</b></td><td>22–31 Oct</td><td class='r'>18</td><td class='r'>7</td><td class='r'>21</td><td class='r'>10</td><td>Deepavali week + UGC</td></tr>
+</tbody></table>
+<div class="call dark"><span class="lbl">8-week totals</span><p>126 feed posts · 46 Reels · 126 Stories · 62 WhatsApp statuses. Recommended ad spend ₹45,000 (₹2k–10k by week). Conservative ₹20k. Do not scale faster than kitchen capacity.</p></div>
+<h4 class='mini'>What the 15 posts are — every week</h4>
+<table class='t-dense'><thead><tr><th class='r'>#</th><th>Type</th><th>Rule</th></tr></thead><tbody>
+<tr><td class='r'><b>7</b></td><td>Dish of the day</td><td>One real menu dish, weight, ₹, serve count. Tamil caption. WhatsApp CTA.</td></tr>
+<tr><td class='r'><b>2</b></td><td>Cut-off reminder</td><td>Order 6 AM–6 PM IST. Last order tonight for tomorrow's lunch/dinner slot.</td></tr>
+<tr><td class='r'><b>2</b></td><td>Kitchen / family</td><td>Mom / sister / SIL / grandma story. Hands, spices, packing. Not a logo bumper.</td></tr>
+<tr><td class='r'><b>2</b></td><td>How to order</td><td>WhatsApp bot OR app: pin location → picks → 500gm/1kg → schedule → Razorpay.</td></tr>
+<tr><td class='r'><b>1</b></td><td>Offer</td><td>Only dishes already on offer in the app (egg 25%, Mom's/Sister's 20%, Idli/SIL 15%).</td></tr>
+<tr><td class='r'><b>1</b></td><td>Local / Sunday</td><td>Sivakasi family table, guests, or 1kg 'serves 3–4'.</td></tr>
+</tbody></table>
+<h4 class='mini'>What the 5 Reels are — every week</h4>
+<table class='t-dense'><thead><tr><th>Reel</th><th>Length</th><th>Shot from our product</th></tr></thead><tbody>
+<tr><td><b>1 · Hero kitchen pick</b></td><td>12–15s</td><td>Hands finishing Mom's or SIL pepper → box → 500gm ₹ on screen.</td></tr>
+<tr><td><b>2 · Second dish</b></td><td>12–15s</td><td>Rotate Egg Curry (entry) / Idli Special / Sister's.</td></tr>
+<tr><td><b>3 · How to order</b></td><td>15–20s</td><td>WhatsApp tap → Browse Menu → 500gm → 'naalaiki delivery'. End: Open App for photos.</td></tr>
+<tr><td><b>4 · Portion truth</b></td><td>10–12s</td><td>500gm next to 1–2 plates; 1kg next to 4 plates. Never skip the weight.</td></tr>
+<tr><td><b>5 · Cut-off clock</b></td><td>8–12s</td><td>6 AM–6 PM order window. 24 hours before Breakfast 7–9 / Lunch 12–2 / Dinner 7–9.</td></tr>
+</tbody></table>
+<p>Shoot <b>Sunday evening</b> for the next week. Post at <b>8:30 AM</b> (plan tomorrow), <b>1:00 PM</b> (Reel), <b>7:30 PM</b> (cut-off / order window).</p>
+<h4 class='mini'>Paid channel mix (₹45k)</h4>
+<table class='t-dense'><thead><tr><th>Share</th><th>Channel</th><th>How it maps to the app</th></tr></thead><tbody>
+<tr><td><b>45%</b></td><td>Click-to-WhatsApp ads</td><td>Opens +91 75500 28179. Geo: Sivakasi 15 km. Tamil primary text.</td></tr>
+<tr><td><b>25%</b></td><td>Instagram Reels / feed</td><td>Boost the week's kitchen-pick Reel, not a random montage.</td></tr>
+<tr><td><b>15%</b></td><td>Retarget</td><td>People who opened the app or watched 50% of a Reel but didn't pay.</td></tr>
+<tr><td><b>10%</b></td><td>Offline QR</td><td>vidyaskitchenhome.com + wa.me link. Printing presses, shops.</td></tr>
+<tr><td><b>5%</b></td><td>Google Business</td><td>No Google Search 'food delivery' bids against Swiggy.</td></tr>
+</tbody></table></div><div class="pb">
+<div class="sec"><div class="num">07  ·  Week 1 shot list</div><h2>1–7 September — 15 posts, 5 Reels, named dishes</h2><p class="lede">Sep 1 is a Tuesday. This is the list to hand the marketing person. Do not substitute biryani, dosa-as-a-dish, or veg thalis. If a photo is missing, skip that slot — do not fake a dish we don't sell.</p></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Tue 1 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Mom's Recipe Chicken Gravy — 500gm ₹349 (20% OFF). Kitchen pick #1. 'Amma's gravy, boxed.'</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Who we are: Sivakasi home kitchen. Chicken, mutton, egg. Order today, eat tomorrow.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-REEL">REEL</span></td><td>Mom's gravy finish + box + ₹349 / 500gm. CTA: WhatsApp 75500 28179.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Close-up + 'Link in bio / WhatsApp'.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Same Mom's still. Prefill: Hi Vidya's Kitchen! I'd like to place an order.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Wed 2 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Sister's Recipe Chicken Gravy — 500gm ₹349 (20% OFF). Kitchen pick #2.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>How it works: pin your Sivakasi address in the app → pick dish → pick tomorrow's slot.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Sister's plating + cut-off line.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Sister's still.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Thu 3 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Sister-in-law's Pepper Chicken — 500gm ₹425 (15% OFF). Kitchen pick #3.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Sizes: 500gm serves 1–2 · 1kg serves 3–4. Default in the app is 500gm.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-REEL">REEL</span></td><td>SIL pepper — caramelised onion, bold pepper. Weight + price on screen.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Pepper close-up + WhatsApp button.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Pepper chicken still.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Fri 4 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Idli Special Chicken Gravy — 500gm ₹425 (15% OFF). Pair with idli/dosa.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Delivery slots (not a breakfast menu): 7–9 AM · 12–2 PM · 7–9 PM. Book 24h ahead.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-REEL">REEL</span></td><td>Idli + gravy pour. Caption: breakfast SLOT, same gravy.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Idli still + 'order tonight for tomorrow morning'.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Idli special.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Sat 5 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Egg Curry — 500gm ₹149 (25% OFF). Try-us price. Kitchen pick #5.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Explore Menu in the app: 17 dishes, Chicken / Egg / Mutton tabs.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Vidya Bot: chat to order. App: photos, deals, track. Two doors, one kitchen.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-REEL">REEL</span></td><td>Egg Curry entry offer. Screen: ₹149 / 500gm. CTA WhatsApp.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Egg + 'first order'.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>₹149 Egg Curry 500gm.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Sun 6 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>1kg Mom's ₹699 — serves 3–4. Sunday family table.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Packing shot: box, seal, rider. Trust.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-REEL">REEL</span></td><td>Portion truth: 500gm vs 1kg next to plates.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Sunday table + order link.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Sunday 1kg.</td></tr>
+</tbody></table></div>
+<div class="wk"><div class="wk-h"><div class="top"><div class="w">Mon 7 Sep</div></div></div>
+<table class='t-dense' style='margin-bottom:0'><tbody>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>Cut-off: order 6 AM–6 PM. Tonight is last call for tomorrow lunch.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-POST">POST</span></td><td>No COD. Pay UPI/card on Razorpay. Fees: pack ₹20 + delivery ₹35 + GST 5%.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-STORY">STORY ×2</span></td><td>Clock graphic + WhatsApp.</td></tr>
+<tr><td style='width:28mm'><span class="kind k-WA">WA status</span></td><td>Order before 6 PM for tomorrow.</td></tr>
+</tbody></table></div>
+</div><div class="pb">
+<div class="sec"><div class="num">08  ·  Weeks 2–8</div><h2>Still 15 posts + 5 Reels — change the dishes, not the volume</h2><p class="lede">Each week names the dishes that may appear. Everything else stays in the 15-post mix from Section 06.</p></div>
+<table><thead><tr><th>Week</th><th>Theme</th><th>Dishes in rotation</th><th>Note</th></tr></thead><tbody>
+<tr><td><b>W2 · 8–14 Sep</b></td><td>How to order + cut-off as a feature</td><td>Black Pepper Chicken, Wings, Egg Chalna, Chilly Dry (start).</td><td>Reel 3 this week is a screen-record of the app: Home → Kitchen picks → Add 500gm → Schedule tomorrow lunch → Razorpay. Do not film a fake Play Store download.</td></tr>
+<tr><td><b>W3 · 15–21 Sep</b></td><td>Family chicken recipes + first reviews</td><td>Mom's, Sister's, SIL pepper — retell the three family stories. Ask every delivery for a plate photo.</td><td>If a customer sends a plate, that is Reel 5. No invented 5-star counts.</td></tr>
+<tr><td><b>W4 · 22–30 Sep</b></td><td>Weekend 1kg + first mutton</td><td>Mutton Curry, Grandma Keema, Mutton Chukka. 1kg prices ₹1,949–1,950. Guest/Sunday only — do not sell mutton as a weekday lunchbox.</td><td>Keep Egg Curry 500gm in the mix so new people have a ₹149 door.</td></tr>
+<tr><td><b>W5 · 1–7 Oct</b></td><td>Guest table combos</td><td>Fresh Cream Mutton, Spicy Mutton, Chilly Chicken Gravy. Propose a 1kg chicken + 500gm egg combo (kitchen must approve the price).</td><td>Sixth Reel: guest table set for 4.</td></tr>
+<tr><td><b>W6 · 8–14 Oct</b></td><td>Navratri visitors + Idli Special</td><td>Idli Special, Keema Gravy (idli/dosa), Mutton Stew (lighter). Visitors at home = extra gravy, not a restaurant.</td><td>QR standees at 5 Sivakasi shops this week.</td></tr>
+<tr><td><b>W7 · 15–21 Oct</b></td><td>Pre-Deepavali cut-off</td><td>All kitchen picks + 1kg mutton. Every caption has the Deepavali order-by date the kitchen confirms.</td><td>7 Reels. Highest ad spend. Cap ads the hour the kitchen is full.</td></tr>
+<tr><td><b>W8 · 22–31 Oct</b></td><td>Deepavali week</td><td>UGC only plus sold-out honesty. Next-order coupon dated November.</td><td>Pause ads when capacity is full. Capture Google Business reviews.</td></tr>
+</tbody></table>
+<h4 class='mini'>Hooks that match the product</h4>
+<div class="hooks">
+<div class='hgrp'><h4>Kitchen picks (use first)</h4><ul><li>Amma's chicken gravy. Boxed. 500gm ₹349.</li><li>Sister's recipe. Same kitchen, different masala.</li><li>Maama's pepper chicken — the one guests ask for.</li><li>Idli + this gravy. Order tonight, breakfast slot tomorrow.</li><li>Egg Curry 500gm ₹149. That's the try-us plate.</li></ul></div>
+<div class='hgrp'><h4>Cut-off / 24h (never hide this)</h4><ul><li>Innikki order, naalaiki veetukku. We don't do rush.</li><li>Kitchen shops fresh. That's why we need 24 hours.</li><li>Order window 6 AM–6 PM. Miss it, next slot is day-after.</li><li>Breakfast 7–9 is a delivery window. The gravy is the same.</li></ul></div>
+<div class='hgrp'><h4>Size honesty</h4><ul><li>500gm = 1–2 plates. 1kg = 3–4. Pick in the app.</li><li>Don't guess the box. The app shows both prices.</li></ul></div>
+<div class='hgrp'><h4>Two doors</h4><ul><li>Chat Vidya Bot on WhatsApp. Or open vidyaskitchenhome.com for photos.</li><li>Bot for speed. App for the full menu, deals, and track.</li></ul></div>
+<div class='hgrp'><h4>Never use</h4><ul><li>Hot food in 30 minutes.</li><li>Download on Play Store.</li><li>Cash on delivery.</li><li>Weekly tiffin / subscription.</li><li>Best biryani in Sivakasi (we don't sell biryani).</li></ul></div>
+</div></div><div class="pb">
+<div class="sec"><div class="num">09  ·  Hold the marketing person to this</div><h2>Chats and paid orders — not likes</h2><p class="lede">Review every Friday against kitchen capacity, not reach.</p></div>
+<table><thead><tr><th>Date</th><th>Checkpoint</th><th>Pass if</th></tr></thead><tbody>
+<tr><td><b>5 Sep</b></td><td>Accounts live</td><td>Pixel on vidyaskitchenhome.com, IG+Page+WA in one BM, geofence = Sivakasi.</td></tr>
+<tr><td><b>14 Sep</b></td><td>First 20 WhatsApp chats</td><td>Cost per chat under ₹40. CTA was Click-to-WA, not Play Store.</td></tr>
+<tr><td><b>30 Sep</b></td><td>40 paid orders</td><td>CAC under ₹150. At least 8 repeats. Mix includes Egg Curry 500gm.</td></tr>
+<tr><td><b>10 Oct</b></td><td>Festival ready</td><td>1kg guest combo live. Kitchen surge number written down.</td></tr>
+<tr><td><b>31 Oct</b></td><td>Deepavali week</td><td>90+ orders in October. 35%+ repeats. Reviews on Google Business.</td></tr>
+</tbody></table>
+<div class="call warm"><span class="lbl">Before the first rupee of ads</span><p>1. Geofence back to Sivakasi. 2. One WhatsApp order and one app order both complete on Razorpay. 3. Kitchen max-orders number in writing. 4. Five kitchen-pick videos in the camera roll.</p></div>
+<div class="foot">Vidya's Kitchen 8-Week Launch Marketing Brief · v1.0 · 31 Aug 2026. Prices, slots, fees and dish names taken from the customer PWA (mobileMenuData, delivery slots, order-pricing) and WhatsApp copy. Live Supabase discount overrides can change chips — captions must match what the app shows that day. Flip DELIVERY_TEST_CHENNAI off before paid traffic.</div>
+</div></body></html>

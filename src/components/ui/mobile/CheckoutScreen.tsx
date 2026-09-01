@@ -65,7 +65,12 @@ function parseRecipeTag(name: string) {
   const match = name.match(regex);
   if (match) {
     const tag = match[1].trim();
-    const cleanName = name.replace(match[0], "").trim();
+    const cleanName = name
+      .replace(match[0], "")
+      // Strip a leftover connecting dash/en-dash left behind after removing the tag, e.g. "Mom's Recipe - Chicken Gravy".
+      .replace(/^[\s\-–—]+|[\s\-–—]+$/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
     return { cleanName, tag };
   }
   return { cleanName: name, tag: null };
