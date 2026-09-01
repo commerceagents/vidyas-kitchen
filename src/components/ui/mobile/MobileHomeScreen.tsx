@@ -1239,7 +1239,7 @@ function DishDetailView({
                     border: `1.5px solid ${active ? C.red : C.border}`,
                     cursor: "pointer",
                     textAlign: "left",
-                    boxShadow: active ? "0 8px 24px rgba(189,35,32,0.14)" : "0 2px 10px rgba(0,0,0,0.03)",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
                   }}
                 >
                   <span

@@ -127,6 +127,171 @@ function StepDots({ phase }: { phase: CheckoutPhase }) {
   );
 }
 
+/** Slide-to-confirm final CTA — mirrors the driver app's swipe pattern, themed for checkout. */
+function SwipeToPlaceOrder({
+  label,
+  disabled,
+  loading,
+  onConfirm,
+}: {
+  label: string;
+  disabled: boolean;
+  loading: boolean;
+  onConfirm: () => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [offsetX, setOffsetX] = useState(0);
+  const [completed, setCompleted] = useState(false);
+  const startXRef = useRef(0);
+  const HANDLE = 50;
+  const PAD = 4;
+  const locked = disabled || loading;
+
+  const getMaxOffset = useCallback(() => {
+    if (!trackRef.current) return 200;
+    return Math.max(0, trackRef.current.offsetWidth - HANDLE - PAD * 2);
+  }, []);
+
+  const handleStart = (clientX: number) => {
+    if (locked || completed) return;
+    setDragging(true);
+    startXRef.current = clientX - offsetX;
+  };
+  const handleMove = (clientX: number) => {
+    if (!dragging) return;
+    const max = getMaxOffset();
+    setOffsetX(Math.max(0, Math.min(clientX - startXRef.current, max)));
+  };
+  const handleEnd = () => {
+    if (!dragging) return;
+    setDragging(false);
+    const max = getMaxOffset();
+    if (max > 0 && offsetX > max * 0.82) {
+      setCompleted(true);
+      setOffsetX(max);
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(40);
+      onConfirm();
+    } else {
+      setOffsetX(0);
+    }
+  };
+
+  // If placement failed (loading dropped back to false without navigating away), reset the slider.
+  useEffect(() => {
+    if (completed && !loading) {
+      const t = setTimeout(() => {
+        setCompleted(false);
+        setOffsetX(0);
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [completed, loading]);
+
+  const max = getMaxOffset();
+  const progress = max > 0 ? offsetX / max : 0;
+  const showHandle = !disabled || loading;
+
+  return (
+    <div
+      ref={trackRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: 58,
+        borderRadius: 20,
+        background: disabled && !loading ? "rgba(0,0,0,0.06)" : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+        border: disabled && !loading ? "1.5px solid rgba(0,0,0,0.08)" : "none",
+        overflow: "hidden",
+        touchAction: "none",
+        userSelect: "none",
+        transition: "background 0.25s ease",
+      }}
+      onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+      onTouchEnd={handleEnd}
+      onMouseDown={(e) => handleStart(e.clientX)}
+      onMouseMove={(e) => { if (dragging) handleMove(e.clientX); }}
+      onMouseUp={handleEnd}
+      onMouseLeave={() => { if (dragging) handleEnd(); }}
+    >
+      {/* Progress fill */}
+      {showHandle && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: `${offsetX + HANDLE + PAD}px`,
+            background: "rgba(255,255,255,0.14)",
+            transition: dragging ? "none" : "width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        />
+      )}
+
+      {/* Label */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          fontSize: 15.5,
+          fontWeight: 900,
+          fontFamily: C.mono,
+          color: disabled && !loading ? "rgba(0,0,0,0.35)" : `rgba(255,255,255,${0.95 - progress * 0.55})`,
+          pointerEvents: "none",
+          letterSpacing: "0.01em",
+        }}
+      >
+        {loading ? (
+          <motion.div
+            role="status"
+            aria-label="Creating payment link"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              border: "3px solid rgba(255,255,255,0.25)",
+              borderTopColor: "#fff",
+            }}
+          />
+        ) : (
+          label
+        )}
+      </div>
+
+      {/* Draggable handle */}
+      {showHandle && (
+        <div
+          style={{
+            position: "absolute",
+            top: PAD,
+            left: `${PAD + offsetX}px`,
+            width: HANDLE,
+            height: HANDLE,
+            borderRadius: 15,
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            cursor: loading ? "wait" : "grab",
+            transition: dragging ? "none" : "left 0.3s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        >
+          <ArrowRight size={20} weight="bold" color={C.red} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface CheckoutScreenProps {
   onBack: () => void;
   cart: Record<string, number>;
@@ -356,6 +521,18 @@ export function CheckoutScreen({
       }
       writeUiSession({ checkoutPhase: "cart" });
       window.location.assign(data.paymentUrl);
+      // Custom URI schemes (e.g. upi:// fallback when Razorpay isn't configured) fail
+      // silently on desktop/devices with no handler app — location.assign won't throw,
+      // it just does nothing, which would otherwise leave the button spinning forever.
+      // If we're still here after a beat, surface an error instead of hanging.
+      if (!/^https?:\/\//i.test(data.paymentUrl)) {
+        setTimeout(() => {
+          if (typeof document !== "undefined" && !document.hidden) {
+            setCheckoutError("Couldn't open a payment app on this device. Please try from a phone with GPay/PhonePe installed.");
+            setPlacing(false);
+          }
+        }, 2200);
+      }
     } catch (e) {
       setCheckoutError(e instanceof Error ? e.message : "Something went wrong");
       setPlacing(false);
@@ -1138,7 +1315,6 @@ export function CheckoutScreen({
                         color: hasAny ? C.text : "rgba(0,0,0,0.3)",
                         cursor: hasAny ? "pointer" : "not-allowed",
                         fontFamily: C.mono,
-                        boxShadow: on ? `0 6px 18px ${C.redGlow}` : "none",
                       }}
                     >
                       <span style={{ display: "block", fontSize: 11, fontWeight: 700, opacity: 0.55 }}>
@@ -1177,7 +1353,7 @@ export function CheckoutScreen({
                         background: disabled ? "rgba(0,0,0,0.02)" : on ? C.redFaint : C.surface,
                         cursor: disabled ? "not-allowed" : "pointer",
                         fontFamily: C.mono,
-                        boxShadow: on && !disabled ? `0 8px 22px ${C.redGlow}` : "0 2px 10px rgba(0,0,0,0.03)",
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
                         display: "flex",
                         alignItems: "center",
                         gap: 12,
@@ -1378,59 +1554,18 @@ export function CheckoutScreen({
             Checkout
           </motion.button>
         ) : (
-          <motion.button
-            type="button"
-            whileTap={{ scale: orderCtaDisabled ? 1 : 0.97 }}
-            onClick={handlePlaceOrder}
-            disabled={orderCtaDisabled}
-            style={{
-              width: "100%",
-              height: 58,
-              borderRadius: 20,
-              border: slotKind == null && !placing ? "1.5px solid rgba(0,0,0,0.08)" : "none",
-              background: placing
-                ? `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`
+          <SwipeToPlaceOrder
+            label={
+              !isOrderingWindowOpen()
+                ? "Ordering closed (6 AM – 6 PM)"
                 : slotKind == null
-                  ? "rgba(0,0,0,0.06)"
-                  : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-              color: slotKind == null && !placing ? "rgba(0,0,0,0.35)" : "#fff",
-              fontSize: 16,
-              fontWeight: 900,
-              cursor: placing ? "wait" : slotKind == null ? "not-allowed" : "pointer",
-              fontFamily: C.mono,
-              boxShadow: slotKind == null && !placing ? "none" : `0 10px 28px ${C.redGlow}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: placing ? 0 : 10,
-            }}
-          >
-            {placing ? (
-              <motion.div
-                role="status"
-                aria-label="Creating payment link"
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  border: "3px solid rgba(255,255,255,0.22)",
-                  borderTopColor: "#fff",
-                  flexShrink: 0,
-                }}
-              />
-            ) : !isOrderingWindowOpen() ? (
-              "Ordering closed (6 AM – 6 PM)"
-            ) : slotKind == null ? (
-              "Pick a meal time"
-            ) : (
-              <>
-                Place order · ₹{grandTotal.toLocaleString("en-IN")}
-                <ArrowRight size={18} weight="bold" color="currentColor" />
-              </>
-            )}
-          </motion.button>
+                  ? "Pick a meal time"
+                  : "Place order"
+            }
+            disabled={orderCtaDisabled}
+            loading={placing}
+            onConfirm={handlePlaceOrder}
+          />
         )}
       </div>
 
