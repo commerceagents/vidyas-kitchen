@@ -808,8 +808,8 @@ function DishDetailView({
   const BAR_STEPPER_W = 128;
   const BAR_GAP = 10;
   const barSpring = { type: "spring" as const, stiffness: 340, damping: 34, mass: 0.85 };
-  /** Force sample reviews so we can preview the reviews UI before launch. */
-  const [previewSampleReviews, setPreviewSampleReviews] = useState(true);
+  /** Sample reviews are hidden by default — flip to `true` locally to preview the UI before real ratings exist. */
+  const [previewSampleReviews, setPreviewSampleReviews] = useState(false);
   const [reviewsSheetOpen, setReviewsSheetOpen] = useState(false);
 
   type SocialState = {
@@ -883,7 +883,7 @@ function DishDetailView({
       null;
     setSelectedWeight(w);
     setBarExpanded(false);
-    setPreviewSampleReviews(true);
+    setPreviewSampleReviews(false);
     setReviewsSheetOpen(false);
   }, [item.id]);
 
