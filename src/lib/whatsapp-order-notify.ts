@@ -1,6 +1,6 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
-import { OrderStatus, codFailureLabel } from "@/lib/order-status";
+import { OrderStatus, codFailureLabel, formatOrderRef } from "@/lib/order-status";
 import { sendText, sendButtons, sendCtaUrl } from "@/lib/whatsapp-send";
 import {
   notifyOrderPaid,
@@ -49,6 +49,7 @@ function toPhone(phoneRaw: string): string | null {
 
 type NotifyOrderRow = {
   id: string;
+  order_number?: number | null;
   status: string;
   phone_number?: string | null;
   delivery_slot?: string | null;
@@ -70,7 +71,9 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
 
   const trackUrl = `${publicSiteOrigin()}/?track=${order.id}`;
   const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind);
-  const short = order.id.slice(0, 8).toUpperCase();
+  // Same reference the kitchen dashboard and the app show, so a customer
+  // quoting it over WhatsApp can actually be looked up.
+  const short = formatOrderRef(order.order_number, order.id).replace(/^#/, "");
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
   const amtStr =
     order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "the order amount";

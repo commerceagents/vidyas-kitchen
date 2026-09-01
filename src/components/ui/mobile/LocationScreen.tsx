@@ -700,8 +700,13 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       setOutOfRangeModal(true);
       return;
     }
-    const label = selectedSaved
-      ? savedPlaces.find((p) => p.id === selectedSaved)?.label || "Saved Location"
+    // This string becomes `orders.delivery_address` — what the driver reads at
+    // the door and the kitchen reads on the ticket. A saved place's nickname
+    // ("Home") is meaningless to them, so send the street address it stands for
+    // and only fall back to the nickname if we never resolved one.
+    const saved = selectedSaved ? savedPlaces.find((p) => p.id === selectedSaved) : undefined;
+    const label = saved
+      ? saved.address?.trim() || saved.label || "Saved Location"
       : searchText.trim() || "Current Location";
     onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange: true });
   };

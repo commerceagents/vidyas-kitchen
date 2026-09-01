@@ -185,6 +185,21 @@ function SwipeToPlaceOrder({
   return (
     <div
       ref={trackRef}
+      // Swiping is the intended gesture, but it can't be the only way to buy:
+      // keyboard and screen-reader users need to reach the same action, so the
+      // track doubles as a plain button for them.
+      role="button"
+      tabIndex={locked ? -1 : 0}
+      aria-label={label}
+      aria-disabled={locked}
+      onKeyDown={(e) => {
+        if (locked || completed) return;
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        setCompleted(true);
+        setOffsetX(getMaxOffset());
+        onConfirm();
+      }}
       style={{
         position: "relative",
         width: "100%",
@@ -196,6 +211,7 @@ function SwipeToPlaceOrder({
         touchAction: "none",
         userSelect: "none",
         transition: "background 0.25s ease",
+        cursor: locked ? "not-allowed" : "grab",
       }}
       onTouchStart={(e) => handleStart(e.touches[0].clientX)}
       onTouchMove={(e) => handleMove(e.touches[0].clientX)}
@@ -515,7 +531,7 @@ export function CheckoutScreen({
         // collected at delivery. Reuse the same success route as the paid flow so
         // cart-clearing / tracking / the confirmation modal all stay in one place.
         if (!data.orderId) throw new Error("Order was not created.");
-        window.location.assign(`/?status=success&orderId=${data.orderId}`);
+        window.location.assign(`/?status=success&orderId=${data.orderId}&method=cod`);
         return;
       }
       if (!data.paymentUrl) throw new Error("No payment URL returned");

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
-import { codFailureLabel } from "@/lib/order-status";
+import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
 import { Motorcycle, Money, MapPin, PencilSimple } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
@@ -28,10 +28,6 @@ const TYPO = {
   body: { ...TypeScale.bodyMedium, fontFamily: fontUi, color: "rgba(0,0,0,0.42)" },
 } as const;
 
-function shortOrderRef(orderId: string): string {
-  return orderId.replace(/-/g, "").slice(0, 6).toLowerCase();
-}
-
 /** Title-case dish lines from API (e.g. "EGG CURRY" → "Egg Curry"). */
 function toTitleCaseLine(str: string) {
   return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, (m) => m.toUpperCase());
@@ -39,6 +35,7 @@ function toTitleCaseLine(str: string) {
 
 export type OrderTrackSnap = {
   status: string;
+  orderNumber?: number | null;
   deliveryAddress?: string | null;
   deliverySlot?: string | null;
   deliverySlotKind?: string | null;
@@ -269,9 +266,9 @@ function StageRail({ stage }: { stage: number }) {
   );
 }
 
-function waHelpUrl(orderId: string) {
+function waHelpUrl(orderId: string, orderNumber?: number | null) {
   const digits = SUPPORT_PHONE_E164.replace(/\D/g, "");
-  const text = encodeURIComponent(`Hi — question about order #${shortOrderRef(orderId)}…`);
+  const text = encodeURIComponent(`Hi — question about order ${formatOrderRef(orderNumber, orderId)}…`);
   return `https://wa.me/${digits}?text=${text}`;
 }
 
@@ -371,7 +368,7 @@ export function OrderTrackingPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not cancel order");
-      tryNotifyOrderCancelled(shortOrderRef(trackingOrderId));
+      tryNotifyOrderCancelled(formatOrderRef(trackSnap?.orderNumber, trackingOrderId).replace(/^#/, ""));
       setCancelModalOpen(false);
       onDismiss?.();
     } catch (e) {
@@ -530,7 +527,7 @@ export function OrderTrackingPanel({
                     </p>
                   )}
                   <p style={{ margin: "12px 0 0", fontSize: 11.5, fontWeight: 700, color: "rgba(0,0,0,0.32)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
-                    ORDER #{shortOrderRef(trackingOrderId).toUpperCase()}
+                    ORDER {formatOrderRef(trackSnap?.orderNumber, trackingOrderId)}
                   </p>
                 </div>
               </div>
@@ -613,7 +610,7 @@ export function OrderTrackingPanel({
                   )}
 
                   <a
-                    href={waHelpUrl(trackingOrderId)}
+                    href={waHelpUrl(trackingOrderId, trackSnap?.orderNumber)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -1005,7 +1002,7 @@ export function OrderTrackingPanel({
           {/* Cancelled orders lose the dark panel, so keep a way to reach us. */}
           {cancelled ? (
             <a
-              href={waHelpUrl(trackingOrderId)}
+              href={waHelpUrl(trackingOrderId, trackSnap?.orderNumber)}
               target="_blank"
               rel="noopener noreferrer"
               style={{

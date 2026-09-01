@@ -13,7 +13,7 @@ export async function GET() {
       .from("orders")
       .select(
         `
-        id, status, total_amount, delivery_address, delivery_slot, delivery_slot_kind, created_at,
+        id, order_number, status, total_amount, delivery_address, delivery_slot, delivery_slot_kind, created_at,
         phone_number, recipient_name, recipient_phone, payment_method, payment_status,
         users:customer_id ( full_name, phone_number ),
         order_items ( quantity, menu_items ( name, image_url ) )

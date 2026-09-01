@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowClockwise, CaretRight, Receipt } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { parseRecipeTag } from "@/lib/dish-name";
 
 export type HistoryOrder = {
@@ -211,7 +211,7 @@ export function OrderHistoryPanel({
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
-                  #{o.orderNumber ?? o.orderId.slice(0, 6).toUpperCase()}
+                              {formatOrderRef(o.orderNumber, o.orderId)}
                 </span>
                 <span
                   style={{

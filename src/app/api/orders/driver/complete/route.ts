@@ -25,11 +25,16 @@ export async function POST(request: Request) {
   }
 
   const orderId = String(body.orderId || "");
-  const lat = Number(body.lat);
-  const lng = Number(body.lng);
-  if (!isUuid(orderId) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+  if (!isUuid(orderId)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
+
+  // The driver's position is evidence for the proximity check, not a
+  // precondition for delivering. Phones lose GPS indoors and in basements, and
+  // a driver holding the food shouldn't be unable to close the order.
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  const hasFix = Number.isFinite(lat) && Number.isFinite(lng);
 
   const supabase = createServerSupabase();
   const { data: row, error: fe } = await supabase
@@ -60,7 +65,7 @@ export async function POST(request: Request) {
 
   const dlat = row.delivery_lat as number | null | undefined;
   const dlng = row.delivery_lng as number | null | undefined;
-  if (dlat != null && dlng != null && Number.isFinite(Number(dlat)) && Number.isFinite(Number(dlng))) {
+  if (hasFix && dlat != null && dlng != null && Number.isFinite(Number(dlat)) && Number.isFinite(Number(dlng))) {
     const m = haversineMeters(lat, lng, Number(dlat), Number(dlng));
     // Skip proximity check in development
     if (m > MAX_METRES && process.env.NODE_ENV !== 'development') {

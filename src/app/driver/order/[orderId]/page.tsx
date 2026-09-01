@@ -15,7 +15,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { haversineMeters } from "@/lib/geo";
-import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS, formatOrderRef } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "../../driver-theme";
 
@@ -28,6 +28,7 @@ type UserRef = { full_name?: string | null; phone_number?: string | null } | nul
 
 type DriverOrder = {
   id: string;
+  order_number?: number | null;
   status: string;
   delivery_address?: string | null;
   delivery_slot?: string | null;
@@ -245,8 +246,16 @@ export default function DriverOrderDetailPage() {
     return haversineMeters(geoLat, geoLng, dropLat!, dropLng!);
   }, [hasDropPin, geoLat, geoLng, dropLat, dropLng]);
 
+  // Proximity is a sanity check, not a lock. If we have a fix, hold the driver
+  // to it; if GPS is denied, timed out or unavailable there is no fix to check
+  // against, and refusing to complete the delivery would strand a driver who is
+  // standing at the door with the food.
+  const hasFix = geoLat != null && geoLng != null;
   const withinRange =
-    !hasDropPin || (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M) || process.env.NODE_ENV === "development";
+    !hasDropPin ||
+    !hasFix ||
+    (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M) ||
+    process.env.NODE_ENV === "development";
 
   const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
@@ -269,7 +278,17 @@ export default function DriverOrderDetailPage() {
         setGeoLng(p.coords.longitude);
         setGeoErr(null);
       },
-      (err) => setGeoErr(err.message || "Location unavailable"),
+      // Browsers word these differently ("Timeout expired", "User denied
+      // Geolocation"); a driver needs to know what to do, not what the spec
+      // calls it.
+      (err) =>
+        setGeoErr(
+          err.code === err.PERMISSION_DENIED
+            ? "Location is off — turn it on so the kitchen can see your progress. You can still complete the delivery."
+            : err.code === err.TIMEOUT
+              ? "Can't get a GPS fix right now. Delivery still works; tracking will resume on its own."
+              : "Location unavailable — delivery still works, but the kitchen can't track you.",
+        ),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
     postTimer.current = setInterval(tick, LOCATION_POST_MS);
@@ -353,16 +372,19 @@ export default function DriverOrderDetailPage() {
   };
 
   const handleComplete = async () => {
-    if (geoLat == null || geoLng == null) {
-      setActionErr("Waiting for GPS — turn on location and try again.");
-      return;
-    }
     setActionErr(null);
     try {
       const res = await fetch("/api/orders/driver/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, lat: geoLat, lng: geoLng, codCollected: cashOutstanding ? true : undefined }),
+        // The drop coordinates are a nice-to-have audit trail. Withholding
+        // completion until GPS cooperates would leave a delivered order stuck
+        // open, so send what we have and let the server treat them as optional.
+        body: JSON.stringify({
+          orderId,
+          ...(geoLat != null && geoLng != null ? { lat: geoLat, lng: geoLng } : {}),
+          codCollected: cashOutstanding ? true : undefined,
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not complete");
@@ -515,7 +537,7 @@ export default function DriverOrderDetailPage() {
               </div>
               <p style={{ margin: "3px 0 0", fontSize: 12, color: D.muted, fontWeight: 600 }}>
                 {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
-                #{orderId.slice(0, 8).toUpperCase()}
+                {formatOrderRef(order.order_number, orderId)}
               </p>
             </div>
             {slotLine && (

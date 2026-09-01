@@ -1,4 +1,4 @@
-import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
+import { formatOrderRef, normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { getOrderRevenueAmount } from "@/lib/order-pricing";
 
 export type DashboardOrderItem = {
@@ -121,8 +121,7 @@ export function filterOrdersByIdQuery(orders: DashboardOrder[], query: string) {
 }
 
 export function shortOrderId(id: string, orderNumber?: number | null) {
-  if (orderNumber != null) return `#${String(orderNumber).padStart(5, "0")}`;
-  return "#" + id.slice(0, 8).toUpperCase();
+  return formatOrderRef(orderNumber, id);
 }
 
 function titleCase(s: string): string {

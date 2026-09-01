@@ -252,7 +252,16 @@ export async function POST(request: Request) {
     }
 
     if (!short_url) {
-      return NextResponse.json({ error: "Payment link could not be created. Check Razorpay keys." }, { status: 502 });
+      // Nothing can ever pay this row — there's no link to send anyone to. Left
+      // behind it becomes a permanent "Payment pending" order in the customer's
+      // history and a phantom in the kitchen's cancelled list, so drop it and
+      // let the customer retry cleanly.
+      await supabase.from("order_items").delete().eq("order_id", orderId);
+      await supabase.from("orders").delete().eq("id", orderId);
+      return NextResponse.json(
+        { error: "Couldn't reach the payment provider. Nothing was charged — please try again in a moment." },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({

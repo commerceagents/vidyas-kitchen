@@ -16,7 +16,7 @@ import { sendOrderPushNotifications } from "@/lib/push-order-notify";
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
 const ORDER_NOTIFY_COLUMNS =
-  "id, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, payment_method, payment_status, total_amount";
+  "id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, payment_method, payment_status, total_amount";
 
 export async function transitionOrderStatusInDb(
   supabase: SupabaseClient,
@@ -110,6 +110,7 @@ export async function transitionOrderStatusInDb(
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
+      order_number: (row as { order_number?: number | null }).order_number ?? null,
       status: next,
       phone_number: row.phone_number as string | null,
       delivery_slot: row.delivery_slot as string | null,
@@ -127,6 +128,7 @@ export async function transitionOrderStatusInDb(
     next,
     row.id as string,
     row.delivery_slot as string | null,
+    (row as { order_number?: number | null }).order_number ?? null,
   ).catch((e) => console.error("[order-transition] push notify failed", e));
 
   return { ok: true };
@@ -181,6 +183,7 @@ export async function markOrderPaidAndNotify(
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
+      order_number: (row as { order_number?: number | null }).order_number ?? null,
       status: OrderStatus.PAID,
       phone_number: row.phone_number as string | null,
       delivery_slot: row.delivery_slot as string | null,
@@ -198,6 +201,7 @@ export async function markOrderPaidAndNotify(
     OrderStatus.PAID,
     row.id as string,
     row.delivery_slot as string | null,
+    (row as { order_number?: number | null }).order_number ?? null,
   ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e));
 
   return { ok: true };
@@ -241,6 +245,7 @@ export async function markCodCollected(
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
+      order_number: (row as { order_number?: number | null }).order_number ?? null,
       status: OrderNotifyEvent.COD_COLLECTED,
       phone_number: phone ?? null,
       delivery_slot: row.delivery_slot as string | null,
@@ -310,6 +315,7 @@ export async function markOrderUndelivered(
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
+      order_number: (row as { order_number?: number | null }).order_number ?? null,
       status: OrderStatus.UNDELIVERED,
       phone_number: phone ?? null,
       delivery_slot: row.delivery_slot as string | null,

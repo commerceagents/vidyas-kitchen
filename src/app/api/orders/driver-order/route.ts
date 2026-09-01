@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       .from("orders")
       .select(
         `
-        id, status, delivery_address, delivery_slot, delivery_slot_kind,
+        id, order_number, status, delivery_address, delivery_slot, delivery_slot_kind,
         delivery_lat, delivery_lng,
         driver_last_lat, driver_last_lng, driver_location_at,
         phone_number, recipient_name, recipient_phone,

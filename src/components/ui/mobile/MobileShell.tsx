@@ -44,7 +44,9 @@ const SS_PENDING_CHECKOUT_CART = "vk_pending_checkout_cart";
 
 type PaymentFeedback =
   | null
-  | { kind: "success"; orderId: string }
+  // `cod` orders are placed but not paid for — the confirmation must not claim
+  // we've taken any money, or the customer won't have cash ready at the door.
+  | { kind: "success"; orderId: string; cod: boolean }
   | { kind: "error" }
   | { kind: "cancelled" };
 
@@ -226,9 +228,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       // refresh (or navigating away) before tapping "Continue" leaves the old
       // order's items stuck in the cart forever.
       setCart({});
-      setPaymentFeedback({ kind: "success", orderId: orderIdParam });
+      setPaymentFeedback({ kind: "success", orderId: orderIdParam, cod: params.get("method") === "cod" });
       params.delete("status");
       params.delete("orderId");
+      params.delete("method");
       const rest = params.toString();
       window.history.replaceState({}, "", rest ? `/?${rest}` : "/");
     } else if (payStatus === "error") {
@@ -578,7 +581,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                       boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                     }}
                   >
-                    <span style={{ color: "#1A1A1A", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>Payment successful</span>
+                    <span style={{ color: "#1A1A1A", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>
+                      {paymentFeedback.cod ? "Order confirmed" : "Payment successful"}
+                    </span>
                   </motion.div>
                 </>
               ) : paymentFeedback.kind === "error" ? (
@@ -629,9 +634,24 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 }}
               >
                 {paymentFeedback.kind === "success" ? (
-                  <>Order #{paymentFeedback.orderId.slice(0, 8)}… — we’ll take you to live tracking.</>
+                  paymentFeedback.cod ? (
+                    <>
+                      Order #{paymentFeedback.orderId.slice(0, 8)}… — please keep the cash ready for the driver. We’ll take you to
+                      live tracking.
+                    </>
+                  ) : (
+                    <>Order #{paymentFeedback.orderId.slice(0, 8)}… — we’ll take you to live tracking.</>
+                  )
                 ) : paymentFeedback.kind === "error" ? (
-                  <>Something went wrong completing payment. Your cart is unchanged — try again from checkout.</>
+                  // We reach here after the customer came back from Razorpay, so
+                  // money may well have left their account even though we failed
+                  // to record it. Telling them to "try again" invites a second
+                  // charge — send them to us instead.
+                  <>
+                    We couldn’t confirm your payment.{" "}
+                    <span style={{ color: "#1A1A1A" }}>Don’t pay again</span> — if you were charged, message us on WhatsApp and
+                    we’ll sort it out right away.
+                  </>
                 ) : (
                   <>
                     You left the payment screen before paying — <span style={{ color: "#1A1A1A" }}>no order was placed</span> in the
@@ -647,7 +667,11 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                   if (kind === "success") {
                     setCart({});
                     setStep("home");
-                  } else if ((kind === "error" || kind === "cancelled") && location) {
+                  } else if (kind === "error") {
+                    // Payment may have gone through, so don't drop them back on
+                    // a checkout button that would charge them a second time.
+                    setStep("home");
+                  } else if (kind === "cancelled" && location) {
                     writeUiSession({ checkoutPhase: "cart" });
                     setStep("checkout");
                   }

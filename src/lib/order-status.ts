@@ -47,6 +47,20 @@ const EDGES: Record<string, string[]> = {
   [OrderStatus.REJECTED]: [],
 };
 
+/**
+ * The one reference a customer, the kitchen and the driver all quote at each
+ * other. It has to be identical everywhere or support can't match a phone call
+ * to an order, so every surface formats it through here rather than slicing the
+ * UUID or padding `order_number` its own way.
+ */
+export function formatOrderRef(orderNumber: number | null | undefined, orderId: string): string {
+  if (orderNumber != null && Number.isFinite(Number(orderNumber))) {
+    return `#${String(Math.trunc(Number(orderNumber))).padStart(5, "0")}`;
+  }
+  // Pre-`order_number` rows still need something stable to point at.
+  return `#${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+}
+
 /** Legacy DB values → normalize for transition checks. */
 export function normalizeOrderStatus(raw: string): string {
   const s = String(raw || "").toLowerCase().trim();

@@ -1,15 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPushNotification, type PushPayload } from "@/lib/web-push";
-import { OrderStatus } from "@/lib/order-status";
+import { OrderStatus, formatOrderRef } from "@/lib/order-status";
 import { publicSiteOrigin } from "@/lib/site-url";
 
 function pushPayloadForStatus(
   status: string,
   orderId: string,
   deliverySlot?: string | null,
+  orderNumber?: number | null,
 ): PushPayload | null {
   const trackUrl = `${publicSiteOrigin()}/?track=${orderId}`;
-  const short = orderId.slice(0, 8).toUpperCase();
+  const short = formatOrderRef(orderNumber, orderId).replace(/^#/, "");
 
   switch (status) {
     case OrderStatus.CONFIRMED:
@@ -72,10 +73,11 @@ export async function sendOrderPushNotifications(
   status: string,
   orderId: string,
   deliverySlot?: string | null,
+  orderNumber?: number | null,
 ): Promise<void> {
   if (!phoneNumber) return;
 
-  const payload = pushPayloadForStatus(status, orderId, deliverySlot);
+  const payload = pushPayloadForStatus(status, orderId, deliverySlot, orderNumber);
   if (!payload) return;
 
   const { data: subs, error } = await supabase
