@@ -10,7 +10,6 @@ import {
   Plus,
   MapPin,
   Lightning,
-  CreditCard,
   Money,
   Sun,
   ForkKnife,
@@ -331,7 +330,7 @@ export function CheckoutScreen({
     return saved === "schedule" ? "schedule" : "cart";
   });
   const [phaseDir, setPhaseDir] = useState<1 | -1>(1);
-  const [paymentMethod, setPaymentMethod] = useState("upi");
+  const [paymentMethod, setPaymentMethod] = useState("online");
   const [placing, setPlacing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [chargesOpen, setChargesOpen] = useState(false);
@@ -1430,30 +1429,20 @@ export function CheckoutScreen({
               <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
                 Payment
               </h3>
-              <div
-                style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}
-                className="no-scrollbar"
-              >
+              <div style={{ display: "flex", gap: 10 }}>
                 {(
                   [
                     {
-                      id: "upi",
-                      label: "UPI",
-                      sub: "GPay / PhonePe",
+                      id: "online",
+                      label: "Pay Online",
+                      sub: "UPI · Card · more",
                       icon: <Lightning size={22} weight="fill" color="rgba(0,0,0,0.7)" />,
                       disabled: false,
                     },
                     {
-                      id: "card",
-                      label: "Card",
-                      sub: "Debit / Credit",
-                      icon: <CreditCard size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
-                      disabled: false,
-                    },
-                    {
                       id: "cod",
-                      label: "Cash",
-                      sub: "Pay on delivery",
+                      label: "Cash on Delivery",
+                      sub: "Pay when it arrives",
                       icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
                       disabled: false,
                     },
@@ -1468,8 +1457,8 @@ export function CheckoutScreen({
                       disabled={disabled}
                       onClick={() => !disabled && setPaymentMethod(p.id)}
                       style={{
-                        flex: "0 0 118px",
-                        padding: "14px 12px",
+                        flex: 1,
+                        padding: "14px 14px",
                         borderRadius: 18,
                         opacity: disabled ? 0.45 : 1,
                         background: on ? C.redFaint : C.surface,

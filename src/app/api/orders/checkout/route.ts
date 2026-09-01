@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const deliveryDate = String(body.deliveryDate || "").trim();
     const deliverySlotRaw = String(body.deliverySlot || "").trim().toLowerCase();
     const lines = Array.isArray(body.lines) ? body.lines : [];
-    const paymentMethod = String(body.paymentMethod || "upi").toLowerCase();
+    const paymentMethod = String(body.paymentMethod || "online").toLowerCase();
     const recipientName = String(body.recipientName || "").trim();
     const recipientPhoneDigits = String(body.recipientPhone || "").replace(/\D/g, "");
     const orderingForSomeoneElse = recipientName.length > 0 || recipientPhoneDigits.length > 0;
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const deliveryLng =
       typeof lngRaw === "number" && Number.isFinite(lngRaw) && Math.abs(lngRaw) <= 180 ? lngRaw : null;
 
-    if (!["upi", "card", "cod"].includes(paymentMethod)) {
+    if (!["online", "upi", "card", "cod"].includes(paymentMethod)) {
       return NextResponse.json({ error: "Choose a valid payment method." }, { status: 400 });
     }
     if (!phone) {
