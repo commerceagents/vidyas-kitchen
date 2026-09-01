@@ -30,6 +30,7 @@ import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
+import { parseRecipeTag } from "@/lib/dish-name";
 
 const C = {
   bg: "#F5F5F7",
@@ -58,22 +59,6 @@ function waitForPaint(): Promise<void> {
 
 function toTitleCase(str: string) {
   return str.toLowerCase().replace(/(?:^|\s|\(|\/)\w/g, (match) => match.toUpperCase());
-}
-
-function parseRecipeTag(name: string) {
-  const regex = /[\(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[\)]?/i;
-  const match = name.match(regex);
-  if (match) {
-    const tag = match[1].trim();
-    const cleanName = name
-      .replace(match[0], "")
-      // Strip a leftover connecting dash/en-dash left behind after removing the tag, e.g. "Mom's Recipe - Chicken Gravy".
-      .replace(/^[\s\-–—]+|[\s\-–—]+$/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-    return { cleanName, tag };
-  }
-  return { cleanName: name, tag: null };
 }
 
 function MealSlotIcon({ kind, active, disabled }: { kind: DeliverySlotKind; active: boolean; disabled: boolean }) {

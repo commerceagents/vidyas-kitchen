@@ -6,6 +6,7 @@ import { ArrowClockwise, CaretRight, Receipt } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { parseRecipeTag } from "@/lib/dish-name";
 
 export type HistoryOrder = {
   orderId: string;
@@ -65,7 +66,7 @@ function formatWhen(iso: string | null): string {
 function summariseItems(items: HistoryOrder["items"]): string {
   if (!items.length) return "Order details unavailable";
   const count = items.reduce((a, i) => a + i.quantity, 0);
-  const first = items[0].name;
+  const first = parseRecipeTag(items[0].name).cleanName;
   if (items.length === 1) return `${first}${count > 1 ? ` ×${count}` : ""}`;
   return `${first} + ${items.length - 1} more`;
 }
