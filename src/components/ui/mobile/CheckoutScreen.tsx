@@ -1016,6 +1016,7 @@ export function CheckoutScreen({
                 <span
                   aria-hidden
                   style={{
+                    display: "inline-block",
                     width: 38,
                     height: 22,
                     borderRadius: 999,
@@ -1026,11 +1027,13 @@ export function CheckoutScreen({
                   }}
                 >
                   <motion.span
-                    animate={{ x: forSomeoneElse ? 17 : 1 }}
+                    initial={false}
+                    animate={{ x: forSomeoneElse ? 16 : 0 }}
                     transition={{ type: "spring", stiffness: 500, damping: 32 }}
                     style={{
                       position: "absolute",
                       top: 1,
+                      left: 1,
                       width: 20,
                       height: 20,
                       borderRadius: "50%",
