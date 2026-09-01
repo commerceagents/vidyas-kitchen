@@ -1311,26 +1311,7 @@ export function CheckoutScreen({
               gap: 10,
             }}
           >
-            {cartEmpty ? (
-              "Checkout"
-            ) : (
-              <>
-                Checkout · ₹{grandTotal.toLocaleString("en-IN")}
-                <span
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,0.2)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ArrowRight size={14} weight="bold" color="#fff" />
-                </span>
-              </>
-            )}
+            Checkout
           </motion.button>
         ) : (
           <motion.button
