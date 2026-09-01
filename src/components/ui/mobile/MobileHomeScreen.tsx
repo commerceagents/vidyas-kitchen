@@ -12,13 +12,8 @@ import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
-import { MENU_BY_CATEGORY, MenuItem } from "@/components/ui/mobile/mobileMenuData";
-import {
-  discountChipDisplay,
-  listPriceForVariant,
-  mergeMenuDiscountOverrides,
-  type DishDiscountRow,
-} from "@/lib/menu/discount-pricing";
+import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
 import {
   KITCHEN_PICK_DISH_IDS,
   type BestSellingSource,
@@ -2201,27 +2196,9 @@ export function MobileHomeScreen({
   const greeting  = useMemo(() => getGreeting(), []);
   const firstName = formatFirstName(displayName);
 
-  // Load catalog: static menu + optional Supabase `dish_discount_settings` overrides
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const base = Object.values(MENU_BY_CATEGORY).flat() as MenuItem[];
-      let merged: MenuItem[] = base;
-      try {
-        const res = await fetch("/api/menu/discount-settings", { cache: "no-store" });
-        const json = (await res.json()) as { rows?: DishDiscountRow[] };
-        if (Array.isArray(json.rows) && json.rows.length > 0) {
-          merged = mergeMenuDiscountOverrides(base, json.rows);
-        }
-      } catch {
-        /* keep base */
-      }
-      if (!cancelled) setItems(merged as MenuItem[]);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [setItems]);
+  // Catalog (static menu + Supabase price overrides) is loaded once, hoisted to
+  // MobileShell, and passed down via `items`/`setItems` — it stays populated across
+  // navigation and refreshes instead of resetting to [] every time this mounts.
 
   // Best selling: real 30-day units when volume exists; kitchen picks before launch
   useEffect(() => {
@@ -3653,6 +3630,30 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
                   />
                 );
               })}
+            </div>
+          ) : allItems.length === 0 ? (
+            // Catalog hasn't loaded yet — never leave the grid looking empty, spin instead.
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 80,
+              }}
+            >
+              <motion.div
+                role="status"
+                aria-label="Loading menu"
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.85, ease: "linear" }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  border: "3px solid rgba(0,0,0,0.08)",
+                  borderTopColor: C.red,
+                }}
+              />
             </div>
           ) : (
             <div style={{ color: "rgba(0,0,0,0.3)", textAlign: "center", marginTop: 40 }}>

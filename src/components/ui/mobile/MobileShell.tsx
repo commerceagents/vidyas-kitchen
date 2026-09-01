@@ -14,9 +14,14 @@ import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-sessi
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
-import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import { MENU_BY_CATEGORY, MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { FestivalPricingProvider } from "./festival-pricing-context";
-import { pickActiveFestival, type FestivalRow } from "@/lib/menu/discount-pricing";
+import {
+  pickActiveFestival,
+  mergeMenuDiscountOverrides,
+  type FestivalRow,
+  type DishDiscountRow,
+} from "@/lib/menu/discount-pricing";
 
 interface LocationData {
   label: string;
@@ -110,7 +115,12 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [paymentFeedback, setPaymentFeedback] = useState<PaymentFeedback>(null);
 
   // ── Hoisted State for Cart & Menu ───────────────────────────────────────
-  const [items, setItems] = useState<MenuItem[]>([]);
+  // Seeded synchronously from the static catalog so `cart` → `items` lookups
+  // (e.g. on the Checkout screen) work even when the user lands directly on
+  // checkout after a refresh, before MobileHomeScreen ever mounts to fetch it.
+  const [items, setItems] = useState<MenuItem[]>(
+    () => Object.values(MENU_BY_CATEGORY).flat() as MenuItem[]
+  );
   const [cart, setCart] = useState<Record<string, number>>(initialData.cart);
 
   const [checkoutSourceDishId, setCheckoutSourceDishId] = useState<string | null>(
@@ -155,6 +165,28 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     };
   }, []);
 
+  // Apply any Supabase price-override rows on top of the static catalog. Hoisted
+  // here (rather than inside MobileHomeScreen) so it runs on every step, not just
+  // when the home screen happens to be mounted.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = Object.values(MENU_BY_CATEGORY).flat() as MenuItem[];
+        const res = await fetch("/api/menu/discount-settings", { cache: "no-store" });
+        const json = (await res.json()) as { rows?: DishDiscountRow[] };
+        if (!cancelled && Array.isArray(json.rows) && json.rows.length > 0) {
+          setItems(mergeMenuDiscountOverrides(base, json.rows) as MenuItem[]);
+        }
+      } catch {
+        /* keep the static catalog already seeded */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Persist shell route + cart across refresh
   useEffect(() => {
     if (step === "login") return;
@@ -189,6 +221,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     if (payStatus === "success" && orderIdParam) {
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       sessionStorage.setItem(SS_TRACK_ORDER, orderIdParam);
+      // Clear right away — don't wait on the modal's dismiss button. Otherwise a
+      // refresh (or navigating away) before tapping "Continue" leaves the old
+      // order's items stuck in the cart forever.
+      setCart({});
       setPaymentFeedback({ kind: "success", orderId: orderIdParam });
       params.delete("status");
       params.delete("orderId");
