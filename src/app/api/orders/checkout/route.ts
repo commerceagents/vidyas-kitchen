@@ -10,6 +10,7 @@ import {
 } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
+import { markOrderPaidAndNotify } from "@/lib/order-transition";
 
 type LineInput = { menuItemId: string; quantity: number };
 
@@ -50,8 +51,8 @@ export async function POST(request: Request) {
     const deliveryLng =
       typeof lngRaw === "number" && Number.isFinite(lngRaw) && Math.abs(lngRaw) <= 180 ? lngRaw : null;
 
-    if (paymentMethod === "cod") {
-      return NextResponse.json({ error: "Cash on delivery is not enabled for online checkout yet." }, { status: 400 });
+    if (!["upi", "card", "cod"].includes(paymentMethod)) {
+      return NextResponse.json({ error: "Choose a valid payment method." }, { status: 400 });
     }
     if (!phone) {
       return NextResponse.json({ error: "Phone is required." }, { status: 400 });
@@ -156,6 +157,7 @@ export async function POST(request: Request) {
         slot_start_time: slotStartIso,
         cancellation_deadline: cancellationDeadline,
         cancellable: true, // Rule 2 ensures it starts as cancellable (at least 12h window)
+        payment_method: paymentMethod,
         ...(deliveryLat != null && deliveryLng != null
           ? { delivery_lat: deliveryLat, delivery_lng: deliveryLng }
           : {}),
@@ -189,6 +191,21 @@ export async function POST(request: Request) {
       console.error("[checkout] order_items", itemsErr);
       await supabase.from("orders").delete().eq("id", orderId);
       return NextResponse.json({ error: "Could not save line items." }, { status: 500 });
+    }
+
+    // Cash on delivery — there's no online payment to collect, so skip Razorpay
+    // entirely and mark the order paid/confirmed right away (same transition +
+    // WhatsApp/push notifications the Razorpay callback would trigger).
+    if (paymentMethod === "cod") {
+      const marked = await markOrderPaidAndNotify(supabase, orderId, null);
+      if (!marked.ok) {
+        console.error("[checkout] cod markOrderPaidAndNotify", marked.error);
+      }
+      return NextResponse.json({
+        orderId,
+        paymentMethod: "cod",
+        total: grandTotal,
+      });
     }
 
     const requestUrl = new URL(request.url);

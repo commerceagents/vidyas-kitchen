@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         id, status, delivery_address, delivery_slot, delivery_slot_kind,
         delivery_lat, delivery_lng,
         driver_last_lat, driver_last_lng, driver_location_at,
-        phone_number, recipient_name, recipient_phone,
+        phone_number, recipient_name, recipient_phone, payment_method, total_amount,
         users:customer_id ( full_name, phone_number ),
         order_items ( quantity, menu_items ( name, image_url ) )
       `,

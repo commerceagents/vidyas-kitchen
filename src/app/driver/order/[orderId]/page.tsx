@@ -37,6 +37,8 @@ type DriverOrder = {
   phone_number?: string | null;
   recipient_name?: string | null;
   recipient_phone?: string | null;
+  payment_method?: string | null;
+  total_amount?: number | null;
   users?: UserRef;
   order_items?: ItemRow[] | null;
 };
@@ -371,6 +373,7 @@ export default function DriverOrderDetailPage() {
 
   const orderedByName = order?.users?.full_name?.trim() || "Customer";
   const hasRecipient = Boolean(order?.recipient_name?.trim() || order?.recipient_phone?.trim());
+  const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const customerName = order?.recipient_name?.trim() || orderedByName;
   const callPhone = order?.recipient_phone?.trim() || order?.users?.phone_number || order?.phone_number || "";
   const items = order?.order_items || [];
@@ -520,6 +523,29 @@ export default function DriverOrderDetailPage() {
               </span>
             )}
           </div>
+
+          {isCod && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "rgba(34,197,94,0.12)",
+                border: "1px solid rgba(34,197,94,0.3)",
+              }}
+            >
+              <span style={{ fontSize: "12px", fontWeight: 800, color: "#22c55e", letterSpacing: "0.02em" }}>
+                CASH ON DELIVERY
+              </span>
+              {order?.total_amount != null && (
+                <span style={{ fontSize: "14px", fontWeight: 800, color: "#22c55e" }}>
+                  Collect ₹{Math.round(order.total_amount)}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Address */}
           <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>

@@ -452,10 +452,6 @@ export function CheckoutScreen({
   };
 
   const handlePlaceOrder = async () => {
-    if (paymentMethod === "cod") {
-      setCheckoutError("Cash on delivery isn’t available for online checkout yet.");
-      return;
-    }
     if (!phone.trim()) {
       setCheckoutError("Missing phone. Please sign in again.");
       return;
@@ -511,15 +507,27 @@ export function CheckoutScreen({
             : {}),
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; paymentUrl?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        paymentUrl?: string;
+        orderId?: string;
+      };
       if (!res.ok) throw new Error(data.error || `Checkout failed (${res.status})`);
+      writeUiSession({ checkoutPhase: "cart" });
+      if (paymentMethod === "cod") {
+        // No online payment to redirect to — the order is already placed, cash is
+        // collected at delivery. Reuse the same success route as the paid flow so
+        // cart-clearing / tracking / the confirmation modal all stay in one place.
+        if (!data.orderId) throw new Error("Order was not created.");
+        window.location.assign(`/?status=success&orderId=${data.orderId}`);
+        return;
+      }
       if (!data.paymentUrl) throw new Error("No payment URL returned");
       try {
         sessionStorage.setItem("vk_pending_checkout_cart", JSON.stringify({ cart }));
       } catch {
         /* noop */
       }
-      writeUiSession({ checkoutPhase: "cart" });
       window.location.assign(data.paymentUrl);
       // Custom URI schemes (e.g. upi:// fallback when Razorpay isn't configured) fail
       // silently on desktop/devices with no handler app — location.assign won't throw,
@@ -544,9 +552,6 @@ export function CheckoutScreen({
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({ x: dir > 0 ? "-18%" : "18%", opacity: 0 }),
   };
-
-  const selectedDay = dayOptions.find((d) => d.istYmd === deliveryDateYmd);
-  const selectedSlot = slotCards.find((c) => c.kind === slotKind);
 
   return (
     <div
@@ -1364,7 +1369,7 @@ export function CheckoutScreen({
                         <span
                           style={{
                             display: "block",
-                            fontSize: 15,
+                            fontSize: 17,
                             fontWeight: 900,
                             color: disabled ? "rgba(0,0,0,0.35)" : C.text,
                           }}
@@ -1374,8 +1379,8 @@ export function CheckoutScreen({
                         <span
                           style={{
                             display: "block",
-                            marginTop: 2,
-                            fontSize: 12,
+                            marginTop: 3,
+                            fontSize: 13.5,
                             fontWeight: 700,
                             color: disabled ? "rgba(0,0,0,0.28)" : C.muted,
                           }}
@@ -1386,12 +1391,12 @@ export function CheckoutScreen({
                       {disabled ? (
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 700,
                             color: "rgba(0,0,0,0.35)",
                             maxWidth: 88,
                             textAlign: "right",
-                            lineHeight: 1.3,
+                            lineHeight: 1.35,
                           }}
                         >
                           Book 24 hrs ahead
@@ -1399,12 +1404,12 @@ export function CheckoutScreen({
                       ) : (
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 900,
                             letterSpacing: "0.04em",
                             textTransform: "uppercase",
                             color: on ? C.red : "rgba(22,163,74,0.9)",
-                            padding: "5px 8px",
+                            padding: "5px 9px",
                             borderRadius: 999,
                             background: on ? "rgba(189,35,32,0.1)" : "rgba(22,163,74,0.1)",
                           }}
@@ -1431,23 +1436,25 @@ export function CheckoutScreen({
                       label: "UPI",
                       sub: "GPay / PhonePe",
                       icon: <Lightning size={22} weight="fill" color="rgba(0,0,0,0.7)" />,
+                      disabled: false,
                     },
                     {
                       id: "card",
                       label: "Card",
                       sub: "Debit / Credit",
                       icon: <CreditCard size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
+                      disabled: false,
                     },
                     {
                       id: "cod",
                       label: "Cash",
-                      sub: "Coming soon",
+                      sub: "Pay on delivery",
                       icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
-                      disabled: true,
+                      disabled: false,
                     },
                   ] as const
                 ).map((p) => {
-                  const disabled = "disabled" in p && p.disabled;
+                  const disabled = p.disabled;
                   const on = paymentMethod === p.id;
                   return (
                     <button
@@ -1478,22 +1485,6 @@ export function CheckoutScreen({
                 })}
               </div>
 
-              {(selectedDay || selectedSlot) && (
-                <p
-                  style={{
-                    margin: "18px 0 0",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: C.muted,
-                    lineHeight: 1.45,
-                    textAlign: "center",
-                  }}
-                >
-                  {[selectedDay?.weekendLabel, selectedSlot ? `${selectedSlot.label} · ${selectedSlot.rangeLabel}` : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
             </motion.div>
           )}
         </AnimatePresence>

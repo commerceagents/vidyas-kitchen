@@ -19,6 +19,7 @@ type Row = {
   phone_number?: string | null;
   recipient_name?: string | null;
   recipient_phone?: string | null;
+  payment_method?: string | null;
   users?: { full_name?: string | null; phone_number?: string | null } | null;
   order_items?: { quantity?: number | null; menu_items?: { name?: string | null; image_url?: string | null } | null }[] | null;
 };
@@ -180,6 +181,7 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
   const img = firstImage(order);
   const slotLine = formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined);
   const amount = order.total_amount != null ? `₹${Math.round(order.total_amount)}` : "";
+  const isCod = (order.payment_method || "").toLowerCase() === "cod";
 
   return (
     <Link
@@ -219,7 +221,14 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
               </span>
             )}
           </p>
-          {amount && <span style={{ fontSize: "13px", fontWeight: 800, color: YELLOW, flexShrink: 0, marginLeft: "8px" }}>{amount}</span>}
+          <span style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0, marginLeft: "8px" }}>
+            {isCod && (
+              <span style={{ padding: "1px 6px", borderRadius: "5px", background: "rgba(34,197,94,0.16)", color: "#22c55e", fontSize: "8.5px", fontWeight: 800 }}>
+                COD
+              </span>
+            )}
+            {amount && <span style={{ fontSize: "13px", fontWeight: 800, color: YELLOW }}>{amount}</span>}
+          </span>
         </div>
         <p style={{ margin: 0, fontSize: "12px", color: "#888", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</p>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px" }}>
