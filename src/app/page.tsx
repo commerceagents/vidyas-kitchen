@@ -73,10 +73,21 @@ export default function Home() {
     return () => window.removeEventListener("resize", checkViewport);
   }, []);
 
-  if (!mounted) return null;
+  // The document is dark for the desktop site, and nothing here renders until
+  // the layout effect above has run. On a phone that leaves one painted frame
+  // of black between Android's near-white launch screen and our splash, which
+  // reads as the app blinking or reloading. This ships in the server HTML, so
+  // the very first paint is already the splash colour. Scoped to phone widths
+  // and to this route so the dark desktop landing and dashboard are untouched.
+  const firstPaintBackground = (
+    <style>{`@media (max-width: 1024px) { html.dark, body.bg-black { background: #F5F5F7; } }`}</style>
+  );
+
+  if (!mounted) return firstPaintBackground;
 
   return (
     <main className={`fixed inset-0 overscroll-none ${isDesktop ? "bg-[#0a0a0a] touch-none overflow-hidden select-none" : "bg-[#F5F5F7] overflow-hidden"}`}>
+      {firstPaintBackground}
       {!isDesktop && <PortraitLock />}
       <AnimatePresence mode="wait">
         {showSplash ? (
