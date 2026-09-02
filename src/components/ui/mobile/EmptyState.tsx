@@ -14,12 +14,17 @@ export const EMPTY_ICON_COLOR = "rgba(0,0,0,0.15)";
 export function EmptyState({
   icon,
   text,
+  action,
   padding = "64px 24px 40px",
+  /** Take the whole space the parent gives us, so the state sits mid-screen. */
+  fill = false,
   style,
 }: {
   icon: ReactNode;
   text: ReactNode;
+  action?: ReactNode;
   padding?: string;
+  fill?: boolean;
   style?: CSSProperties;
 }) {
   return (
@@ -29,9 +34,10 @@ export function EmptyState({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding,
+        padding: fill ? "24px" : padding,
         width: "100%",
         gap: 16,
+        ...(fill ? { flex: 1, minHeight: 0 } : null),
         ...style,
       }}
     >
@@ -63,12 +69,21 @@ export function EmptyState({
       >
         {text}
       </p>
+      {action}
     </div>
   );
 }
 
 /** Red ring spinner, centred in whatever space it is given. */
-export function CenterSpinner({ minHeight = 240, label = "Loading" }: { minHeight?: number; label?: string }) {
+export function CenterSpinner({
+  minHeight = 240,
+  label = "Loading",
+  fill = false,
+}: {
+  minHeight?: number;
+  label?: string;
+  fill?: boolean;
+}) {
   return (
     <div
       role="status"
@@ -78,16 +93,16 @@ export function CenterSpinner({ minHeight = 240, label = "Loading" }: { minHeigh
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight,
         width: "100%",
+        ...(fill ? { flex: 1, minHeight: 0 } : { minHeight }),
       }}
     >
       <div
         style={{
-          width: 52,
-          height: 52,
+          width: 38,
+          height: 38,
           borderRadius: "50%",
-          border: "4px solid rgba(189,35,32,0.2)",
+          border: "3px solid rgba(189,35,32,0.18)",
           borderTopColor: "#BD2320",
           borderRightColor: "#BD2320",
           animation: "vk-center-spin 0.85s linear infinite",

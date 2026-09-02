@@ -11,6 +11,7 @@ import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
 import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { isOrderInFlight } from "@/lib/order-status";
+import { disablePush } from "@/lib/push-subscribe";
 import {
   applyServerSavedPlaces,
   loadSavedPlaces,
@@ -463,6 +464,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   };
 
   const handleSignOut = () => {
+    // Otherwise this device keeps receiving the previous account's order
+    // updates, which is both confusing and a leak.
+    void disablePush();
     localStorage.removeItem("vk_phone");
     localStorage.removeItem("vk_location");
     localStorage.removeItem(LS_NAME);

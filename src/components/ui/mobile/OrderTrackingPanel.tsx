@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
-import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
+import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
 import { Motorcycle, Money, MapPin, PencilSimple, CookingPot } from "@phosphor-icons/react";
-import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
+import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
@@ -323,9 +323,7 @@ function StageRail({ stage }: { stage: number }) {
 }
 
 function waHelpUrl(orderId: string, orderNumber?: number | null) {
-  const digits = SUPPORT_PHONE_E164.replace(/\D/g, "");
-  const text = encodeURIComponent(`Hi — question about order ${formatOrderRef(orderNumber, orderId)}…`);
-  return `https://wa.me/${digits}?text=${text}`;
+  return whatsappBotLink(`Hi — I need help with order ${formatOrderRef(orderNumber, orderId)}.`);
 }
 
 function WhatsAppBrandIcon({ size = 22 }: { size?: number }) {
@@ -489,6 +487,11 @@ export function OrderTrackingPanel({
   return (
     <div
       style={{
+        // A column that fills the tab, so the empty and loading states can sit
+        // in the middle of the space rather than under the header.
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
         minHeight: "72vh",
         background: C.bg,
         padding: `14px 18px max(32px, env(safe-area-inset-bottom))`,
@@ -517,11 +520,12 @@ export function OrderTrackingPanel({
 
       {!trackingOrderId ? (
         <EmptyState
+          fill
           icon={<CookingPot size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
           text="No live order right now. Once you check out, your schedule and updates appear here."
         />
       ) : (
-        <>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           {trackErr ? (
             <p style={{ margin: "0 0 18px", color: "#fca5a5", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>{trackErr}</p>
           ) : null}
@@ -1040,38 +1044,7 @@ export function OrderTrackingPanel({
               ) : null}
             </>
           ) : (
-            !trackErr && (
-              <div
-                role="status"
-                aria-live="polite"
-                aria-label="Loading order"
-                style={{
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 55,
-                  pointerEvents: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: "50%",
-                    border: `4px solid rgba(189,35,32,0.2)`,
-                    borderTopColor: C.red,
-                    borderRightColor: C.red,
-                    animation: "vk-order-loader-spin 0.85s linear infinite",
-                    boxSizing: "border-box",
-                  }}
-                />
-                <style>{`@keyframes vk-order-loader-spin { to { transform: rotate(360deg); } }`}</style>
-              </div>
-            )
+            !trackErr && <CenterSpinner fill label="Loading your order" />
           )}
 
           {/* Cancelled orders lose the dark panel, so keep a way to reach us. */}
@@ -1114,7 +1087,7 @@ export function OrderTrackingPanel({
               </span>
             </a>
           ) : null}
-        </>
+        </div>
       )}
 
       <AnimatePresence>

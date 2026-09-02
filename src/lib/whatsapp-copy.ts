@@ -6,6 +6,19 @@ import { publicSiteOrigin } from "./site-url";
 import { type CartItem, cartTotal } from "./whatsapp-session";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
+
+/**
+ * The WhatsApp bot. Chats go here rather than to the kitchen's own line so an
+ * out-of-hours message still gets an answer, and so the number a customer ends
+ * up in a thread with is the same one that sends their order updates.
+ */
+export const WHATSAPP_BOT_E164 = "+917550028179";
+
+/** wa.me link to the bot, opening with `message` already typed. */
+export function whatsappBotLink(message: string): string {
+  const digits = WHATSAPP_BOT_E164.replace(/\D/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
 export const SUPPORT_EMAIL = "hello.vidyaskitchen@gmail.com";
 export const WA_CART_MAX = 3;
 

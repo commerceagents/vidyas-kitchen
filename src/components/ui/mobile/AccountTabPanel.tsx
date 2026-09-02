@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MapPin, 
@@ -15,15 +14,26 @@ import {
   DownloadSimple,
   Question,
   Receipt,
+  Heart,
+  SealCheck,
 } from "@phosphor-icons/react";
-import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { C, C_TEXT_MUTED } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { loadSavedPlaces, savedPlacesSummary, type SavedPlace } from "@/lib/vk-saved-places";
-import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
+import { SUPPORT_PHONE_E164, whatsappBotLink } from "@/lib/whatsapp-copy";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import { HelpSheet } from "@/components/ui/mobile/HelpSheet";
 import { ProfileEditSheet } from "@/components/ui/mobile/ProfileEditSheet";
 import { SavedAddressesSheet } from "@/components/ui/mobile/SavedAddressesSheet";
+import { PolicySheet } from "@/components/ui/mobile/PolicySheet";
+import {
+  currentPushState,
+  disablePush,
+  enablePush,
+  sendTestPush,
+  type PushState,
+} from "@/lib/push-subscribe";
+import { REFUND_POLICY, TERMS_POLICY } from "@/lib/policy-copy";
 import {
   isAppleTouchDevice,
   isAlreadyInstalled,
@@ -33,6 +43,35 @@ import {
 } from "@/lib/pwa-install";
 
 const sp = (n: number) => n * 8;
+
+const APP_VERSION = "1.0.0";
+const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai";
+
+/** The same green "Instant" treatment used on the Vidya Bot tile at home. */
+function VerifiedChip() {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 8px 3px 6px",
+        borderRadius: 999,
+        background: "rgba(22,163,74,0.18)",
+        border: "1px solid rgba(21,128,61,0.45)",
+        fontSize: 10,
+        fontWeight: 800,
+        color: "#14532d",
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
+        lineHeight: 1,
+      }}
+    >
+      <SealCheck size={11} weight="fill" color="#15803d" style={{ flexShrink: 0 }} aria-hidden />
+      Verified
+    </span>
+  );
+}
 
 const ICON_STROKE = C.red;
 
@@ -122,6 +161,8 @@ type AccountTabPanelProps = {
   /** True when returning from the map, so the drawer picks up where it left off. */
   openSavedAddresses?: boolean;
   onOpenOrders: () => void;
+  favoritesCount: number;
+  onOpenFavorites: () => void;
   onSignOut?: () => void;
   children?: React.ReactNode;
 };
@@ -134,6 +175,8 @@ export function AccountTabPanel({
   onEditSavedPlace,
   openSavedAddresses = false,
   onOpenOrders,
+  favoritesCount,
+  onOpenFavorites,
   onSignOut,
   children,
 }: AccountTabPanelProps) {
@@ -145,6 +188,7 @@ export function AccountTabPanel({
   const [isAppleInstall, setIsAppleInstall] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [policy, setPolicy] = useState<"refund" | "terms" | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -155,13 +199,13 @@ export function AccountTabPanel({
   }, [openSavedAddresses]);
 
   useEffect(() => {
-    if ((!editing && !showAddresses) || !mounted) return;
+    if ((!editing && !showAddresses && !policy) || !mounted) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [editing, showAddresses, mounted]);
+  }, [editing, showAddresses, policy, mounted]);
 
   useEffect(() => {
     const refresh = () => setSavedSummary(savedPlacesSummary(loadSavedPlaces()));
@@ -305,24 +349,37 @@ export function AccountTabPanel({
         />
       </Section>
 
-      <Section title="Preferences" titleStyle={sectionLabelStyle}>
+      <Section title="Menu" titleStyle={sectionLabelStyle}>
         <PressRow
           icon={
             <AccountRowIcon>
-              <IconBell />
+              <Heart size={20} weight="regular" color={ICON_STROKE} />
             </AccountRowIcon>
           }
-          subtitle="Order updates are sent to your WhatsApp"
-          title="Notifications"
-          showChevron={false}
+          subtitle={
+            favoritesCount === 0
+              ? "Nothing saved yet"
+              : `${favoritesCount} dish${favoritesCount === 1 ? "" : "es"} saved`
+          }
+          title="Favorites"
+          onClick={onOpenFavorites}
         />
+      </Section>
+
+      <Section title="Preferences" titleStyle={sectionLabelStyle}>
+        <NotificationsRow customerPhone={customerPhone} />
         <PressRow
           icon={
             <AccountRowIcon>
               <IconPhone />
             </AccountRowIcon>
           }
-          subtitle={`${formatInPhone(customerPhone)} · Verified`}
+          subtitle={
+            <span style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+              {formatInPhone(customerPhone)}
+              <VerifiedChip />
+            </span>
+          }
           title="WhatsApp Number"
           showChevron={false}
         />
@@ -352,7 +409,7 @@ export function AccountTabPanel({
           onClick={() => setShowHelp(true)}
         />
         <a
-          href={`https://wa.me/${SUPPORT_PHONE_E164.replace(/\D/g, "")}`}
+          href={whatsappBotLink("Hi Vidya's Kitchen! I need help with my order.")}
           target="_blank"
           rel="noopener noreferrer"
           style={{ textDecoration: "none", color: "inherit", display: "block" }}
@@ -380,30 +437,26 @@ export function AccountTabPanel({
             showChevron
           />
         </a>
-        <Link href="/refund-policy" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-          <PressRow
-            icon={
-              <AccountRowIcon>
-                <IconReceipt />
-              </AccountRowIcon>
-            }
-            subtitle="When we cancel and how refunds work"
-            title="Refunds & Cancellations"
-            showChevron
-          />
-        </Link>
-        <Link href="/terms" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-          <PressRow
-            icon={
-              <AccountRowIcon>
-                <IconShield />
-              </AccountRowIcon>
-            }
-            subtitle="How We Use Your Data"
-            title="Terms & Privacy"
-            showChevron
-          />
-        </Link>
+        <PressRow
+          icon={
+            <AccountRowIcon>
+              <IconReceipt />
+            </AccountRowIcon>
+          }
+          subtitle="When we cancel and how refunds work"
+          title="Refunds & Cancellations"
+          onClick={() => setPolicy("refund")}
+        />
+        <PressRow
+          icon={
+            <AccountRowIcon>
+              <IconShield />
+            </AccountRowIcon>
+          }
+          subtitle="How we use your data"
+          title="Terms & Privacy"
+          onClick={() => setPolicy("terms")}
+        />
       </Section>
 
       {children}
@@ -438,14 +491,21 @@ export function AccountTabPanel({
       <p
         style={{
           margin: `${sp(2)}px 0 0`,
-          textAlign: "center",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 5,
           fontSize: 12,
-          fontWeight: 600,
-          color: "rgba(0,0,0,0.28)",
-          letterSpacing: "0.02em",
+          fontWeight: 700,
+          color: "rgba(0,0,0,0.42)",
+          letterSpacing: "0.01em",
         }}
       >
-        Version 1.0.0 · Made with ❤️ in Chennai
+        Version {APP_VERSION}
+        <span aria-hidden style={{ color: "rgba(0,0,0,0.2)" }}>·</span>
+        Made with
+        <Heart size={12} weight="fill" color={C.red} style={{ flexShrink: 0 }} aria-label="love" />
+        in {DELIVERY_CITY}
       </p>
     </motion.div>
 
@@ -500,7 +560,130 @@ export function AccountTabPanel({
         </AnimatePresence>,
         document.body,
       )}
+
+    {mounted &&
+      createPortal(
+        <AnimatePresence>
+          {policy ? (
+            <PolicySheet
+              key={`vk-account-policy-${policy}`}
+              policy={policy === "refund" ? REFUND_POLICY : TERMS_POLICY}
+              fullPageHref={policy === "refund" ? "/refund-policy" : "/terms"}
+              onClose={() => setPolicy(null)}
+            />
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
+  );
+}
+
+/**
+ * Push notifications, on or off.
+ *
+ * WhatsApp gets every update regardless; this is the extra one that lands on
+ * the lock screen. The test send exists because otherwise switching this on
+ * shows no evidence it worked until an order happens to change state.
+ */
+function NotificationsRow({ customerPhone }: { customerPhone: string }) {
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    void currentPushState().then(setState);
+  }, []);
+
+  const on = state === "on";
+
+  const toggle = useCallback(async () => {
+    if (busy || state === null || state === "unsupported") return;
+    setBusy(true);
+    setNote(null);
+
+    if (on) {
+      await disablePush();
+      setState("off");
+      setBusy(false);
+      return;
+    }
+
+    const result = await enablePush(customerPhone);
+    if (result.ok) {
+      setState("on");
+      const test = await sendTestPush(customerPhone);
+      setNote(test.ok ? "Sent you one just now — check your notifications." : test.error ?? null);
+    } else {
+      setState(result.state);
+      if (result.error) setNote(result.error);
+    }
+    setBusy(false);
+  }, [busy, customerPhone, on, state]);
+
+  const subtitle =
+    state === null
+      ? "Checking…"
+      : state === "unsupported"
+        ? "Not available on this browser — updates still go to WhatsApp"
+        : state === "blocked"
+          ? "Blocked in your browser settings"
+          : on
+            ? "Order updates on this device, plus WhatsApp"
+            : "Get order updates on this device";
+
+  return (
+    <div style={{ borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 0" }}>
+        <AccountRowIcon>
+          <IconBell />
+        </AccountRowIcon>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ ...TYPO.bodyMedium, margin: 0, color: C.text }}>Notifications</p>
+          <p style={{ ...TYPO.caption, margin: "4px 0 0" }}>{subtitle}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Order notifications on this device"
+          disabled={busy || state === null || state === "unsupported" || state === "blocked"}
+          onClick={toggle}
+          style={{
+            position: "relative",
+            width: 46,
+            height: 28,
+            flexShrink: 0,
+            borderRadius: 999,
+            border: "none",
+            padding: 0,
+            cursor: busy || state === "unsupported" || state === "blocked" ? "default" : "pointer",
+            background: on ? C.red : "rgba(0,0,0,0.16)",
+            opacity: state === null || state === "unsupported" || state === "blocked" ? 0.45 : 1,
+            transition: "background 0.2s ease",
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 3,
+              left: on ? 21 : 3,
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: C.white,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+              transition: "left 0.2s ease",
+            }}
+          />
+        </button>
+      </div>
+      {note ? (
+        <p style={{ margin: "0 0 12px", fontSize: 12.5, fontWeight: 700, color: C_TEXT_MUTED, lineHeight: 1.5 }}>
+          {note}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -529,7 +712,7 @@ function PressRow({
 }: {
   icon: React.ReactNode;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   onClick?: () => void;
   /** When false, no chevron (static row). Default: true if onClick is set. */
   showChevron?: boolean;
@@ -540,7 +723,7 @@ function PressRow({
       {icon}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ ...TYPO.bodyMedium, margin: 0, color: C.text }}>{title}</p>
-        <p style={{ ...TYPO.caption, margin: "4px 0 0" }}>{subtitle}</p>
+        <div style={{ ...TYPO.caption, margin: "4px 0 0" }}>{subtitle}</div>
       </div>
       {chevron ? <ChevronRight /> : null}
     </>

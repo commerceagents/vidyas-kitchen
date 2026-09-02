@@ -8,6 +8,8 @@ import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { formatOrderRef, isOrderInFlight, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { parseRecipeTag } from "@/lib/dish-name";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
+import { OrderReceiptSheet } from "@/components/ui/mobile/OrderReceiptSheet";
+import { AnimatePresence } from "framer-motion";
 
 export type HistoryOrder = {
   orderId: string;
@@ -103,6 +105,18 @@ function groupByDay(orders: HistoryOrder[]): { key: string; label: string; order
   return groups;
 }
 
+/**
+ * Anything still in flight is lifted out of the day groups and pinned at the
+ * top: a customer opening this list wants the order that is happening now,
+ * not the one that happens to be newest.
+ */
+function splitOngoing(orders: HistoryOrder[]): { ongoing: HistoryOrder[]; past: HistoryOrder[] } {
+  const ongoing: HistoryOrder[] = [];
+  const past: HistoryOrder[] = [];
+  for (const o of orders) (isLiveOrder(o.status) ? ongoing : past).push(o);
+  return { ongoing, past };
+}
+
 function summariseItems(items: HistoryOrder["items"]): string {
   if (!items.length) return "Order details unavailable";
   const count = items.reduce((a, i) => a + i.quantity, 0);
@@ -126,6 +140,7 @@ export function OrderHistoryPanel({
 }) {
   const [orders, setOrders] = useState<HistoryOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
 
   const phone = customerPhone.trim();
   const signedIn = phone.replace(/\D/g, "").length >= 10;
@@ -158,7 +173,7 @@ export function OrderHistoryPanel({
   }
 
   if (orders === null) {
-    return <CenterSpinner minHeight={280} label="Loading your orders" />;
+    return <CenterSpinner fill label="Loading your orders" />;
   }
 
   if (orders.length === 0) {
@@ -174,178 +189,210 @@ export function OrderHistoryPanel({
     );
   }
 
+  const { ongoing, past } = splitOngoing(orders);
+
   return (
     <div style={{ padding: "4px 0 8px", fontFamily: fontUi }}>
-      {groupByDay(orders).map((group) => (
+      {ongoing.length > 0 ? (
+        <section>
+          <GroupHeader label="Ongoing" />
+          {ongoing.map((o) => (
+            <OrderRow key={o.orderId} order={o} isActive={o.orderId === activeOrderId} onTrack={onTrackOrder} onReceipt={setReceiptId} />
+          ))}
+        </section>
+      ) : null}
+
+      {groupByDay(past).map((group) => (
         <section key={group.key}>
-          <h3
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 1,
-              margin: "6px 0 10px",
-              padding: "8px 2px",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: C_TEXT_MUTED,
-              background: C.bg,
-              fontFamily: fontUi,
-            }}
-          >
-            {group.label}
-          </h3>
-          {group.orders.map((o) => {
-        const pill = statusPill(o.status);
-        const live = isLiveOrder(o.status);
-        const isActive = o.orderId === activeOrderId;
-        const codOutstanding =
-          (o.paymentMethod || "").toLowerCase() === "cod" && (o.paymentStatus || "pending") !== "paid";
-
-        return (
-          <motion.button
-            key={o.orderId}
-            type="button"
-            whileTap={{ scale: 0.99 }}
-            onClick={() => onTrackOrder(o.orderId)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              width: "100%",
-              textAlign: "left",
-              padding: 14,
-              marginBottom: 10,
-              borderRadius: 18,
-              background: C.surfaceDeep,
-              border: `1px solid ${isActive ? C.redBorder : C.border}`,
-              cursor: "pointer",
-              fontFamily: fontUi,
-            }}
-          >
-            <span
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                flexShrink: 0,
-                overflow: "hidden",
-                background: C.redFaint,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              aria-hidden
-            >
-              {o.items[0]?.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- remote menu photo, no loader configured
-                <img
-                  src={o.items[0].imageUrl}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                <Receipt size={22} weight="regular" color={C.red} />
-              )}
-            </span>
-
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
-                              {formatOrderRef(o.orderNumber, o.orderId)}
-                </span>
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    letterSpacing: "0.03em",
-                    padding: "3px 8px",
-                    borderRadius: 999,
-                    color: pill.fg,
-                    background: pill.bg,
-                  }}
-                >
-                  {pill.label}
-                </span>
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  marginTop: 5,
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  color: C_TEXT_SEC,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {summariseItems(o.items)}
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  marginTop: 4,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: C_TEXT_MUTED,
-                }}
-              >
-                {formatWhen(o.createdAt)}
-                {o.totalAmount != null ? ` · ₹${Math.round(o.totalAmount).toLocaleString("en-IN")}` : ""}
-                {codOutstanding ? " · Cash on delivery" : ""}
-              </span>
-            </span>
-
-            <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
-              {live ? (
-                <span style={{ fontSize: 12, fontWeight: 800, color: C.red }}>Track</span>
-              ) : null}
-              <CaretRight size={15} weight="bold" color="rgba(0,0,0,0.25)" />
-            </span>
-          </motion.button>
-        );
-          })}
+          <GroupHeader label={group.label} />
+          {group.orders.map((o) => (
+            <OrderRow key={o.orderId} order={o} isActive={o.orderId === activeOrderId} onTrack={onTrackOrder} onReceipt={setReceiptId} />
+          ))}
         </section>
       ))}
+
+      <AnimatePresence>
+        {receiptId ? (
+          <OrderReceiptSheet
+            key={receiptId}
+            orderId={receiptId}
+            customerPhone={phone}
+            onClose={() => setReceiptId(null)}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <h3
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+        margin: "6px 0 10px",
+        padding: "8px 2px",
+        fontSize: 12,
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        color: C_TEXT_MUTED,
+        background: C.bg,
+        fontFamily: fontUi,
+      }}
+    >
+      {label}
+    </h3>
+  );
+}
+
+/**
+ * A live order opens tracking; a finished one opens its receipt, because a
+ * delivery map is no use for something that arrived last week.
+ */
+function OrderRow({
+  order: o,
+  isActive,
+  onTrack,
+  onReceipt,
+}: {
+  order: HistoryOrder;
+  isActive: boolean;
+  onTrack: (orderId: string) => void;
+  onReceipt: (orderId: string) => void;
+}) {
+  const pill = statusPill(o.status);
+  const live = isLiveOrder(o.status);
+  const codOutstanding =
+    (o.paymentMethod || "").toLowerCase() === "cod" && (o.paymentStatus || "pending") !== "paid";
+
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.99 }}
+      onClick={() => (live ? onTrack(o.orderId) : onReceipt(o.orderId))}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        width: "100%",
+        textAlign: "left",
+        padding: 14,
+        marginBottom: 10,
+        borderRadius: 18,
+        background: C.surfaceDeep,
+        border: `1px solid ${isActive ? C.redBorder : C.border}`,
+        cursor: "pointer",
+        fontFamily: fontUi,
+      }}
+    >
+      <span
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 14,
+          flexShrink: 0,
+          overflow: "hidden",
+          background: C.redFaint,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        aria-hidden
+      >
+        {o.items[0]?.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- remote menu photo, no loader configured
+          <img src={o.items[0].imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <Receipt size={22} weight="regular" color={C.red} />
+        )}
+      </span>
+
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
+            {formatOrderRef(o.orderNumber, o.orderId)}
+          </span>
+          <span
+            style={{
+              fontSize: 10.5,
+              fontWeight: 800,
+              letterSpacing: "0.03em",
+              padding: "3px 8px",
+              borderRadius: 999,
+              color: pill.fg,
+              background: pill.bg,
+            }}
+          >
+            {pill.label}
+          </span>
+        </span>
+        <span
+          style={{
+            display: "block",
+            marginTop: 5,
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: C_TEXT_SEC,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {summariseItems(o.items)}
+        </span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 600, color: C_TEXT_MUTED }}>
+          {formatWhen(o.createdAt)}
+          {o.totalAmount != null ? ` · ₹${Math.round(o.totalAmount).toLocaleString("en-IN")}` : ""}
+          {codOutstanding ? " · Cash on delivery" : ""}
+        </span>
+      </span>
+
+      <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: live ? C.red : C_TEXT_MUTED }}>
+          {live ? "Track" : "Receipt"}
+        </span>
+        <CaretRight size={15} weight="bold" color="rgba(0,0,0,0.25)" />
+      </span>
+    </motion.button>
   );
 }
 
 function Empty({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return (
-    <div style={{ textAlign: "center", fontFamily: fontUi }}>
-      <EmptyState
-        icon={<Receipt size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
-        text={text}
-        padding="64px 24px 0"
-      />
-      {onRetry ? (
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          onClick={onRetry}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            marginTop: 18,
-            padding: "11px 18px",
-            borderRadius: 14,
-            border: `1px solid ${C.border}`,
-            background: C.surfaceDeep,
-            color: C.text,
-            fontSize: 14,
-            fontWeight: 800,
-            cursor: "pointer",
-            fontFamily: fontUi,
-          }}
-        >
-          <ArrowClockwise size={16} weight="bold" />
-          Retry
-        </motion.button>
-      ) : null}
-    </div>
+    <EmptyState
+      fill
+      icon={<Receipt size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
+      text={text}
+      action={
+        onRetry ? (
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={onRetry}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 2,
+              padding: "11px 18px",
+              borderRadius: 14,
+              border: `1px solid ${C.border}`,
+              background: C.surfaceDeep,
+              color: C.text,
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: "pointer",
+              fontFamily: fontUi,
+            }}
+          >
+            <ArrowClockwise size={16} weight="bold" />
+            Retry
+          </motion.button>
+        ) : null
+      }
+    />
   );
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CaretDown, Phone, X } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
-import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
+import { SUPPORT_PHONE_E164, whatsappBotLink } from "@/lib/whatsapp-copy";
 import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
 
 const fontUi = C.mono;
@@ -47,7 +47,7 @@ const FAQS: { q: string; a: string }[] = [
 /** Help & support sheet — FAQ first, humans one tap away. */
 export function HelpSheet({ onClose }: { onClose: () => void }) {
   const [open, setOpen] = useState<number | null>(0);
-  const waHref = `https://wa.me/${SUPPORT_PHONE_E164.replace(/\D/g, "")}`;
+  const waHref = whatsappBotLink("Hi Vidya's Kitchen! I have a question.");
 
   return (
     <motion.div

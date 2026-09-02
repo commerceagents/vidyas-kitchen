@@ -14,6 +14,8 @@ import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import type { SavedPlace } from "@/lib/vk-saved-places";
+import { whatsappBotLink } from "@/lib/whatsapp-copy";
+import { FavoritesSheet, type FavoriteRow } from "@/components/ui/mobile/FavoritesSheet";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
@@ -1929,6 +1931,7 @@ export function MobileHomeScreen({
     uiBootstrap.homeDishFeedTab
   );
   const [unfavoriteConfirm, setUnfavoriteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [showFavorites, setShowFavorites] = useState(false);
   const feedTabRowRef = useRef<HTMLDivElement>(null);
   const kitchenCarouselRef = useRef<HTMLDivElement>(null);
   const [feedTabPill, setFeedTabPill] = useState({ w: 0, shift: 0 });
@@ -1981,47 +1984,6 @@ export function MobileHomeScreen({
     });
   }, [activeNav, activeScreen, dishDetailItem?.id, homeDishFeedTab]);
 
-  useEffect(() => {
-    if (!customerPhone || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapidKey) return;
-
-    async function registerPush() {
-      try {
-        const reg = await navigator.serviceWorker.register("/sw.js");
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return;
-
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          const urlBase64 = vapidKey!.replace(/-/g, "+").replace(/_/g, "/");
-          const raw = atob(urlBase64);
-          const key = new Uint8Array(raw.length);
-          for (let i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: key,
-          });
-        }
-
-        const json = sub.toJSON();
-        await fetch("/api/push/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone_number: customerPhone,
-            endpoint: json.endpoint,
-            p256dh: json.keys?.p256dh,
-            auth: json.keys?.auth,
-          }),
-        });
-      } catch (err) {
-        console.warn("[push] Registration failed:", err);
-      }
-    }
-
-    void registerPush();
-  }, [customerPhone]);
 
   useEffect(() => {
     if (!trackingOrderId) {
@@ -2137,6 +2099,22 @@ export function MobileHomeScreen({
     () => items.filter((i) => favoriteIdSet.has(i.id)),
     [items, favoriteIdSet],
   );
+
+  const favoriteRows: FavoriteRow[] = useMemo(
+    () =>
+      favoriteItems.map((item) => {
+        const min = Math.min(...item.variants.map((v) => v.price));
+        const variant = item.variants.find((v) => v.price === min) ?? item.variants[0];
+        return {
+          id: item.id,
+          name: parseRecipeTag(item.name).cleanName,
+          price: min,
+          listPrice: listPriceForVariant(item, variant.id, min, new Date(), activeFestival),
+        };
+      }),
+    [activeFestival, favoriteItems],
+  );
+
 
   const cartTotalItems = Object.values(cart).reduce((sum, q) => sum + q, 0);
 
@@ -2773,7 +2751,7 @@ export function MobileHomeScreen({
           {/* WhatsApp Bot Row */}
           <motion.div {...fadeUp(0.24)}>
             <motion.a
-              href={`https://wa.me/917550028179?text=${encodeURIComponent("Hi Vidya's Kitchen! I'd like to place an order.")}`}
+              href={whatsappBotLink("Hi Vidya's Kitchen! I'd like to place an order.")}
               target="_blank"
               rel="noopener noreferrer"
               whileTap={{ scale: 0.97 }}
@@ -2871,7 +2849,16 @@ export function MobileHomeScreen({
         )}
 
         {activeNav === "orders" && (
-          <div style={{ margin: `0 -${sp(2)}px`, flex: 1, alignSelf: "stretch" }}>
+          <div
+            style={{
+              margin: `0 -${sp(2)}px`,
+              flex: 1,
+              alignSelf: "stretch",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+            }}
+          >
             {ordersView === "track" ? (
               <OrderTrackingPanel
                 trackingOrderId={trackingOrderId}
@@ -2893,7 +2880,15 @@ export function MobileHomeScreen({
                 submitOrderRating={submitOrderRating}
               />
             ) : (
-              <div style={{ padding: `0 ${sp(2)}px max(32px, env(safe-area-inset-bottom))` }}>
+              <div
+                style={{
+                  padding: `0 ${sp(2)}px max(32px, env(safe-area-inset-bottom))`,
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  minHeight: 0,
+                }}
+              >
                 <OrderHistoryPanel
                   customerPhone={customerPhone}
                   activeOrderId={trackingOrderId}
@@ -2919,92 +2914,10 @@ export function MobileHomeScreen({
                 setOrdersView("history");
                 handleNav("orders");
               }}
+              favoritesCount={favoriteItems.length}
+              onOpenFavorites={() => setShowFavorites(true)}
               onSignOut={onSignOut}
-            >
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  color: "rgba(0,0,0,0.38)",
-                }}
-              >
-                Favorites
-              </p>
-              {favoriteItems.length === 0 ? (
-                <p style={{ margin: "0 0 8px", ...HT.bodySm, lineHeight: 1.55, fontWeight: 600 }}>
-                  Tap the heart on a dish or in details to save it here — same list as Home (Favorites). Stored on this device only.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", marginBottom: 8 }}>
-                  {favoriteItems.map((item) => {
-                    const { cleanName } = parseRecipeTag(item.name);
-                    const favMin = Math.min(...item.variants.map((v) => v.price));
-                    const favVar = item.variants.find((v) => v.price === favMin) ?? item.variants[0];
-                    const favList = listPriceForVariant(item, favVar.id, favMin, new Date(), activeFestival);
-                    return (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "stretch",
-                          gap: 10,
-                          borderBottom: `1px solid ${C.border}`,
-                        }}
-                      >
-                        <motion.button
-                          type="button"
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setDishDetailItem(item)}
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                            textAlign: "left",
-                            padding: "12px 0",
-                            border: "none",
-                            background: "transparent",
-                            borderRadius: 0,
-                            cursor: "pointer",
-                            fontFamily: C.mono,
-                          }}
-                        >
-                          <p style={{ ...HT.cardName, margin: 0 }}>{cleanName}</p>
-                          <p style={{ margin: "6px 0 0", ...HT.bodyMedium, fontWeight: 800, color: C.red }}>
-                            From ₹{favMin.toLocaleString("en-IN")}
-                            {favList != null && (
-                              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.3)", textDecoration: "line-through" }}>
-                                ₹{favList.toLocaleString("en-IN")}
-                              </span>
-                            )}
-                          </p>
-                        </motion.button>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${cleanName} from favorites`}
-                          onClick={() => requestRemoveFavorite(item.id, cleanName)}
-                          style={{
-                            alignSelf: "center",
-                            flexShrink: 0,
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            border: `1px solid rgba(189,35,32,0.38)`,
-                            background: "rgba(189,35,32,0.14)",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <X size={20} weight="bold" color={C.red} aria-hidden />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </AccountTabPanel>
+            />
         )}
       </div>
 
@@ -3067,6 +2980,28 @@ export function MobileHomeScreen({
             }}
             allItems={items}
             onOpenRelated={(next) => setDishDetailItem(next)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFavorites && (
+          <FavoritesSheet
+            key="vk-favorites-sheet"
+            favorites={favoriteRows}
+            onOpenDish={(id) => {
+              const item = items.find((i) => i.id === id);
+              if (!item) return;
+              setShowFavorites(false);
+              setDishDetailItem(item);
+            }}
+            onRemove={requestRemoveFavorite}
+            onBrowseMenu={() => {
+              setShowFavorites(false);
+              handleNav("home");
+              setActiveScreen("menu");
+            }}
+            onClose={() => setShowFavorites(false)}
           />
         )}
       </AnimatePresence>

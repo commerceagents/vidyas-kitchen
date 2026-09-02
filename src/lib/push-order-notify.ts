@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPushNotification, type PushPayload } from "@/lib/web-push";
 import { OrderStatus, formatOrderRef } from "@/lib/order-status";
 import { publicSiteOrigin } from "@/lib/site-url";
+import { toE164Phone } from "@/lib/test-numbers";
 
 function pushPayloadForStatus(
   status: string,
@@ -13,6 +14,15 @@ function pushPayloadForStatus(
   const short = formatOrderRef(orderNumber, orderId).replace(/^#/, "");
 
   switch (status) {
+    // The first thing that happens after checkout, and the one a customer most
+    // wants to see land on their phone.
+    case OrderStatus.PAID:
+      return {
+        title: "Order placed",
+        body: `We've got order #${short}. The kitchen will confirm it shortly.`,
+        tag: `vk-${orderId}-placed`,
+        url: trackUrl,
+      };
     case OrderStatus.CONFIRMED:
       return {
         title: "Order confirmed!",
@@ -80,10 +90,13 @@ export async function sendOrderPushNotifications(
   const payload = pushPayloadForStatus(status, orderId, deliverySlot, orderNumber);
   if (!payload) return;
 
+  const phone = toE164Phone(phoneNumber);
+  if (!phone) return;
+
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth")
-    .eq("phone_number", phoneNumber);
+    .eq("phone_number", phone);
 
   if (error || !subs || subs.length === 0) return;
 

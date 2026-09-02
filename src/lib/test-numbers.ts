@@ -14,6 +14,19 @@ export function localPhoneDigits(phone: string): string {
   return String(phone || "").replace(/\D/g, "").slice(-10);
 }
 
+/**
+ * The one shape a phone number is stored and compared in.
+ *
+ * Numbers arrive as +91…, 0…, with spaces, or as ten bare digits depending on
+ * where in the app they came from. Anything that has to line up two records by
+ * phone — a push subscription against an order, a profile against a login —
+ * goes through here first. Returns "" if it is not a ten-digit number.
+ */
+export function toE164Phone(phone: string): string {
+  const d = localPhoneDigits(phone);
+  return d.length === 10 ? `+91${d}` : "";
+}
+
 export function isTestBypassPhone(phone: string): boolean {
   const d = localPhoneDigits(phone);
   return EXACT.has(d) || d.startsWith(PREFIX);
