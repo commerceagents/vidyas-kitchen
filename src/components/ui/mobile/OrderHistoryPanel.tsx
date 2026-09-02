@@ -7,6 +7,7 @@ import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-desig
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { formatOrderRef, isOrderInFlight, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { parseRecipeTag } from "@/lib/dish-name";
+import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 
 export type HistoryOrder = {
   orderId: string;
@@ -152,39 +153,21 @@ export function OrderHistoryPanel({
 
   if (!signedIn) {
     return (
-      <Empty
-        title="Sign in to see your orders"
-        body="Your past orders are tied to the phone number you order with."
-      />
+      <Empty text="Sign in to see your orders — they're tied to the phone number you order with." />
     );
   }
 
   if (orders === null) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "56px 0" }}>
-        <span
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: "50%",
-            border: "2.5px solid rgba(0,0,0,0.08)",
-            borderTopColor: C.red,
-            animation: "vk-spin 0.7s linear infinite",
-          }}
-        />
-        <style>{"@keyframes vk-spin{to{transform:rotate(360deg)}}"}</style>
-      </div>
-    );
+    return <CenterSpinner minHeight={280} label="Loading your orders" />;
   }
 
   if (orders.length === 0) {
     return (
       <Empty
-        title={error ?? "No orders yet"}
-        body={
+        text={
           error
-            ? "Pull down or tap retry in a moment."
-            : "Once you place your first order it'll show up here with its full receipt."
+            ? `${error} Tap retry in a moment.`
+            : "No orders yet. Once you place your first order it'll show up here with its full receipt."
         }
         onRetry={error ? load : undefined}
       />
@@ -330,21 +313,14 @@ export function OrderHistoryPanel({
   );
 }
 
-function Empty({
-  title,
-  body,
-  onRetry,
-}: {
-  title: string;
-  body: string;
-  onRetry?: () => void;
-}) {
+function Empty({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return (
-    <div style={{ padding: "48px 24px", textAlign: "center", fontFamily: fontUi }}>
-      <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.text }}>{title}</p>
-      <p style={{ margin: "10px 0 0", fontSize: 14.5, fontWeight: 600, color: C_TEXT_MUTED, lineHeight: 1.55 }}>
-        {body}
-      </p>
+    <div style={{ textAlign: "center", fontFamily: fontUi }}>
+      <EmptyState
+        icon={<Receipt size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
+        text={text}
+        padding="64px 24px 0"
+      />
       {onRetry ? (
         <motion.button
           type="button"

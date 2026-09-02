@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { Motorcycle, Money, MapPin, PencilSimple } from "@phosphor-icons/react";
+import { Motorcycle, Money, MapPin, PencilSimple, CookingPot } from "@phosphor-icons/react";
+import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
@@ -515,11 +516,10 @@ export function OrderTrackingPanel({
       ) : null}
 
       {!trackingOrderId ? (
-        <div style={{ paddingTop: 32, textAlign: "center" }}>
-          <p style={{ margin: 0, color: C_TEXT_SEC, fontSize: 16, fontFamily: fontUi, fontWeight: 600, lineHeight: 1.6 }}>
-            Complete checkout to place an order. After payment, your schedule and updates will appear here.
-          </p>
-        </div>
+        <EmptyState
+          icon={<CookingPot size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
+          text="No live order right now. Once you check out, your schedule and updates appear here."
+        />
       ) : (
         <>
           {trackErr ? (

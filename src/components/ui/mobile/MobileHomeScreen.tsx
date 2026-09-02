@@ -12,6 +12,7 @@ import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { OrderHistoryPanel } from "@/components/ui/mobile/OrderHistoryPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
@@ -2711,29 +2712,17 @@ export function MobileHomeScreen({
                     ? [1, 2, 3].map((i) => <CardSkeleton key={i} />)
                     : isEmpty
                       ? (
-                          <div style={{
-                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                            padding: "80px 20px 40px", width: "100%", gap: 16,
-                          }}>
-                            <div style={{
-                              width: 64, height: 64, borderRadius: "50%",
-                              background: "rgba(0,0,0,0.03)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              border: "1px solid rgba(0,0,0,0.06)"
-                            }}>
-                              <Heart size={32} weight="thin" color="rgba(0,0,0,0.15)" />
-                            </div>
-                            <p style={{
-                              margin: 0, fontSize: 15, fontWeight: 600, color: "rgba(0,0,0,0.35)",
-                              textAlign: "center", lineHeight: 1.4, maxWidth: 220
-                            }}>
-                              {homeDishFeedTab === "favorites"
+                          <EmptyState
+                            padding="80px 20px 40px"
+                            icon={<Heart size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
+                            text={
+                              homeDishFeedTab === "favorites"
                                 ? "No favorites yet. Tap the heart on a dish to save it here."
                                 : bestSellingSource === "kitchen_picks"
                                   ? "Kitchen picks will appear here."
-                                  : "No best selling dishes available."}
-                            </p>
-                          </div>
+                                  : "No best selling dishes available."
+                            }
+                          />
                         )
                       : carouselItems.map((item, i) => (
                           <BestSellingCard
