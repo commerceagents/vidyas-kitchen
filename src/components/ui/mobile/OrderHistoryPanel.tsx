@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowClockwise, CaretRight, Receipt } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
-import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { formatOrderRef, isOrderInFlight, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { parseRecipeTag } from "@/lib/dish-name";
 
 export type HistoryOrder = {
@@ -44,23 +44,62 @@ function statusPill(status: string): { label: string; fg: string; bg: string } {
 }
 
 /** Live orders keep a "Track" affordance; finished ones don't. */
-function isLiveOrder(status: string): boolean {
-  const s = normalizeOrderStatus(status);
-  return (
-    s !== OrderStatus.DELIVERED && s !== OrderStatus.CANCELLED && s !== OrderStatus.UNDELIVERED
-  );
-}
+const isLiveOrder = isOrderInFlight;
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-IN", {
+  // The day is already on the section header above this row.
+  return d.toLocaleTimeString("en-IN", {
     timeZone: DELIVERY_SLOT_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Calendar day in kitchen time, so "Today" flips at local midnight not UTC. */
+function dayKey(iso: string | null): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "unknown";
+  // en-CA gives YYYY-MM-DD, which sorts and compares as a plain string.
+  return d.toLocaleDateString("en-CA", { timeZone: DELIVERY_SLOT_TIMEZONE });
+}
+
+function dayLabel(key: string): string {
+  if (key === "unknown") return "Earlier";
+
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: DELIVERY_SLOT_TIMEZONE });
+  if (key === today) return "Today";
+
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString("en-CA", {
+    timeZone: DELIVERY_SLOT_TIMEZONE,
+  });
+  if (key === yesterday) return "Yesterday";
+
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-IN", {
+    timeZone: "UTC",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+}
+
+/**
+ * Chunk the (already newest-first) list into calendar days so the list reads
+ * like a chat thread rather than an undifferentiated wall of orders.
+ */
+function groupByDay(orders: HistoryOrder[]): { key: string; label: string; orders: HistoryOrder[] }[] {
+  const groups: { key: string; label: string; orders: HistoryOrder[] }[] = [];
+  for (const order of orders) {
+    const key = dayKey(order.createdAt);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.orders.push(order);
+    else groups.push({ key, label: dayLabel(key), orders: [order] });
+  }
+  return groups;
 }
 
 function summariseItems(items: HistoryOrder["items"]): string {
@@ -154,7 +193,27 @@ export function OrderHistoryPanel({
 
   return (
     <div style={{ padding: "4px 0 8px", fontFamily: fontUi }}>
-      {orders.map((o) => {
+      {groupByDay(orders).map((group) => (
+        <section key={group.key}>
+          <h3
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 1,
+              margin: "6px 0 10px",
+              padding: "8px 2px",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: C_TEXT_MUTED,
+              background: C.bg,
+              fontFamily: fontUi,
+            }}
+          >
+            {group.label}
+          </h3>
+          {group.orders.map((o) => {
         const pill = statusPill(o.status);
         const live = isLiveOrder(o.status);
         const isActive = o.orderId === activeOrderId;
@@ -264,7 +323,9 @@ export function OrderHistoryPanel({
             </span>
           </motion.button>
         );
-      })}
+          })}
+        </section>
+      ))}
     </div>
   );
 }

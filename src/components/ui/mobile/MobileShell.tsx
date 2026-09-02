@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, WarningCircle } from "@phosphor-icons/react";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
@@ -11,6 +11,7 @@ import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
 import type { SavedPlace } from "@/lib/vk-saved-places";
 import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import { isOrderInFlight } from "@/lib/order-status";
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
@@ -114,6 +115,11 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  /** Set while the location screen is being used to move an existing order. */
+  const [editingAddressForOrder, setEditingAddressForOrder] = useState<string | null>(null);
+  const [addressSaveError, setAddressSaveError] = useState<string | null>(null);
+  /** Bumped on a successful save so tracking refetches instead of waiting. */
+  const [addressSavedAt, setAddressSavedAt] = useState<number>(0);
   const [paymentFeedback, setPaymentFeedback] = useState<PaymentFeedback>(null);
 
   // ── Hoisted State for Cart & Menu ───────────────────────────────────────
@@ -340,6 +346,52 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once from URL/storage; step from initial state
   }, [prefilledPhone, prefilledName, cancelOrderId, cancelPhone]);
 
+  /**
+   * Pick up the customer's most recent in-flight order on a cold start.
+   *
+   * Which order is being tracked lives in sessionStorage, which Android throws
+   * away when the app is swiped out of Recents. Reopening the app therefore
+   * landed on "All orders" with an empty Live tab, even though an order was
+   * still on its way. Runs once per launch so dismissing tracking during the
+   * session isn't immediately undone.
+   */
+  const autoResumedTracking = useRef(false);
+  useEffect(() => {
+    if (autoResumedTracking.current) return;
+    if (trackingOrderId) {
+      autoResumedTracking.current = true;
+      return;
+    }
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return;
+
+    autoResumedTracking.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          orders?: { orderId: string; status: string }[];
+        };
+        if (cancelled || !Array.isArray(data.orders)) return;
+
+        // The API already returns newest first.
+        const live = data.orders.find((o) => isOrderInFlight(o.status));
+        if (live) {
+          sessionStorage.setItem(SS_TRACK_ORDER, live.orderId);
+          setTrackingOrderId(live.orderId);
+        }
+      } catch {
+        // Non-critical: the customer can still reach the order from All orders.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phone, trackingOrderId]);
+
   const clearOrderTracking = () => {
     sessionStorage.removeItem(SS_TRACK_ORDER);
     setTrackingOrderId(null);
@@ -377,6 +429,34 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const handleLocationSet = (loc: LocationData) => {
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
+
+    // Re-pointing an order that has already been placed. Until this persisted,
+    // the pencil on the tracking panel only moved this device's pin — the
+    // kitchen ticket and the driver's route kept the original address.
+    if (editingAddressForOrder) {
+      const orderId = editingAddressForOrder;
+      setEditingAddressForOrder(null);
+      setAddressSaveError(null);
+      void (async () => {
+        try {
+          const res = await fetch("/api/orders/address", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId, phone, address: loc.label, lat: loc.lat, lng: loc.lng }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          if (!res.ok) throw new Error(data.error || "Could not update the address");
+          // Tracking polls every 10s, but the customer is looking at the screen
+          // now and needs to see their own edit land.
+          setAddressSavedAt(Date.now());
+        } catch (e) {
+          setAddressSaveError(e instanceof Error ? e.message : "Could not update the address");
+        }
+      })();
+      setStep("home");
+      return;
+    }
+
     if (resumeCheckoutAfterLocation) {
       setResumeCheckoutAfterLocation(false);
       setStep("checkout");
@@ -430,6 +510,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               displayName={name}
               location={location}
               onChangeLocation={() => setStep("location")}
+              onEditOrderAddress={(orderId) => {
+                setAddressSaveError(null);
+                setEditingAddressForOrder(orderId);
+                setStep("location");
+              }}
+              addressSaveError={addressSaveError}
+              addressSavedAt={addressSavedAt}
               trackingOrderId={trackingOrderId}
               customerPhone={phone}
               onDismissOrderTracking={clearOrderTracking}

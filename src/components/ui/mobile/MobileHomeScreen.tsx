@@ -160,6 +160,11 @@ interface MobileHomeScreenProps {
   onDismissOrderTracking?: () => void;
   /** Open live tracking for an order picked from the history list. */
   onTrackOrder?: (orderId: string) => void;
+  /** Re-point a placed order at a new address via the location screen. */
+  onEditOrderAddress?: (orderId: string) => void;
+  addressSaveError?: string | null;
+  /** Timestamp of the last successful address save; forces a status refetch. */
+  addressSavedAt?: number;
   /** Sign out — clear session and return to login (shell). */
   onSignOut?: () => void;
   onProfileNameSave?: (name: string) => void;
@@ -1860,6 +1865,9 @@ export function MobileHomeScreen({
   customerPhone = "",
   onDismissOrderTracking,
   onTrackOrder,
+  onEditOrderAddress,
+  addressSaveError = null,
+  addressSavedAt = 0,
   onSignOut,
   onProfileNameSave,
 }: MobileHomeScreenProps) {
@@ -2045,7 +2053,9 @@ export function MobileHomeScreen({
       cancelled = true;
       clearInterval(t);
     };
-  }, [trackingOrderId, customerPhone]);
+    // `addressSavedAt` restarts the poll so an address the customer just changed
+    // is reflected immediately rather than up to 10 seconds later.
+  }, [trackingOrderId, customerPhone, addressSavedAt]);
 
   useEffect(() => {
     if (!trackSnap?.status) return;
@@ -2872,7 +2882,12 @@ export function MobileHomeScreen({
                 trackBanner={trackBanner}
                 location={location}
                 onDismiss={onDismissOrderTracking}
-                onEditAddress={onChangeLocation}
+                onEditAddress={
+                  onEditOrderAddress && trackingOrderId
+                    ? () => onEditOrderAddress(trackingOrderId)
+                    : onChangeLocation
+                }
+                addressSaveError={addressSaveError}
                 ratingCommentDraft={ratingCommentDraft}
                 setRatingCommentDraft={setRatingCommentDraft}
                 ratingSending={ratingSending}

@@ -61,6 +61,23 @@ export function formatOrderRef(orderNumber: number | null | undefined, orderId: 
   return `#${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
+/**
+ * Is this order still going somewhere?
+ *
+ * "In flight" means the customer has a reason to watch it: it hasn't arrived,
+ * and it hasn't been called off. Used to decide whether an order belongs in the
+ * Live tab or is simply history.
+ */
+export function isOrderInFlight(status: string): boolean {
+  const s = normalizeOrderStatus(status);
+  return (
+    s !== OrderStatus.DELIVERED &&
+    s !== OrderStatus.CANCELLED &&
+    s !== OrderStatus.REJECTED &&
+    s !== OrderStatus.UNDELIVERED
+  );
+}
+
 /** Legacy DB values → normalize for transition checks. */
 export function normalizeOrderStatus(raw: string): string {
   const s = String(raw || "").toLowerCase().trim();

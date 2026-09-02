@@ -598,14 +598,13 @@ export function AccountTabPanel({
             marginTop: sp(1.5),
             padding: "14px 16px",
             borderRadius: 14,
-            border: `1px solid rgba(189,35,32,0.5)`,
-            background: "rgba(189,35,32,0.12)",
-            color: C.red,
+            border: "none",
+            background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+            color: C.white,
             fontSize: 15,
             fontWeight: 800,
             cursor: "pointer",
             fontFamily: C.mono,
-            boxShadow: `0 0 0 1px rgba(189,35,32,0.08) inset`,
           }}
         >
           Log Out

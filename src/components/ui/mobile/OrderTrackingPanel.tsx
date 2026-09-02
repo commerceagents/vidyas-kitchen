@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
@@ -76,6 +76,61 @@ function normalizeTrackStatus(s: string): string {
 function canCustomerCancelStatus(status: string): boolean {
   const s = normalizeTrackStatus(status);
   return ["paid", "confirmed"].includes(s);
+}
+
+/** "2 days 4 hours", "3 hours 20 mins", "8 mins" — coarse near the top, precise near the end. */
+function formatRemaining(ms: number): string {
+  const totalMins = Math.max(0, Math.floor(ms / 60000));
+  const days = Math.floor(totalMins / 1440);
+  const hours = Math.floor((totalMins % 1440) / 60);
+  const mins = totalMins % 60;
+
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  if (days > 0) return `${unit(days, "day")} ${unit(hours, "hr")}`;
+  if (hours > 0) return `${unit(hours, "hr")} ${unit(mins, "min")}`;
+  return unit(mins, "min");
+}
+
+/**
+ * How long the customer still has to call the order off.
+ *
+ * The deadline is 12 hours before the delivery slot, which is invisible unless
+ * we say so — without it "Cancel order" looks permanent right up until the
+ * moment it silently disappears.
+ */
+function CancelCountdown({ deadline }: { deadline: string | null | undefined }) {
+  const target = deadline ? new Date(deadline).getTime() : NaN;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!Number.isFinite(target)) return;
+    // Minute resolution is all the copy shows, so tick once a minute.
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [target]);
+
+  if (!Number.isFinite(target)) return null;
+  const left = target - now;
+  if (left <= 0) return null;
+
+  const urgent = left < 60 * 60 * 1000;
+
+  return (
+    <p
+      style={{
+        margin: "10px 2px 0",
+        fontSize: 12.5,
+        fontWeight: 700,
+        lineHeight: 1.5,
+        textAlign: "center",
+        color: urgent ? C.red : C_TEXT_MUTED,
+        fontFamily: fontUi,
+      }}
+    >
+      {`You have ${formatRemaining(left)} left to cancel`}
+    </p>
+  );
 }
 
 function tryNotifyOrderCancelled(orderRef: string) {
@@ -295,6 +350,7 @@ export function OrderTrackingPanel({
   ratingCommentDraft,
   setRatingCommentDraft,
   ratingSending,
+  addressSaveError = null,
   submitOrderRating,
 }: {
   trackingOrderId: string | null;
@@ -305,6 +361,8 @@ export function OrderTrackingPanel({
   location: Loc;
   onDismiss?: () => void;
   onEditAddress?: () => void;
+  /** Surfaced when saving a new address for a placed order failed. */
+  addressSaveError?: string | null;
   ratingCommentDraft: string;
   setRatingCommentDraft: (v: string) => void;
   ratingSending: boolean;
@@ -727,6 +785,22 @@ export function OrderTrackingPanel({
                 ) : null}
               </div>
 
+              {addressSaveError ? (
+                <p
+                  role="alert"
+                  style={{
+                    margin: "-4px 2px 12px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    lineHeight: 1.5,
+                    color: C.red,
+                    fontFamily: fontUi,
+                  }}
+                >
+                  {addressSaveError}
+                </p>
+              ) : null}
+
               {/* Items summary */}
               {lines.length > 0 ? (
                 <div
@@ -940,9 +1014,9 @@ export function OrderTrackingPanel({
                       width: "100%",
                       padding: "16px 18px",
                       borderRadius: 16,
-                      border: `1px solid ${C.border}`,
-                      background: C.glass,
-                      color: C_TEXT_SEC,
+                      border: "none",
+                      background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                      color: C.white,
                       fontSize: 15,
                       fontWeight: 800,
                       cursor: "pointer",
@@ -951,6 +1025,7 @@ export function OrderTrackingPanel({
                   >
                     Cancel order
                   </motion.button>
+                  <CancelCountdown deadline={trackSnap.cancellationDeadline} />
                 </div>
               ) : cancellationWindowClosed ? (
                 <div style={{ 
