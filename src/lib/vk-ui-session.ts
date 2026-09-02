@@ -45,10 +45,18 @@ export function clearUiSession() {
   }
 }
 
+/**
+ * Scoped to the session, not the device. An installed PWA shares its origin
+ * storage with the browser tab it was installed from, so a localStorage flag
+ * meant the branded splash was already "seen" the very first time the app was
+ * opened from the home screen — the launch went straight from Android's plain
+ * background colour into the app. Per-session means it plays once on each cold
+ * launch and is still skipped on refresh and in-app navigation.
+ */
 export function hasSeenSplash(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(VK_SPLASH_SEEN_KEY) === "1";
+    return sessionStorage.getItem(VK_SPLASH_SEEN_KEY) === "1";
   } catch {
     return false;
   }
@@ -57,7 +65,7 @@ export function hasSeenSplash(): boolean {
 export function markSplashSeen() {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(VK_SPLASH_SEEN_KEY, "1");
+    sessionStorage.setItem(VK_SPLASH_SEEN_KEY, "1");
   } catch {
     /* noop */
   }
