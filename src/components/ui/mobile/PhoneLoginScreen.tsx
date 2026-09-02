@@ -804,7 +804,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           {greetingFirst ? (
             <>
               <span style={{ color: C.text }}>Hey,</span>
-              <span style={S.greetingAccent}>{greetingFirst}.</span>
+              {/* One text node, not name-then-period: as two nodes assistive
+                  tech reads a pause before the full stop. */}
+              <span style={S.greetingAccent}>{`${greetingFirst}.`}</span>
             </>
           ) : (
             <span>Hey there.</span>

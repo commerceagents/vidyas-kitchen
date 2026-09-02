@@ -17,7 +17,11 @@ export function PwaInstallGuide({ onClose }: { onClose: () => void }) {
   const steps = [
     {
       icon: <Share size={18} strokeWidth={2.4} />,
-      text: ipad ? "Tap the Share icon near the address bar" : "Tap the Share icon in your browser's toolbar",
+      // Newer iPhone Safari hides Share behind the ⋯ menu instead of showing it
+      // in the toolbar, so naming only the Share icon leaves people hunting.
+      text: ipad
+        ? "Tap the Share icon near the address bar"
+        : "Tap the Share icon in Safari's toolbar — or ⋯ if you don't see it",
     },
     {
       icon: <SquarePlus size={18} strokeWidth={2.4} />,
@@ -139,9 +143,12 @@ export function PwaInstallGuide({ onClose }: { onClose: () => void }) {
         transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
         style={{
           position: "fixed",
+          // Centred by spanning the full width rather than by translateX(-50%):
+          // the bob animation below writes `transform`, which overwrote the
+          // centring offset and left the arrow sitting half a width to the right.
           ...(ipad
             ? { top: 10, right: 60 }
-            : { bottom: "max(14px, env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)" }),
+            : { bottom: "max(14px, env(safe-area-inset-bottom))", left: 0, right: 0 }),
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
