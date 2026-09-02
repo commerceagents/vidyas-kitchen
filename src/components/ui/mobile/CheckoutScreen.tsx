@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -129,14 +129,23 @@ function SwipeToPlaceOrder({
   loading: boolean;
   onConfirm: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [offsetX, setOffsetX] = useState(0);
   const [completed, setCompleted] = useState(false);
+  /** Once they've grabbed the handle they know it slides; stop suggesting it. */
+  const [touched, setTouched] = useState(false);
   const startXRef = useRef(0);
   const HANDLE = 50;
   const PAD = 4;
   const locked = disabled || loading;
+
+  // A slider gives no clue that it isn't an ordinary button, so the handle
+  // leans right every few seconds to say "drag me". Long gaps and a small
+  // travel keep it a hint rather than a distraction, and it stops for good the
+  // moment the customer touches it.
+  const hinting = !reduceMotion && !locked && !completed && !dragging && !touched && offsetX === 0;
 
   const getMaxOffset = useCallback(() => {
     if (!trackRef.current) return 200;
@@ -145,6 +154,7 @@ function SwipeToPlaceOrder({
 
   const handleStart = (clientX: number) => {
     if (locked || completed) return;
+    setTouched(true);
     setDragging(true);
     startXRef.current = clientX - offsetX;
   };
@@ -196,6 +206,7 @@ function SwipeToPlaceOrder({
         if (locked || completed) return;
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
+        setTouched(true);
         setCompleted(true);
         setOffsetX(getMaxOffset());
         onConfirm();
@@ -221,15 +232,17 @@ function SwipeToPlaceOrder({
       onMouseUp={handleEnd}
       onMouseLeave={() => { if (dragging) handleEnd(); }}
     >
-      {/* Progress fill */}
-      {showHandle && (
+      {/* Trail left behind the handle. Sized to the distance actually swiped —
+          previously it was always at least as wide as the handle itself, which
+          drew a pale outline around the knob before anything had been dragged. */}
+      {showHandle && offsetX > 0 && (
         <div
           style={{
             position: "absolute",
             top: 0,
             left: 0,
             bottom: 0,
-            width: `${offsetX + HANDLE + PAD}px`,
+            width: `${offsetX + PAD * 2}px`,
             background: "rgba(255,255,255,0.14)",
             transition: dragging ? "none" : "width 0.3s cubic-bezier(0.4,0,0.2,1)",
           }}
@@ -274,7 +287,13 @@ function SwipeToPlaceOrder({
 
       {/* Draggable handle */}
       {showHandle && (
-        <div
+        <motion.div
+          animate={hinting ? { x: [0, 10, 0] } : { x: 0 }}
+          transition={
+            hinting
+              ? { duration: 0.9, times: [0, 0.4, 1], ease: "easeInOut", repeat: Infinity, repeatDelay: 2.8 }
+              : { duration: 0.2 }
+          }
           style={{
             position: "absolute",
             top: PAD,
@@ -292,7 +311,7 @@ function SwipeToPlaceOrder({
           }}
         >
           <ArrowRight size={20} weight="bold" color={C.red} />
-        </div>
+        </motion.div>
       )}
     </div>
   );
