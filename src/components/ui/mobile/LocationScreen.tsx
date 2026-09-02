@@ -602,6 +602,31 @@ export function LocationScreen({ onLocationSet, initialLocation = null, onBack }
     );
   }, [applyPin, showTip]);
 
+  // Arriving here with no address — straight out of the OTP screen — used to
+  // mean the map sat over the kitchen until the customer thought to ask for
+  // their own location. Detect it for them instead. Skipped when we already
+  // have an address (the map opens on it), and when permission is already
+  // denied, so nobody lands on a red error they never asked for.
+  const autoDetectedRef = useRef(false);
+  useEffect(() => {
+    if (autoDetectedRef.current || initialLocation) return;
+    autoDetectedRef.current = true;
+
+    // Deliberately not guarded by a cancelled flag. Strict Mode mounts twice,
+    // and aborting the first pass on unmount only for the second to bail on the
+    // ref meant the detection never ran at all. The ref survives the remount, so
+    // this still fires exactly once.
+    void (async () => {
+      try {
+        const status = await navigator.permissions?.query({ name: "geolocation" as PermissionName });
+        if (status?.state === "denied") return;
+      } catch {
+        // No Permissions API (older Safari) — just ask and let it fail quietly.
+      }
+      void handleGPS();
+    })();
+  }, [initialLocation, handleGPS]);
+
   const handleRecenter = useCallback(() => {
     animateCameraTo(pinCoords.lng, pinCoords.lat, 1500);
   }, [animateCameraTo, pinCoords]);
