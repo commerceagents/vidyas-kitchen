@@ -366,6 +366,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postOtpNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [otpVerifySuccess, setOtpVerifySuccess] = useState(false);
+  /** Bumped after the verifier is discarded, to warm a replacement. */
+  const [warmEpoch, setWarmEpoch] = useState(0);
 
   const clearRecaptcha = useCallback(() => {
     try {
@@ -385,9 +387,12 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const getOrCreateRecaptcha = useCallback(() => {
     if (!auth) throw new Error("Firebase Auth not available");
 
-    // Always start fresh
+    // Reuse a verifier we already built. Tearing it down and rebuilding on every
+    // send meant paying the reCAPTCHA script load and challenge on the tap
+    // itself, which is most of the wait before the OTP screen appears. Failed
+    // sends still clear it explicitly, so a broken challenge is never reused.
     if (recaptchaVerifierRef.current) {
-      clearRecaptcha();
+      return recaptchaVerifierRef.current;
     }
 
     const container = document.getElementById("vk-recaptcha");
@@ -413,6 +418,27 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       clearRecaptcha();
     };
   }, [clearRecaptcha]);
+
+  // Build and render the invisible reCAPTCHA up front, while the customer is
+  // still typing their name and number. It fetches Google's script and solves a
+  // challenge, which took seconds when it ran on the tap — leaving them staring
+  // at "Sending…". Doing it here means the tap only pays for the SMS itself.
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const verifier = getOrCreateRecaptcha();
+        if (cancelled) return;
+        await verifier.render();
+      } catch {
+        // Warming is best-effort — handleSend builds one on demand if this fails.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getOrCreateRecaptcha, warmEpoch]);
 
   useEffect(() => {
     if (displayName?.trim()) {
@@ -562,10 +588,27 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     if (!/^\d*$/.test(val)) return;
     setOtpError(false);
     if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+
+    const digits = val.replace(/\D/g, "");
     const n = [...otp];
-    n[i] = val.slice(-1);
+    if (digits.length > 1) {
+      // One field can receive the whole code at once — a paste, or the
+      // keyboard's "from Messages" suggestion. Spread it across the boxes
+      // instead of keeping a single digit and dropping the rest.
+      for (let k = 0; k < digits.length && i + k < OTP_LEN; k++) n[i + k] = digits[k];
+    } else {
+      n[i] = digits.slice(-1);
+    }
     setOtp(n);
-    if (val && i < OTP_LEN - 1) setTimeout(() => otpRefs.current[i + 1]?.focus(), 40);
+
+    // Move focus in the same tick. Deferring it even 40ms meant a fast typist's
+    // next digit landed back in the box they had just filled, silently
+    // overwriting it — one digit typed, one digit lost.
+    if (digits) {
+      const next = Math.min(i + Math.max(digits.length, 1), OTP_LEN - 1);
+      otpRefs.current[next]?.focus();
+    }
+
     if (n.every((d) => d) && !verifyLoading) {
       const code = n.join("");
       // Small delay so the final typed digit is visible before loader takes over.
@@ -650,6 +693,38 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }
   };
 
+  // handleVerify is rebuilt every render; the WebOTP listener below must not be,
+  // or each render would abort and restart the SMS request.
+  const verifyRef = useRef(handleVerify);
+  useEffect(() => {
+    verifyRef.current = handleVerify;
+  });
+
+  // Android Chrome can hand us the code straight out of the SMS with no typing
+  // at all. It only fires when the message ends with the site's domain and the
+  // code (`@host #123456`), so whether it triggers depends on the sender's
+  // template — hence the `autocomplete="one-time-code"` fallback on the first
+  // box, which gets iOS and Android to offer the code above the keyboard.
+  useEffect(() => {
+    if (!showOtp || otpVerifySuccess) return;
+    if (typeof window === "undefined" || !("OTPCredential" in window)) return;
+
+    const ac = new AbortController();
+    void navigator.credentials
+      .get({ otp: { transport: ["sms"] }, signal: ac.signal } as CredentialRequestOptions)
+      .then((cred) => {
+        const code = (cred as { code?: string } | null)?.code?.replace(/\D/g, "").slice(0, OTP_LEN);
+        if (!code || code.length !== OTP_LEN) return;
+        setOtp(code.split(""));
+        verifyRef.current(code);
+      })
+      .catch(() => {
+        // Aborted, dismissed, or unsupported — the customer types it instead.
+      });
+
+    return () => ac.abort();
+  }, [showOtp, otpVerifySuccess, OTP_LEN]);
+
   const dismissOtp = useCallback(() => {
     if (otpVerifySuccess) return;
     setShowOtp(false);
@@ -660,6 +735,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }
     confirmationRef.current = null;
     clearRecaptcha();
+    // Going back to edit the number leaves no verifier behind, so warm a
+    // replacement now rather than making the next send pay for it.
+    setWarmEpoch((e) => e + 1);
     setOtp(Array(OTP_LEN).fill(""));
     setOtpError(false);
     setVerifyLoading(false);
@@ -959,7 +1037,12 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                         }}
                         type="tel"
                         inputMode="numeric"
-                        maxLength={1}
+                        // Only the first box asks for the code: the keyboard
+                        // offers it there, and handleOtpChange spreads all six
+                        // digits across the row. maxLength has to allow the
+                        // whole code through for that to work.
+                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                        maxLength={i === 0 ? OTP_LEN : 1}
                         value={digit}
                         onChange={(e) => handleOtpChange(i, e.target.value)}
                         onKeyDown={(e) => {
