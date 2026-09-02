@@ -28,14 +28,20 @@ interface LocationScreenProps {
 type TipTone = "info" | "warn" | "success";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-/** Flip to `false` when going live in Sivakasi again. */
-const DELIVERY_TEST_CHENNAI = true;
+/**
+ * Where the kitchen cooks and how far it will drive. The name is shown to the
+ * customer when they pick somewhere we can't reach, so it has to match reality.
+ *
+ * Overridable per environment so a move — or a second kitchen — is a config
+ * change rather than a deploy of new constants.
+ */
+const DELIVERY_ZONE = {
+  name: process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai",
+  lat: Number(process.env.NEXT_PUBLIC_KITCHEN_LAT) || 13.0827,
+  lng: Number(process.env.NEXT_PUBLIC_KITCHEN_LNG) || 80.2707,
+  radiusKm: Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM) || 25,
+};
 
-const SIVAKASI_ZONE = { name: "Sivakasi", lat: 9.452, lng: 77.798, radiusKm: 15 };
-/** Rough city center — 25 km covers most of Chennai for local testing / driver tracking. */
-const CHENNAI_ZONE = { name: "Chennai", lat: 13.0827, lng: 80.2707, radiusKm: 25 };
-
-const DELIVERY_ZONE = DELIVERY_TEST_CHENNAI ? CHENNAI_ZONE : SIVAKASI_ZONE;
 const KITCHEN_CENTER = { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
 const MAX_DISTANCE_KM = DELIVERY_ZONE.radiusKm;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
@@ -528,11 +534,15 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
     // Geolocation requires a secure context (HTTPS or localhost).
     // Phone on http://192.168.x.x → browsers return PERMISSION_DENIED.
     if (typeof window !== "undefined" && !window.isSecureContext) {
-      if (DELIVERY_TEST_CHENNAI) {
+      // In development this is usually a phone hitting the laptop over LAN, where
+      // there is no cert and so no GPS. Drop them on the kitchen so the rest of
+      // the flow stays testable; in production an insecure origin is a real fault
+      // and silently faking a location would put food at the wrong address.
+      if (process.env.NODE_ENV === "development") {
         await applyPin(KITCHEN_CENTER.lat, KITCHEN_CENTER.lng);
         setIsDetecting(false);
         showTip(
-          "GPS blocked on HTTP Wi‑Fi — using Chennai test pin. Search or drag the map to refine.",
+          `GPS needs HTTPS — dropped you at the ${DELIVERY_ZONE.name} kitchen. Search or drag the map to refine.`,
           "info"
         );
         return;
