@@ -458,7 +458,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
   // Resend countdown (restarts when sheet opens or user taps Resend)
   useEffect(() => {
-    if (!showOtp) return;
+    // Not while the code is still going out — the 30s window should start from
+    // when the SMS was actually sent, not from when the screen opened.
+    if (!showOtp || sendLoading) return;
     let t = 30;
     setResendTimer(30);
     setCanResend(false);
@@ -471,7 +473,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       }
     }, 1000);
     return () => clearInterval(iv);
-  }, [showOtp, resendEpoch]);
+  }, [showOtp, resendEpoch, sendLoading]);
 
   const firebaseErrorMessage = (err: unknown): string => {
     const code = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
@@ -503,6 +505,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     if (!isValid) return;
     setSendError(null);
     setSendLoading(true);
+    // Move to the OTP screen straight away and let it show the progress. The
+    // reCAPTCHA token and the SMS request together take a few seconds we cannot
+    // remove, and spending them on a button that just reads "Sending…" makes
+    // the app feel stuck. Any failure sends them back here with the reason.
+    setShowOtp(true);
     // Local/LAN hosts (e.g. 192.168.x.x) are not Firebase authorized domains —
     // these numbers skip reCAPTCHA so phone testing still works.
     const isMockBypass =
@@ -515,12 +522,10 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         if (typeof window !== "undefined") {
           (window as any).__vk_mock_login_active = true;
         }
-        setShowOtp(true);
         setTimeout(() => otpRefs.current[0]?.focus(), 350);
         return;
       }
       await sendFirebaseOtp();
-      setShowOtp(true);
       setTimeout(() => otpRefs.current[0]?.focus(), 350);
     } catch (e) {
       const code = e && typeof e === "object" && "code" in e ? String((e as { code?: string }).code) : "";
@@ -530,23 +535,27 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         if (typeof window !== "undefined") {
           (window as any).__vk_mock_login_active = true;
         }
-        setShowOtp(true);
         setTimeout(() => otpRefs.current[0]?.focus(), 350);
       } else if (code === "auth/captcha-check-failed") {
         console.warn("reCAPTCHA failed, retrying with fresh verifier...");
         clearRecaptcha();
         try {
           await sendFirebaseOtp();
-          setShowOtp(true);
           setTimeout(() => otpRefs.current[0]?.focus(), 350);
         } catch (retryErr) {
           console.error("Firebase Send Error (retry):", retryErr);
           clearRecaptcha();
+          setWarmEpoch((n) => n + 1);
+          // No code is coming, so drop them back to the number they can edit
+          // rather than leaving them on an OTP screen that will never fill.
+          setShowOtp(false);
           setSendError(firebaseErrorMessage(retryErr));
         }
       } else {
         console.error("Firebase Send Error:", e);
         clearRecaptcha();
+        setWarmEpoch((n) => n + 1);
+        setShowOtp(false);
         setSendError(firebaseErrorMessage(e));
       }
     } finally {
@@ -585,11 +594,16 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   };
 
   const handleOtpChange = (i: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
+    const digits = val.replace(/\D/g, "");
+    // Pull the digits out rather than demanding the field be nothing but
+    // digits. Pasted clipboard text usually carries the surrounding SMS wording
+    // or a stray space, and rejecting the whole value meant the paste silently
+    // did nothing. An empty value is a backspace and has to clear the box.
+    if (val && !digits) return;
+
     setOtpError(false);
     if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
 
-    const digits = val.replace(/\D/g, "");
     const n = [...otp];
     if (digits.length > 1) {
       // One field can receive the whole code at once — a paste, or the
@@ -614,6 +628,31 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       // Small delay so the final typed digit is visible before loader takes over.
       autoVerifyTimerRef.current = setTimeout(() => {
         void handleVerify(code);
+      }, 180);
+    }
+  };
+
+  /**
+   * A pasted code belongs to the whole row, not to whichever box happened to be
+   * focused. Boxes past the first also cap input at one character, so without
+   * this a paste there would keep one digit and drop the rest.
+   */
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LEN);
+    if (!digits) return;
+    e.preventDefault();
+
+    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+    setOtpError(false);
+
+    const n = Array(OTP_LEN).fill("");
+    for (let k = 0; k < digits.length; k++) n[k] = digits[k];
+    setOtp(n);
+    otpRefs.current[Math.min(digits.length, OTP_LEN - 1)]?.focus();
+
+    if (digits.length === OTP_LEN && !verifyLoading) {
+      autoVerifyTimerRef.current = setTimeout(() => {
+        void handleVerify(digits);
       }, 180);
     }
   };
@@ -959,7 +998,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         createPortal(
           <div style={S.otpFullPage}>
             <div style={S.otpFullBody}>
-              {!verifyLoading && !otpVerifySuccess && (
+              {!verifyLoading && !otpVerifySuccess && !sendLoading && (
                 <div style={S.otpHeroBlock}>
                   <p style={{ ...S.sheetTitle, textAlign: "center" }}>Enter the OTP</p>
                   <p style={{ ...S.sheetSub, textAlign: "center", marginBottom: 10 }}>
@@ -990,7 +1029,41 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 </div>
               )}
 
-              {otpVerifySuccess ? (
+              {sendLoading && !otpVerifySuccess ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    minHeight: 200,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 18,
+                    padding: `${T.sp2}px ${T.sp3}px`,
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      display: "block",
+                      width: 48,
+                      height: 48,
+                      borderRadius: "50%",
+                      border: "4px solid rgba(189,35,32,0.2)",
+                      borderTopColor: C.red,
+                      animation: "vk-otp-spin 0.75s linear infinite",
+                    }}
+                  />
+                  <style>{`@keyframes vk-otp-spin { to { transform: rotate(360deg); } }`}</style>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ ...S.sheetTitle, marginBottom: 6 }}>Sending your code</p>
+                    <p style={{ ...TYPO.bodySm, margin: 0 }}>
+                      Texting +91 {formatDisplay(rawPhone)} — this takes a few seconds.
+                    </p>
+                  </div>
+                </div>
+              ) : otpVerifySuccess ? (
                 <div
                   role="status"
                   aria-live="polite"
@@ -1047,6 +1120,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                         maxLength={i === 0 ? OTP_LEN : 1}
                         value={digit}
                         onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onPaste={handleOtpPaste}
                         onKeyDown={(e) => {
                           if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
                         }}
