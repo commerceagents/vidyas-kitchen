@@ -18,11 +18,12 @@ import {
 } from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
-import { loadSavedPlaces } from "@/lib/vk-saved-places";
+import { loadSavedPlaces, savedPlacesSummary, type SavedPlace } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import { HelpSheet } from "@/components/ui/mobile/HelpSheet";
 import { ProfileEditSheet } from "@/components/ui/mobile/ProfileEditSheet";
+import { SavedAddressesSheet } from "@/components/ui/mobile/SavedAddressesSheet";
 import {
   isAppleTouchDevice,
   isAlreadyInstalled,
@@ -116,7 +117,10 @@ type AccountTabPanelProps = {
   avatarUrl?: string | null;
   customerPhone: string;
   onProfileSaved: (profile: { name: string; avatarUrl: string | null }) => void;
-  onSavedAddresses: () => void;
+  /** Hands off to the full-screen map to place the pin for one saved address. */
+  onEditSavedPlace: (place: SavedPlace) => void;
+  /** True when returning from the map, so the drawer picks up where it left off. */
+  openSavedAddresses?: boolean;
   onOpenOrders: () => void;
   onSignOut?: () => void;
   children?: React.ReactNode;
@@ -127,14 +131,16 @@ export function AccountTabPanel({
   avatarUrl,
   customerPhone,
   onProfileSaved,
-  onSavedAddresses,
+  onEditSavedPlace,
+  openSavedAddresses = false,
   onOpenOrders,
   onSignOut,
   children,
 }: AccountTabPanelProps) {
   const [editing, setEditing] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [savedSummary, setSavedSummary] = useState("Home, Work, Other");
+  const [savedSummary, setSavedSummary] = useState("Add the places you order to");
+  const [showAddresses, setShowAddresses] = useState(openSavedAddresses);
   const [canInstall, setCanInstall] = useState(false);
   const [isAppleInstall, setIsAppleInstall] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
@@ -145,20 +151,20 @@ export function AccountTabPanel({
   }, []);
 
   useEffect(() => {
-    if (!editing || !mounted) return;
+    if (openSavedAddresses) setShowAddresses(true);
+  }, [openSavedAddresses]);
+
+  useEffect(() => {
+    if ((!editing && !showAddresses) || !mounted) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [editing, mounted]);
+  }, [editing, showAddresses, mounted]);
 
   useEffect(() => {
-    const refresh = () => {
-      const places = loadSavedPlaces();
-      const labels = places.map((p) => p.label).join(", ");
-      setSavedSummary(labels);
-    };
+    const refresh = () => setSavedSummary(savedPlacesSummary(loadSavedPlaces()));
     refresh();
     window.addEventListener("storage", refresh);
     window.addEventListener("vk_saved_places_updated", refresh as EventListener);
@@ -285,7 +291,7 @@ export function AccountTabPanel({
           }
           subtitle={savedSummary}
           title="Saved Addresses"
-          onClick={onSavedAddresses}
+          onClick={() => setShowAddresses(true)}
         />
         <PressRow
           icon={
@@ -454,6 +460,23 @@ export function AccountTabPanel({
               initialAvatarUrl={avatarUrl ?? null}
               onSaved={onProfileSaved}
               onClose={() => setEditing(false)}
+            />
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
+
+    {mounted &&
+      createPortal(
+        <AnimatePresence>
+          {showAddresses ? (
+            <SavedAddressesSheet
+              key="vk-account-addresses"
+              onEditPlace={(place) => {
+                setShowAddresses(false);
+                onEditSavedPlace(place);
+              }}
+              onClose={() => setShowAddresses(false)}
             />
           ) : null}
         </AnimatePresence>,

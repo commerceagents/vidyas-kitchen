@@ -35,6 +35,11 @@ interface LocationScreenProps {
    * previous screen to go back to and an address is required to continue.
    */
   onBack?: () => void;
+  /**
+   * Overrides the confirm button's wording. Used when the pin is being filed
+   * against a saved address rather than chosen for this order.
+   */
+  confirmLabel?: string;
 }
 type TipTone = "info" | "warn" | "success";
 
@@ -307,7 +312,12 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function LocationScreen({ onLocationSet, initialLocation = null, onBack }: LocationScreenProps) {
+export function LocationScreen({
+  onLocationSet,
+  initialLocation = null,
+  onBack,
+  confirmLabel,
+}: LocationScreenProps) {
   // A location we've already been given is a real pick, so the map opens zoomed
   // in on it with the confirm button live — not parked over the kitchen at city
   // zoom waiting to be told the address for a second time.
@@ -1251,9 +1261,9 @@ export function LocationScreen({ onLocationSet, initialLocation = null, onBack }
                     }}
                   >
                     <span style={{ color: isAdding || isSelected ? "#BD2320" : "rgba(0,0,0,0.4)", display: "flex" }}>
-                      {place.label === "Home" ? (
+                      {place.id === "home" ? (
                         <HomeIcon />
-                      ) : place.label === "Work" ? (
+                      ) : place.id === "work" ? (
                         <WorkIcon />
                       ) : (
                         <OtherIcon />
@@ -1442,7 +1452,11 @@ export function LocationScreen({ onLocationSet, initialLocation = null, onBack }
                   }}
                 />
               )}
-              {isResolvingAddress ? "Locating address…" : hasPicked ? "Confirm Location" : "Pick a location to continue"}
+              {isResolvingAddress
+                ? "Locating address…"
+                : hasPicked
+                  ? confirmLabel ?? "Confirm Location"
+                  : "Pick a location to continue"}
             </motion.button>
           )}
         </motion.div>

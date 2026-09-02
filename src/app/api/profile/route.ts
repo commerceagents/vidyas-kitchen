@@ -35,23 +35,30 @@ export async function GET(request: Request) {
     const supabase = createServerSupabase();
     const { data, error } = await supabase
       .from("users")
-      .select("full_name, avatar_url")
+      .select("full_name, avatar_url, saved_places")
       .eq("phone_number", phone)
       .maybeSingle();
 
-    // A missing avatar column just means the migration has not been run yet.
-    // The name still works, so degrade rather than fail the whole account tab.
-    if (error && /avatar_url/.test(error.message)) {
+    // A missing column just means that migration has not been run yet. The
+    // name still works, so degrade rather than fail the whole account tab.
+    if (error && /avatar_url|saved_places/.test(error.message)) {
       const fallback = await supabase.from("users").select("full_name").eq("phone_number", phone).maybeSingle();
       return NextResponse.json({
         name: (fallback.data as { full_name?: string | null } | null)?.full_name ?? null,
         avatarUrl: null,
+        savedPlaces: null,
       });
     }
     if (error) throw new Error(error.message);
 
-    const row = data as { full_name?: string | null; avatar_url?: string | null } | null;
-    return NextResponse.json({ name: row?.full_name ?? null, avatarUrl: row?.avatar_url ?? null });
+    const row = data as
+      | { full_name?: string | null; avatar_url?: string | null; saved_places?: unknown }
+      | null;
+    return NextResponse.json({
+      name: row?.full_name ?? null,
+      avatarUrl: row?.avatar_url ?? null,
+      savedPlaces: Array.isArray(row?.saved_places) ? row.saved_places : null,
+    });
   } catch (e) {
     console.error("[profile GET]", e);
     return NextResponse.json({ error: "Could not load your profile" }, { status: 500 });

@@ -9,9 +9,14 @@ import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
-import type { SavedPlace } from "@/lib/vk-saved-places";
 import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { isOrderInFlight } from "@/lib/order-status";
+import {
+  applyServerSavedPlaces,
+  loadSavedPlaces,
+  savePlaces,
+  type SavedPlace,
+} from "@/lib/vk-saved-places";
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
@@ -122,6 +127,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [locationBackStep, setLocationBackStep] = useState<MobileStep | null>(null);
   /** Set while the location screen is being used to move an existing order. */
   const [editingAddressForOrder, setEditingAddressForOrder] = useState<string | null>(null);
+  /** Set while the location screen is placing the pin for one saved address. */
+  const [editingSavedPlace, setEditingSavedPlace] = useState<SavedPlace | null>(null);
+  /** Reopens the saved addresses drawer once we are back on the account tab. */
+  const [reopenSavedAddresses, setReopenSavedAddresses] = useState(false);
   const [addressSaveError, setAddressSaveError] = useState<string | null>(null);
   /** Bumped on a successful save so tracking refetches instead of waiting. */
   const [addressSavedAt, setAddressSavedAt] = useState<number>(0);
@@ -412,8 +421,14 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       try {
         const res = await fetch(`/api/profile?phone=${encodeURIComponent(phone)}`);
         if (!res.ok) return;
-        const data = (await res.json()) as { name?: string | null; avatarUrl?: string | null };
+        const data = (await res.json()) as {
+          name?: string | null;
+          avatarUrl?: string | null;
+          savedPlaces?: unknown;
+        };
         if (cancelled) return;
+
+        applyServerSavedPlaces(data.savedPlaces);
 
         if (data.avatarUrl) {
           setAvatarUrl(data.avatarUrl);
@@ -473,6 +488,22 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   };
 
   const handleLocationSet = (loc: LocationData) => {
+    if (editingSavedPlace) {
+      const slot = editingSavedPlace;
+      setEditingSavedPlace(null);
+      setLocationBackStep(null);
+      savePlaces(
+        loadSavedPlaces().map((p) =>
+          p.id === slot.id ? { ...p, address: loc.label, lat: loc.lat, lng: loc.lng } : p,
+        ),
+      );
+      // Filing an address for later is not the same as saying "deliver here
+      // now", so the current location is deliberately left alone.
+      setReopenSavedAddresses(true);
+      setStep("home");
+      return;
+    }
+
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
     setLocationBackStep(null);
@@ -536,7 +567,21 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           >
             <LocationScreen
               onLocationSet={handleLocationSet}
-              initialLocation={location}
+              // Placing a saved address opens on that address if it has one,
+              // rather than on wherever the customer happens to be delivering.
+              initialLocation={
+                editingSavedPlace
+                  ? editingSavedPlace.lat !== 0 && editingSavedPlace.lng !== 0
+                    ? {
+                        label: editingSavedPlace.address,
+                        lat: editingSavedPlace.lat,
+                        lng: editingSavedPlace.lng,
+                        inRange: true,
+                      }
+                    : null
+                  : location
+              }
+              confirmLabel={editingSavedPlace ? `Save as ${editingSavedPlace.label}` : undefined}
               // Back is offered whenever there is somewhere to return to. A
               // saved address means home is always reachable, which also covers
               // a refresh that restores straight onto the map. Only first-time
@@ -549,6 +594,12 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                       setLocationBackStep(null);
                       setEditingAddressForOrder(null);
                       setResumeCheckoutAfterLocation(false);
+                      // Backing out of a saved address returns to the drawer it
+                      // was opened from, with nothing changed.
+                      if (editingSavedPlace) {
+                        setEditingSavedPlace(null);
+                        setReopenSavedAddresses(true);
+                      }
                       setStep(back);
                     }
                   : undefined
@@ -593,6 +644,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               onTrackOrder={openOrderTracking}
               onSignOut={handleSignOut}
               avatarUrl={avatarUrl}
+              openSavedAddresses={reopenSavedAddresses}
+              onEditSavedPlace={(place) => {
+                setReopenSavedAddresses(false);
+                setEditingSavedPlace(place);
+                setLocationBackStep("home");
+                setStep("location");
+              }}
               onProfileSaved={({ name: n, avatarUrl: url }) => {
                 setName(n);
                 setAvatarUrl(url);

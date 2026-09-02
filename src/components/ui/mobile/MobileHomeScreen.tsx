@@ -13,6 +13,7 @@ import { OrderHistoryPanel } from "@/components/ui/mobile/OrderHistoryPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
+import type { SavedPlace } from "@/lib/vk-saved-places";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
@@ -169,6 +170,10 @@ interface MobileHomeScreenProps {
   /** Sign out — clear session and return to login (shell). */
   onSignOut?: () => void;
   onProfileSaved?: (profile: { name: string; avatarUrl: string | null }) => void;
+  /** Opens the map to place the pin for one saved address. */
+  onEditSavedPlace?: (place: SavedPlace) => void;
+  /** Set when returning from that map, so the drawer reopens. */
+  openSavedAddresses?: boolean;
   /** Profile picture, or null for the initial-letter avatar. */
   avatarUrl?: string | null;
 }
@@ -1873,6 +1878,8 @@ export function MobileHomeScreen({
   addressSavedAt = 0,
   onSignOut,
   onProfileSaved,
+  onEditSavedPlace,
+  openSavedAddresses = false,
   avatarUrl = null,
 }: MobileHomeScreenProps) {
   const activeFestival = useActiveFestival();
@@ -2906,7 +2913,8 @@ export function MobileHomeScreen({
               avatarUrl={avatarUrl}
               customerPhone={customerPhone}
               onProfileSaved={(profile) => onProfileSaved?.(profile)}
-              onSavedAddresses={() => onChangeLocation?.()}
+              onEditSavedPlace={(place) => onEditSavedPlace?.(place)}
+              openSavedAddresses={openSavedAddresses}
               onOpenOrders={() => {
                 setOrdersView("history");
                 handleNav("orders");
