@@ -22,6 +22,7 @@ import { loadSavedPlaces } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164 } from "@/lib/whatsapp-copy";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import { HelpSheet } from "@/components/ui/mobile/HelpSheet";
+import { ProfileEditSheet } from "@/components/ui/mobile/ProfileEditSheet";
 import {
   isAppleTouchDevice,
   isAlreadyInstalled,
@@ -110,164 +111,11 @@ function formatInPhone(phone: string) {
   return phone || "—";
 }
 
-const NAME_EDIT_Z = 9998;
-
-function NameEditOverlay({
-  draftName,
-  setDraftName,
-  onSave,
-  onCancel,
-}: {
-  draftName: string;
-  setDraftName: (v: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <motion.div
-      role="presentation"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.22 }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: NAME_EDIT_Z,
-        fontFamily: C.mono,
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        onClick={onCancel}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.42)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-        }}
-      />
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "absolute",
-          left: sp(2),
-          right: sp(2),
-          top: "max(12px, env(safe-area-inset-top, 0px))",
-          zIndex: 1,
-        }}
-      >
-        <label
-          htmlFor="vk-account-name-edit"
-          style={{
-            display: "block",
-            marginBottom: 10,
-            fontSize: 15,
-            fontWeight: 800,
-            letterSpacing: "0.03em",
-            color: "rgba(0,0,0,0.45)",
-          }}
-        >
-          Your name
-        </label>
-        <input
-          id="vk-account-name-edit"
-          autoFocus
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onSave();
-            }
-          }}
-          placeholder="Display name"
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: "12px 14px",
-            borderRadius: 14,
-            border: `2px solid ${C.red}`,
-            outline: "none",
-            background: C.bg,
-            color: C.text,
-            fontSize: 17,
-            fontWeight: 800,
-            fontFamily: C.mono,
-            caretColor: C.red,
-            WebkitAppearance: "none" as const,
-            boxShadow: `0 0 0 1px rgba(189,35,32,0.25) inset`,
-          }}
-        />
-      </div>
-      <motion.div
-        initial={{ y: "110%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "110%" }}
-        transition={{ type: "spring", stiffness: 380, damping: 34 }}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 2,
-          padding: `12px ${sp(2)}px max(16px, env(safe-area-inset-bottom, 0px))`,
-          background: "linear-gradient(to top, rgba(245,245,247,0.96) 55%, transparent)",
-        }}
-      >
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.98 }}
-          onClick={onSave}
-          style={{
-            width: "100%",
-            padding: "16px 20px",
-            borderRadius: 16,
-            border: "none",
-            background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-            color: C.white,
-            fontSize: 15,
-            fontWeight: 800,
-            cursor: "pointer",
-            fontFamily: C.mono,
-            boxShadow: `0 4px 24px ${C.redGlow}`,
-          }}
-        >
-          Save changes
-        </motion.button>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            display: "block",
-            width: "100%",
-            marginTop: 12,
-            padding: "12px 10px",
-            border: "none",
-            background: "transparent",
-            color: "rgba(0,0,0,0.5)",
-            fontSize: 16,
-            fontWeight: 800,
-            cursor: "pointer",
-            fontFamily: C.mono,
-          }}
-        >
-          Cancel
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 type AccountTabPanelProps = {
   displayName: string;
+  avatarUrl?: string | null;
   customerPhone: string;
-  onEditName: (name: string) => void;
+  onProfileSaved: (profile: { name: string; avatarUrl: string | null }) => void;
   onSavedAddresses: () => void;
   onOpenOrders: () => void;
   onSignOut?: () => void;
@@ -276,8 +124,9 @@ type AccountTabPanelProps = {
 
 export function AccountTabPanel({
   displayName,
+  avatarUrl,
   customerPhone,
-  onEditName,
+  onProfileSaved,
   onSavedAddresses,
   onOpenOrders,
   onSignOut,
@@ -285,16 +134,11 @@ export function AccountTabPanel({
 }: AccountTabPanelProps) {
   const [editing, setEditing] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [draftName, setDraftName] = useState(displayName);
   const [savedSummary, setSavedSummary] = useState("Home, Work, Other");
   const [canInstall, setCanInstall] = useState(false);
   const [isAppleInstall, setIsAppleInstall] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-
-  useEffect(() => {
-    setDraftName(displayName);
-  }, [displayName]);
 
   useEffect(() => {
     setMounted(true);
@@ -348,27 +192,6 @@ export function AccountTabPanel({
 
   const firstInitial = (displayName.trim().charAt(0) || "?").toUpperCase();
 
-  const cancelNameEdit = useCallback(() => {
-    setDraftName(displayName);
-    setEditing(false);
-  }, [displayName]);
-
-  const saveNameEdit = useCallback(() => {
-    const t = draftName.trim();
-    if (t) onEditName(t);
-    else setDraftName(displayName);
-    setEditing(false);
-  }, [draftName, displayName, onEditName]);
-
-  useEffect(() => {
-    if (!editing) return;
-    const fn = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancelNameEdit();
-    };
-    window.addEventListener("keydown", fn);
-    return () => window.removeEventListener("keydown", fn);
-  }, [editing, cancelNameEdit]);
-
   const sectionLabelStyle: CSSProperties = {
     ...TYPO.eyebrow,
     margin: "0 0 8px",
@@ -406,56 +229,51 @@ export function AccountTabPanel({
             fontWeight: 900,
             fontSize: 22,
             flexShrink: 0,
+            overflow: "hidden",
             boxShadow: `0 4px 14px ${C.redGlow}`,
           }}
         >
-          {firstInitial}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {editing ? (
-            <div>
-              <p style={{ ...TYPO.caption, margin: 0 }}>Editing your name</p>
-              <p style={{ ...TYPO.bodySm, margin: "4px 0 0" }}>
-                Tap Save changes when you’re done.
-              </p>
-            </div>
+          {avatarUrl ? (
+            // Supabase Storage host, served straight rather than through
+            // next/image, so a changed photo shows up without a rebuild.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
           ) : (
-            <>
-              <p style={{ ...TYPO.cardTitle, margin: 0 }}>{displayName.trim() || "Guest"}</p>
-              <p style={{ ...TYPO.bodySm, margin: "4px 0 0" }}>
-                {formatInPhone(customerPhone)}
-              </p>
-            </>
+            firstInitial
           )}
         </div>
-        {!editing && (
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.96 }}
-            onClick={() => {
-              setDraftName(displayName);
-              setEditing(true);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 12px",
-              borderRadius: 12,
-              border: `1px solid ${C.border}`,
-              background: "transparent",
-              color: "rgba(0,0,0,0.7)",
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: "pointer",
-              flexShrink: 0,
-              fontFamily: C.mono,
-            }}
-          >
-            Edit
-            <PencilSimple size={12} weight="bold" color="currentColor" />
-          </motion.button>
-        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ ...TYPO.cardTitle, margin: 0 }}>{displayName.trim() || "Guest"}</p>
+          <p style={{ ...TYPO.bodySm, margin: "4px 0 0" }}>{formatInPhone(customerPhone)}</p>
+        </div>
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.96 }}
+          aria-label="Edit profile"
+          onClick={() => setEditing(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            background: "transparent",
+            color: "rgba(0,0,0,0.7)",
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: "pointer",
+            flexShrink: 0,
+            fontFamily: C.mono,
+          }}
+        >
+          Edit
+          <PencilSimple size={12} weight="bold" color="currentColor" />
+        </motion.button>
       </div>
 
       <Section title="Delivery" titleStyle={sectionLabelStyle}>
@@ -629,12 +447,13 @@ export function AccountTabPanel({
       createPortal(
         <AnimatePresence>
           {editing ? (
-            <NameEditOverlay
-              key="vk-account-name-overlay"
-              draftName={draftName}
-              setDraftName={setDraftName}
-              onSave={saveNameEdit}
-              onCancel={cancelNameEdit}
+            <ProfileEditSheet
+              key="vk-account-profile-sheet"
+              phone={customerPhone}
+              initialName={displayName}
+              initialAvatarUrl={avatarUrl ?? null}
+              onSaved={onProfileSaved}
+              onClose={() => setEditing(false)}
             />
           ) : null}
         </AnimatePresence>,

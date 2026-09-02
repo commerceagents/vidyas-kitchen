@@ -8,6 +8,7 @@ import Image from "next/image";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
+import { isTestBypassPhone } from "@/lib/test-numbers";
 import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
@@ -512,10 +513,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setShowOtp(true);
     // Local/LAN hosts (e.g. 192.168.x.x) are not Firebase authorized domains —
     // these numbers skip reCAPTCHA so phone testing still works.
-    const isMockBypass =
-      rawPhone === "9999999999" ||
-      rawPhone.startsWith("99999") ||
-      rawPhone === "7299808575";
+    const isMockBypass = isTestBypassPhone(rawPhone);
 
     try {
       if (isMockBypass || !isFirebaseConfigured) {
@@ -668,9 +666,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     const finalName = displayNameInput.trim() || "Guest";
     const phoneE164 = `+91${rawPhone}`;
     const isMockBypass =
-      rawPhone === "9999999999" ||
-      rawPhone.startsWith("99999") ||
-      rawPhone === "7299808575" ||
+      isTestBypassPhone(rawPhone) ||
       (typeof window !== "undefined" && !!(window as any).__vk_mock_login_active);
 
     if (!isFirebaseConfigured || isMockBypass) {

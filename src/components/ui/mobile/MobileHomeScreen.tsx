@@ -168,7 +168,9 @@ interface MobileHomeScreenProps {
   addressSavedAt?: number;
   /** Sign out — clear session and return to login (shell). */
   onSignOut?: () => void;
-  onProfileNameSave?: (name: string) => void;
+  onProfileSaved?: (profile: { name: string; avatarUrl: string | null }) => void;
+  /** Profile picture, or null for the initial-letter avatar. */
+  avatarUrl?: string | null;
 }
 
 // ─── Nav icons ─────────────────────────────────────────────────────────────
@@ -1870,7 +1872,8 @@ export function MobileHomeScreen({
   addressSaveError = null,
   addressSavedAt = 0,
   onSignOut,
-  onProfileNameSave,
+  onProfileSaved,
+  avatarUrl = null,
 }: MobileHomeScreenProps) {
   const activeFestival = useActiveFestival();
   const [uiBootstrap] = useState(() => {
@@ -2900,8 +2903,9 @@ export function MobileHomeScreen({
         {activeNav === "account" && (
             <AccountTabPanel
               displayName={displayName}
+              avatarUrl={avatarUrl}
               customerPhone={customerPhone}
-              onEditName={(name) => onProfileNameSave?.(name)}
+              onProfileSaved={(profile) => onProfileSaved?.(profile)}
               onSavedAddresses={() => onChangeLocation?.()}
               onOpenOrders={() => {
                 setOrdersView("history");

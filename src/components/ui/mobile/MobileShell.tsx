@@ -39,6 +39,8 @@ interface MobileShellProps {
 }
 
 const LS_NAME = "vk_display_name";
+/** Cached so the account header can draw the photo before the profile fetch lands. */
+const LS_AVATAR = "vk_avatar_url";
 const SS_TRACK_ORDER = "vk_track_order";
 /** Snapshot cart before opening Razorpay so cancel/error can restore after full page reload. */
 const SS_PENDING_CHECKOUT_CART = "vk_pending_checkout_cart";
@@ -111,6 +113,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [step, setStep] = useState<MobileStep>(initialData.step);
   const [phone, setPhone] = useState(initialData.phone);
   const [name, setName] = useState(initialData.name);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationData | null>(initialData.location);
 
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
@@ -215,6 +218,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       localStorage.removeItem("vk_phone");
       localStorage.removeItem("vk_location");
       localStorage.removeItem(LS_NAME);
+      localStorage.removeItem(LS_AVATAR);
       sessionStorage.removeItem(SS_TRACK_ORDER);
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       clearUiSession();
@@ -296,6 +300,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     } else if (savedName) {
       setName(savedName);
     }
+
+    const cachedAvatar = localStorage.getItem(LS_AVATAR);
+    if (cachedAvatar) setAvatarUrl(cachedAvatar);
 
     if (savedPhone) {
       setPhone(savedPhone);
@@ -394,6 +401,41 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     };
   }, [phone, trackingOrderId]);
 
+  // The profile lives on the server so it survives a reinstall or a second
+  // phone; the cached copy above only covers the moment before this lands.
+  useEffect(() => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/profile?phone=${encodeURIComponent(phone)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { name?: string | null; avatarUrl?: string | null };
+        if (cancelled) return;
+
+        if (data.avatarUrl) {
+          setAvatarUrl(data.avatarUrl);
+          localStorage.setItem(LS_AVATAR, data.avatarUrl);
+        } else {
+          setAvatarUrl(null);
+          localStorage.removeItem(LS_AVATAR);
+        }
+        if (data.name?.trim()) {
+          setName(data.name.trim());
+          localStorage.setItem(LS_NAME, data.name.trim());
+        }
+      } catch {
+        // Non-critical: the cached name and photo carry on being shown.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phone]);
+
   const clearOrderTracking = () => {
     sessionStorage.removeItem(SS_TRACK_ORDER);
     setTrackingOrderId(null);
@@ -409,11 +451,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     localStorage.removeItem("vk_phone");
     localStorage.removeItem("vk_location");
     localStorage.removeItem(LS_NAME);
+    localStorage.removeItem(LS_AVATAR);
     sessionStorage.removeItem(SS_TRACK_ORDER);
     sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
     clearUiSession();
     setPhone("");
     setName("");
+    setAvatarUrl(null);
     setLocation(null);
     setTrackingOrderId(null);
     setCart({});
@@ -548,9 +592,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               onDismissOrderTracking={clearOrderTracking}
               onTrackOrder={openOrderTracking}
               onSignOut={handleSignOut}
-              onProfileNameSave={(n) => {
+              avatarUrl={avatarUrl}
+              onProfileSaved={({ name: n, avatarUrl: url }) => {
                 setName(n);
+                setAvatarUrl(url);
                 localStorage.setItem(LS_NAME, n);
+                if (url) localStorage.setItem(LS_AVATAR, url);
+                else localStorage.removeItem(LS_AVATAR);
               }}
               onCheckout={(fromDishId) => {
                 setReturnToCheckoutAfterBrowse(false);
