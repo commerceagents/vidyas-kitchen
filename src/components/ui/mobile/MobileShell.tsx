@@ -115,6 +115,8 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  /** Where "back" from the map returns to; null during first-time setup. */
+  const [locationBackStep, setLocationBackStep] = useState<MobileStep | null>(null);
   /** Set while the location screen is being used to move an existing order. */
   const [editingAddressForOrder, setEditingAddressForOrder] = useState<string | null>(null);
   const [addressSaveError, setAddressSaveError] = useState<string | null>(null);
@@ -429,6 +431,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const handleLocationSet = (loc: LocationData) => {
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
+    setLocationBackStep(null);
 
     // Re-pointing an order that has already been placed. Until this persisted,
     // the pencil on the tracking panel only moved this device's pin — the
@@ -487,7 +490,26 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
             animate={{ opacity: 1, transition: { duration: 1.35, ease: [0.22, 1, 0.36, 1] } }}
             exit={{ opacity: 0, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } }}
           >
-            <LocationScreen onLocationSet={handleLocationSet} />
+            <LocationScreen
+              onLocationSet={handleLocationSet}
+              initialLocation={location}
+              // Back is offered whenever there is somewhere to return to. A
+              // saved address means home is always reachable, which also covers
+              // a refresh that restores straight onto the map. Only first-time
+              // setup has no way out: the app can't do anything without an
+              // address, so leaving would strand the user on a blank shell.
+              onBack={
+                locationBackStep || location
+                  ? () => {
+                      const back = locationBackStep ?? "home";
+                      setLocationBackStep(null);
+                      setEditingAddressForOrder(null);
+                      setResumeCheckoutAfterLocation(false);
+                      setStep(back);
+                    }
+                  : undefined
+              }
+            />
           </motion.div>
         )}
 
@@ -509,10 +531,14 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
             <MobileHomeScreen
               displayName={name}
               location={location}
-              onChangeLocation={() => setStep("location")}
+              onChangeLocation={() => {
+                setLocationBackStep("home");
+                setStep("location");
+              }}
               onEditOrderAddress={(orderId) => {
                 setAddressSaveError(null);
                 setEditingAddressForOrder(orderId);
+                setLocationBackStep("home");
                 setStep("location");
               }}
               addressSaveError={addressSaveError}
@@ -582,6 +608,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               locationLabel={location.label}
               onChangeLocation={() => {
                 setResumeCheckoutAfterLocation(true);
+                setLocationBackStep("checkout");
                 setStep("location");
               }}
               onSelectSavedLocation={(place) => {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
-import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle } from "@phosphor-icons/react";
+import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, CaretLeft } from "@phosphor-icons/react";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
@@ -24,6 +24,17 @@ interface GeoFeature {
 
 interface LocationScreenProps {
   onLocationSet: (loc: LocationData) => void;
+  /**
+   * The address already in play. Opens the map on it rather than on the kitchen,
+   * so returning here reads as "adjust where I'm sending this" instead of
+   * "choose an address" all over again.
+   */
+  initialLocation?: LocationData | null;
+  /**
+   * Leave without choosing. Omitted during first-time setup, where there is no
+   * previous screen to go back to and an address is required to continue.
+   */
+  onBack?: () => void;
 }
 type TipTone = "info" | "warn" | "success";
 
@@ -296,11 +307,19 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function LocationScreen({ onLocationSet }: LocationScreenProps) {
+export function LocationScreen({ onLocationSet, initialLocation = null, onBack }: LocationScreenProps) {
+  // A location we've already been given is a real pick, so the map opens zoomed
+  // in on it with the confirm button live — not parked over the kitchen at city
+  // zoom waiting to be told the address for a second time.
+  const start =
+    initialLocation && Number.isFinite(initialLocation.lat) && Number.isFinite(initialLocation.lng)
+      ? { lat: initialLocation.lat, lng: initialLocation.lng }
+      : KITCHEN_CENTER;
+
   const [viewState, setViewState] = useState({
-    longitude: KITCHEN_CENTER.lng,
-    latitude: KITCHEN_CENTER.lat,
-    zoom: 13,
+    longitude: start.lng,
+    latitude: start.lat,
+    zoom: initialLocation ? 17 : 13,
     pitch: 58,
     bearing: -18,
     padding: {
@@ -310,8 +329,8 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
       right: 0,
     },
   });
-  const [pinCoords, setPinCoords] = useState(KITCHEN_CENTER);
-  const [searchText, setSearchText] = useState("");
+  const [pinCoords, setPinCoords] = useState(start);
+  const [searchText, setSearchText] = useState(initialLocation?.label ?? "");
   const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -322,7 +341,7 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [outOfRangeModal, setOutOfRangeModal] = useState(false);
   /** True once the user has explicitly picked a spot (search, GPS, saved place, or map tap/drag). */
-  const [hasPicked, setHasPicked] = useState(false);
+  const [hasPicked, setHasPicked] = useState(Boolean(initialLocation));
   const geocodeGenRef = useRef(0);
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
@@ -906,6 +925,43 @@ export function LocationScreen({ onLocationSet }: LocationScreenProps) {
           </div>
         </FallbackMap>
       )}
+
+      {/* Escape hatch. A full-screen map with no chrome traps anyone who opened
+          it just to look — there was previously no way out except confirming a
+          new address. Hidden during first-time setup, where an address is
+          required before the app can do anything. */}
+      {onBack ? (
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.25, duration: 0.35 }}
+          whileTap={{ scale: 0.93 }}
+          onClick={onBack}
+          aria-label="Go back"
+          style={{
+            position: "absolute",
+            top: "max(16px, env(safe-area-inset-top))",
+            left: 16,
+            zIndex: 20,
+            width: 42,
+            height: 42,
+            borderRadius: "50%",
+            border: "1px solid rgba(0,0,0,0.06)",
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+            cursor: "pointer",
+          }}
+        >
+          <CaretLeft size={20} weight="bold" color="#1A1A1A" />
+        </motion.button>
+      ) : null}
 
       {/* Red-black tint over map for brand tone */}
       <div
