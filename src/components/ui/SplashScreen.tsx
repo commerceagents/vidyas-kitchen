@@ -7,18 +7,32 @@ import { TYPO } from "@/components/ui/mobile/mobile-typography";
 
 /**
  * Android draws its own launch screen — our icon centred on the manifest's
- * background colour — before any of this code runs, and there is no way to
- * suppress it or change how large the OS draws that icon. This screen used to
- * open at those measured dimensions and shrink, so the handover read as one
- * continuous object; in practice it just held an oversized logo on screen for
- * over a second. It now opens at the loader's own size and gets on with it.
+ * background colour — before any of this code runs. Neither suppressing it nor
+ * changing the size it draws the icon at is ours to control, so the only way to
+ * avoid a jarring cut is to open at the size the OS left off and shrink.
+ *
+ * Measured off a device, the launch icon renders as a circle ~56% of the
+ * viewport width, dead centre. We start there and shrink immediately — no pause
+ * first. Holding the big logo still for a beat sold the illusion better but
+ * left an oversized logo sitting on screen, which read as clumsy; moving from
+ * the first frame keeps the continuity without the dwell.
  */
+const ANDROID_ICON_VW = 0.557;
+const ANDROID_ICON_MAX = 300;
 const LOADER_LOGO = 120;
+const SHRINK_DURATION = 0.62;
 
 export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
   const [showPulse, setShowPulse] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  // Only ever rendered client-side (page.tsx decides in a layout effect), so
+  // reading the viewport during the first render is safe.
+  const [tileSize] = useState(() =>
+    typeof window === "undefined"
+      ? 220
+      : Math.min(Math.round(window.innerWidth * ANDROID_ICON_VW), ANDROID_ICON_MAX),
+  );
 
   useEffect(() => {
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
@@ -112,25 +126,28 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 stroke="#BD2320"
                 strokeWidth="3"
                 strokeDasharray="471.24"
+                // Held back until the logo has shrunk inside it, otherwise the
+                // ring is drawn across the middle of the still-large artwork.
                 initial={{ strokeDashoffset: 471.24, opacity: 0 }}
                 animate={{ strokeDashoffset: 0, opacity: 1 }}
                 transition={{
                   strokeDashoffset: { duration: 3.5, ease: "easeInOut" },
-                  opacity: { delay: 0.15, duration: 0.35 },
+                  opacity: { delay: SHRINK_DURATION * 0.6, duration: 0.35 },
                 }}
                 strokeLinecap="round"
               />
             </svg>
 
-            {/* Sits inside the progress ring at the loader's own size. */}
+            {/* Starts as the circle Android's launch screen left on screen and
+                shrinks into the loader, so the two screens read as one object.
+                Android masks the icon to a circle, so this is a pure size
+                change — no shape or colour shift to give the seam away. */}
             <motion.div
-              initial={{ scale: 1.06, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ width: tileSize, height: tileSize }}
+              animate={{ width: LOADER_LOGO, height: LOADER_LOGO }}
+              transition={{ duration: SHRINK_DURATION, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 position: 'absolute',
-                width: LOADER_LOGO,
-                height: LOADER_LOGO,
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
