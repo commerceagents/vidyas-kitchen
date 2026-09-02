@@ -8,31 +8,17 @@ import { TYPO } from "@/components/ui/mobile/mobile-typography";
 /**
  * Android draws its own launch screen — our icon centred on the manifest's
  * background colour — before any of this code runs, and there is no way to
- * suppress it. Measured off a device, it renders the icon at ~56% of the
- * viewport width, dead centre. Starting our logo at those exact dimensions and
- * then morphing it into the loader makes the handover invisible: it reads as
- * one screen that comes to life rather than two screens in a row.
+ * suppress it or change how large the OS draws that icon. This screen used to
+ * open at those measured dimensions and shrink, so the handover read as one
+ * continuous object; in practice it just held an oversized logo on screen for
+ * over a second. It now opens at the loader's own size and gets on with it.
  */
-const ANDROID_ICON_VW = 0.557;
-const ANDROID_ICON_MAX = 300;
-/** Artwork occupies this much of a maskable icon — see scripts/generate-icons.py. */
-const MASKABLE_ART = 0.8;
 const LOADER_LOGO = 120;
-/** Let the tile sit still briefly so it reads as the same object Android drew. */
-const MORPH_DELAY = 0.45;
-const MORPH_DURATION = 0.75;
 
 export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
   const [showPulse, setShowPulse] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  // Only ever rendered client-side (page.tsx decides in a layout effect), so
-  // reading the viewport during the first render is safe.
-  const [tileSize] = useState(() =>
-    typeof window === "undefined"
-      ? 220
-      : Math.min(Math.round(window.innerWidth * ANDROID_ICON_VW), ANDROID_ICON_MAX),
-  );
 
   useEffect(() => {
     const pulseTimer = setTimeout(() => setShowPulse(true), 3500);
@@ -126,40 +112,26 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 stroke="#BD2320"
                 strokeWidth="3"
                 strokeDasharray="471.24"
-                // Held back until the tile has shrunk past it, otherwise the
-                // ring is drawn across the middle of the still-large logo.
                 initial={{ strokeDashoffset: 471.24, opacity: 0 }}
                 animate={{ strokeDashoffset: 0, opacity: 1 }}
                 transition={{
                   strokeDashoffset: { duration: 3.5, ease: "easeInOut" },
-                  opacity: { delay: MORPH_DELAY + MORPH_DURATION * 0.7, duration: 0.35 },
+                  opacity: { delay: 0.15, duration: 0.35 },
                 }}
                 strokeLinecap="round"
               />
             </svg>
 
-            {/* Picks up exactly where Android's launch screen left off: the same
-                red tile, at the same size, which then shrinks into the loader. */}
+            {/* Sits inside the progress ring at the loader's own size. */}
             <motion.div
-              initial={{
-                width: tileSize,
-                height: tileSize,
-                borderRadius: '24%',
-                backgroundColor: '#BD2320',
-              }}
-              animate={{
+              initial={{ scale: 1.06, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                position: 'absolute',
                 width: LOADER_LOGO,
                 height: LOADER_LOGO,
                 borderRadius: '50%',
-                backgroundColor: 'rgba(189, 35, 32, 0)',
-              }}
-              transition={{
-                delay: MORPH_DELAY,
-                duration: MORPH_DURATION,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              style={{
-                position: 'absolute',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -168,17 +140,12 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
               }}
             >
               <motion.div
-                // Grows from the maskable icon's safe zone to fill the circle,
-                // so the artwork lands at the loader's proportions.
-                initial={{ width: `${MASKABLE_ART * 100}%`, height: `${MASKABLE_ART * 100}%`, opacity: imageLoaded ? 1 : 0.35 }}
-                animate={{ width: '100%', height: '100%', opacity: 1 }}
-                transition={{
-                  delay: MORPH_DELAY,
-                  duration: MORPH_DURATION,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
+                animate={{ opacity: imageLoaded ? 1 : 0.35 }}
+                transition={{ duration: 0.3 }}
                 style={{
                   position: 'relative',
+                  width: '100%',
+                  height: '100%',
                   borderRadius: '50%',
                   overflow: 'hidden',
                 }}
