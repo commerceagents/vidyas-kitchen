@@ -1,51 +1,19 @@
 /**
  * WhatsApp catalog / carousel helpers.
- * Product retailer IDs are only those in whatsapp-catalog-products.csv —
- * never invent IDs (Meta 400s if they are not in Commerce Manager).
+ *
+ * Product retailer IDs are derived from the same 17 dishes as
+ * whatsapp-catalog-products.csv, so the IDs we send and the IDs uploaded to
+ * Commerce Manager cannot drift apart. Meta 400s the whole message if a single
+ * retailer ID isn't in the catalog, so nothing here is ever invented.
  */
 
 import { publicSiteOrigin } from "./site-url";
 import { welcomeLogoImageUrl } from "./whatsapp-copy";
+import { allDishPricing, PACK_SIZES, type DishPricing } from "./menu/dish-pricing";
+import { KITCHEN_PICK_DISH_IDS } from "./menu/best-selling";
+import type { ProductSection } from "./meta-whatsapp";
 
-/** Content IDs from the committed catalog CSV. */
-export const KNOWN_CATALOG_PRODUCT_IDS = new Set([
-  "chk-pepper-gravy-500g",
-  "chk-pepper-gravy-1kg",
-  "chk-chilly-gravy-500g",
-  "chk-chilly-gravy-1kg",
-  "chk-mom-gravy-500g",
-  "chk-mom-gravy-1kg",
-  "chk-sis-gravy-500g",
-  "chk-sis-gravy-1kg",
-  "chk-idli-gravy-500g",
-  "chk-idli-gravy-1kg",
-  "chk-pepper-sil-500g",
-  "chk-pepper-sil-1kg",
-  "chk-wings-500g",
-  "chk-wings-1kg",
-  "chk-chilly-dry-500g",
-  "chk-chilly-dry-1kg",
-  "egg-chalna-500g",
-  "egg-chalna-1kg",
-  "egg-curry-500g",
-  "egg-curry-1kg",
-  "mut-curry-cream-500g",
-  "mut-curry-cream-1kg",
-  "mut-keema-grandma-500g",
-  "mut-keema-grandma-1kg",
-  "mut-keema-gravy-500g",
-  "mut-keema-gravy-1kg",
-  "mut-curry-500g",
-  "mut-curry-1kg",
-  "mut-stew-500g",
-  "mut-stew-1kg",
-  "mut-gravy-spicy-500g",
-  "mut-gravy-spicy-1kg",
-  "mut-chukka-500g",
-  "mut-chukka-1kg",
-]);
-
-/** Menu retailer_id → CSV product prefix when they differ. */
+/** Menu retailer_id → CSV product prefix, for the three that differ. */
 const RETAILER_TO_CSV_PREFIX: Record<string, string> = {
   "mut-cream-curry": "mut-curry-cream",
   "mut-grandma-keema": "mut-keema-grandma",
@@ -56,10 +24,7 @@ const CSV_PREFIX_TO_RETAILER: Record<string, string> = Object.fromEntries(
   Object.entries(RETAILER_TO_CSV_PREFIX).map(([retailer, prefix]) => [prefix, retailer]),
 );
 
-export function whatsappCatalogId(): string | null {
-  const id = (process.env.WHATSAPP_CATALOG_ID || "").trim();
-  return id || null;
-}
+const PACK_SIZE_SUFFIX = { "500gm": "500g", "1kg": "1kg" } as const;
 
 export function csvPrefixForRetailer(retailerId: string): string {
   return RETAILER_TO_CSV_PREFIX[retailerId] || retailerId;
@@ -67,6 +32,18 @@ export function csvPrefixForRetailer(retailerId: string): string {
 
 export function retailerIdForCsvPrefix(prefix: string): string {
   return CSV_PREFIX_TO_RETAILER[prefix] || prefix;
+}
+
+/** Every content ID that exists in the catalog feed — 17 dishes × 2 packs. */
+export const KNOWN_CATALOG_PRODUCT_IDS: Set<string> = new Set(
+  allDishPricing().flatMap((dish) =>
+    PACK_SIZES.map((size) => `${csvPrefixForRetailer(dish.retailerId)}-${PACK_SIZE_SUFFIX[size]}`),
+  ),
+);
+
+export function whatsappCatalogId(): string | null {
+  const id = (process.env.WHATSAPP_CATALOG_ID || "").trim();
+  return id || null;
 }
 
 /** Known catalog product IDs for a dish — empty if we cannot map safely. */
@@ -122,3 +99,82 @@ export const CATEGORY_CAROUSEL_IMAGES: Record<string, string> = {
   mutton: `${publicSiteOrigin()}/menu-images/mut-curry.jpg`,
   egg: `${publicSiteOrigin()}/menu-images/egg-curry.jpg`,
 };
+
+export const MENU_SECTION_ORDER = ["chicken", "mutton", "egg"] as const;
+
+export function categoryDisplayLabel(category: string): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/** Meta caps a Multi-Product Message at 10 sections and 30 products. */
+const MPM_MAX_PRODUCTS = 30;
+const MPM_MAX_SECTIONS = 10;
+
+function dishPriority(dish: DishPricing): number {
+  const pick = KITCHEN_PICK_DISH_IDS.indexOf(dish.dishId);
+  // House favourites lead; everything else follows, cheapest first.
+  return pick >= 0 ? pick : KITCHEN_PICK_DISH_IDS.length + dish.prices["1kg"] / 10000;
+}
+
+/**
+ * The whole menu as catalog sections: Chicken, Mutton, Egg.
+ *
+ * All 17 dishes across both packs is 34 products, four over Meta's limit, so
+ * dishes are added in whole pairs — best sellers first — until the budget runs
+ * out. A dish showing only one of its two packs would look broken, and a
+ * half-filled section is worse than an honest "full menu in the app" footer.
+ */
+export function catalogMenuSections(): { sections: ProductSection[]; truncated: boolean } {
+  const byCategory = new Map<string, DishPricing[]>();
+  for (const dish of allDishPricing()) {
+    const list = byCategory.get(dish.category) || [];
+    list.push(dish);
+    byCategory.set(dish.category, list);
+  }
+
+  let budget = MPM_MAX_PRODUCTS;
+  let truncated = false;
+  const sections: ProductSection[] = [];
+
+  for (const category of MENU_SECTION_ORDER) {
+    if (sections.length >= MPM_MAX_SECTIONS) break;
+    const dishes = (byCategory.get(category) || []).slice().sort((a, b) => dishPriority(a) - dishPriority(b));
+
+    const ids: string[] = [];
+    for (const dish of dishes) {
+      const pair = catalogProductIdsForRetailer(dish.retailerId);
+      if (pair.length === 0) continue;
+      if (pair.length > budget) {
+        truncated = true;
+        continue;
+      }
+      ids.push(...pair);
+      budget -= pair.length;
+    }
+
+    if (ids.length > 0) {
+      sections.push({ title: categoryDisplayLabel(category), productRetailerIds: ids });
+    }
+  }
+
+  return { sections, truncated };
+}
+
+/** Catalog sections for one category, used by the per-category screen. */
+export function catalogSectionForCategory(category: string): ProductSection | null {
+  const dishes = allDishPricing()
+    .filter((d) => d.category === category)
+    .sort((a, b) => dishPriority(a) - dishPriority(b));
+
+  let budget = MPM_MAX_PRODUCTS;
+  const ids: string[] = [];
+  for (const dish of dishes) {
+    const pair = catalogProductIdsForRetailer(dish.retailerId);
+    if (pair.length === 0 || pair.length > budget) continue;
+    ids.push(...pair);
+    budget -= pair.length;
+  }
+
+  if (ids.length === 0) return null;
+  return { title: categoryDisplayLabel(category), productRetailerIds: ids };
+}

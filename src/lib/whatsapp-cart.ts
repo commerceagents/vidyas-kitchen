@@ -35,12 +35,3 @@ export function cartBreakdown(cart: CartItem[]): OrderFeeBreakdown {
 export function cartGrandTotal(cart: CartItem[]): number {
   return Math.round(cartBreakdown(cart).computedTotal);
 }
-
-export function cartSummary(cart: CartItem[]): string {
-  if (cart.length === 0) return "Cart is empty";
-  const b = cartBreakdown(cart);
-  const lines = cart.map((c, i) => `${i + 1}. ${c.name} (${c.variant}) × ${c.quantity} — ₹${c.unit_price * c.quantity}`);
-  lines.push(`Packaging ₹${b.packaging} · Delivery ₹${b.delivery} · GST ₹${b.gst}`);
-  lines.push(`\n*Total: ₹${cartGrandTotal(cart)}*`);
-  return lines.join("\n");
-}

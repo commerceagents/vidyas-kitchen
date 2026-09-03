@@ -14,10 +14,42 @@ type InstallPromptEvent = Event & {
 
 let deferredPrompt: InstallPromptEvent | null = null;
 let installed = false;
+let beaconSent = false;
 const listeners = new Set<() => void>();
 
 function notify() {
   listeners.forEach((fn) => fn());
+}
+
+/**
+ * Tell the server the app is installed, so the WhatsApp bot stops offering
+ * "Install app" and can use that button slot for something useful.
+ *
+ * Deliberately silent: this is a side signal, and an unsigned-in visitor or a
+ * flaky network must not surface anything in the install UI.
+ */
+async function reportInstalled(): Promise<void> {
+  if (beaconSent || typeof window === "undefined") return;
+  const phone = localStorage.getItem("vk_phone") || "";
+  if (!phone) return;
+  beaconSent = true;
+
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const { auth } = await import("@/lib/firebase");
+    const token = await auth?.currentUser?.getIdToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    await fetch("/api/push/app-installed", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ phone_number: phone }),
+      keepalive: true,
+    });
+  } catch {
+    // Retry on the next install event rather than here.
+    beaconSent = false;
+  }
 }
 
 if (typeof window !== "undefined") {
@@ -29,8 +61,11 @@ if (typeof window !== "undefined") {
   window.addEventListener("appinstalled", () => {
     installed = true;
     deferredPrompt = null;
+    void reportInstalled();
     notify();
   });
+  // iOS never fires `appinstalled`; running standalone is the only signal there.
+  if (isStandaloneMode()) void reportInstalled();
 }
 
 export function subscribePwaInstall(fn: () => void): () => void {

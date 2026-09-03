@@ -30,7 +30,43 @@ export async function saveOrderRatingByPhone(
 
   const { error: up } = await supabase
     .from("orders")
-    .update({ rating_stars: stars, updated_at: new Date().toISOString() })
+    .update({ rating_stars: stars, rating_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+
+  if (up) return { ok: false, error: up.message };
+  return { ok: true };
+}
+
+/**
+ * The one-line comment asked for after the stars.
+ *
+ * Ownership is re-checked rather than trusted from the session, because the
+ * session is keyed only by phone number and the order id travels through a
+ * WhatsApp reply id.
+ */
+export async function saveOrderRatingCommentByPhone(
+  supabase: SupabaseClient,
+  orderId: string,
+  comment: string,
+  fromPhone: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const text = comment.trim().slice(0, 500);
+  if (!text) return { ok: false, error: "Empty comment" };
+
+  const { data: row, error: fe } = await supabase
+    .from("orders")
+    .select("id, phone_number")
+    .eq("id", orderId)
+    .single();
+
+  if (fe || !row) return { ok: false, error: "Not found" };
+  if (phoneKey(String(row.phone_number || "")) !== phoneKey(fromPhone)) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const { error: up } = await supabase
+    .from("orders")
+    .update({ rating_comment: text, updated_at: new Date().toISOString() })
     .eq("id", orderId);
 
   if (up) return { ok: false, error: up.message };

@@ -13,9 +13,13 @@ import {
   notifyOrderDelivered,
   notifyOrderCancelled,
   notifyOrderRejected,
+  driverPinCaption,
+  BTN,
 } from "@/lib/whatsapp-copy";
 import { updateSession } from "@/lib/whatsapp-session";
-import { langForPhone } from "@/lib/whatsapp-lang";
+import { loadWaLang } from "@/lib/whatsapp-lang";
+import { formatInr } from "@/lib/menu/dish-pricing";
+import { sendLocation } from "@/lib/whatsapp-send";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** WhatsApp reply id: rate + star (1–5) + 32-char hex uuid (no dashes). */
@@ -76,9 +80,11 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   // quoting it over WhatsApp can actually be looked up.
   const short = formatOrderRef(order.order_number, order.id).replace(/^#/, "");
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
-  const amtStr =
-    order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "the order amount";
-  const lang = langForPhone(to);
+  const amtStr = order.total_amount != null ? formatInr(Number(order.total_amount)) : "the order amount";
+  // Read the stored choice rather than the in-memory cache: an outbound
+  // notification usually runs on a serverless instance that has never seen
+  // this customer, and the cache would silently answer "English".
+  const lang = (await loadWaLang(to)) ?? undefined;
 
   switch (order.status) {
     case OrderStatus.PAID: {
@@ -87,7 +93,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       const body = isCod
         ? notifyOrderPlacedCod(short, amtStr, slotLine || undefined, lang)
         : notifyOrderPaid(short, slotLine || undefined, lang);
-      await sendCtaUrl(to, body, trackUrl, "Track Order");
+      await sendCtaUrl(to, body, trackUrl, BTN.track);
       break;
     }
     case OrderNotifyEvent.COD_COLLECTED: {
@@ -105,11 +111,11 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       break;
     }
     case OrderStatus.PREPARING: {
-      await sendButtons(to, notifyOrderPreparing(lang), [{ id: "track_order", title: "Track Order" }]);
+      await sendButtons(to, notifyOrderPreparing(lang), [{ id: "track_order", title: BTN.track }]);
       break;
     }
     case OrderStatus.OUT_FOR_DELIVERY: {
-      await sendButtons(to, notifyOrderOutForDelivery(lang), [{ id: "track_order", title: "Track Order" }]);
+      await sendButtons(to, notifyOrderOutForDelivery(lang), [{ id: "track_order", title: BTN.track }]);
       break;
     }
     case OrderStatus.DELIVERED: {
@@ -135,6 +141,65 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     default:
       break;
   }
+}
+
+/**
+ * Static pin for a driver GPS ping, sent while the order is out for delivery.
+ *
+ * A WhatsApp Business account cannot send live location, so this is an honest
+ * snapshot with the time it was taken, plus the app link for the real map.
+ * Throttled to one pin every few minutes — the driver app reports far more
+ * often than that, and a stream of pins would be unusable.
+ */
+const DRIVER_PIN_MIN_GAP_MS = 6 * 60 * 1000;
+
+export async function notifyWhatsAppDriverLocation(
+  supabase: SupabaseClient,
+  orderId: string,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, phone_number, status, driver_pin_sent_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error || !data) return;
+
+  const row = data as {
+    phone_number?: string | null;
+    status?: string | null;
+    driver_pin_sent_at?: string | null;
+  };
+  if (String(row.status || "").toLowerCase() !== OrderStatus.OUT_FOR_DELIVERY) return;
+
+  const to = row.phone_number ? toPhone(row.phone_number) : null;
+  if (!to) return;
+
+  const lastSent = row.driver_pin_sent_at ? Date.parse(row.driver_pin_sent_at) : 0;
+  if (Number.isFinite(lastSent) && Date.now() - lastSent < DRIVER_PIN_MIN_GAP_MS) return;
+
+  const lang = (await loadWaLang(to)) ?? undefined;
+  const sent = await sendLocation(to, lat, lng, "Your driver", "On the way to you");
+  if (!sent) return;
+
+  await sendCtaUrl(
+    to,
+    driverPinCaption(1, lang),
+    `${publicSiteOrigin()}/?track=${orderId}`,
+    BTN.track,
+  );
+
+  // Column may not exist yet if the migration has not run — a failure here
+  // only costs throttling, never the pin itself.
+  const { error: stampError } = await supabase
+    .from("orders")
+    .update({ driver_pin_sent_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (stampError) console.error("[whatsapp-order-notify] driver pin stamp:", stampError.message);
 }
 
 type OrderItemRow = {
@@ -198,5 +263,5 @@ export async function notifyWhatsAppDriverNewDeliveryReady(
     `Address: ${r.delivery_address || "—"}`;
 
   const url = `${publicSiteOrigin()}/driver/order/${encodeURIComponent(orderId)}`;
-  await sendCtaUrl(to, body, url, "View & Pick Up");
+  await sendCtaUrl(to, body, url, "View and pick up");
 }

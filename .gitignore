@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Scripts that push secrets into Vercel — these hold live tokens in plaintext
+update-vercel-env.sh
+
 # vercel
 .vercel
 

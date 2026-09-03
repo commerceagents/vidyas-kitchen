@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDriverSession } from "@/lib/driver-auth";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { notifyWhatsAppDriverLocation } from "@/lib/whatsapp-order-notify";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -60,6 +61,14 @@ export async function POST(request: Request) {
     console.error("[driver/location]", up);
     return NextResponse.json({ error: up.message }, { status: 500 });
   }
+
+  // Best-effort, and heavily throttled inside. The driver app polls often, so
+  // this must never slow down or fail a position report.
+  after(() => {
+    void notifyWhatsAppDriverLocation(supabase, orderId, lat, lng).catch((e) =>
+      console.error("[driver/location] pin notify:", e),
+    );
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -14,6 +14,8 @@ import {
   menuContextFooter,
   welcomeLogoImageUrl,
 } from "../whatsapp-copy";
+import { formatInr, unitPriceFor } from "../menu/dish-pricing";
+import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
 
 /**
  * AI Agent "Brain" for Vidya's Kitchen
@@ -24,6 +26,14 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
 }
+
+/** Order columns the read-only tools select. The Supabase client here is untyped. */
+type OrderRow = {
+  id: string;
+  status: string;
+  total_amount: number | null;
+  created_at: string;
+};
 
 export interface MenuItem {
   id: string;
@@ -47,6 +57,15 @@ export interface HelpListRow {
   id: string;
   title: string;
   description: string;
+}
+
+function safeJson(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw || "{}");
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 
 export class VidyaAgent {
@@ -107,7 +126,7 @@ export class VidyaAgent {
         .eq("phone_number", phoneNumber)
         .limit(40);
       if (error || !data?.length) return false;
-      return data.some((o) => !["delivered", "cancelled"].includes(String(o.status)));
+      return data.some((o: { status: unknown }) => !["delivered", "cancelled"].includes(String(o.status)));
     } catch {
       return false;
     }
@@ -175,7 +194,7 @@ export class VidyaAgent {
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) throw error;
-    const active = (orders || []).filter((o) => !["delivered", "cancelled"].includes(String(o.status)));
+    const active = (orders || []).filter((o: OrderRow) => !["delivered", "cancelled"].includes(String(o.status)));
     if (!active.length) {
       return {
         reply:
@@ -187,7 +206,7 @@ export class VidyaAgent {
       };
     }
     const lines = active.map(
-      (o, i) =>
+      (o: OrderRow, i: number) =>
         `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
     );
     return {
@@ -217,7 +236,7 @@ export class VidyaAgent {
       };
     }
     const lines = orders.map(
-      (o, i) =>
+      (o: OrderRow, i: number) =>
         `${i + 1}. ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
     );
     return {
@@ -254,7 +273,7 @@ export class VidyaAgent {
 
     for (const o of orders) {
       const shortId = String(o.id).slice(0, 8);
-      const amount = o.total_amount ?? "—";
+      const amount = o.total_amount != null ? formatInr(Number(o.total_amount)) : "—";
       const date = new Date(o.created_at).toLocaleDateString("en-IN", {
         timeZone: "Asia/Kolkata",
         day: "2-digit",
@@ -262,7 +281,7 @@ export class VidyaAgent {
       });
 
       if (o.status === "paid") {
-        lines.push(`✅ ${shortId}… — ₹${amount} — _paid_ (${date})`);
+        lines.push(`${shortId}… — ${amount} — _paid_ (${date})`);
       } else if (o.status === "pending_payment") {
         // Create a fresh Razorpay / UPI link so they can complete payment immediately.
         const { short_url, id: paymentLinkId } = await createPaymentLink(
@@ -277,10 +296,10 @@ export class VidyaAgent {
         if (paymentLinkId) {
           await db.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", o.id);
         }
-        pendingLinks.push(`🔗 Pay ₹${amount} for order ${shortId}…:\n${short_url}`);
-        lines.push(`⏳ ${shortId}… — ₹${amount} — _awaiting payment_ (${date})`);
+        pendingLinks.push(`Order ${shortId}… — ${amount}\n${short_url}`);
+        lines.push(`${shortId}… — ${amount} — _awaiting payment_ (${date})`);
       } else {
-        lines.push(`• ${shortId}… — ₹${amount} — _${o.status}_ (${date})`);
+        lines.push(`${shortId}… — ${amount} — _${o.status}_ (${date})`);
       }
     }
 
@@ -349,39 +368,97 @@ export class VidyaAgent {
     ];
   }
 
-  async createOrder(phoneNumber: string, _items: OrderItemInput[], total: number, deliverySlot?: string) {
+  /**
+   * There is deliberately no order-creating method on this class.
+   *
+   * There used to be. Any reply containing the words "CONFIRM ORDER" — which
+   * the model produced on its own, unprompted — inserted an order for a flat
+   * ₹250 with no line items and a delivery slot 25 hours out, then sent the
+   * customer a payment link for it. Nobody had chosen a dish.
+   *
+   * Conversational ordering now goes through propose-and-confirm: the model
+   * emits a structured draft via the `propose_order` tool, the server prices
+   * and validates it (src/lib/ai/order-proposal.ts), and the row is written by
+   * the webhook only after the customer taps Confirm order.
+   */
+
+  /**
+   * What the model needs to answer "where's my order" and "the usual please"
+   * without asking. Previously the prompt got neither, and the route passed an
+   * empty history, so every turn started from nothing.
+   */
+  private async customerContext(phoneNumber: string): Promise<string> {
     try {
-      // 🛡️ ENFORCE 24-HOUR LEAD TIME
-      if (deliverySlot) {
-        const slot = new Date(deliverySlot);
-        const now = new Date();
-        const diffHours = (slot.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const { data } = await supabase
+        .from("orders")
+        .select("id, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
+        .eq("phone_number", phoneNumber)
+        .order("created_at", { ascending: false })
+        .limit(3);
 
-        if (diffHours < 23.5) { // 30 min grace period
-          console.log(`[LEAD-TIME] Blocked order for ${deliverySlot} (Too soon)`);
-          // Note: In a real app, we'd return an error object. For now, we'll log and skip.
-        }
+      const rows = (data || []) as {
+        id: string;
+        status: string;
+        created_at: string;
+        delivery_slot?: string | null;
+        order_items?: { quantity?: number; menu_items?: { name?: string } | null }[] | null;
+      }[];
+      if (rows.length === 0) return "- This is a new customer. No orders yet.";
+
+      const live = rows.filter((o) => !["delivered", "cancelled", "rejected"].includes(String(o.status)));
+      const dishes = [
+        ...new Set(rows.flatMap((o) => (o.order_items || []).map((oi) => oi.menu_items?.name).filter(Boolean))),
+      ];
+
+      const lines = ["- Ordered before: " + (dishes.join(", ") || "unknown dishes") + "."];
+      if (live.length) {
+        lines.push(
+          "- Live right now: " +
+            live
+              .map(
+                (o) =>
+                  `order ${String(o.id).slice(0, 8).toUpperCase()} is ${o.status}` +
+                  (o.delivery_slot
+                    ? ` for ${new Date(o.delivery_slot).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+                    : ""),
+              )
+              .join("; ") +
+            ".",
+        );
+      } else {
+        lines.push("- Nothing in progress at the moment.");
       }
+      return lines.join("\n");
+    } catch {
+      return "";
+    }
+  }
 
-      const { data: order, error: orderError } = await supabase
-        .from('orders').insert({ 
-          phone_number: phoneNumber, 
-          total_amount: total, 
-          status: 'pending_payment',
-          delivery_slot: deliverySlot
-        }).select().single();
-      if (orderError) throw orderError;
-      const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", phoneNumber);
-      
-      // Update order with the payment link ID for precise callback matching
-      if (paymentLinkId) {
-        await supabase.from('orders').update({ payment_link_id: paymentLinkId }).eq('id', order.id);
-      }
-
-      return { orderId: order.id, paymentLink: short_url, total };
-    } catch (_err) {
-      console.error("Order Creation Error:", _err);
-      return null;
+  private async recentOrdersJson(phoneNumber: string): Promise<string> {
+    try {
+      const { data } = await supabase
+        .from("orders")
+        .select("id, status, total_amount, delivery_slot, created_at")
+        .eq("phone_number", phoneNumber)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      const rows = (data || []) as {
+        id: string;
+        status: string;
+        total_amount?: number | null;
+        delivery_slot?: string | null;
+      }[];
+      if (rows.length === 0) return "No orders on this number.";
+      return JSON.stringify(
+        rows.map((o) => ({
+          ref: String(o.id).slice(0, 8).toUpperCase(),
+          status: o.status,
+          total: o.total_amount,
+          slot: o.delivery_slot,
+        })),
+      );
+    } catch {
+      return "Could not read orders right now.";
     }
   }
 
@@ -414,7 +491,7 @@ export class VidyaAgent {
       }
 
       const lines = orders.map(
-        (o, i) =>
+        (o: OrderRow, i: number) =>
           `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
       );
       return {
@@ -664,8 +741,14 @@ export class VidyaAgent {
           .limit(5);
 
         if (pastOrders && pastOrders.length > 0) {
-          const items = pastOrders.flatMap(o => (o.order_items as any[]).map(oi => oi.menu_items)).filter(Boolean);
-          const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values()).slice(0, 10);
+          const items: MenuItem[] = pastOrders
+            .flatMap((o: { order_items?: { menu_items?: MenuItem }[] }) =>
+              (o.order_items || []).map((oi) => oi.menu_items),
+            )
+            .filter((item: MenuItem | undefined) => Boolean(item));
+          const uniqueItems = Array.from(
+            new Map(items.map((item) => [item.id, item])).values(),
+          ).slice(0, 10);
           return {
             reply:
               "Welcome back! Here are dishes from your recent orders — tap to order again." +
@@ -712,78 +795,184 @@ export class VidyaAgent {
         };
       }
 
-      const menuString = menu.map(item => `${item.name}: ₹${item.price}`).join('\n');
-      let memoryPrompt = "";
-      if (phoneNumber) {
-        const { data: pastOrders } = await supabase
-          .from('orders').select('*, order_items(menu_items(name))').eq('phone_number', phoneNumber).order('created_at', { ascending: false }).limit(3);
-        if (pastOrders && pastOrders.length > 0) {
-          const pastItems = pastOrders.flatMap((o) => (o.order_items as any[])?.map((oi) => oi.menu_items?.name) || []);
-          memoryPrompt = `\nCUSTOMER MEMORY: This customer previously ordered: ${[...new Set(pastItems)].filter(Boolean).join(', ')}.`;
+      const menuString = menu
+        .map((item) => `${item.name} — 500gm ${formatInr(unitPriceFor(item, "500gm"))}, 1kg ${formatInr(unitPriceFor(item, "1kg"))}`)
+        .join("\n");
+
+      const context = phoneNumber ? await this.customerContext(phoneNumber) : "";
+
+      const systemPrompt = `You are Vidya, who runs Vidya's Kitchen in Sivakasi — a home kitchen cooking fresh, against-order meals.
+
+VOICE
+- Warm, direct, quietly funny. Like a friend who happens to run the kitchen.
+- Real English. Short sentences. Under 60 words unless they asked for detail.
+- WhatsApp formatting: *bold* sparingly, _italics_ for asides. Never use emojis.
+- Never discuss costs, margins or suppliers. Never agree that the food is bad — apologise, then fix it.
+
+RULES
+- Delivery in and around Sivakasi only.
+- Everything is cooked to order: 24 hours' notice minimum, no exceptions.
+- Slots: breakfast 7-9 AM, lunch 12-2 PM, dinner 7-9 PM.
+- Cash on delivery up to ₹2,000. Above that, online only.
+- A WhatsApp cart holds 3 dishes. Bigger orders go through the app.
+
+ORDERING
+- If they are trying to order, call propose_order with whatever you understood.
+  Leave out anything they have not said — the server asks for what is missing.
+- You never place orders and never quote a total. The server prices everything
+  and the customer confirms with a tap. Do not invent prices or promise a slot.
+- Use search_menu when you are unsure a dish exists or which one they mean.
+- Use get_orders for "where is my order" style questions.
+
+CURRENT STATE
+- Time now (IST): ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+- Menu:
+${menuString}
+${context}`;
+
+      const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+        {
+          type: "function",
+          function: {
+            name: "search_menu",
+            description: "Find dishes on the menu by name or description. Read-only.",
+            parameters: {
+              type: "object",
+              properties: { query: { type: "string", description: "What the customer asked for." } },
+              required: ["query"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "get_orders",
+            description: "This customer's recent orders and their current status. Read-only.",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "propose_order",
+            description:
+              "Hand the server a draft order to price and show the customer for confirmation. Never creates an order. Omit anything the customer has not told you.",
+            parameters: {
+              type: "object",
+              properties: {
+                items: {
+                  type: "array",
+                  description: "Dishes asked for, in the customer's own words.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      dish: { type: "string" },
+                      size: { type: "string", description: "500gm or 1kg, if stated." },
+                      quantity: { type: "number" },
+                    },
+                    required: ["dish"],
+                  },
+                },
+                date: { type: "string", description: "Day, as said: tomorrow, Monday, 2026-09-08." },
+                time: { type: "string", description: "Time of day, as said: 8pm, evening." },
+                address: { type: "string" },
+                payment: { type: "string", description: "online or cod, if stated." },
+              },
+              required: ["items"],
+            },
+          },
+        },
+      ];
+
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        ...history.slice(-8),
+        { role: "user", content: message },
+      ];
+
+      let reply = "";
+      let proposalDraft: ProposalDraft | null = null;
+
+      // Two rounds is enough for "look it up, then answer". More than that and
+      // the customer is waiting on a webhook that Meta will retry.
+      for (let round = 0; round < 3; round += 1) {
+        const response = await this.openai.chat.completions.create({
+          model: "gpt-4o",
+          messages,
+          tools,
+          temperature: 0.7,
+        });
+
+        const choice = response.choices[0].message;
+        reply = choice.content || reply;
+
+        const calls = choice.tool_calls || [];
+        if (calls.length === 0) break;
+
+        messages.push(choice);
+
+        let stop = false;
+        for (const call of calls) {
+          if (call.type !== "function") continue;
+          const args = safeJson(call.function.arguments);
+
+          if (call.function.name === "propose_order") {
+            proposalDraft = args as ProposalDraft;
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content:
+                "Draft received. The server is pricing it and will show the customer a confirmation card. Do not repeat the order back and do not mention prices.",
+            });
+            stop = true;
+            continue;
+          }
+
+          if (call.function.name === "search_menu") {
+            const hits = searchMenuDishes(menu, String((args as { query?: string }).query || ""), 6);
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: hits.length
+                ? JSON.stringify(
+                    hits.map((h) => ({
+                      name: h.name,
+                      "500gm": unitPriceFor(h, "500gm"),
+                      "1kg": unitPriceFor(h, "1kg"),
+                    })),
+                  )
+                : "No dish matches that.",
+            });
+            continue;
+          }
+
+          if (call.function.name === "get_orders") {
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: phoneNumber ? await this.recentOrdersJson(phoneNumber) : "No phone number on this conversation.",
+            });
+            continue;
+          }
+
+          messages.push({ role: "tool", tool_call_id: call.id, content: "Unknown tool." });
         }
+
+        if (stop) break;
       }
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: `You are Vidya, the heart and soul of 'Vidya's Kitchen' in Sivakasi. You run a passionate home-kitchen known for fresh, against-order gourmet meals.
-
-          PERSONALITY & LANGUAGE:
-          - Speak in clear, polite English only — warm, helpful, and respectful at all times.
-          - Example tone: "Thank you for reaching out. We prepare every order fresh against order, so we need at least 24 hours before delivery."
-          - Use WhatsApp formatting: *bold* for emphasis, _italic_ for notes. Avoid emojis unless truly helpful.
-          - NEVER reveal business costs, margins, or supplier info.
-          - If customer complains negatively, empathise but always suggest alternatives — never agree the food is bad.
-          - If asked about competitors, politely redirect to your own menu.
-          - For occasion-based queries (birthday party, get-together), suggest combos.
-
-          OPERATIONAL RULES (STRICT):
-          - AREA: Sivakasi delivery only.
-          - LEAD TIME: Minimum 24 hours advance order (fresh meat sourcing).
-          - Orders/cart: Guide them to type "menu" or "cart". The bot handles structured ordering; you handle free-form chat.
-          - Do NOT create orders in this flow. Just answer questions warmly.
-
-          CURRENT STATE:
-          - TIME (IST): ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-          - MENU: ${menuString}
-          ${memoryPrompt}
-
-          KEEP REPLIES SHORT (under 200 words). End with a polite nudge like "Type *menu* to browse" or "Let us know if you have any questions."` },
-          ...history,
-          { role: "user", content: message },
-        ],
-        temperature: 0.7,
-      });
-
-      let reply = response.choices[0].message.content || "";
-      const isConfirming = reply.includes("CONFIRM ORDER") || lowerMessage.includes("confirm");
-      let paymentLink = null;
-
-      if (isConfirming && phoneNumber) {
-        // Simple extraction: look for a date/time in the message or use a default +24h if not found
-        // In a production app, we would use a Tool Call for 'createOrder' to get structured data.
-        const deliverySlot = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(); // Default to +25h for now
-        
-        const orderData = await this.createOrder(phoneNumber, [], 250, deliverySlot);
-        if (orderData && !("error" in orderData)) {
-          paymentLink = orderData.paymentLink;
-          reply += `\n\n✅ *Order Created!* \nDelivery Slot: ${new Date(deliverySlot).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\nTo confirm, please pay ₹250 here: \n${paymentLink}`;
-        } else if (orderData && "error" in orderData) {
-          reply = `I'm sorry, but I can't place that order. ${orderData.error} Please choose a time at least 24 hours from now.`;
-        }
-      }
-
-      return { 
-        reply, 
+      return {
+        reply,
+        proposalDraft,
         shouldShowMenu: lowerMessage.includes("menu") || lowerMessage.includes("specials"),
-        shouldShowButtons: isGreeting || (isConfirming && !!paymentLink),
+        shouldShowButtons: isGreeting,
         shouldSendAppCta: false,
         shouldShowHelpList: false,
         helpListRows: [] as HelpListRow[],
         buttons: isGreeting ? await this.getMainActionButtons(phoneNumber) : [],
         menuItems: menu.slice(0, 10),
         headerImage: isGreeting ? welcomeLogoImageUrl() : undefined,
-        paymentLink
+        paymentLink: null as string | null,
       };
     } catch (err) {
       console.error("AI Agent Error:", err);

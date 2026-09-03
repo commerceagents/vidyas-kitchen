@@ -182,7 +182,7 @@ export const MENU_BY_CATEGORY: Record<MenuCategoryId, MenuItem[]> = {
       id: "45c9ae81-e280-4193-b39a-0238e7ddde02",
       name: "Fresh Cream Mutton Curry",
       description: "Rich, creamy mutton curry with a smooth finish.",
-      image: "/menu-images/mut-curry.jpg",
+      image: "/menu-images/mut-cream-curry.jpg",
       category: "mutton",
       variants: [
         { id: "f00fb5b4-9bd2-49d8-ae54-ca3c028e60e5", weight: "500g", label: "500gm", price: 1049 },
@@ -194,7 +194,7 @@ export const MENU_BY_CATEGORY: Record<MenuCategoryId, MenuItem[]> = {
       id: "5dcb06bf-4f59-4a6b-9974-86b529b26db4",
       name: "Grandma Mutton Keema",
       description: "Authentic grandma's recipe for minced mutton with traditional spices.",
-      image: "/menu-images/mut-keema-gravy.jpg",
+      image: "/menu-images/mut-grandma-keema.jpg",
       category: "mutton",
       variants: [
         { id: "00a9db0c-b811-4f63-9742-e5a9a3804190", weight: "500g", label: "500gm", price: 975 },
@@ -242,7 +242,7 @@ export const MENU_BY_CATEGORY: Record<MenuCategoryId, MenuItem[]> = {
       id: "537b6748-cc8d-4725-95c5-82c74ee42930",
       name: "Spicy Mutton Gravy",
       description: "For the brave — bold spices and tender mutton.",
-      image: "/menu-images/mut-curry.jpg",
+      image: "/menu-images/mut-spicy-gravy.jpg",
       category: "mutton",
       variants: [
         { id: "8236d13b-3386-46a0-93a2-2072e50bab1f", weight: "500g", label: "500gm", price: 999 },

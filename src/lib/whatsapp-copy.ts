@@ -1,11 +1,27 @@
 /**
- * WhatsApp copy — short, warm, slightly funny friend-of-the-kitchen.
- * Button titles stay English (20-char limit). Body can be Tanglish.
+ * WhatsApp copy — one design system, two language registers.
+ *
+ * HOUSE RULES (every message in this file follows them):
+ *  - Structure: bold title, blank line, body, then an optional italic footnote.
+ *    Built through `msg()` so nothing drifts into its own shape.
+ *  - Money: always `formatInr` — "₹399", "₹2,099". Never "Rs", never a bare number.
+ *  - Bold: the title, the total, and nothing else. It stops meaning anything
+ *    when every second word has stars around it.
+ *  - No emojis. Anywhere. The tone comes from the words.
+ *  - Button labels: `BTN`, kept under WhatsApp's 20 characters, and the same
+ *    label always means the same thing.
+ *  - English is real English. Tanglish is its own register, not English with
+ *    Tamil words dropped in — the English welcome used to open "Vanakkam".
+ *
+ * Client components import from this file, so it must stay free of anything
+ * server-only (no Supabase, no service-role key).
  */
 
 import { publicSiteOrigin } from "./site-url";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
+import { formatInr, packPriceLine } from "./menu/dish-pricing";
+import { COD_MAX_ORDER_VALUE } from "./cod-policy";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
 
@@ -21,17 +37,115 @@ export function whatsappBotLink(message: string): string {
   const digits = WHATSAPP_BOT_E164.replace(/\D/g, "");
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
+
 export const SUPPORT_EMAIL = "hello.vidyaskitchen@gmail.com";
 export const WA_CART_MAX = 3;
 
+const COD_CAP = formatInr(COD_MAX_ORDER_VALUE);
+
+// ─── The design system ───────────────────────────────────────────────────────
+
+/**
+ * Every button label the bot can show. Central so the same action never gets
+ * two names, and so the 20-char limit is checked in one place.
+ */
+export const BTN = {
+  menu: "Menu",
+  orderAgain: "Order again",
+  track: "Track order",
+  help: "Help",
+  installApp: "Install app",
+  openApp: "Open app",
+  home: "Home",
+  startOver: "Start over",
+  chicken: "Chicken",
+  mutton: "Mutton",
+  egg: "Egg",
+  size500: "500gm",
+  size1kg: "1kg",
+  checkout: "Checkout",
+  addMore: "Add more",
+  clearCart: "Clear cart",
+  sameAsLast: "Same as last time",
+  change: "Change",
+  editCart: "Edit cart",
+  edit: "Edit",
+  sameAddress: "Same address",
+  newAddress: "New address",
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  payOnline: "Pay online",
+  payCash: "Pay cash",
+  payNow: "Pay now",
+  confirmOrder: "Confirm order",
+  callUs: "Call us",
+  yourOrders: "Your orders",
+  payments: "Payments",
+  somethingWrong: "Something wrong",
+  language: "Language",
+  english: "English",
+  tanglish: "Tamil + English",
+  skip: "Skip",
+} as const;
+
+type MsgParts = {
+  title?: string;
+  lines?: (string | null | undefined | false)[];
+  note?: string;
+};
+
+/** The one renderer. Title, blank line, body, blank line, italic footnote. */
+function msg({ title, lines = [], note }: MsgParts): string {
+  const body = lines.filter((l): l is string => typeof l === "string").join("\n");
+  const out: string[] = [];
+  if (title) out.push(`*${title}*`);
+  if (body) {
+    if (out.length) out.push("");
+    out.push(body);
+  }
+  if (note) {
+    if (out.length) out.push("");
+    out.push(`_${note}_`);
+  }
+  return out.join("\n");
+}
+
+function money(amount: number): string {
+  return formatInr(amount);
+}
+
+/** `Mutton Curry (1kg) x 2 — ₹3,898` — the one shape for a cart line. */
+function cartLine(item: CartItem): string {
+  return `${item.name} (${item.variant}) x ${item.quantity} — ${money(item.unit_price * item.quantity)}`;
+}
+
+/**
+ * Fees are spelled out wherever a total appears, because the Razorpay link is
+ * raised for the grand total and the app charges the same stack. Quoting the
+ * bare item sum here would surprise the customer at the payment screen.
+ */
+function totalLines(cart: CartItem[], lang?: WaLang): string[] {
+  const b = cartBreakdown(cart);
+  return [
+    "",
+    `Items ${money(b.itemsSubtotal)}`,
+    pickLang(lang, `Packaging ${money(b.packaging)}`, `Packing ${money(b.packaging)}`),
+    `Delivery ${money(b.delivery)}`,
+    `GST ${money(b.gst)}`,
+    "",
+    `*Total ${money(cartGrandTotal(cart))}*`,
+  ];
+}
+
 export const ORDER_CUTOFF_REMINDER =
-  "_Fresh cook — order at least 24 hours before delivery. No rush orders._";
+  "_Everything is cooked to order, so we need 24 hours. No rush orders._";
 
 export function buildAppNudgeFooter(lang?: WaLang): string {
   return pickLang(
     lang,
-    "_Photos, big cart, map pin — that's the app. Help → Install app._",
-    "_Photos, big cart, map pin — app-la dhaan. Help → Install app._",
+    "_Photos, a bigger cart and a map pin all live in the app. Help, then Install app._",
+    "_Photos, periya cart, map pin — ellame app-la. Help, apram Install app._",
   );
 }
 
@@ -41,72 +155,177 @@ export function welcomeLogoImageUrl(): string {
 
 function greetName(firstName?: string): string {
   const n = firstName?.trim();
-  return n ? ` *${n}*` : "";
+  return n ? ` ${n}` : "";
 }
 
 export type WelcomeKind = "new" | "returning" | "active";
+
+// ─── Language ────────────────────────────────────────────────────────────────
+
+/**
+ * Asked once, on first contact, and stored on the session row — so this is the
+ * only message a customer ever sees in both registers at the same time.
+ */
+export function languagePickerBody(firstName?: string): string {
+  const name = greetName(firstName);
+  return msg({
+    title: `Vanakkam${name}`,
+    lines: [
+      "Which language should we talk in?",
+      "",
+      "Neenga endha language-la pesalam?",
+    ],
+    note: "You can change this later under Help.",
+  });
+}
+
+export function languageSetReply(lang: WaLang): string {
+  return pickLang(
+    lang,
+    msg({ lines: ["English it is. Let's get you fed."] }),
+    msg({ lines: ["Sari, Tanglish-la pesalam. Vanga, saapadu order pannalam."] }),
+  );
+}
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
 export function buildWelcomeMessage(firstName?: string, kind: WelcomeKind = "new", lang?: WaLang): string {
   const name = greetName(firstName);
+
   if (kind === "active") {
     return pickLang(
       lang,
-      `Vanakkam${name}!\n\nYour order's still moving. Track it — or start the next one?`,
-      `Vanakkam${name}!\n\nOrder still moving-la iruku. Track pannunga — illa next one start?`,
+      msg({
+        title: `Hello${name}`,
+        lines: ["Your order is still on the move. Track it, or start the next one."],
+      }),
+      msg({
+        title: `Vanakkam${name}`,
+        lines: ["Unga order innum vandhukondu iruku. Track pannunga, illa adutha order start pannunga."],
+      }),
     );
   }
+
   if (kind === "returning") {
     return pickLang(
       lang,
-      `Vanakkam${name}!\n\nSame biryani drill, or feeling adventurous today?\n\n${ORDER_CUTOFF_REMINDER}`,
-      `Vanakkam${name}!\n\nLast time maadhiri order, illa fresh-aa try pannalama?\n\n${ORDER_CUTOFF_REMINDER}`,
+      msg({
+        title: `Welcome back${name}`,
+        lines: ["The usual, or shall we tempt you with something else today?"],
+        note: "Everything is cooked to order, so we need 24 hours. No rush orders.",
+      }),
+      msg({
+        title: `Vanakkam${name}`,
+        lines: ["Regular order-a, illa indha vaatti vera edhachum try pannalama?"],
+        note: "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.",
+      }),
     );
   }
+
   return pickLang(
     lang,
-    `Vanakkam${name}!\n\nWelcome to *Vidya's Kitchen* — Sivakasi home-style, cooked fresh against order.\n\n${ORDER_CUTOFF_REMINDER}`,
-    `Vanakkam${name}!\n\n*Vidya's Kitchen*-la welcome. Sivakasi home-style, fresh-aa cook pannuvom.\n\n${ORDER_CUTOFF_REMINDER}`,
+    msg({
+      title: `Welcome to Vidya's Kitchen${name}`,
+      lines: ["Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg."],
+      note: "Everything is cooked to order, so we need 24 hours. No rush orders.",
+    }),
+    msg({
+      title: `Vidya's Kitchen-ku vanga${name}`,
+      lines: ["Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg."],
+      note: "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.",
+    }),
   );
 }
 
 // ─── Menu ────────────────────────────────────────────────────────────────────
 
+export function buildMenuHeader(lang?: WaLang): string {
+  return pickLang(lang, "Our menu", "Namma menu");
+}
+
+export function buildFullMenuBody(lang?: WaLang, opts?: { truncated?: boolean }): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "What are we cooking for you?",
+      lines: [
+        "Tap View items to see every dish with photos and prices. Add what you want, then send the cart back to me.",
+      ],
+      note: opts?.truncated
+        ? "A few sizes only fit in the app. Prices shown are per pack."
+        : "Prices shown are per pack. Both sizes are listed for every dish.",
+    }),
+    msg({
+      title: "Enna cook pannalam?",
+      lines: [
+        "View items tap pannunga — ella dish-um photo, price-oda irukum. Venundadhu add pannitu, cart-a enakku anupunga.",
+      ],
+      note: opts?.truncated
+        ? "Konjam size app-la dhaan irukum. Price oru pack-ku."
+        : "Price oru pack-ku. Rendu size-um ella dish-ku irukum.",
+    }),
+  );
+}
+
 export function buildCategoryListBody(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*What's cooking?*\n\nTap below — chicken, mutton, or egg.\n\n${buildAppNudgeFooter(lang)}`,
-    `*Enna menu?*\n\nKizhe tap pannunga — chicken, mutton, illa egg.\n\n${buildAppNudgeFooter(lang)}`,
+    msg({
+      title: "What are you in the mood for?",
+      lines: ["Pick a category and I'll show you the dishes."],
+      note: "Photos, a bigger cart and a map pin all live in the app. Help, then Install app.",
+    }),
+    msg({
+      title: "Enna saapidalam?",
+      lines: ["Oru category pick pannunga, dish-ellam kaatren."],
+      note: "Photos, periya cart, map pin — ellame app-la. Help, apram Install app.",
+    }),
   );
 }
 
 export function buildCategoryMessage(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Pick a category:*\n\n1. Chicken\n2. Mutton\n3. Egg\n\n_Tap or reply 1–3._`,
-    `*Category choose pannunga:*\n\n1. Chicken\n2. Mutton\n3. Egg\n\n_Tap illa 1–3._`,
+    msg({
+      title: "Pick a category",
+      lines: ["1. Chicken", "2. Mutton", "3. Egg"],
+      note: "Tap one, or reply 1 to 3.",
+    }),
+    msg({
+      title: "Category pick pannunga",
+      lines: ["1. Chicken", "2. Mutton", "3. Egg"],
+      note: "Tap pannunga, illa 1 to 3 anupunga.",
+    }),
   );
 }
 
 export function buildDishListBody(categoryLabel: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*${categoryLabel} specials*\n(Prices: 500gm / 1kg)\n\nSwipe the cards — or tap the list — and pick a dish.`,
-    `*${categoryLabel} specials*\n(Price: 500gm / 1kg)\n\nCards swipe pannunga, illa list tap — dish pick pannunga.`,
+    msg({
+      title: categoryLabel,
+      lines: ["Every dish, both sizes, with photos. Add what you want and send the cart back."],
+      note: "Prices are per pack.",
+    }),
+    msg({
+      title: categoryLabel,
+      lines: ["Ella dish, rendu size, photo-oda. Venundadhu add pannitu cart anupunga."],
+      note: "Price oru pack-ku.",
+    }),
   );
 }
 
 export function buildCarouselBody(categoryLabel: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*${categoryLabel}*\nSwipe the photos. Tap *Add* — size next.`,
-    `*${categoryLabel}*\nPhoto swipe pannunga. *Add* tap — size apram.`,
+    msg({ title: categoryLabel, lines: ["Swipe through, then tap Add. Size comes next."] }),
+    msg({ title: categoryLabel, lines: ["Swipe pannunga, apram Add tap. Size adhukku apram."] }),
   );
 }
 
 export function buildMenuMessage(
-  items: { name: string; price: number; category?: string }[],
+  items: { name: string; price: number; category?: string; retailer_id?: string; image_url?: string; id?: string }[],
+  lang?: WaLang,
 ): string {
   const categories = new Map<string, typeof items>();
   for (const item of items) {
@@ -115,118 +334,136 @@ export function buildMenuMessage(
     categories.get(cat)!.push(item);
   }
 
-  const lines: string[] = [`*Vidya's Kitchen Menu*`, ``];
-
+  const lines: string[] = [];
   for (const [cat, catItems] of categories) {
     lines.push(`*${cat.charAt(0).toUpperCase() + cat.slice(1)}*`);
     for (const item of catItems) {
-      lines.push(`  ${item.name}`);
-      lines.push(`  _500gm Rs ${item.price} · 1kg Rs ${Math.round(item.price * 1.8)}_`);
+      lines.push(item.name);
+      lines.push(`_${packPriceLine(item)}_`);
     }
-    lines.push(``);
+    lines.push("");
   }
 
-  lines.push(ORDER_CUTOFF_REMINDER);
-  lines.push(`_Sivakasi delivery only._`);
-  return lines.join("\n");
+  return msg({
+    title: pickLang(lang, "Our menu", "Namma menu"),
+    lines,
+    note: pickLang(
+      lang,
+      "Sivakasi delivery only. Cooked to order, so we need 24 hours.",
+      "Sivakasi delivery mattum. Fresh-a cook pannuvom, 24 hours venum.",
+    ),
+  });
 }
 
-// ─── Item Variants ───────────────────────────────────────────────────────────
+// ─── Item variants ───────────────────────────────────────────────────────────
 
-export function buildVariantMessage(itemName: string, price500gm: number, lang?: WaLang): string {
-  const price1kg = Math.round(price500gm * 1.8);
+export function buildVariantMessage(
+  itemName: string,
+  prices: { "500gm": number; "1kg": number },
+  lang?: WaLang,
+): string {
   return pickLang(
     lang,
-    `*${itemName}*\n\nSize?\n\n1. 500gm — *Rs ${price500gm}*\n2. 1kg — *Rs ${price1kg}*`,
-    `*${itemName}*\n\nSize?\n\n1. 500gm — *Rs ${price500gm}*\n2. 1kg — *Rs ${price1kg}*`,
+    msg({
+      title: itemName,
+      lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
+      note: "Which size?",
+    }),
+    msg({
+      title: itemName,
+      lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
+      note: "Endha size?",
+    }),
   );
 }
 
 export function buildQtyMessage(variant: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*${variant}* — how many? Tap 1, 2, or 3.`,
-    `*${variant}* — evlo? 1, 2, illa 3 tap pannunga.`,
+    msg({ title: variant, lines: ["How many? Tap 1, 2 or 3."] }),
+    msg({ title: variant, lines: ["Ethana? 1, 2, illa 3 tap pannunga."] }),
   );
 }
 
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
-/**
- * Spelled out on every screen that shows a total, because the payment link is
- * raised for the grand total — quoting the bare item sum here would surprise
- * the customer at Razorpay.
- */
-function feeLines(cart: CartItem[]): string[] {
-  const b = cartBreakdown(cart);
-  return [
-    `Items: Rs ${b.itemsSubtotal}`,
-    `Packaging: Rs ${b.packaging}`,
-    `Delivery: Rs ${b.delivery}`,
-    `GST (5%): Rs ${b.gst}`,
-  ];
-}
-
 export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   if (cart.length === 0) {
-    return pickLang(lang, "Cart's empty. Menu first — then the fun begins.", "Cart empty. Munna menu — apram party.");
-  }
-
-  const lines: string[] = [`*Your cart*`, ``];
-
-  cart.forEach((item, i) => {
-    lines.push(`${i + 1}. ${item.name} (${item.variant})`);
-    lines.push(`   ${item.quantity}x — Rs ${item.unit_price * item.quantity}`);
-  });
-
-  lines.push(``);
-  lines.push(...feeLines(cart));
-  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
-  if (cart.length >= WA_CART_MAX) {
-    lines.push(``);
-    lines.push(
-      pickLang(
-        lang,
-        `_WhatsApp cart max is ${WA_CART_MAX}. Bigger order? Install the app._`,
-        `_WhatsApp-la max ${WA_CART_MAX} items. Extra venuma? App install pannunga._`,
-      ),
+    return pickLang(
+      lang,
+      msg({ title: "Your cart is empty", lines: ["Tap Menu and let's fix that."] }),
+      msg({ title: "Cart kaali-ya iruku", lines: ["Menu tap pannunga, sari pannalam."] }),
     );
   }
 
-  return lines.join("\n");
+  return msg({
+    title: pickLang(lang, "Your cart", "Unga cart"),
+    lines: [
+      ...cart.map(cartLine),
+      ...totalLines(cart, lang),
+      cart.length >= WA_CART_MAX ? "" : null,
+      cart.length >= WA_CART_MAX
+        ? pickLang(
+            lang,
+            `_WhatsApp carts hold ${WA_CART_MAX} dishes. Feeding a crowd? The app has no limit._`,
+            `_WhatsApp cart-la ${WA_CART_MAX} dish dhaan. Periya order-na app-la limit illa._`,
+          )
+        : null,
+    ],
+  });
 }
 
 export function buildCartLimitMessage(lang?: WaLang): string {
   return pickLang(
     lang,
-    `WhatsApp cart is full (${WA_CART_MAX} items). Open the app for a bigger spread.`,
-    `WhatsApp cart full (${WA_CART_MAX} items). Periya order-ku app open pannunga.`,
+    msg({
+      title: "Cart is full",
+      lines: [`WhatsApp carts hold ${WA_CART_MAX} dishes. The app takes as many as you like.`],
+    }),
+    msg({
+      title: "Cart full",
+      lines: [`WhatsApp-la ${WA_CART_MAX} dish dhaan. App-la ethana venumnaalum add pannalam.`],
+    }),
   );
 }
 
 export function buildItemAddedMessage(name: string, variant: string, qty: number, lang?: WaLang): string {
   return pickLang(
     lang,
-    `In the bag: *${name}* (${variant}) x ${qty}.`,
-    `Cart-la: *${name}* (${variant}) x ${qty}.`,
+    msg({ lines: [`Added: ${name} (${variant}) x ${qty}.`] }),
+    msg({ lines: [`Cart-la sethuruchu: ${name} (${variant}) x ${qty}.`] }),
   );
 }
 
-// ─── Delivery Slot ───────────────────────────────────────────────────────────
+// ─── Delivery date and slot ──────────────────────────────────────────────────
 
 export function buildDatePickerMessage(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*When should it land?*\n\nTap a date. We need 24 hours — gravy doesn't do sprints.`,
-    `*Eppo deliver?*\n\nDate tap pannunga. 24 hours venum — gravy-ku sprint kedaiyadhu.`,
+    msg({
+      title: "When would you like it?",
+      lines: ["Pick a day. We need 24 hours — a good gravy cannot be hurried."],
+    }),
+    msg({
+      title: "Eppo venum?",
+      lines: ["Oru naal pick pannunga. 24 hours venum — nalla gravy-ku avasaram aagadhu."],
+    }),
   );
 }
 
 export function buildSlotPickerMessage(dateStr: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*${dateStr}*\n\nBreakfast, lunch, or dinner?`,
-    `*${dateStr}*\n\nBreakfast, lunch, illa dinner?`,
+    msg({
+      title: dateStr,
+      lines: ["Breakfast, lunch or dinner?"],
+      note: "Breakfast 7 to 9 AM, lunch 12 to 2 PM, dinner 7 to 9 PM.",
+    }),
+    msg({
+      title: dateStr,
+      lines: ["Breakfast, lunch, illa dinner?"],
+      note: "Breakfast 7 to 9 AM, lunch 12 to 2 PM, dinner 7 to 9 PM.",
+    }),
   );
 }
 
@@ -236,40 +473,28 @@ export function buildReuseLastPrompt(
   slotLine: string | null,
   lang?: WaLang,
 ): string {
-  const lines = [
-    pickLang(lang, `*Same as last time?*`, `*Last time maadhiri?*`),
-    ``,
-  ];
-  cart.forEach((item) => {
-    lines.push(`${item.name} (${item.variant}) x ${item.quantity} — Rs ${item.unit_price * item.quantity}`);
-  });
-  lines.push(``);
-  lines.push(...feeLines(cart));
-  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
-  if (slotLine) {
-    lines.push(``);
-    lines.push(pickLang(lang, `Last slot: *${slotLine}*`, `Last slot: *${slotLine}*`));
-  }
-  if (address) {
-    lines.push(pickLang(lang, `Last address: ${address}`, `Last address: ${address}`));
-  }
-  lines.push(``);
-  lines.push(
-    pickLang(
+  return msg({
+    title: pickLang(lang, "Same as last time?", "Last time maadhiri-ya?"),
+    lines: [
+      ...cart.map(cartLine),
+      ...totalLines(cart, lang),
+      "",
+      slotLine ? pickLang(lang, `Slot: ${slotLine}`, `Slot: ${slotLine}`) : null,
+      address ? pickLang(lang, `Address: ${address}`, `Address: ${address}`) : null,
+    ],
+    note: pickLang(
       lang,
-      `_Same last time_ reuses address + next available matching slot.`,
-      `_Same last time_ — address + next matching slot ready.`,
+      "Same as last time reuses your address and the next free matching slot.",
+      "Same as last time — adhe address, adutha free slot.",
     ),
-  );
-  return lines.join("\n");
+  });
 }
 
 export function buildReuseAddressPrompt(address: string, lang?: WaLang): string {
-  return pickLang(
-    lang,
-    `*Deliver here again?*\n\n${address}`,
-    `*Ithe address-ku anupattoma?*\n\n${address}`,
-  );
+  return msg({
+    title: pickLang(lang, "Deliver here again?", "Ithe address-ku-va?"),
+    lines: [address],
+  });
 }
 
 // ─── Address ─────────────────────────────────────────────────────────────────
@@ -277,12 +502,20 @@ export function buildReuseAddressPrompt(address: string, lang?: WaLang): string 
 export function buildAddressPrompt(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Where in Sivakasi?*\n\nArea + landmark. Example: 42, Gandhi Nagar, near bus stand.`,
-    `*Sivakasi-la enga?*\n\nArea + landmark. Example: 42, Gandhi Nagar, bus stand pakkam.`,
+    msg({
+      title: "Where in Sivakasi?",
+      lines: ["Send your area and a landmark.", "", "Example: 42 Gandhi Nagar, near the bus stand."],
+      note: "We deliver in and around Sivakasi only.",
+    }),
+    msg({
+      title: "Sivakasi-la enga?",
+      lines: ["Area-um oru landmark-um anupunga.", "", "Example: 42 Gandhi Nagar, bus stand pakkathula."],
+      note: "Sivakasi suthi vattaram mattum deliver pannuvom.",
+    }),
   );
 }
 
-// ─── Order Summary ───────────────────────────────────────────────────────────
+// ─── Order summary ───────────────────────────────────────────────────────────
 
 export function buildOrderSummaryMessage(
   cart: CartItem[],
@@ -291,19 +524,103 @@ export function buildOrderSummaryMessage(
   address: string,
   lang?: WaLang,
 ): string {
-  const lines: string[] = [pickLang(lang, `*Does this look right?*`, `*Idhu seriya?*`), ``];
-
-  cart.forEach((item) => {
-    lines.push(`${item.name} (${item.variant}) x ${item.quantity} — Rs ${item.unit_price * item.quantity}`);
+  return msg({
+    title: pickLang(lang, "Does this look right?", "Idhu sari-ya iruka?"),
+    lines: [
+      ...cart.map(cartLine),
+      ...totalLines(cart, lang),
+      "",
+      `${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}`,
+      address,
+    ],
   });
+}
 
-  lines.push(``);
-  lines.push(...feeLines(cart));
-  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
-  lines.push(``);
-  lines.push(`*${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}*`);
-  lines.push(address);
-  return lines.join("\n");
+// ─── Conversational proposal ─────────────────────────────────────────────────
+
+/**
+ * The order the model understood, priced by the server. Nothing is written
+ * until the customer taps Confirm order, so this message has to state
+ * everything they are agreeing to.
+ */
+export function buildProposalMessage(
+  cart: CartItem[],
+  dateStr: string,
+  slotLabel: string,
+  address: string,
+  paymentLabel: string,
+  lang?: WaLang,
+): string {
+  return msg({
+    title: pickLang(lang, "Here's what I've got", "Naan puinjukittadhu idhu"),
+    lines: [
+      ...cart.map(cartLine),
+      ...totalLines(cart, lang),
+      "",
+      `${dateStr} · ${slotLabel}`,
+      address,
+      paymentLabel,
+    ],
+    note: pickLang(
+      lang,
+      "Nothing is booked until you tap Confirm order.",
+      "Confirm order tap panna varaikkum onnum book aagala.",
+    ),
+  });
+}
+
+export function buildProposalAskMessage(
+  field: "dish" | "size" | "date" | "slot" | "address" | "payment",
+  lang?: WaLang,
+): string {
+  switch (field) {
+    case "dish":
+      return pickLang(
+        lang,
+        msg({ lines: ["Which dish did you have in mind? Tap Menu to see them all."] }),
+        msg({ lines: ["Endha dish venum? Menu tap pannunga, ellame irukum."] }),
+      );
+    case "size":
+      return pickLang(
+        lang,
+        msg({ lines: ["500gm or 1kg?"] }),
+        msg({ lines: ["500gm illa 1kg?"] }),
+      );
+    case "date":
+      return pickLang(
+        lang,
+        msg({ lines: ["Which day should it arrive?"] }),
+        msg({ lines: ["Endha naal deliver pannanum?"] }),
+      );
+    case "slot":
+      return pickLang(
+        lang,
+        msg({ lines: ["Breakfast, lunch or dinner?"] }),
+        msg({ lines: ["Breakfast, lunch, illa dinner?"] }),
+      );
+    case "address":
+      return buildAddressPrompt(lang);
+    case "payment":
+      return pickLang(
+        lang,
+        msg({ lines: [`Pay online, or cash at the door? Cash works up to ${COD_CAP}.`] }),
+        msg({ lines: [`Online pay illa door-la cash? Cash ${COD_CAP} varaikkum.`] }),
+      );
+  }
+}
+
+export function buildProposalExpiredMessage(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "That slot has passed",
+      lines: ["We need 24 hours' notice, and this one slipped inside it. Pick a new day and I'll rebuild the order."],
+    }),
+    msg({
+      title: "Andha slot poiduchu",
+      lines: ["24 hours venum, idhu adhukulla vandhuduchu. Puthu naal pick pannunga, order-a thirumba build pannuren."],
+    }),
+  );
 }
 
 // ─── Payment ─────────────────────────────────────────────────────────────────
@@ -311,8 +628,14 @@ export function buildOrderSummaryMessage(
 export function buildPaymentMessage(total: number, _paymentUrl?: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Payment*\n\nAmount: *Rs ${total}*\n\nTap *Pay now* — UPI, card, or net banking. We start once it lands.`,
-    `*Payment*\n\nAmount: *Rs ${total}*\n\n*Pay now* tap pannunga — UPI, card, net banking. Payment vandha start.`,
+    msg({
+      title: "Payment",
+      lines: [`Amount: *${money(total)}*`, "", "Tap Pay now for UPI, card or net banking. The kitchen starts once it lands."],
+    }),
+    msg({
+      title: "Payment",
+      lines: [`Amount: *${money(total)}*`, "", "Pay now tap pannunga — UPI, card, net banking. Payment vandha kitchen start."],
+    }),
   );
 }
 
@@ -320,248 +643,508 @@ export function buildPayMethodPrompt(total: number, lang?: WaLang, opts?: { over
   if (opts?.overLimit) {
     return pickLang(
       lang,
-      `*Rs ${total}*\n\nCash on delivery isn't available above ₹2,000 — pay online for this order.\n\n(Cash is still listed so you can see the rule.)`,
-      `*Rs ${total}*\n\n₹2,000-ku mela cash illa — intha order-ku online pay pannunga.\n\n(Cash button kaatrom, rule theriyanum.)`,
+      msg({
+        title: money(total),
+        lines: [`Cash on delivery stops at ${COD_CAP}, so this one needs paying online.`],
+      }),
+      msg({
+        title: money(total),
+        lines: [`${COD_CAP}-ku mela cash illa, so idhu online pay pannanum.`],
+      }),
     );
   }
   return pickLang(
     lang,
-    `*Rs ${total}*\n\nPay online now, or cash when it arrives (up to ₹2,000).`,
-    `*Rs ${total}*\n\nIppo online pay, illa cash door-la (₹2,000 varai).`,
+    msg({
+      title: money(total),
+      lines: [`Pay online now, or cash when it arrives. Cash works up to ${COD_CAP}.`],
+    }),
+    msg({
+      title: money(total),
+      lines: [`Ippo online pay pannunga, illa vandhadhukku apram cash. Cash ${COD_CAP} varaikkum.`],
+    }),
   );
 }
 
 export function buildCodOverLimitMention(lang?: WaLang): string {
   return pickLang(
     lang,
-    `_Cash on delivery isn't available above ₹2,000 — pay online for this order._`,
-    `_₹2,000-ku mela cash illa — intha order online dhaan._`,
+    `_Cash on delivery stops at ${COD_CAP}, so this one is online only._`,
+    `_${COD_CAP}-ku mela cash illa, idhu online dhaan._`,
   );
 }
 
 export function buildCodOverLimitReply(total: number, lang?: WaLang, blocked?: boolean): string {
-  if (blocked && isFinite(total) && total <= 2000) {
+  if (blocked && isFinite(total) && total <= COD_MAX_ORDER_VALUE) {
     return pickLang(
       lang,
-      `Cash isn't available on this number right now. Tap *Pay online* — same gravy, less door drama.`,
-      `Intha number-ku ippo cash illa. *Pay online* tap pannunga — same gravy.`,
+      msg({
+        lines: ["Cash isn't available on this number at the moment. Tap Pay online — same gravy, less doorstep maths."],
+      }),
+      msg({
+        lines: ["Indha number-ku ippo cash illa. Pay online tap pannunga — same gravy."],
+      }),
     );
   }
   return pickLang(
     lang,
-    `Love the energy, but cash maxes out at ₹2,000. This one's *Rs ${total}* — tap *Pay online* and we'll start the gravy.`,
-    `Cash ₹2,000 varai dhaan. Ithu *Rs ${total}* — *Pay online* tap pannunga, gravy start aagum.`,
+    msg({
+      lines: [`We like the appetite, but cash stops at ${COD_CAP}. This one is ${money(total)} — tap Pay online and the gravy gets going.`],
+    }),
+    msg({
+      lines: [`Pasi nalla iruku, aana cash ${COD_CAP} varaikkum dhaan. Idhu ${money(total)} — Pay online tap pannunga, gravy start aagum.`],
+    }),
   );
 }
 
 export function buildOrderIdPendingPaymentMessage(shortId: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `_Order #${shortId} — we'll confirm the second payment lands._`,
-    `_Order #${shortId} — payment vandha odane confirm._`,
+    `_Order ${shortId} — we'll confirm the moment your payment lands._`,
+    `_Order ${shortId} — payment vandha odane confirm pannuvom._`,
   );
 }
 
 export function buildReorderEmptyMessage(lang?: WaLang): string {
   return pickLang(
     lang,
-    "Couldn't find a past cart. Tap *Menu* and we'll build a new one.",
-    "Past cart kedaikala. *Menu* tap pannunga — puthu-ya build pannalam.",
+    msg({ title: "Nothing to reorder yet", lines: ["Tap Menu and we'll build your first one."] }),
+    msg({ title: "Reorder panna onnum illa", lines: ["Menu tap pannunga, mudhal order build pannalam."] }),
   );
 }
 
 export function buildCodPlacedMessage(shortId: string, amtStr: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Order in* (#${shortId})\n\nCash on delivery — please keep *${amtStr}* ready. Kitchen's in the loop.`,
-    `*Order in* (#${shortId})\n\nCash on delivery — *${amtStr}* ready-ya vechikonga. Kitchen-ku theriyum.`,
+    msg({
+      title: `Order ${shortId} is in`,
+      lines: [`Cash on delivery — please have *${amtStr}* ready. The kitchen has it.`],
+    }),
+    msg({
+      title: `Order ${shortId} sethuruchu`,
+      lines: [`Cash on delivery — *${amtStr}* ready-a vachukonga. Kitchen-ku theriyum.`],
+    }),
   );
 }
 
-// ─── Order Status Notifications ──────────────────────────────────────────────
+// ─── Order status notifications ──────────────────────────────────────────────
 
 export function notifyOrderPaid(shortId: string, slotLine?: string, lang?: WaLang): string {
-  const slot = slotLine ? `\n*Delivery:* ${slotLine}\n` : "";
   return pickLang(
     lang,
-    `*Order confirmed* (#${shortId})${slot}\nPayment landed. Kitchen's got it — don't start cooking at home, okay?`,
-    `*Order confirmed* (#${shortId})${slot}\nPayment vandhuchu. Kitchen-ku theriyum — veetla stove on pannaadheenga, okay?`,
+    msg({
+      title: `Order ${shortId} confirmed`,
+      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Payment received. The kitchen has your order — no need to start cooking at home."],
+    }),
+    msg({
+      title: `Order ${shortId} confirm aayiduchu`,
+      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Payment vandhuduchu. Kitchen-ku theriyum — veetla stove on panna vendaam."],
+    }),
   );
 }
 
 /** Cash on delivery — nothing has been paid yet, so never say "payment received". */
 export function notifyOrderPlacedCod(shortId: string, amtStr: string, slotLine?: string, lang?: WaLang): string {
-  const slot = slotLine ? `\n*Delivery:* ${slotLine}\n` : "";
   return pickLang(
     lang,
-    `*Order confirmed* (#${shortId})${slot}\n*Cash on delivery* — keep *${amtStr}* ready.\nKitchen's in. We'll ping you as it moves.`,
-    `*Order confirmed* (#${shortId})${slot}\n*Cash on delivery* — *${amtStr}* ready-ya vechikonga.\nKitchen start-ku ready. Update anupuvom.`,
+    msg({
+      title: `Order ${shortId} confirmed`,
+      lines: [
+        slotLine ? `Delivery: ${slotLine}` : null,
+        `Cash on delivery — please have *${amtStr}* ready.`,
+        "The kitchen has it. We'll message you as it moves.",
+      ],
+    }),
+    msg({
+      title: `Order ${shortId} confirm aayiduchu`,
+      lines: [
+        slotLine ? `Delivery: ${slotLine}` : null,
+        `Cash on delivery — *${amtStr}* ready-a vachukonga.`,
+        "Kitchen-ku theriyum. Update anupuvom.",
+      ],
+    }),
   );
 }
 
 export function notifyCodCollected(shortId: string, amtStr: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Cash collected* (#${shortId})\n\nGot *${amtStr}*. Driver says thanks. We say enjoy.`,
-    `*Cash collected* (#${shortId})\n\n*${amtStr}* vandhuchu. Driver thanks. Naan solren — enjoy.`,
+    msg({
+      title: `Cash received for ${shortId}`,
+      lines: [`Got *${amtStr}*. Our driver says thank you. We say enjoy.`],
+    }),
+    msg({
+      title: `${shortId}-ku cash vandhuduchu`,
+      lines: [`*${amtStr}* kittuchu. Driver thanks solraaru. Naanga solrom — enjoy pannunga.`],
+    }),
   );
 }
 
 export function notifyOrderUndelivered(shortId: string, reasonLine: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Couldn't complete delivery* (#${shortId})\n\n${reasonLine}.\n\nReply here — we'll sort it. No disappearing act.`,
-    `*Delivery aagala* (#${shortId})\n\n${reasonLine}.\n\nInga reply pannunga — paathukrom.`,
+    msg({
+      title: `We couldn't deliver ${shortId}`,
+      lines: [`${reasonLine}.`, "", "Reply here and we'll sort it out. We're not going anywhere."],
+    }),
+    msg({
+      title: `${shortId} deliver panna mudiyala`,
+      lines: [`${reasonLine}.`, "", "Inga reply pannunga, sari pannuvom."],
+    }),
   );
 }
 
 export function notifyOrderAccepted(shortId: string, slotLine?: string, lang?: WaLang): string {
-  const slot = slotLine ? `\n*Delivery:* ${slotLine}\n` : "";
   return pickLang(
     lang,
-    `*Kitchen accepted* (#${shortId})${slot}\nIt's on the board. Cancel lives in the app, at least 12 hours before the slot.`,
-    `*Kitchen accepted* (#${shortId})${slot}\nBoard-la serndhuchu. Cancel venuma-na app-la — slot-ku 12 hours munnaadi.`,
+    msg({
+      title: `Kitchen accepted ${shortId}`,
+      lines: [slotLine ? `Delivery: ${slotLine}` : null, "It's on the board. Cancelling lives in the app, up to 12 hours before your slot."],
+    }),
+    msg({
+      title: `Kitchen ${shortId} accept panniduchu`,
+      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Board-la vandhuduchu. Cancel pannanumna app-la, slot-ku 12 hours munnadi."],
+    }),
   );
 }
 
 export function notifyOrderPreparing(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Preparing*\n\nKitchen's on it. Don't start cooking at home, okay?`,
-    `*Preparing*\n\nKitchen start panniruchu. Veetla stove on pannaadheenga, okay?`,
+    msg({ title: "Preparing your order", lines: ["The kitchen is on it. Resist the urge to start cooking at home."] }),
+    msg({ title: "Order prepare aagudhu", lines: ["Kitchen velai start panniduchu. Veetla stove on panna vendaam."] }),
   );
 }
 
 export function notifyOrderOutForDelivery(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Out for delivery*\n\nYour food left the building. Sivakasi traffic vs gravy — gravy usually wins.`,
-    `*Out for delivery*\n\nFood left the building. Sivakasi traffic vs gravy — gravy dhaan usually wins.`,
+    msg({
+      title: "Out for delivery",
+      lines: ["Your food has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins."],
+    }),
+    msg({
+      title: "Delivery-ku kilambiduchu",
+      lines: ["Saapadu kitchen-la kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum."],
+    }),
+  );
+}
+
+/** Caption for the static pin. Business accounts get no live location API. */
+export function driverPinCaption(minutesAgo: number, lang?: WaLang): string {
+  const when =
+    minutesAgo <= 1
+      ? pickLang(lang, "just now", "ippo dhaan")
+      : pickLang(lang, `${minutesAgo} minutes ago`, `${minutesAgo} nimisham munnadi`);
+  return pickLang(
+    lang,
+    msg({
+      title: "Driver update",
+      lines: [`This is where your driver was ${when}.`],
+      note: "A snapshot, not a live map. Open the app for the full picture.",
+    }),
+    msg({
+      title: "Driver update",
+      lines: [`Unga driver ${when} inga irundhaaru.`],
+      note: "Idhu oru snapshot, live map illa. Full view-ku app open pannunga.",
+    }),
   );
 }
 
 export function notifyOrderDelivered(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Delivered*\n\nLanded. If it's good, tell us. If it's great, tell the street.\n\n1. Excellent\n2. Good\n3. Okay\n4. Could be better\n5. Not satisfied`,
-    `*Delivered*\n\nLanded. Nalla irundha solunga. Super-na, theruvukey sollunga.\n\n1. Excellent\n2. Good\n3. Okay\n4. Could be better\n5. Not satisfied`,
+    msg({
+      title: "Delivered",
+      lines: [
+        "That's it — enjoy. How was it?",
+        "",
+        "1. Excellent",
+        "2. Good",
+        "3. Okay",
+        "4. Could be better",
+        "5. Not satisfied",
+      ],
+      note: "Reply with a number. It takes a second and it genuinely helps.",
+    }),
+    msg({
+      title: "Delivered",
+      lines: [
+        "Vandhuduchu — enjoy pannunga. Eppadi irundhuchu?",
+        "",
+        "1. Excellent",
+        "2. Good",
+        "3. Okay",
+        "4. Could be better",
+        "5. Not satisfied",
+      ],
+      note: "Oru number anupunga. Oru second dhaan, romba help aagum.",
+    }),
+  );
+}
+
+export function buildRatingCommentPrompt(stars: number, lang?: WaLang): string {
+  const warm = stars >= 4;
+  return pickLang(
+    lang,
+    msg({
+      lines: [
+        warm
+          ? "Thank you. One line on what you liked, so we keep doing it?"
+          : "Thank you for saying so. One line on what went wrong, so we can fix it?",
+      ],
+      note: "Type it here, or tap Skip.",
+    }),
+    msg({
+      lines: [
+        warm
+          ? "Nandri. Enna pidichudhu-nu oru line sollunga, adhe continue pannuvom."
+          : "Sollathukku nandri. Enna thappaachu-nu oru line sollunga, sari pannuvom.",
+      ],
+      note: "Inga type pannunga, illa Skip tap pannunga.",
+    }),
+  );
+}
+
+export function ratingCommentThanks(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({ lines: ["Noted, and passed to the kitchen. Thank you."] }),
+    msg({ lines: ["Kitchen-ku sollitten. Nandri."] }),
   );
 }
 
 export function notifyOrderCancelled(shortId: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    `Order *#${shortId}* is off the stove.\n\nWhenever you're hungry again, we're here.`,
-    `Order *#${shortId}* cancel aayiduchu.\n\nNext time pasikkum-bodhu, we're here.`,
+    msg({
+      title: `Order ${shortId} cancelled`,
+      lines: ["It's off the stove. Whenever you're hungry again, we're here."],
+    }),
+    msg({
+      title: `Order ${shortId} cancel aayiduchu`,
+      lines: ["Stove-la irundhu eduthuduchom. Adutha vaatti pasikkum bodhu, naanga irukom."],
+    }),
   );
 }
 
 export function notifyOrderRejected(shortId: string, amtStr: string, wasPaid = true, lang?: WaLang): string {
-  const money = wasPaid
+  const refundLine = wasPaid
     ? pickLang(
         lang,
-        `A full refund of *${amtStr}* is on the way (5–7 working days).`,
-        `*${amtStr}* full refund start aayiduchu (5–7 working days).`,
+        `A full refund of *${amtStr}* is on its way, in 5 to 7 working days.`,
+        `*${amtStr}* full refund start aayiduchu, 5 to 7 working days.`,
       )
-    : pickLang(lang, `You haven't been charged.`, `Charge aagala.`);
+    : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
   return pickLang(
     lang,
-    `We couldn't take order *#${shortId}* this time.\n\n${money}\n\nSorry — reply if you want help picking something else.`,
-    `Order *#${shortId}* accept panna mudiyala this time.\n\n${money}\n\nSorry — vera dish venuma-na inga solunga.`,
+    msg({
+      title: `We couldn't take order ${shortId}`,
+      lines: [refundLine, "", "Sorry about this. Reply if you'd like help picking something else."],
+    }),
+    msg({
+      title: `Order ${shortId} accept panna mudiyala`,
+      lines: [refundLine, "", "Sorry. Vera dish venumna inga sollunga."],
+    }),
   );
 }
 
-// ─── Help & Support ──────────────────────────────────────────────────────────
+// ─── Help and support ────────────────────────────────────────────────────────
 
 export function helpAndSupportReply(lang?: WaLang): string {
   return pickLang(
     lang,
-    `*Help*\n\nI'm the kitchen's WhatsApp buddy. Track an order, call us, or install the app.\n\nFood talk, late order, wrong item? Just type — I'll sort or loop in a human.`,
-    `*Help*\n\nNaan kitchen WhatsApp friend. Track, call, illa app install.\n\nFood feedback, late, wrong item-na type pannunga — naan paakkuren illa team-ku anupuren.`,
+    msg({
+      title: "Help",
+      lines: [
+        "Track an order, see your past ones, call the kitchen, or change your language.",
+        "",
+        "Late order, wrong dish, anything else — just type it. I'll sort it or bring in a human.",
+      ],
+    }),
+    msg({
+      title: "Help",
+      lines: [
+        "Order track pannunga, pazhaya order paarunga, kitchen-ku call pannunga, illa language change pannunga.",
+        "",
+        "Late, wrong dish, vera edhachum — type pannunga. Naan paarthukren, illa oru human-a kootitu varen.",
+      ],
+    }),
   );
 }
 
-export function callUsDialReply(): string {
-  return [`*Call us*`, ``, SUPPORT_PHONE_E164, ``, `Email: ${SUPPORT_EMAIL}`].join("\n");
+export function callUsDialReply(lang?: WaLang): string {
+  return msg({
+    title: pickLang(lang, "Call us", "Call pannunga"),
+    lines: [SUPPORT_PHONE_E164, "", `Email: ${SUPPORT_EMAIL}`],
+    note: pickLang(lang, "Kitchen hours, 9 AM to 8 PM.", "Kitchen hours, 9 AM to 8 PM."),
+  });
 }
 
 export function escalateHumanReply(lang?: WaLang): string {
   return pickLang(
     lang,
-    `Noted — looping in the team.\n\nCall ${SUPPORT_PHONE_E164} or email ${SUPPORT_EMAIL}. Or open the app for the full order view.`,
-    `Noted — team-ku anupuren.\n\nCall ${SUPPORT_PHONE_E164} illa email ${SUPPORT_EMAIL}. Full view-ku app open pannunga.`,
+    msg({
+      title: "Passing this to the team",
+      lines: [`Call ${SUPPORT_PHONE_E164} or email ${SUPPORT_EMAIL} if it's urgent.`],
+    }),
+    msg({
+      title: "Team-ku anupuren",
+      lines: [`Avasaram-na ${SUPPORT_PHONE_E164} call pannunga, illa ${SUPPORT_EMAIL} email pannunga.`],
+    }),
   );
+}
+
+export function complaintPrompt(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "What happened?",
+      lines: ["Tell me in your own words — food, timing, wrong dish, anything. I'll read it properly."],
+    }),
+    msg({
+      title: "Enna aachu?",
+      lines: ["Unga vaarthaila sollunga — saapadu, time, wrong dish, edhuvaanaalum. Naan sariya padikren."],
+    }),
+  );
+}
+
+export function buildActiveOrdersMessage(
+  rows: { ref: string; status: string; amount: string }[],
+  lang?: WaLang,
+): string {
+  if (rows.length === 0) {
+    return pickLang(
+      lang,
+      msg({ title: "No active orders", lines: ["Tap Menu whenever the hunger strikes."] }),
+      msg({ title: "Active order illa", lines: ["Pasi vandha Menu tap pannunga."] }),
+    );
+  }
+  return msg({
+    title: pickLang(lang, "Active orders", "Active orders"),
+    lines: rows.map((r, i) => `${i + 1}. ${r.ref} — ${r.status} — ${r.amount}`),
+    note: pickLang(lang, "We'll message you at every step.", "Ovvoru step-um message anupuvom."),
+  });
+}
+
+export function buildOrderHistoryMessage(
+  rows: { ref: string; status: string; amount: string; date: string }[],
+  lang?: WaLang,
+): string {
+  if (rows.length === 0) {
+    return pickLang(
+      lang,
+      msg({ title: "No orders yet", lines: ["Tap Menu for the first one."] }),
+      msg({ title: "Innum order illa", lines: ["Mudhal order-ku Menu tap pannunga."] }),
+    );
+  }
+  return msg({
+    title: pickLang(lang, "Your orders", "Unga orders"),
+    lines: rows.map((r, i) => `${i + 1}. ${r.ref} — ${r.status} — ${r.amount} — ${r.date}`),
+  });
+}
+
+export function buildPaymentsMessage(
+  rows: { ref: string; label: string; amount: string }[],
+  lang?: WaLang,
+): string {
+  if (rows.length === 0) {
+    return pickLang(
+      lang,
+      msg({ title: "Payments", lines: ["Nothing on this number yet."] }),
+      msg({ title: "Payments", lines: ["Indha number-la innum onnum illa."] }),
+    );
+  }
+  return msg({
+    title: pickLang(lang, "Payments", "Payments"),
+    lines: rows.map((r) => `${r.ref} — ${r.amount} — ${r.label}`),
+  });
 }
 
 // ─── Reorder ─────────────────────────────────────────────────────────────────
 
-export function buildReorderMessage(items: { name: string; price: number }[]): string {
-  const lines: string[] = [`*Order again*`, ``, `Your previous order included:`, ``];
-
-  items.forEach((item, i) => {
-    lines.push(`${i + 1}. ${item.name} — Rs ${item.price}`);
+export function buildReorderMessage(items: { name: string; price: number }[], lang?: WaLang): string {
+  return msg({
+    title: pickLang(lang, "Order again", "Thirumba order"),
+    lines: [
+      pickLang(lang, "Your last order had:", "Unga last order-la:"),
+      "",
+      ...items.map((item, i) => `${i + 1}. ${item.name} — ${money(item.price)}`),
+    ],
+    note: pickLang(lang, "Reply with a number, or type menu for everything.", "Oru number anupunga, illa menu-nu type pannunga."),
   });
-
-  lines.push(``);
-  lines.push(`_Reply with a number, or type "menu" for the full list._`);
-
-  return lines.join("\n");
 }
 
-// ─── PWA Promo ───────────────────────────────────────────────────────────────
+// ─── App ─────────────────────────────────────────────────────────────────────
 
 export function buildPwaPromoMessage(phone: string, name: string, autoLoginUrl?: string, lang?: WaLang): string {
   const url = autoLoginUrl || `${publicSiteOrigin()}?phone=${phone}&name=${encodeURIComponent(name)}`;
   return pickLang(
     lang,
-    [
-      `*Install Vidya's Kitchen*`,
-      ``,
-      `Photos, live track, map pin, bigger cart — the full kitchen in your pocket.`,
-      ``,
-      `1. Tap *Open app*`,
-      `2. Browser menu → *Add to Home screen*`,
-      ``,
-      `_No Play Store. Works in Chrome._`,
-      url,
-    ].join("\n"),
-    [
-      `*Vidya's Kitchen app*`,
-      ``,
-      `Photos, live track, map pin, periya cart — full kitchen pocket-la.`,
-      ``,
-      `1. *Open app* tap pannunga`,
-      `2. Browser menu → *Add to Home screen*`,
-      ``,
-      `_Play Store thevailla. Chrome-la work aagum._`,
-      url,
-    ].join("\n"),
+    msg({
+      title: "Install Vidya's Kitchen",
+      lines: [
+        "Photos of every dish, live tracking, a map pin for your door, and a cart with no limit.",
+        "",
+        "1. Tap Open app",
+        "2. In the browser menu, choose Add to Home screen",
+        "",
+        url,
+      ],
+      note: "No Play Store needed. Chrome works best.",
+    }),
+    msg({
+      title: "Vidya's Kitchen app install pannunga",
+      lines: [
+        "Ella dish-ukkum photo, live tracking, veedu-ku map pin, limit illadha cart.",
+        "",
+        "1. Open app tap pannunga",
+        "2. Browser menu-la Add to Home screen select pannunga",
+        "",
+        url,
+      ],
+      note: "Play Store thevai illa. Chrome-la nalla work aagum.",
+    }),
   );
 }
 
 export function buildPwaPromoBody(lang?: WaLang): string {
   return pickLang(
     lang,
-    [
-      `*Install Vidya's Kitchen*`,
-      ``,
-      `Photos, live track, map pin, bigger cart.`,
-      ``,
-      `1. Tap *Open app*`,
-      `2. Browser menu → *Add to Home screen*`,
-      ``,
-      `_No Play Store. Chrome is happiest._`,
-    ].join("\n"),
-    [
-      `*Vidya's Kitchen app*`,
-      ``,
-      `Photos, live track, map pin, periya cart.`,
-      ``,
-      `1. *Open app* tap pannunga`,
-      `2. Browser menu → *Add to Home screen*`,
-      ``,
-      `_Play Store thevailla. Chrome nalla irukum._`,
-    ].join("\n"),
+    msg({
+      title: "Install Vidya's Kitchen",
+      lines: [
+        "Photos of every dish, live tracking, a map pin for your door, and a cart with no limit.",
+        "",
+        "1. Tap Open app",
+        "2. In the browser menu, choose Add to Home screen",
+      ],
+      note: "No Play Store needed. Chrome works best.",
+    }),
+    msg({
+      title: "Vidya's Kitchen app install pannunga",
+      lines: [
+        "Ella dish-ukkum photo, live tracking, veedu-ku map pin, limit illadha cart.",
+        "",
+        "1. Open app tap pannunga",
+        "2. Browser menu-la Add to Home screen select pannunga",
+      ],
+      note: "Play Store thevai illa. Chrome-la nalla work aagum.",
+    }),
+  );
+}
+
+export function buildOpenAppBody(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Your kitchen, in the app",
+      lines: ["Full menu with photos, live tracking and your saved addresses."],
+    }),
+    msg({
+      title: "Unga kitchen, app-la",
+      lines: ["Full menu photo-oda, live tracking, save panna address-ellam."],
+    }),
   );
 }
 
@@ -570,9 +1153,42 @@ export function menuContextFooter(): string {
 }
 
 export function ratingThanksReply(lang?: WaLang): string {
-  return pickLang(lang, "Got it — thank you. Means a lot to the kitchen.", "Kittuchiruchu — nandri. Kitchen-ku romba happy.");
+  return pickLang(
+    lang,
+    msg({ lines: ["Thank you — that means a lot to the kitchen."] }),
+    msg({ lines: ["Nandri — kitchen-ku romba santhosham."] }),
+  );
 }
 
 export function aiFollowupPrompt(lang?: WaLang): string {
-  return pickLang(lang, "Anything else? Menu, help, or say hi to start over.", "Vera edhachum? Menu, help, illa hi solunga.");
+  return pickLang(
+    lang,
+    msg({ lines: ["Anything else I can do?"] }),
+    msg({ lines: ["Vera edhachum venuma?"] }),
+  );
+}
+
+/** Opt-out only covers campaigns; order updates are not marketing. */
+export function marketingOptOutReply(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "No more offers",
+      lines: ["You're off the promotions list. You'll still get updates about orders you place."],
+      note: "Changed your mind? Just say hello.",
+    }),
+    msg({
+      title: "Offers stop pannitom",
+      lines: ["Promotions list-la irundhu eduthutom. Order update mattum varum."],
+      note: "Mind change aana, hello sollunga.",
+    }),
+  );
+}
+
+export function notUnderstoodReply(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({ lines: ["I didn't quite catch that. Tap Menu to order, or Help if something's wrong."] }),
+    msg({ lines: ["Sariya puriyala. Order-ku Menu tap pannunga, problem-na Help."] }),
+  );
 }
