@@ -44,6 +44,7 @@ export default function DriversPage() {
   } = useDashboardData();
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [savedDrivers, setSavedDrivers] = useState<Driver[]>([]);
   const [listError, setListError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,13 +58,16 @@ export default function DriversPage() {
     const { ok, drivers: rows, error } = await listDashboardDrivers();
     if (!ok) {
       setDrivers([]);
+      setSavedDrivers([]);
       setPinFlags({});
       setListError(error || "Could not load drivers");
       setLoading(false);
       return;
     }
     setListError("");
-    setDrivers(rows.map(({ id, name, phone }) => ({ id, name, phone })));
+    const next = rows.map(({ id, name, phone }) => ({ id, name, phone }));
+    setDrivers(next);
+    setSavedDrivers(next);
     setPinFlags(Object.fromEntries(rows.map((d) => [d.id, d.hasPin])));
     setLoading(false);
   }, []);
@@ -122,6 +126,14 @@ export default function DriversPage() {
     await fetchDrivers();
     setSaving(false);
   };
+
+  const hasUnsavedChanges =
+    drivers.some((d) => d.id.startsWith("new-")) ||
+    drivers.length !== savedDrivers.length ||
+    drivers.some((d) => {
+      const saved = savedDrivers.find((s) => s.id === d.id);
+      return !saved || saved.name !== d.name || saved.phone !== d.phone;
+    });
 
   const openNotifications = () => {
     setNotifOpen(true);
@@ -363,7 +375,7 @@ export default function DriversPage() {
               );
             })}
           </div>
-          {drivers.length > 0 && (
+          {hasUnsavedChanges && (
             <button
               type="button"
               onClick={() => void saveAll()}
