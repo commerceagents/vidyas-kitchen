@@ -4,7 +4,7 @@
  */
 
 import { publicSiteOrigin } from "./site-url";
-import { type CartItem, cartTotal } from "./whatsapp-session";
+import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
@@ -152,6 +152,21 @@ export function buildQtyMessage(variant: string, lang?: WaLang): string {
 
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
+/**
+ * Spelled out on every screen that shows a total, because the payment link is
+ * raised for the grand total — quoting the bare item sum here would surprise
+ * the customer at Razorpay.
+ */
+function feeLines(cart: CartItem[]): string[] {
+  const b = cartBreakdown(cart);
+  return [
+    `Items: Rs ${b.itemsSubtotal}`,
+    `Packaging: Rs ${b.packaging}`,
+    `Delivery: Rs ${b.delivery}`,
+    `GST (5%): Rs ${b.gst}`,
+  ];
+}
+
 export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   if (cart.length === 0) {
     return pickLang(lang, "Cart's empty. Menu first — then the fun begins.", "Cart empty. Munna menu — apram party.");
@@ -165,7 +180,8 @@ export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   });
 
   lines.push(``);
-  lines.push(`*Total: Rs ${cartTotal(cart)}*`);
+  lines.push(...feeLines(cart));
+  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
   if (cart.length >= WA_CART_MAX) {
     lines.push(``);
     lines.push(
@@ -228,7 +244,8 @@ export function buildReuseLastPrompt(
     lines.push(`${item.name} (${item.variant}) x ${item.quantity} — Rs ${item.unit_price * item.quantity}`);
   });
   lines.push(``);
-  lines.push(`*Total: Rs ${cartTotal(cart)}*`);
+  lines.push(...feeLines(cart));
+  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
   if (slotLine) {
     lines.push(``);
     lines.push(pickLang(lang, `Last slot: *${slotLine}*`, `Last slot: *${slotLine}*`));
@@ -274,7 +291,6 @@ export function buildOrderSummaryMessage(
   address: string,
   lang?: WaLang,
 ): string {
-  const total = cartTotal(cart);
   const lines: string[] = [pickLang(lang, `*Does this look right?*`, `*Idhu seriya?*`), ``];
 
   cart.forEach((item) => {
@@ -282,7 +298,8 @@ export function buildOrderSummaryMessage(
   });
 
   lines.push(``);
-  lines.push(`*Total: Rs ${total}*`);
+  lines.push(...feeLines(cart));
+  lines.push(`*Total: Rs ${cartGrandTotal(cart)}*`);
   lines.push(``);
   lines.push(`*${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}*`);
   lines.push(address);

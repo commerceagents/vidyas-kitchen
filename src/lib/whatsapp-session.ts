@@ -1,12 +1,15 @@
-import { supabase } from "./supabase";
+import { createServerSupabase } from "./supabase-server";
+import type { CartItem } from "./whatsapp-cart";
 
-export type CartItem = {
-  menu_item_id: string;
-  name: string;
-  variant: string;
-  quantity: number;
-  unit_price: number;
-};
+/**
+ * Server-only. `whatsapp_sessions` holds carts and delivery addresses keyed by
+ * phone number, so it is service-role-only with RLS on and no anon policy —
+ * see supabase/migrations-whatsapp-sessions-rls.sql. Importing this module from
+ * a client component would pull the service-role key into the browser bundle;
+ * pure cart maths lives in whatsapp-cart.ts for exactly that reason.
+ */
+
+export type { CartItem };
 
 export type SessionState =
   | "idle"
@@ -55,7 +58,7 @@ const memorySessions = new Map<string, WhatsAppSession>();
 
 export async function getSession(phone: string): Promise<WhatsAppSession> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await createServerSupabase()
       .from("whatsapp_sessions")
       .select("*")
       .eq("phone", phone)
@@ -82,7 +85,9 @@ export async function getSession(phone: string): Promise<WhatsAppSession> {
     }
 
     const fresh: WhatsAppSession = { phone, ...DEFAULT_SESSION, last_active: new Date().toISOString() };
-    const { error: upErr } = await supabase.from("whatsapp_sessions").upsert(fresh, { onConflict: "phone" });
+    const { error: upErr } = await createServerSupabase()
+      .from("whatsapp_sessions")
+      .upsert(fresh, { onConflict: "phone" });
     if (upErr) throw upErr;
     memorySessions.set(phone, fresh);
     return fresh;
@@ -109,10 +114,12 @@ export async function updateSession(
   memorySessions.set(phone, merged);
 
   try {
-    const { error } = await supabase.from("whatsapp_sessions").upsert(
-      { phone, ...updates, updated_at: new Date().toISOString(), last_active: new Date().toISOString() },
-      { onConflict: "phone" },
-    );
+    const { error } = await createServerSupabase()
+      .from("whatsapp_sessions")
+      .upsert(
+        { phone, ...updates, updated_at: new Date().toISOString(), last_active: new Date().toISOString() },
+        { onConflict: "phone" },
+      );
     if (error) throw error;
   } catch (err) {
     console.error("[WA session] updateSession memory-only:", err);
@@ -121,15 +128,4 @@ export async function updateSession(
 
 export async function resetSession(phone: string): Promise<void> {
   await updateSession(phone, { ...DEFAULT_SESSION, last_active: new Date().toISOString() });
-}
-
-export function cartTotal(cart: CartItem[]): number {
-  return cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
-}
-
-export function cartSummary(cart: CartItem[]): string {
-  if (cart.length === 0) return "Cart is empty";
-  const lines = cart.map((c, i) => `${i + 1}. ${c.name} (${c.variant}) × ${c.quantity} — ₹${c.unit_price * c.quantity}`);
-  lines.push(`\n*Total: ₹${cartTotal(cart)}*`);
-  return lines.join("\n");
 }

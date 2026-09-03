@@ -250,6 +250,7 @@ export class VidyaAgent {
     // For pending_payment orders, generate / re-issue a fresh payment link so they can pay right here.
     const pendingLinks: string[] = [];
     const lines: string[] = [];
+    const db = createServerSupabase();
 
     for (const o of orders) {
       const shortId = String(o.id).slice(0, 8);
@@ -264,12 +265,18 @@ export class VidyaAgent {
         lines.push(`✅ ${shortId}… — ₹${amount} — _paid_ (${date})`);
       } else if (o.status === "pending_payment") {
         // Create a fresh Razorpay / UPI link so they can complete payment immediately.
-        const { short_url } = await createPaymentLink(
+        const { short_url, id: paymentLinkId } = await createPaymentLink(
           Number(o.total_amount ?? 0),
           o.id,
           "WhatsApp Customer",
           phoneNumber
         );
+        // Both the callback and the webhook find the order by payment_link_id.
+        // Without this write the customer's money arrives against a link that
+        // matches no row, and the order stays pending_payment forever.
+        if (paymentLinkId) {
+          await db.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", o.id);
+        }
         pendingLinks.push(`🔗 Pay ₹${amount} for order ${shortId}…:\n${short_url}`);
         lines.push(`⏳ ${shortId}… — ₹${amount} — _awaiting payment_ (${date})`);
       } else {

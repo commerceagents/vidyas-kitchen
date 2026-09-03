@@ -23,11 +23,10 @@ DROP POLICY IF EXISTS "Allow all for anon" ON cod_blocks;
 -- Deliberately no replacement policies: with RLS on and no policy, anon and
 -- authenticated get nothing, and the service role still gets everything.
 
--- NOT TOUCHED: whatsapp_sessions. src/lib/whatsapp-session.ts reads and writes
--- it with the anon client, so revoking anon there would break every WhatsApp
--- conversation. Fixing it means editing that file, which is off limits right
--- now. It holds carts and delivery addresses keyed by phone number, so it
--- still needs the same treatment later.
+-- NOT TOUCHED HERE: whatsapp_sessions. It holds carts and delivery addresses
+-- keyed by phone number and needed the same treatment, but only once
+-- src/lib/whatsapp-session.ts stopped using the anon client. That is done —
+-- see migrations-whatsapp-sessions-rls.sql.
 
 -- ── 2. Rate limit for the kitchen PIN ────────────────────────────────────────
 

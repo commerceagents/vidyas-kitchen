@@ -9,7 +9,7 @@ import {
   type DeliverySlotKind,
 } from "./delivery-slots";
 import { WA_CART_MAX } from "./whatsapp-copy";
-import type { CartItem } from "./whatsapp-session";
+import type { CartItem } from "./whatsapp-cart";
 
 export type LastOrderSnapshot = {
   orderId: string;

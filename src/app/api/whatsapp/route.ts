@@ -21,10 +21,9 @@ import {
   getSession,
   updateSession,
   resetSession,
-  cartTotal,
-  type CartItem,
   type WhatsAppSession,
 } from "@/lib/whatsapp-session";
+import { cartGrandTotal, type CartItem } from "@/lib/whatsapp-cart";
 import {
   buildWelcomeMessage,
   welcomeLogoImageUrl,
@@ -1079,7 +1078,7 @@ async function finishAddress(from: string, session: WhatsAppSession | { cart: Ca
 }
 
 async function showSummaryButtons(from: string, cart: CartItem[], summary: string) {
-  const total = cartTotal(cart);
+  const total = cartGrandTotal(cart);
   const overLimit = !isCodAllowedForTotal(total);
   const body = overLimit ? `${summary}\n\n${buildCodOverLimitMention(langOf(from))}` : summary;
   const buttons = [
@@ -1093,7 +1092,7 @@ async function showSummaryButtons(from: string, cart: CartItem[], summary: strin
 }
 
 async function offerPayOrConfirm(from: string, session: WhatsAppSession) {
-  const total = cartTotal(session.cart);
+  const total = cartGrandTotal(session.cart);
   await updateSession(from, { state: "picking_pay_method" });
   const buttons = [
     { id: "pay_online", title: "Pay online" },
@@ -1106,7 +1105,7 @@ async function offerPayOrConfirm(from: string, session: WhatsAppSession) {
 }
 
 async function handlePayCodTap(from: string, session: WhatsAppSession) {
-  const total = cartTotal(session.cart);
+  const total = cartGrandTotal(session.cart);
   const serverDb = createServerSupabase();
   const blocked = await isCodBlocked(serverDb, from).catch(() => false);
   if (blocked || !isCodAllowedForTotal(total)) {
@@ -1325,7 +1324,9 @@ async function processConfirmOrder(
     return ack();
   }
 
-  const total = cartTotal(session.cart);
+  // Packaging + delivery + GST included, so the row, the Razorpay link, and the
+  // quote the customer already accepted are all the same number.
+  const total = cartGrandTotal(session.cart);
   const serverDb = createServerSupabase();
 
   if (paymentMethod === "cod") {
