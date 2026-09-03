@@ -12,6 +12,7 @@ import {
 import {
   approvePricingDecisionAction,
   rejectPricingDecisionAction,
+  updateAppliedDiscountAction,
   toggleAgentAction,
   runAgentManuallyAction,
 } from "@/app/actions/ai-pricing";
@@ -165,6 +166,13 @@ export default function PricingAgentPage() {
     else setMsg(r.error ?? "Reject failed");
   };
 
+  const handleUpdate = async (id: string, pct: number) => {
+    if (id.startsWith("demo-")) return;
+    const r = await updateAppliedDiscountAction(id, pct);
+    if (r.ok) void load();
+    else setMsg(r.error ?? "Update failed");
+  };
+
   const openNotifications = () => {
     setNotifOpen(true);
     markAllRead();
@@ -225,6 +233,7 @@ export default function PricingAgentPage() {
                   <DecisionCard
                     key={d.id}
                     decision={d}
+                    onUpdate={(pct) => handleUpdate(d.id, pct)}
                   />
                 ))}
               </ul>
@@ -559,20 +568,31 @@ function DecisionCard({
   decision,
   onApprove,
   onReject,
+  onUpdate,
 }: {
   decision: Decision;
   onApprove?: (pct?: number | null) => void;
   onReject?: () => void;
+  onUpdate?: (pct: number) => void | Promise<void>;
 }) {
   const isPending = decision.status === "pending";
-  const needsPctPick =
-    isPending &&
-    (decision.decision_type === "increase_discount" ||
-      decision.decision_type === "meal_boost" ||
-      decision.decision_type === "festival_activate");
+  const isLiveOffer = decision.status === "applied" || decision.status === "auto_applied";
+  const editableType =
+    decision.decision_type === "increase_discount" ||
+    decision.decision_type === "decrease_discount" ||
+    decision.decision_type === "meal_boost" ||
+    decision.decision_type === "festival_activate";
+  const showPctPicker = editableType && (isPending || isLiveOffer);
   const [pickedPct, setPickedPct] = useState<number>(() =>
     roundToDiscountPreset(decision.new_discount ?? 20),
   );
+  const [updating, setUpdating] = useState(false);
+  const savedPct = roundToDiscountPreset(decision.new_discount ?? 20);
+  const pctDirty = showPctPicker && pickedPct !== savedPct;
+
+  useEffect(() => {
+    setPickedPct(roundToDiscountPreset(decision.new_discount ?? 20));
+  }, [decision.new_discount]);
   const name = decisionDisplayName(decision);
   const chip = statusChipStyle(decision.status);
   const decidedLabel = new Date(decision.decided_at).toLocaleString("en-IN", {
@@ -665,7 +685,9 @@ function DecisionCard({
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={DETAIL_TEXT}>
                 {decision.decision_type === "festival_activate"
-                  ? "Currently off"
+                  ? isLiveOffer
+                    ? "Was off"
+                    : "Currently off"
                   : `Was ${decision.old_discount != null ? `${decision.old_discount}%` : "—"}`}
               </span>
             </div>
@@ -680,16 +702,16 @@ function DecisionCard({
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={{ ...DETAIL_TEXT, color: YELLOW }}>
                 {decision.decision_type === "festival_activate"
-                  ? `Activate ${needsPctPick ? pickedPct : (decision.new_discount ?? 20)}%`
-                  : `New ${needsPctPick ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}`}
+                  ? `${isLiveOffer ? "Live" : "Activate"} ${showPctPicker ? pickedPct : (decision.new_discount ?? 20)}%`
+                  : `New ${showPctPicker ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}`}
               </span>
             </div>
           </div>
 
-          {needsPctPick && (
+          {showPctPicker && (
             <div style={{ marginTop: 4 }}>
               <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                Tap a % (AI suggested highlighted)
+                {isPending ? "Tap a % (AI suggested highlighted)" : "Change the offer %"}
               </p>
               <DiscountPctPicker
                 value={pickedPct}
@@ -748,7 +770,7 @@ function DecisionCard({
               </button>
               <button
                 type="button"
-                onClick={() => onApprove(needsPctPick ? pickedPct : null)}
+                onClick={() => onApprove(showPctPicker ? pickedPct : null)}
                 className="vk-order-btn vk-order-btn-accept"
                 style={{
                   height: 44,
@@ -765,6 +787,35 @@ function DecisionCard({
                 }}
               >
                 Approve
+              </button>
+            </div>
+          ) : pctDirty && onUpdate ? (
+            <div className="vk-order-card-actions">
+              <button
+                type="button"
+                disabled={updating}
+                onClick={async () => {
+                  setUpdating(true);
+                  await onUpdate(pickedPct);
+                  setUpdating(false);
+                }}
+                className="vk-order-btn vk-order-btn-accept"
+                style={{
+                  height: 44,
+                  borderRadius: 10,
+                  border: "none",
+                  background: YELLOW,
+                  color: "#111",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: updating ? "not-allowed" : "pointer",
+                  fontFamily: FONT,
+                  boxShadow: `0 4px 14px ${YELLOW}25`,
+                  boxSizing: "border-box",
+                  opacity: updating ? 0.6 : 1,
+                }}
+              >
+                {updating ? "Updating…" : "Update offer"}
               </button>
             </div>
           ) : null}

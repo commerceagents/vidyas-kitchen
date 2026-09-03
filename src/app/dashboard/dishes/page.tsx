@@ -96,7 +96,7 @@ export default function DishesPricingPage() {
               ← Back to orders
             </Link>
             <Link
-              href="/dashboard/festivals"
+              href="/dashboard/pricing-agent"
               className="inline-block rounded-full px-3 py-1 text-xs font-bold no-underline transition-opacity hover:opacity-90"
               style={{
                 background: "rgba(245, 158, 11, 0.18)",
@@ -104,7 +104,7 @@ export default function DishesPricingPage() {
                 color: "#fff",
               }}
             >
-              Festival pricing
+              AI Pricing
             </Link>
           </div>
           <h1 style={{ margin: 0, fontSize: "1.65rem", fontWeight: 800, letterSpacing: "-0.02em" }}>

@@ -84,10 +84,67 @@ export async function approvePricingDecisionAction(
 
     revalidatePath("/dashboard/pricing-agent");
     revalidatePath("/dashboard/dishes");
-    revalidatePath("/dashboard/festivals");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Approve failed" };
+  }
+}
+
+export async function updateAppliedDiscountAction(
+  decisionId: string,
+  pct: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
+  try {
+    const supabase = createServerSupabase();
+    const now = new Date().toISOString();
+    const appliedPct = roundToDiscountPreset(pct);
+
+    const { data: decision } = await supabase
+      .from("ai_pricing_decisions")
+      .select("*")
+      .eq("id", decisionId)
+      .single();
+
+    if (!decision) return { ok: false, error: "Decision not found" };
+    if (decision.status !== "applied" && decision.status !== "auto_applied") {
+      return { ok: false, error: "Only live offers can be updated" };
+    }
+
+    const type = String(decision.decision_type);
+    if (type === "festival_activate") {
+      const festivalId = String(decision.dish_id).replace("festival:", "");
+      await supabase
+        .from("festivals")
+        .update({ discount_override: appliedPct, active: true, updated_at: now })
+        .eq("id", festivalId);
+    } else if (type === "increase_discount" || type === "meal_boost" || type === "decrease_discount") {
+      await supabase.from("dish_discount_settings").upsert(
+        {
+          dish_id: decision.dish_id,
+          show_discount: true,
+          discount_type: "percentage",
+          discount_value: appliedPct,
+          updated_at: now,
+        },
+        { onConflict: "dish_id" },
+      );
+    } else {
+      return { ok: false, error: "This offer cannot be edited" };
+    }
+
+    await supabase
+      .from("ai_pricing_decisions")
+      .update({ new_discount: appliedPct, applied_at: now })
+      .eq("id", decisionId);
+
+    revalidatePath("/dashboard/pricing-agent");
+    revalidatePath("/dashboard/dishes");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Update failed" };
   }
 }
 
@@ -143,7 +200,6 @@ export async function runAgentManuallyAction(): Promise<{
   try {
     const result = await runPricingAgentCore();
     revalidatePath("/dashboard/pricing-agent");
-    revalidatePath("/dashboard/festivals");
     revalidatePath("/dashboard/dishes");
     return { ok: true, result };
   } catch (e) {
