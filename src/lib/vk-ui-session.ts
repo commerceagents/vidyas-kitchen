@@ -5,7 +5,6 @@ export const VK_UI_SESSION_KEY = "vk_ui_session";
 
 export type VkUiSession = {
   step?: "login" | "location" | "location_marked" | "home" | "checkout";
-  cart?: Record<string, number>;
   checkoutSourceDishId?: string | null;
   checkoutPhase?: "cart" | "schedule";
   activeNav?: string;

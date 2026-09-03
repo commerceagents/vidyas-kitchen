@@ -10,6 +10,7 @@ import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
 import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
 import { isOrderInFlight } from "@/lib/order-status";
 import { disablePush } from "@/lib/push-subscribe";
 import {
@@ -103,8 +104,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       step = "location";
     }
 
-    const cart =
-      ui?.cart && typeof ui.cart === "object" ? ui.cart : ({} as Record<string, number>);
+    // The cart follows the device, not the tab, so swiping the app out of
+    // Recents no longer empties it.
+    const cart = readSavedCart();
 
     return {
       step,
@@ -210,15 +212,40 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     };
   }, []);
 
-  // Persist shell route + cart across refresh
+  // Persist shell route across refresh
   useEffect(() => {
     if (step === "login") return;
-    writeUiSession({
-      step,
-      cart,
-      checkoutSourceDishId,
+    writeUiSession({ step, checkoutSourceDishId });
+  }, [step, checkoutSourceDishId]);
+
+  useEffect(() => {
+    writeSavedCart(cart);
+  }, [cart]);
+
+  // The page-level theme colour is the marketing site's near-black, which
+  // leaves the browser's toolbar dark above a light app. Match it to the app
+  // while the app is on screen, and put it back on the way out.
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) return;
+    const previous = meta.content;
+    meta.content = "#F5F5F7";
+    return () => {
+      meta.content = previous;
+    };
+  }, []);
+
+  // A cart that outlives the session can name a dish the kitchen has since
+  // withdrawn. Left in, it shows up as a phantom line in the floating bar that
+  // corresponds to nothing on the menu.
+  useEffect(() => {
+    if (items.length === 0) return;
+    const known = new Set(items.map((i) => i.id));
+    setCart((prev) => {
+      const pruned = pruneCart(prev, known);
+      return Object.keys(pruned).length === Object.keys(prev).length ? prev : pruned;
     });
-  }, [step, cart, checkoutSourceDishId]);
+  }, [items]);
 
   // Restore session from localStorage
   useEffect(() => {
@@ -232,6 +259,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       sessionStorage.removeItem(SS_TRACK_ORDER);
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       clearUiSession();
+      clearSavedCart();
       window.history.replaceState({}, "", "/");
       setStep("login");
       setCart({});
@@ -332,7 +360,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           } else if (step !== "checkout" && step !== "home" && step !== "location") {
             setStep("home");
           }
-          if (!paidOk && ui?.cart && typeof ui.cart === "object") setCart(ui.cart);
+          if (!paidOk) setCart(readSavedCart());
           if (ui?.checkoutSourceDishId) setCheckoutSourceDishId(ui.checkoutSourceDishId);
         } catch {
           setStep("location");
@@ -474,6 +502,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     sessionStorage.removeItem(SS_TRACK_ORDER);
     sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
     clearUiSession();
+    clearSavedCart();
     setPhone("");
     setName("");
     setAvatarUrl(null);
@@ -553,7 +582,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
   return (
     <FestivalPricingProvider active={activeFestival}>
-    <div className="fixed inset-0 bg-[#F5F5F7] mobile-shell">
+    {/*
+      The document declares itself dark for the desktop marketing site, but this
+      app is light throughout. Saying so here keeps text fields and other native
+      controls from rendering on a dark canvas, and stops browsers with a "force
+      dark" setting — Samsung Internet has one on by default — from inverting it.
+    */}
+    <div className="fixed inset-0 bg-[#F5F5F7] mobile-shell" style={{ colorScheme: "light" }}>
       <AnimatePresence mode="wait">
         {step === "login" && (
           <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>

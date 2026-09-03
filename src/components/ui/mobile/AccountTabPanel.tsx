@@ -40,6 +40,8 @@ import {
   hasNativePrompt,
   triggerNativeInstall,
   subscribePwaInstall,
+  isSamsungInternet,
+  openInChrome,
 } from "@/lib/pwa-install";
 
 const sp = (n: number) => n * 8;
@@ -186,6 +188,7 @@ export function AccountTabPanel({
   const [showAddresses, setShowAddresses] = useState(openSavedAddresses);
   const [canInstall, setCanInstall] = useState(false);
   const [isAppleInstall, setIsAppleInstall] = useState(false);
+  const [installViaChrome, setInstallViaChrome] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [policy, setPolicy] = useState<"refund" | "terms" | null>(null);
@@ -226,7 +229,9 @@ export function AccountTabPanel({
       }
       const apple = isAppleTouchDevice();
       setIsAppleInstall(apple);
-      setCanInstall(apple || hasNativePrompt());
+      const samsung = isSamsungInternet();
+      setInstallViaChrome(samsung);
+      setCanInstall(apple || samsung || hasNativePrompt());
     };
     recompute();
     return subscribePwaInstall(recompute);
@@ -237,8 +242,12 @@ export function AccountTabPanel({
       setShowIosInstallGuide(true);
       return;
     }
+    if (installViaChrome) {
+      openInChrome();
+      return;
+    }
     await triggerNativeInstall();
-  }, [isAppleInstall]);
+  }, [isAppleInstall, installViaChrome]);
 
   const firstInitial = (displayName.trim().charAt(0) || "?").toUpperCase();
 
@@ -390,7 +399,11 @@ export function AccountTabPanel({
                 <IconDownload />
               </AccountRowIcon>
             }
-            subtitle="Faster ordering, right from your Home Screen"
+            subtitle={
+              installViaChrome
+                ? "Samsung's browser can't install it properly — opens in Chrome"
+                : "Faster ordering, right from your Home Screen"
+            }
             title="Install App"
             onClick={handleInstallApp}
           />

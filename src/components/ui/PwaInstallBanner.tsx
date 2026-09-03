@@ -12,6 +12,8 @@ import {
   hasNativePrompt,
   triggerNativeInstall,
   subscribePwaInstall,
+  isSamsungInternet,
+  openInChrome,
 } from "@/lib/pwa-install";
 
 /** Small delay before sliding in so the motion actually reads as an entrance. */
@@ -26,6 +28,7 @@ const REVEAL_DELAY_MS = 500;
 export function PwaInstallBanner({ active }: { active: boolean }) {
   const [eligible, setEligible] = useState(false);
   const [isApple, setIsApple] = useState(false);
+  const [viaChrome, setViaChrome] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -50,7 +53,11 @@ export function PwaInstallBanner({ active }: { active: boolean }) {
       }
       const apple = isAppleTouchDevice();
       setIsApple(apple);
-      setEligible(apple || hasNativePrompt());
+      // Samsung Internet does fire the install prompt, but Play Protect blocks
+      // what it produces — so we offer Chrome instead, prompt or no prompt.
+      const samsung = isSamsungInternet();
+      setViaChrome(samsung);
+      setEligible(apple || samsung || hasNativePrompt());
     };
     recompute();
     return subscribePwaInstall(recompute);
@@ -75,8 +82,12 @@ export function PwaInstallBanner({ active }: { active: boolean }) {
       setShowIosGuide(true);
       return;
     }
+    if (viaChrome) {
+      openInChrome();
+      return;
+    }
     await triggerNativeInstall();
-  }, [isApple]);
+  }, [isApple, viaChrome]);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
@@ -124,7 +135,9 @@ export function PwaInstallBanner({ active }: { active: boolean }) {
                   Install Vidya's Kitchen
                 </div>
                 <div style={{ fontSize: 11.5, color: "rgba(0,0,0,0.5)", lineHeight: 1.35 }}>
-                  Faster ordering, order tracking &amp; no app store needed
+                  {viaChrome
+                    ? "Samsung's browser can't install it properly — Chrome can"
+                    : "Faster ordering, order tracking & no app store needed"}
                 </div>
               </div>
 
@@ -167,7 +180,7 @@ export function PwaInstallBanner({ active }: { active: boolean }) {
                 boxShadow: `0 6px 18px ${C.redGlow}`,
               }}
             >
-              Get App
+              {viaChrome ? "Open in Chrome" : "Get App"}
             </button>
           </motion.div>
         )}

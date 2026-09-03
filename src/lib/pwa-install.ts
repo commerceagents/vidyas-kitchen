@@ -58,6 +58,37 @@ export async function triggerNativeInstall(): Promise<boolean> {
   return accepted;
 }
 
+/**
+ * Samsung Internet, and the handful of vendor browsers in the same boat.
+ *
+ * Installing a PWA on Android does not make a shortcut, it makes a real APK:
+ * the browser asks its own minting server to build one wrapping the site. The
+ * manifest has no say in that APK's targetSdkVersion, and Samsung's minting
+ * server is behind — so since Android 14, Play Protect refuses the result with
+ * "Unsafe app blocked … built for an older version of Android". Nothing about
+ * our site causes it and nothing in our site can fix it. Chrome's minting
+ * server is current, so the same install from Chrome is clean.
+ */
+export function isSamsungInternet(): boolean {
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
+/** Android, but not Chrome — where a minted install is likely to be blocked. */
+export function isAndroid(): boolean {
+  return /android/i.test(navigator.userAgent);
+}
+
+/**
+ * Hands the current page to Chrome. Android resolves this to Chrome directly;
+ * if Chrome is absent the intent falls through to the Play Store listing.
+ */
+export function openInChrome(): void {
+  const { host, pathname, search } = window.location;
+  window.location.href =
+    `intent://${host}${pathname}${search}#Intent;scheme=https;package=com.android.chrome;` +
+    `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.android.chrome")};end`;
+}
+
 export function isIos(): boolean {
   return /iphone|ipod/i.test(navigator.userAgent);
 }
