@@ -10,8 +10,8 @@ import { createServerSupabase } from "@/lib/supabase-server";
  * accumulate in the kitchen board as "Pending Pay" ghosts and the app's
  * in-flight detector latches onto them on the next cold start.
  *
- * Called every hour by Vercel Cron (configured in vercel.json). Vercel
- * verifies the CRON_SECRET before routing the request here.
+ * Called every hour by Vercel Cron (configured in vercel.json). Vercel attaches
+ * `Authorization: Bearer $CRON_SECRET`; verifying it is this route's job.
  *
  * No WhatsApp notification is sent — the customer abandoned the flow and
  * never confirmed an order, so there is nothing meaningful to say to them.
@@ -19,10 +19,15 @@ import { createServerSupabase } from "@/lib/supabase-server";
  * tomorrow's kitchen board starts clean.
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
+  // Fails closed when CRON_SECRET is missing: this bulk-cancels orders, so an
+  // unset env var must not turn it into an open endpoint.
+  if (!cronSecret) {
+    console.error("[expire-pending-payments] CRON_SECRET is not set — refusing to run.");
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDashboardSession } from "@/lib/dashboard-auth";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Backs the /dashboard/pricing-agent screen: margin config plus the last 50
+ * pricing decisions the agent made. That is the kitchen's costing strategy, so
+ * it takes the same kitchen session as the server actions on the same page —
+ * otherwise this route is a read-only way around them.
+ */
 export async function GET() {
+  const gate = await requireDashboardSession();
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = createServerSupabase();
 
