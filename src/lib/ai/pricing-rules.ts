@@ -161,7 +161,7 @@ export function festivalRule(festival: UpcomingFestival): PricingDecision | null
       dishId: `festival:${festival.id}`,
       dishName: festival.name,
       decisionType: "festival_activate",
-      oldDiscount: Number(festival.discount_override) || null,
+      oldDiscount: null, // festival is currently OFF — no active discount to show
       newDiscount: suggested,
       reasoning: `Festival "${festival.name}" starts in ${festival.daysUntilStart} day(s). AI suggests ${suggested}% offer — pick a % and approve to go live.`,
       autoApply: false,

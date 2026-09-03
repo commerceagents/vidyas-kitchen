@@ -663,7 +663,9 @@ function DecisionCard({
             <div style={{ ...DETAIL_BOX, flex: 1 }}>
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={DETAIL_TEXT}>
-                Was {decision.old_discount != null ? `${decision.old_discount}%` : "—"}
+                {decision.decision_type === "festival_activate"
+                  ? "Currently off"
+                  : `Was ${decision.old_discount != null ? `${decision.old_discount}%` : "—"}`}
               </span>
             </div>
             <div
@@ -676,7 +678,9 @@ function DecisionCard({
             >
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={{ ...DETAIL_TEXT, color: YELLOW }}>
-                New {needsPctPick ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}
+                {decision.decision_type === "festival_activate"
+                  ? `Activate ${needsPctPick ? pickedPct : (decision.new_discount ?? 20)}%`
+                  : `New ${needsPctPick ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}`}
               </span>
             </div>
           </div>

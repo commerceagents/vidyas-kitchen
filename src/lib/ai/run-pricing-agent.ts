@@ -188,7 +188,22 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const agent = new PricingAgent(config);
   const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems);
 
+  // Load existing pending decisions so we can skip duplicates
+  const { data: existingPending } = await supabase
+    .from("ai_pricing_decisions")
+    .select("dish_id, decision_type")
+    .eq("status", "pending");
+
+  const pendingSet = new Set(
+    (existingPending ?? []).map((r: { dish_id: string; decision_type: string }) => `${r.dish_id}::${r.decision_type}`),
+  );
+
   for (const decision of result.decisions) {
+    const key = `${decision.dishId}::${decision.decisionType}`;
+
+    // Skip if a pending decision for this dish+type already exists
+    if (!decision.autoApply && pendingSet.has(key)) continue;
+
     const status = decision.autoApply ? "auto_applied" : "pending";
     const newDiscount =
       decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
