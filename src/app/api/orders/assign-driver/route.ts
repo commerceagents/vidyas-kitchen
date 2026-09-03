@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { sendText } from "@/lib/twilio-whatsapp";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://vidyaskitchenhome.com";
 
 export async function POST(req: NextRequest) {
+  const gate = await requireDashboardSession();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = (await req.json()) as { orderId?: string; driverPhone?: string };
     const { orderId, driverPhone } = body;

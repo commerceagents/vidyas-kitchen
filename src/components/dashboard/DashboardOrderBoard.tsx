@@ -3,13 +3,13 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
+import { listActiveDrivers } from "@/app/actions/drivers";
 import { normalizeOrderStatus, OrderStatus, codFailureLabel } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal, getOrderDisplayTotal, orderItemsSubtotal } from "@/lib/order-pricing";
 import { useToast } from "@/components/dashboard/DashboardToast";
 import { DriverRowsSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
-import { supabase } from "@/lib/supabase";
 import {
   shortOrderId,
   customerDisplayLabel,
@@ -1781,10 +1781,15 @@ function DriverPickerModal({ orderId, onClose, onConfirm }: { orderId: string; o
   const [selected, setSelected] = useState<string>("");
 
   useEffect(() => {
-    supabase.from("drivers").select("id, name, phone").eq("is_active", true).order("name").then(({ data }: { data: { id: string; name: string; phone: string }[] | null }) => {
-      if (data) setDrivers(data);
+    let cancelled = false;
+    void listActiveDrivers().then((rows) => {
+      if (cancelled) return;
+      setDrivers(rows);
       setLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

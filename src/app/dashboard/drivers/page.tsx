@@ -2,8 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Save, Trash2, Truck } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { listDriverPinFlags, setDriverPin } from "@/app/actions/driver-pin";
+import {
+  createDriver,
+  deleteDriver,
+  listDashboardDrivers,
+  setDriverPin,
+  updateDriver,
+} from "@/app/actions/drivers";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
@@ -55,12 +60,9 @@ export default function DriversPage() {
   const [pinMsg, setPinMsg] = useState<Record<string, string>>({});
 
   const fetchDrivers = useCallback(async () => {
-    const [{ data }, flags] = await Promise.all([
-      supabase.from("drivers").select("id, name, phone").order("created_at", { ascending: true }),
-      listDriverPinFlags(),
-    ]);
-    if (data) setDrivers(data as Driver[]);
-    setPinFlags(flags);
+    const { drivers: rows } = await listDashboardDrivers();
+    setDrivers(rows.map(({ id, name, phone }) => ({ id, name, phone })));
+    setPinFlags(Object.fromEntries(rows.map((d) => [d.id, d.hasPin])));
     setLoading(false);
   }, []);
 
@@ -72,7 +74,7 @@ export default function DriversPage() {
     setDrivers((prev) => [...prev, { id: `new-${Date.now()}`, name: "", phone: "" }]);
   };
 
-  const updateDriver = (id: string, field: "name" | "phone", value: string) => {
+  const updateDriverField = (id: string, field: "name" | "phone", value: string) => {
     setDrivers((prev) => prev.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
   };
 
@@ -82,7 +84,11 @@ export default function DriversPage() {
       return;
     }
     if (!confirm("Remove this driver?")) return;
-    await supabase.from("drivers").delete().eq("id", id);
+    const r = await deleteDriver(id);
+    if (!r.ok) {
+      alert(r.error || "Could not remove driver");
+      return;
+    }
     setDrivers((prev) => prev.filter((d) => d.id !== id));
   };
 
@@ -105,11 +111,10 @@ export default function DriversPage() {
     setSaving(true);
     for (const d of drivers) {
       if (isDemoDriver(d.id) || !d.name.trim() || !d.phone.trim()) continue;
-      if (d.id.startsWith("new-")) {
-        await supabase.from("drivers").insert({ name: d.name.trim(), phone: d.phone.trim() });
-      } else {
-        await supabase.from("drivers").update({ name: d.name.trim(), phone: d.phone.trim() }).eq("id", d.id);
-      }
+      const r = d.id.startsWith("new-")
+        ? await createDriver(d.name, d.phone)
+        : await updateDriver(d.id, d.name, d.phone);
+      if (!r.ok) alert(r.error || "Could not save driver");
     }
     await fetchDrivers();
     setSaving(false);
@@ -196,7 +201,7 @@ export default function DriversPage() {
                           type="text"
                           placeholder="Driver name"
                           value={d.name}
-                          onChange={(e) => updateDriver(d.id, "name", e.target.value)}
+                          onChange={(e) => updateDriverField(d.id, "name", e.target.value)}
                           style={{
                             background: "#222",
                             border: `1px solid ${BORDER}`,
@@ -214,7 +219,7 @@ export default function DriversPage() {
                           type="tel"
                           placeholder="Phone number"
                           value={d.phone}
-                          onChange={(e) => updateDriver(d.id, "phone", e.target.value)}
+                          onChange={(e) => updateDriverField(d.id, "phone", e.target.value)}
                           style={{
                             background: "#222",
                             border: `1px solid ${BORDER}`,

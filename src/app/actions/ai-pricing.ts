@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
@@ -9,6 +10,9 @@ export async function approvePricingDecisionAction(
   decisionId: string,
   overridePct?: number | null,
 ): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const supabase = createServerSupabase();
     const now = new Date().toISOString();
@@ -88,6 +92,9 @@ export async function approvePricingDecisionAction(
 }
 
 export async function rejectPricingDecisionAction(decisionId: string): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const supabase = createServerSupabase();
     const { error } = await supabase
@@ -104,6 +111,9 @@ export async function rejectPricingDecisionAction(decisionId: string): Promise<{
 }
 
 export async function toggleAgentAction(enabled: boolean): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const supabase = createServerSupabase();
     await supabase.from("ai_pricing_config").upsert(
@@ -127,6 +137,9 @@ export async function runAgentManuallyAction(): Promise<{
   error?: string;
   result?: Awaited<ReturnType<typeof runPricingAgentCore>>;
 }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const result = await runPricingAgentCore();
     revalidatePath("/dashboard/pricing-agent");

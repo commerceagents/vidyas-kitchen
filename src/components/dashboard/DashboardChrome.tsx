@@ -171,11 +171,10 @@ export function DashboardMobileHeader({
   soundMuted,
   onToggleSound,
 }: MobileHeaderProps) {
-  const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.removeItem("vk_dash_authed");
-      window.location.reload();
-    }
+  const handleLogout = async () => {
+    if (!window.confirm("Are you sure you want to logout?")) return;
+    await fetch("/api/dashboard/logout", { method: "POST" }).catch(() => {});
+    window.location.reload();
   };
 
   return (
@@ -206,7 +205,7 @@ export function DashboardMobileHeader({
           </button>
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
             aria-label="Logout"
             style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", color: "#ef4444" }}
           >

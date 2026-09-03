@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
-const AUTH_KEY = "vk_dash_authed";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -53,8 +52,8 @@ function SidebarCard({
 }) {
   const pathname = usePathname();
 
-  const handleLogout = () => {
-    localStorage.removeItem(AUTH_KEY);
+  const handleLogout = async () => {
+    await fetch("/api/dashboard/logout", { method: "POST" }).catch(() => {});
     window.location.reload();
   };
 
@@ -248,7 +247,7 @@ function SidebarCard({
                   type="button"
                   onClick={() => {
                     onNavigate?.();
-                    handleLogout();
+                    void handleLogout();
                   }}
                   title={collapsed ? label : undefined}
                   style={{

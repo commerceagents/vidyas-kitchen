@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
 export type FestivalUpsertPayload = {
@@ -15,6 +16,9 @@ export type FestivalUpsertPayload = {
 };
 
 export async function upsertFestivalAction(row: FestivalUpsertPayload): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const supabase = createServerSupabase();
     const { error } = await supabase

@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { guardDashboardAction } from "@/lib/dashboard-auth";
 import type { DishDiscountRow } from "@/lib/menu/discount-pricing";
 
 export async function upsertDishDiscountAction(row: DishDiscountRow): Promise<{ ok: boolean; error?: string }> {
+  const denied = await guardDashboardAction();
+  if (denied) return denied;
+
   try {
     const supabase = createServerSupabase();
     const payload = {

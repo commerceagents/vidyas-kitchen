@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDashboardSession } from "@/lib/dashboard-auth";
 
 function phoneKey(raw: string) {
   return String(raw || "").replace(/\D/g, "").slice(-10);
@@ -8,8 +9,15 @@ function phoneKey(raw: string) {
 /**
  * Is this number currently barred from Cash on Delivery? Used by the kitchen
  * dashboard to decide whether to offer an "Allow cash again" action.
+ *
+ * Kitchen-only. Checkout does not come through here — it calls `isCodBlocked`
+ * directly with the service-role client — so requiring a session on this route
+ * cannot break a customer order.
  */
 export async function GET(request: Request) {
+  const gate = await requireDashboardSession();
+  if (!gate.ok) return gate.response;
+
   const key = phoneKey(new URL(request.url).searchParams.get("phone") || "");
   if (key.length !== 10) {
     return NextResponse.json({ error: "Invalid phone" }, { status: 400 });
@@ -38,6 +46,9 @@ export async function GET(request: Request) {
 
 /** Kitchen: give a number its Cash on Delivery privileges back. */
 export async function DELETE(request: Request) {
+  const gate = await requireDashboardSession();
+  if (!gate.ok) return gate.response;
+
   let body: { phone?: string };
   try {
     body = (await request.json()) as { phone?: string };

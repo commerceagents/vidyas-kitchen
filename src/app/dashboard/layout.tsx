@@ -3,14 +3,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { verifyDashboardPin } from "@/app/actions/dashboard-auth";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { DashboardToastProvider } from "@/components/dashboard/DashboardToast";
 import { DashboardNavProgress } from "@/components/dashboard/DashboardNavProgress";
 import { DashboardDataProvider } from "@/hooks/DashboardDataContext";
 import { Lock } from "lucide-react";
 
-const AUTH_KEY = "vk_dash_authed";
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
 
 const MOBILE = {
@@ -45,15 +43,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [locked, setLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
   const [pinInvalid, setPinInvalid] = useState(false);
   const pinInputRef = useRef<HTMLInputElement>(null);
 
   useDashboardViewport();
 
   useEffect(() => {
-    setAuthed(localStorage.getItem(AUTH_KEY) === "1");
+    let cancelled = false;
+    fetch("/api/dashboard/session")
+      .then((res) => {
+        if (!cancelled) setAuthed(res.ok);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -72,34 +79,44 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [pinInvalid]);
 
   const handleConfirm = async () => {
-    if (pin.length !== 4 || locked || checking) return;
+    if (pin.length !== 4 || lockMessage || checking) return;
 
     setChecking(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-
-    const { ok } = await verifyDashboardPin(pin);
-    if (ok) {
-      localStorage.setItem(AUTH_KEY, "1");
-      setAuthed(true);
-    } else {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      if (newAttempts >= 3) {
-        setLocked(true);
+    try {
+      const res = await fetch("/api/dashboard/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      if (res.ok) {
+        setAuthed(true);
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        locked?: boolean;
+      };
+      setPin("");
+      if (body.locked) {
+        setError("");
+        setLockMessage(body.error || "Too many attempts. Try again later.");
       } else {
-        setError("Invalid password");
+        setError(body.error || "Invalid password");
         setPinInvalid(true);
-        setPin("");
         pinInputRef.current?.focus();
       }
+    } catch {
+      setError("Could not reach the server");
+      setPinInvalid(true);
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   };
 
   if (authed === null) return null;
 
   if (!authed) {
-    const canSubmit = pin.length === 4 && !locked && !checking;
+    const canSubmit = pin.length === 4 && !lockMessage && !checking;
 
     return (
       <div
@@ -363,7 +380,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     {error}
                   </motion.p>
                 )}
-                {locked && (
+                {lockMessage && (
                   <motion.div
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -386,7 +403,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                         textAlign: "center",
                       }}
                     >
-                      Account locked. Contact admin.
+                      {lockMessage}
                     </p>
                   </motion.div>
                 )}

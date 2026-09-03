@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDashboardSession } from "@/lib/dashboard-auth";
 
 /**
  * Owner-only endpoint: returns all orders (with items and menu_items) plus a
  * phone→name map built from the users table.  All reads use the service-role
  * client so they bypass RLS — no anon key is involved.
  *
- * Protected by design: only the dashboard (PIN-gated, not a public page) calls
- * this.  There is no separate auth token check here because the dashboard shell
- * gates the entire /dashboard route; adding a token would just move the secret
- * to client-side JS.  Do NOT expose this path in any public UI.
+ * This is every customer phone, address and rupee in one response, so it
+ * requires the kitchen session cookie. The dashboard shell being PIN-gated is
+ * not protection: the URL is guessable and the shell is client-side.
  */
 export async function GET(request: Request) {
+  const gate = await requireDashboardSession();
+  if (!gate.ok) return gate.response;
+
   const url = new URL(request.url);
   const limit = Math.min(
     Number(url.searchParams.get("limit") ?? "400") || 400,
