@@ -42,8 +42,16 @@ export async function sendButtons(
   options?: SendButtonsOptions,
 ): Promise<void> {
   if (isMetaApiConfigured()) {
-    const r = await metaSendButtons(to, bodyText, buttons, options);
-    if (!r.success) console.error("[whatsapp-send] Meta buttons failed:", r.error);
+    let r = await metaSendButtons(to, bodyText, buttons, options);
+    if (!r.success && options?.headerImageUrl) {
+      console.error("[whatsapp-send] Meta buttons with header failed, retrying without image:", r.error);
+      r = await metaSendButtons(to, bodyText, buttons);
+    }
+    if (!r.success) {
+      console.error("[whatsapp-send] Meta buttons failed, sending text fallback:", r.error);
+      const numbered = buttons.map((b, i) => `${i + 1}. ${b.title}`).join("\n");
+      await metaSendText(to, `${bodyText}\n\n${numbered}`);
+    }
     return;
   }
   const r = await twilioSendButtons(to, bodyText, buttons);

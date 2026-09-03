@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { supabase } from "../supabase";
+import { createServerSupabase } from "../supabase-server";
 import { createPaymentLink } from "../payments";
 import { publicSiteOrigin } from "../site-url";
 import {
@@ -795,8 +796,16 @@ export class VidyaAgent {
 
   async upsertCustomer(phoneNumber: string, name: string = "WhatsApp User") {
     try {
-      const { data, error } = await supabase.from("users").upsert({ phone_number: phoneNumber, full_name: name, role: 'customer' }, { onConflict: "phone_number" }).select().single();
-      if (error) throw error;
+      const db = createServerSupabase();
+      const { data, error } = await db
+        .from("users")
+        .upsert({ phone_number: phoneNumber, full_name: name, role: "customer" }, { onConflict: "phone_number" })
+        .select()
+        .single();
+      if (error) {
+        console.error("Supabase User Tracking Error:", error);
+        return null;
+      }
       return data;
     } catch (_err) {
       console.error("Supabase User Tracking Error:", _err);

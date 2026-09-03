@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { createServerSupabase } from "./supabase-server";
 import { resolveOrderItemWeight } from "./menu/order-item-weight";
 import {
   istAddCalendarDays,
@@ -80,7 +80,7 @@ function cartFromOrderItems(items: OrderItemJoin[]): CartItem[] {
 }
 
 export async function fetchLastOrderSnapshot(phone: string): Promise<LastOrderSnapshot | null> {
-  const { data, error } = await supabase
+  const { data, error } = await createServerSupabase()
     .from("orders")
     .select(
       "id, status, delivery_address, delivery_slot, delivery_slot_kind, order_items(menu_item_id, quantity, unit_price, menu_items(id, name, price))",

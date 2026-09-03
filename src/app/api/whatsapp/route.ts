@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { VidyaAgent, type MenuItem, type Message } from "@/lib/ai/agent";
 import { publicSiteOrigin } from "@/lib/site-url";
 import { createServerSupabase } from "@/lib/supabase-server";
@@ -91,6 +91,19 @@ function ack() {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/** Service-role upsert — never throws; never blocks the WhatsApp reply. */
+async function trackWhatsAppUser(phone: string, name: string) {
+  try {
+    const db = createServerSupabase();
+    const { error } = await db
+      .from("users")
+      .upsert({ phone_number: phone, full_name: name, role: "customer" }, { onConflict: "phone_number" });
+    if (error) console.error("[WA] user tracking (non-blocking):", error.code || error.message);
+  } catch (e) {
+    console.error("[WA] user tracking (non-blocking):", e);
+  }
 }
 
 function langOf(phone: string): WaLang {
@@ -297,7 +310,6 @@ export async function POST(req: Request) {
     const text = body.trim();
     const lower = text.toLowerCase();
     if (!interactiveReplyId) detectAndRememberWaLang(from, text);
-    const session = await getSession(from);
 
     const isGreeting = /^(hi|hello|hey|namaste|vanakkam|start|restart)\b/i.test(text);
     const isMenuCmd = /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower);
@@ -307,8 +319,15 @@ export async function POST(req: Request) {
     const isCallCmd = /^(call|call us|phone)\b/i.test(lower);
     const isAppCmd = /^(app|open app|pwa|install|install app|install_app)\b/i.test(lower);
 
-    const agent = new VidyaAgent();
-    await agent.upsertCustomer(from, profileName?.trim() || "WhatsApp User");
+    if (isGreeting) {
+      return await showWelcome(from, profileName);
+    }
+
+    after(() => {
+      void trackWhatsAppUser(from, profileName?.trim() || "WhatsApp User");
+    });
+
+    const session = await getSession(from);
 
     const resolvedId = await resolveNumbered(from, text);
     if (resolvedId) {
@@ -330,10 +349,6 @@ export async function POST(req: Request) {
 
     if (catalogProductItems?.length) {
       return await handleCatalogOrder(from, catalogProductItems);
-    }
-
-    if (isGreeting) {
-      return await showWelcome(from, profileName);
     }
 
     if (interactiveReplyId) {
@@ -732,34 +747,38 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 // ─── Shared Flows ──────────────────────────────────────────────────────────
 
 async function showWelcome(from: string, profileName: string) {
-  await resetSession(from);
   const firstName = profileName?.trim().split(/\s+/)[0];
   const lang = langOf(from);
-  const [returning, active] = await Promise.all([hasOrders(from), hasActiveOrder(from)]);
-  const kind = active ? "active" : returning ? "returning" : "new";
+  const buttons: { id: string; title: string }[] = [
+    { id: "browse_menu", title: "Menu" },
+    { id: "install_app", title: "Install app" },
+    { id: "help_support", title: "Help" },
+  ];
 
-  const buttons: { id: string; title: string }[] = active
-    ? [
-        { id: "track_order", title: "Track" },
-        { id: "quick_reorder", title: "Order again" },
-        { id: "help_support", title: "Help" },
-      ]
-    : returning
-      ? [
-          { id: "quick_reorder", title: "Order again" },
-          { id: "browse_menu", title: "Menu" },
-          { id: "help_support", title: "Help" },
-        ]
-      : [
-          { id: "browse_menu", title: "Menu" },
-          { id: "install_app", title: "Install app" },
-          { id: "help_support", title: "Help" },
-        ];
+  try {
+    await sendButtons(from, buildWelcomeMessage(firstName, "new", lang), buttons, {
+      headerImageUrl: welcomeLogoImageUrl(),
+    });
+    console.log(`[WA] Instant welcome sent to ${from}`);
+  } catch (e) {
+    console.error("[WA] welcome send failed, text fallback:", e);
+    try {
+      await sendText(from, buildWelcomeMessage(firstName, "new", lang));
+    } catch (textErr) {
+      console.error("[WA] welcome text fallback failed:", textErr);
+    }
+  }
 
-  await storeOptions(from, buttons);
-  await sendButtons(from, buildWelcomeMessage(firstName, kind, lang), buttons, {
-    headerImageUrl: welcomeLogoImageUrl(),
+  after(async () => {
+    try {
+      await resetSession(from);
+      await storeOptions(from, buttons);
+      await trackWhatsAppUser(from, profileName?.trim() || "WhatsApp User");
+    } catch (e) {
+      console.error("[WA] welcome background:", e);
+    }
   });
+
   return ack();
 }
 
@@ -1121,7 +1140,7 @@ async function showHelpSupport(from: string) {
 }
 
 async function showTrackOrder(from: string) {
-  const { data: orders } = await supabase
+  const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, status, created_at, total_amount")
     .eq("phone_number", from)
@@ -1161,7 +1180,7 @@ async function showTrackOrder(from: string) {
 }
 
 async function showOrderHistory(from: string) {
-  const { data: orders } = await supabase
+  const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, status, created_at, total_amount")
     .eq("phone_number", from)
@@ -1186,7 +1205,7 @@ async function showOrderHistory(from: string) {
 }
 
 async function showPaymentsSummary(from: string) {
-  const { data: orders } = await supabase
+  const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, status, total_amount, created_at")
     .eq("phone_number", from)
@@ -1389,21 +1408,33 @@ async function processConfirmOrder(
 }
 
 async function hasActiveOrder(phone: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("orders")
-    .select("id, status")
-    .eq("phone_number", phone)
-    .limit(20);
-  return ((data || []) as { id: string; status: string }[]).some((o) => !["delivered", "cancelled", "rejected"].includes(o.status));
+  try {
+    const db = createServerSupabase();
+    const { data, error } = await db
+      .from("orders")
+      .select("id, status")
+      .eq("phone_number", phone)
+      .limit(20);
+    if (error) return false;
+    return ((data || []) as { id: string; status: string }[]).some((o) => !["delivered", "cancelled", "rejected"].includes(o.status));
+  } catch {
+    return false;
+  }
 }
 
 async function hasOrders(phone: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("orders")
-    .select("id")
-    .eq("phone_number", phone)
-    .limit(1);
-  return (data?.length ?? 0) > 0;
+  try {
+    const db = createServerSupabase();
+    const { data, error } = await db
+      .from("orders")
+      .select("id")
+      .eq("phone_number", phone)
+      .limit(1);
+    if (error) return false;
+    return (data?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function GET(req: Request) {
