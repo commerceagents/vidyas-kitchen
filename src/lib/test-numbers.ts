@@ -6,7 +6,7 @@
  * the login screen and the API need the same list — the API cannot demand a
  * Firebase token from a login that never issued one.
  */
-const EXACT = new Set(["9999999999", "7299808575"]);
+const EXACT = new Set(["9999999999", "9000000001"]);
 const PREFIX = "99999";
 
 /** Last ten digits, so +91 / spaces / dashes all compare the same. */
@@ -28,6 +28,7 @@ export function toE164Phone(phone: string): string {
 }
 
 export function isTestBypassPhone(phone: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   const d = localPhoneDigits(phone);
   return EXACT.has(d) || d.startsWith(PREFIX);
 }

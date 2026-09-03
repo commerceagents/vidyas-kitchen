@@ -7,7 +7,6 @@ import { Check, CaretLeft } from "@phosphor-icons/react";
 import Image from "next/image";
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
-import { supabase } from "@/lib/supabase";
 import { isTestBypassPhone } from "@/lib/test-numbers";
 import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
  
@@ -673,10 +672,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       setVerifyLoading(true);
       setTimeout(async () => {
         try {
-          await supabase.from("users").upsert(
-            { phone_number: phoneE164, full_name: finalName, role: "customer" },
-            { onConflict: "phone_number" }
-          );
+          await fetch("/api/auth/sync-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: phoneE164, name: finalName }),
+          });
         } catch (dbErr) {
           console.error("Supabase Sync Error:", dbErr);
         }
@@ -701,12 +701,13 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     try {
       await confirmationRef.current.confirm(code);
       
-      // Save/Update user in Supabase
+      // Save/Update user via server route (service-role) so users table can have RLS enabled
       try {
-        await supabase.from("users").upsert(
-          { phone_number: phoneE164, full_name: finalName, role: "customer" },
-          { onConflict: "phone_number" }
-        );
+        await fetch("/api/auth/sync-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneE164, name: finalName }),
+        });
       } catch (dbErr) {
         console.error("Supabase Sync Error:", dbErr);
         // We don't block the user if DB sync fails, they are already authed via Firebase

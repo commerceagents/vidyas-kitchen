@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
 import {
   type DashboardOrder,
   filterOrdersByIdQuery,
@@ -17,6 +16,9 @@ import { resolveOrderItemWeight } from "@/lib/menu/order-item-weight";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
+
+/** Polling interval for the owner dashboard — replaces the dropped realtime channel. */
+const POLL_INTERVAL_MS = 15_000;
 
 export type DashboardNotification = {
   id: string;
@@ -104,11 +106,11 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       payment_method: "cod",
       payment_status: PaymentStatus.PENDING,
       cod_failure_reason: null,
-    refund_status: null,
-    refund_amount: null,
-    driver_last_lat: null,
-    driver_last_lng: null,
-    driver_location_at: null,
+      refund_status: null,
+      refund_amount: null,
+      driver_last_lat: null,
+      driver_last_lng: null,
+      driver_location_at: null,
       items: dinnerItems,
     },
     {
@@ -124,11 +126,11 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       payment_method: "online",
       payment_status: PaymentStatus.PAID,
       cod_failure_reason: null,
-    refund_status: null,
-    refund_amount: null,
-    driver_last_lat: null,
-    driver_last_lng: null,
-    driver_location_at: null,
+      refund_status: null,
+      refund_amount: null,
+      driver_last_lat: null,
+      driver_last_lng: null,
+      driver_location_at: null,
       items: [
         {
           quantity: 1,
@@ -203,43 +205,28 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const bootstrappedRef = useRef(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        id, order_number, status, phone_number, total_amount, created_at, delivery_slot, delivery_slot_kind,
-        payment_method, payment_status, cod_failure_reason,
-        driver_last_lat, driver_last_lng, driver_location_at,
-        refund_status, refund_amount,
-        order_items ( id, quantity, unit_price, menu_item_id, menu_items ( name, image_url, price ) )
-      `)
-      .order("order_number", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .limit(400);
-
-    if (error) {
-      console.error("[dashboard] orders fetch", error.message);
+    let res: Response;
+    try {
+      res = await fetch("/api/dashboard/orders?limit=400");
+    } catch (e) {
+      console.error("[dashboard] fetch error", e);
+      return;
+    }
+    if (!res.ok) {
+      console.error("[dashboard] orders fetch", res.status, res.statusText);
       return;
     }
 
-    const mapped = (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+    const json = (await res.json()) as {
+      rows: Record<string, unknown>[];
+      nameByPhone: Record<string, string>;
+    };
 
-    const phones = [...new Set(mapped.map((o) => o.phone_number).filter(Boolean))] as string[];
-    let nameByPhone: Record<string, string> = {};
-    if (phones.length > 0) {
-      const { data: userRows } = await supabase
-        .from("users")
-        .select("phone_number, full_name")
-        .in("phone_number", phones);
-      if (userRows) {
-        for (const u of userRows as { phone_number: string; full_name?: string | null }[]) {
-          if (u.phone_number && u.full_name) nameByPhone[u.phone_number] = u.full_name;
-        }
-      }
-    }
+    const mapped = json.rows.map((r) => mapRow(r));
     const enriched = sortDashboardOrders(
       mapped.map((o) => ({
         ...o,
-        customer_name: nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
+        customer_name: json.nameByPhone[o.phone_number ?? ""] ?? o.customer_name ?? null,
       })),
     );
     const withPreviews = applyDevPreviewOrders(enriched);
@@ -259,14 +246,12 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     void load().finally(() => setLoading(false));
   }, [load]);
 
+  // Poll every 15 s instead of a realtime channel — the anon key is no longer
+  // used anywhere in the dashboard, so Supabase realtime (which also uses the
+  // anon key) is dropped in favour of simple HTTP polling.
   useEffect(() => {
-    const channel = supabase
-      .channel("vk-dashboard-orders-shared")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        void load();
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    const id = setInterval(() => { void load(); }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
   }, [load]);
 
   const pushNotification = useCallback((order: DashboardOrder) => {
