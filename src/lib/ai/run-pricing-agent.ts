@@ -188,6 +188,29 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const agent = new PricingAgent(config);
   const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems);
 
+  // Auto-expire stale pending festival_activate decisions whose festival has already ended
+  const now = new Date();
+  const festivalById = new Map(festivals.map((f) => [f.id, f]));
+  const { data: stalePending } = await supabase
+    .from("ai_pricing_decisions")
+    .select("id, dish_id")
+    .eq("status", "pending")
+    .eq("decision_type", "festival_activate");
+
+  for (const row of stalePending ?? []) {
+    const festivalId = String(row.dish_id).replace("festival:", "");
+    const festival = festivalById.get(festivalId);
+    if (festival) {
+      const end = new Date(`${festival.date_end}T23:59:59Z`);
+      if (end < now) {
+        await supabase
+          .from("ai_pricing_decisions")
+          .update({ status: "expired" })
+          .eq("id", row.id);
+      }
+    }
+  }
+
   // Load existing pending decisions so we can skip duplicates
   const { data: existingPending } = await supabase
     .from("ai_pricing_decisions")

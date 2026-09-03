@@ -102,6 +102,7 @@ export default function PricingAgentPage() {
         const decisions = Array.isArray(data.decisions) ? data.decisions : [];
         const pendingCount = decisions.filter((d: Decision) => d.status === "pending").length;
         const appliedCount = decisions.filter((d: Decision) => d.status === "applied" || d.status === "auto_applied").length;
+        // expired decisions are silently dropped from UI
         setState({ ...data, decisions, pendingCount, appliedCount, loading: false });
       } else {
         setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
@@ -170,7 +171,7 @@ export default function PricingAgentPage() {
   };
 
   const pending = state.decisions.filter((d) => d.status === "pending");
-  const recent = state.decisions.filter((d) => d.status !== "pending").slice(0, 20);
+  const recent = state.decisions.filter((d) => d.status !== "pending" && d.status !== "expired").slice(0, 20);
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },
