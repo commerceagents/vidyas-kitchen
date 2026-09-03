@@ -28,14 +28,6 @@ type Driver = {
   phone: string;
 };
 
-const DUMMY_DRIVERS: Driver[] = [
-  { id: "demo-1", name: "Kumar", phone: "+91 98765 43210" },
-];
-
-function isDemoDriver(id: string) {
-  return id.startsWith("demo-");
-}
-
 export default function DriversPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const {
@@ -52,6 +44,7 @@ export default function DriversPage() {
   } = useDashboardData();
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [listError, setListError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pinFlags, setPinFlags] = useState<Record<string, boolean>>({});
@@ -60,7 +53,15 @@ export default function DriversPage() {
   const [pinMsg, setPinMsg] = useState<Record<string, string>>({});
 
   const fetchDrivers = useCallback(async () => {
-    const { drivers: rows } = await listDashboardDrivers();
+    const { ok, drivers: rows, error } = await listDashboardDrivers();
+    if (!ok) {
+      setDrivers([]);
+      setPinFlags({});
+      setListError(error || "Could not load drivers");
+      setLoading(false);
+      return;
+    }
+    setListError("");
     setDrivers(rows.map(({ id, name, phone }) => ({ id, name, phone })));
     setPinFlags(Object.fromEntries(rows.map((d) => [d.id, d.hasPin])));
     setLoading(false);
@@ -110,18 +111,15 @@ export default function DriversPage() {
   const saveAll = async () => {
     setSaving(true);
     for (const d of drivers) {
-      if (isDemoDriver(d.id) || !d.name.trim() || !d.phone.trim()) continue;
+      if (!d.name.trim() || !d.phone.trim()) continue;
       const r = d.id.startsWith("new-")
-        ? await createDriver(d.name, d.phone)
+        ? await createDriver(d.name, d.phone, pinDraft[d.id])
         : await updateDriver(d.id, d.name, d.phone);
       if (!r.ok) alert(r.error || "Could not save driver");
     }
     await fetchDrivers();
     setSaving(false);
   };
-
-  const displayDrivers = drivers.length > 0 ? drivers : DUMMY_DRIVERS;
-  const showingDemo = drivers.length === 0 && !loading;
 
   const openNotifications = () => {
     setNotifOpen(true);
@@ -159,8 +157,26 @@ export default function DriversPage() {
       ) : (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1, minHeight: 0 }}>
-            {displayDrivers.map((d) => {
-              const demo = isDemoDriver(d.id);
+            {listError ? (
+              <div style={{ color: "#f87171", fontSize: 13, fontFamily: FONT, padding: "8px 2px" }}>{listError}</div>
+            ) : null}
+            {drivers.length === 0 && !listError ? (
+              <div
+                style={{
+                  padding: "28px 18px",
+                  textAlign: "center",
+                  color: "#888",
+                  fontSize: 13,
+                  fontFamily: FONT,
+                  border: `1px dashed ${BORDER}`,
+                  borderRadius: 12,
+                }}
+              >
+                No drivers yet. Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
+              </div>
+            ) : null}
+            {drivers.map((d) => {
+              const unsaved = d.id.startsWith("new-");
               return (
                 <div
                   key={d.id}
@@ -171,8 +187,7 @@ export default function DriversPage() {
                     background: CARD_BG,
                     borderRadius: 12,
                     padding: "12px 14px",
-                    border: `1px solid ${demo ? `${YELLOW}28` : BORDER}`,
-                    opacity: demo ? 0.85 : 1,
+                    border: `1px solid ${BORDER}`,
                   }}
                 >
                   <div
@@ -180,131 +195,143 @@ export default function DriversPage() {
                       width: 40,
                       height: 40,
                       borderRadius: 10,
-                      background: demo ? `${YELLOW}18` : "#333",
+                      background: "#333",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       flexShrink: 0,
                     }}
                   >
-                    <Truck size={18} style={{ color: demo ? YELLOW : "#888" }} />
+                    <Truck size={18} style={{ color: "#888" }} />
                   </div>
-                  {demo ? (
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: FONT }}>{d.name}</div>
-                      <div style={{ fontSize: 12, color: "#888", fontFamily: FONT, marginTop: 2 }}>{d.phone}</div>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+                    <input
+                      type="text"
+                      placeholder="Driver name"
+                      value={d.name}
+                      onChange={(e) => updateDriverField(d.id, "name", e.target.value)}
+                      style={{
+                        background: "#222",
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        color: "#fff",
+                        fontSize: 14,
+                        fontFamily: FONT,
+                        outline: "none",
+                        width: "100%",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone number"
+                      value={d.phone}
+                      onChange={(e) => updateDriverField(d.id, "phone", e.target.value)}
+                      style={{
+                        background: "#222",
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        color: "#fff",
+                        fontSize: 14,
+                        fontFamily: FONT,
+                        outline: "none",
+                        width: "100%",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <input
-                          type="text"
-                          placeholder="Driver name"
-                          value={d.name}
-                          onChange={(e) => updateDriverField(d.id, "name", e.target.value)}
+                          type="password"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          maxLength={6}
+                          placeholder={
+                            unsaved
+                              ? "PIN (4–6 digits)"
+                              : pinFlags[d.id]
+                                ? "New PIN (4–6)"
+                                : "Set PIN (4–6)"
+                          }
+                          value={pinDraft[d.id] || ""}
+                          onChange={(e) =>
+                            setPinDraft((prev) => ({
+                              ...prev,
+                              [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                            }))
+                          }
                           style={{
+                            flex: 1,
                             background: "#222",
                             border: `1px solid ${BORDER}`,
                             borderRadius: 8,
                             padding: "8px 12px",
                             color: "#fff",
-                            fontSize: 14,
+                            fontSize: 13,
                             fontFamily: FONT,
                             outline: "none",
-                            width: "100%",
+                            minWidth: 0,
                             boxSizing: "border-box",
                           }}
                         />
-                        <input
-                          type="tel"
-                          placeholder="Phone number"
-                          value={d.phone}
-                          onChange={(e) => updateDriverField(d.id, "phone", e.target.value)}
-                          style={{
-                            background: "#222",
-                            border: `1px solid ${BORDER}`,
-                            borderRadius: 8,
-                            padding: "8px 12px",
-                            color: "#fff",
-                            fontSize: 14,
-                            fontFamily: FONT,
-                            outline: "none",
-                            width: "100%",
-                            boxSizing: "border-box",
-                          }}
-                        />
-                        {!d.id.startsWith("new-") && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <input
-                                type="password"
-                                inputMode="numeric"
-                                autoComplete="off"
-                                maxLength={6}
-                                placeholder={pinFlags[d.id] ? "New PIN (4–6)" : "Set PIN (4–6)"}
-                                value={pinDraft[d.id] || ""}
-                                onChange={(e) =>
-                                  setPinDraft((prev) => ({
-                                    ...prev,
-                                    [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
-                                  }))
-                                }
-                                style={{
-                                  flex: 1,
-                                  background: "#222",
-                                  border: `1px solid ${BORDER}`,
-                                  borderRadius: 8,
-                                  padding: "8px 12px",
-                                  color: "#fff",
-                                  fontSize: 13,
-                                  fontFamily: FONT,
-                                  outline: "none",
-                                  minWidth: 0,
-                                  boxSizing: "border-box",
-                                }}
-                              />
-                              <button
-                                type="button"
-                                disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
-                                onClick={() => void savePin(d.id)}
-                                style={{
-                                  flexShrink: 0,
-                                  background: YELLOW,
-                                  color: "#111",
-                                  border: "none",
-                                  borderRadius: 8,
-                                  padding: "8px 12px",
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  fontFamily: FONT,
-                                  cursor: pinBusyId === d.id ? "wait" : "pointer",
-                                  opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
-                                }}
-                              >
-                                {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Reset PIN" : "Set PIN"}
-                              </button>
-                            </div>
-                            <div style={{ fontSize: 11, fontFamily: FONT, color: pinMsg[d.id]?.includes("saved") ? "#86efac" : pinMsg[d.id] ? "#f87171" : "#888" }}>
-                              {pinMsg[d.id] || (pinFlags[d.id] ? "PIN set — enter a new one to reset" : "No PIN yet — driver cannot sign in")}
-                            </div>
-                          </div>
-                        )}
+                        {!unsaved ? (
+                          <button
+                            type="button"
+                            disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
+                            onClick={() => void savePin(d.id)}
+                            style={{
+                              flexShrink: 0,
+                              background: YELLOW,
+                              color: "#111",
+                              border: "none",
+                              borderRadius: 8,
+                              padding: "8px 12px",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              fontFamily: FONT,
+                              cursor: pinBusyId === d.id ? "wait" : "pointer",
+                              opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
+                            }}
+                          >
+                            {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Reset PIN" : "Set PIN"}
+                          </button>
+                        ) : null}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => void removeDriver(d.id)}
-                        aria-label="Remove driver"
-                        style={{ background: "transparent", border: "none", color: "#EF4444", cursor: "pointer", padding: 8, flexShrink: 0 }}
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontFamily: FONT,
+                          color: pinMsg[d.id]?.includes("saved")
+                            ? "#86efac"
+                            : pinMsg[d.id]
+                              ? "#f87171"
+                              : "#888",
+                        }}
                       >
-                        <Trash2 size={18} />
-                      </button>
-                    </>
-                  )}
+                        {pinMsg[d.id]
+                          || (unsaved
+                            ? "PIN is saved with the driver"
+                            : pinFlags[d.id]
+                              ? "PIN set — enter a new one to reset"
+                              : "No PIN yet — driver cannot sign in")}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void removeDriver(d.id)}
+                    aria-label="Remove driver"
+                    style={{ background: "transparent", border: "none", color: "#EF4444", cursor: "pointer", padding: 8, flexShrink: 0 }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               );
             })}
           </div>
-          {!showingDemo && drivers.length > 0 && (
+          {drivers.length > 0 && (
             <button
               type="button"
               onClick={() => void saveAll()}

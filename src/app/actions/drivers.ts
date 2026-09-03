@@ -88,7 +88,11 @@ export async function listActiveDrivers(): Promise<{
   }
 }
 
-export async function createDriver(name: string, phone: string): Promise<DriverActionResult> {
+export async function createDriver(
+  name: string,
+  phone: string,
+  pin?: string,
+): Promise<DriverActionResult> {
   const denied = await guardDashboardAction();
   if (denied) return denied;
 
@@ -96,10 +100,30 @@ export async function createDriver(name: string, phone: string): Promise<DriverA
   const cleanPhone = phone.trim();
   if (!cleanName || !cleanPhone) return { ok: false, error: "Name and phone are required" };
 
+  const cleanPin = pin?.replace(/\D/g, "") ?? "";
+  if (cleanPin && !isValidDriverPin(cleanPin)) {
+    return { ok: false, error: "PIN must be 4–6 digits" };
+  }
+  const pinHash = cleanPin ? hashDriverPin(cleanPin) : null;
+  if (cleanPin && !pinHash) return { ok: false, error: "Server is missing a signing secret" };
+
   try {
     const supabase = createServerSupabase();
-    const { error } = await supabase.from("drivers").insert({ name: cleanName, phone: cleanPhone });
-    if (error) return { ok: false, error: error.message };
+    const row: { name: string; phone: string; pin_hash?: string } = {
+      name: cleanName,
+      phone: cleanPhone,
+    };
+    if (pinHash) row.pin_hash = pinHash;
+    const { error } = await supabase.from("drivers").insert(row);
+    if (error) {
+      if (/pin_hash/i.test(error.message)) {
+        return {
+          ok: false,
+          error: "Run supabase/migrations-driver-pin.sql in the Supabase SQL editor first.",
+        };
+      }
+      return { ok: false, error: error.message };
+    }
     return { ok: true };
   } catch (e) {
     console.error("[actions/drivers] create", e);
