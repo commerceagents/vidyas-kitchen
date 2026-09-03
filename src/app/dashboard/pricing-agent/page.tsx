@@ -90,6 +90,7 @@ export default function PricingAgentPage() {
   });
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [listTab, setListTab] = useState<"upcoming" | "past">("upcoming");
   const msgTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -172,6 +173,7 @@ export default function PricingAgentPage() {
 
   const pending = state.decisions.filter((d) => d.status === "pending");
   const recent = state.decisions.filter((d) => d.status !== "pending" && d.status !== "expired").slice(0, 20);
+  const shown = listTab === "upcoming" ? pending : recent;
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },
@@ -183,57 +185,81 @@ export default function PricingAgentPage() {
   const content = state.loading ? (
     <DashboardSpinner minHeight="100%" />
   ) : (
-    <>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexShrink: 0 }}>
+        <div
+          style={{
+            display: "inline-flex",
+            padding: 3,
+            borderRadius: 10,
+            background: "#111",
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          {([
+            { id: "upcoming" as const, label: "Upcoming", count: pending.length },
+            { id: "past" as const, label: "Past", count: recent.length },
+          ]).map((t) => {
+            const active = listTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setListTab(t.id)}
+                style={{
+                  height: 32,
+                  padding: "0 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: active ? YELLOW : "transparent",
+                  color: active ? "#111" : "#888",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: FONT,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                {t.label}
+                <span style={{ opacity: 0.7 }}>{t.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {msg && (
-        <div style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: CARD_BG, fontSize: 13, color: "#ccc", fontFamily: FONT, marginBottom: 12 }}>
+        <div style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: CARD_BG, fontSize: 13, color: "#ccc", fontFamily: FONT, marginBottom: 12, flexShrink: 0 }}>
           {msg}
         </div>
       )}
 
-      {pending.length === 0 && recent.length === 0 ? (
+      {shown.length === 0 ? (
         <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
           <Bot size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>No decisions yet</p>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>Run the agent to generate pricing recommendations</p>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+            {listTab === "upcoming" ? "Nothing upcoming" : "No past decisions"}
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+            {listTab === "upcoming" ? "New festival and dish offers will show up here." : "Approved and applied offers will land here."}
+          </p>
         </div>
       ) : (
-        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 20 }}>
-          {pending.length > 0 && (
-            <div>
-              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F59E0B", fontFamily: FONT }}>
-                Needs your approval
-              </p>
-              <ul className="vk-order-grid vk-pricing-decisions-grid" style={{ margin: 0, padding: 0 }}>
-                {pending.map((d) => (
-                  <DecisionCard
-                    key={d.id}
-                    decision={d}
-                    onApprove={(pct) => handleApprove(d.id, pct)}
-                    onReject={() => handleReject(d.id)}
-                  />
-                ))}
-              </ul>
-            </div>
-          )}
-          {recent.length > 0 && (
-            <details open={pending.length === 0}>
-              <summary style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#555", fontFamily: FONT, cursor: "pointer", listStyle: "none", marginBottom: 10 }}>
-                Recent history ({recent.length})
-              </summary>
-              <ul className="vk-order-grid vk-pricing-decisions-grid" style={{ margin: 0, padding: 0 }}>
-                {recent.map((d) => (
-                  <DecisionCard
-                    key={d.id}
-                    decision={d}
-                    onUpdate={(pct) => handleUpdate(d.id, pct)}
-                  />
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
+        <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0, overflowY: "auto", flex: 1, minHeight: 0 }}>
+          {shown.map((d) => (
+            <DecisionCard
+              key={d.id}
+              decision={d}
+              onApprove={listTab === "upcoming" ? (pct) => handleApprove(d.id, pct) : undefined}
+              onReject={listTab === "upcoming" ? () => handleReject(d.id) : undefined}
+              onUpdate={listTab === "past" ? (pct) => handleUpdate(d.id, pct) : undefined}
+            />
+          ))}
+        </ul>
       )}
-    </>
+    </div>
   );
 
   return (
