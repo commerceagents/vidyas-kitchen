@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { transitionOrderStatus } from "@/app/actions/order-transition";
 import {
   type DashboardOrder,
   filterOrdersByIdQuery,
@@ -19,6 +21,8 @@ import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-st
 
 /** Polling interval for the owner dashboard — replaces the dropped realtime channel. */
 const POLL_INTERVAL_MS = 15_000;
+const NOTIF_STORAGE_KEY = "vk_dash_notifications";
+export const TEST_NOTIFICATION_ID = "test-notification";
 
 export type DashboardNotification = {
   id: string;
@@ -26,6 +30,7 @@ export type DashboardNotification = {
   read: boolean;
   at: string;
   order: DashboardOrder;
+  isTest?: boolean;
 };
 
 type DashboardDataValue = {
@@ -38,6 +43,13 @@ type DashboardDataValue = {
   markAllRead: () => void;
   markRead: (id: string) => void;
   dismissNotification: (id: string) => void;
+  notifOpen: boolean;
+  openNotifications: () => void;
+  closeNotifications: () => void;
+  acceptNotificationOrder: (orderId: string) => Promise<void>;
+  rejectNotificationOrder: (orderId: string) => Promise<void>;
+  viewNotificationOrder: (orderId: string) => void;
+  highlightOrderId: string | null;
   refresh: () => Promise<void>;
   month: MonthKey;
   setMonth: (m: MonthKey) => void;
@@ -194,15 +206,83 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
   };
 }
 
+function buildTestNotification(): DashboardNotification {
+  const now = new Date().toISOString();
+  return {
+    id: TEST_NOTIFICATION_ID,
+    orderId: TEST_NOTIFICATION_ID,
+    read: false,
+    at: now,
+    isTest: true,
+    order: {
+      id: TEST_NOTIFICATION_ID,
+      order_number: 0,
+      status: OrderStatus.PAID,
+      phone_number: "+919000000000",
+      customer_name: "Test customer",
+      total_amount: 499,
+      created_at: now,
+      delivery_slot: now,
+      delivery_slot_kind: "dinner",
+      payment_method: "online",
+      payment_status: PaymentStatus.PAID,
+      cod_failure_reason: null,
+      refund_status: null,
+      refund_amount: null,
+      driver_last_lat: null,
+      driver_last_lng: null,
+      driver_location_at: null,
+      items: [
+        {
+          quantity: 1,
+          name: "Mom's Recipe Chicken Gravy",
+          unit_price: 449,
+          image_url: null,
+          weight: "500gm",
+        },
+      ],
+    },
+  };
+}
+
+function loadStoredNotifications(): DashboardNotification[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as DashboardNotification[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((n) => n && n.id && n.orderId && n.order && n.id !== TEST_NOTIFICATION_ID);
+  } catch {
+    return [];
+  }
+}
+
+function persistNotifications(list: DashboardNotification[]) {
+  if (typeof window === "undefined") return;
+  const durable = list.filter((n) => !n.isTest && n.id !== TEST_NOTIFICATION_ID);
+  localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(durable.slice(0, 30)));
+}
+
+function withTestCard(list: DashboardNotification[]): DashboardNotification[] {
+  if (list.some((n) => n.id === TEST_NOTIFICATION_ID)) return list;
+  return [buildTestNotification(), ...list].slice(0, 30);
+}
+
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [allOrders, setAllOrders] = useState<DashboardOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
   const [soundMuted, setSoundMutedState] = useState(false);
   const [month, setMonth] = useState<MonthKey>(currentMonthKey);
   const [searchQuery, setSearchQuery] = useState("");
   const knownPaidRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
+  const notifHydratedRef = useRef(false);
 
   const load = useCallback(async () => {
     let res: Response;
@@ -243,8 +323,21 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSoundMutedState(isDashboardSoundMuted());
+    setNotifications(withTestCard(loadStoredNotifications()));
+    if (typeof window !== "undefined" && !sessionStorage.getItem("vk_test_bell_played")) {
+      sessionStorage.setItem("vk_test_bell_played", "1");
+      if (!isDashboardSoundMuted()) playNewOrderAlert();
+    }
     void load().finally(() => setLoading(false));
   }, [load]);
+
+  useEffect(() => {
+    if (!notifHydratedRef.current) {
+      notifHydratedRef.current = true;
+      return;
+    }
+    persistNotifications(notifications);
+  }, [notifications]);
 
   // Poll every 15 s instead of a realtime channel — the anon key is no longer
   // used anywhere in the dashboard, so Supabase realtime (which also uses the
@@ -284,12 +377,71 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markRead = useCallback((id: string) => {
+    if (!id) return;
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
+
+  const openNotifications = useCallback(() => {
+    setNotifOpen(true);
+  }, []);
+
+  const closeNotifications = useCallback(() => {
+    setNotifOpen(false);
+  }, []);
+
+  const acceptNotificationOrder = useCallback(async (orderId: string) => {
+    if (orderId === TEST_NOTIFICATION_ID) {
+      dismissNotification(TEST_NOTIFICATION_ID);
+      return;
+    }
+    const r1 = await transitionOrderStatus(orderId, OrderStatus.CONFIRMED);
+    if (!r1.ok) {
+      alert(r1.error);
+      return;
+    }
+    await transitionOrderStatus(orderId, OrderStatus.PREPARING);
+    const match = notifications.find((n) => n.orderId === orderId);
+    if (match) markRead(match.id);
+    await load();
+  }, [dismissNotification, load, markRead, notifications]);
+
+  const rejectNotificationOrder = useCallback(async (orderId: string) => {
+    if (orderId === TEST_NOTIFICATION_ID) {
+      dismissNotification(TEST_NOTIFICATION_ID);
+      return;
+    }
+    if (!window.confirm("Reject this order? A full refund will be initiated.")) return;
+    const r = await transitionOrderStatus(orderId, OrderStatus.REJECTED);
+    if (!r.ok) alert(r.error);
+    const match = notifications.find((n) => n.orderId === orderId);
+    if (match) markRead(match.id);
+    await load();
+  }, [dismissNotification, load, markRead, notifications]);
+
+  const viewNotificationOrder = useCallback((orderId: string) => {
+    setNotifOpen(false);
+    if (orderId === TEST_NOTIFICATION_ID) return;
+    const match = notifications.find((n) => n.orderId === orderId);
+    if (match) markRead(match.id);
+    setHighlightOrderId(orderId);
+    if (pathname !== "/dashboard") router.push("/dashboard");
+  }, [markRead, notifications, pathname, router]);
+
+  useEffect(() => {
+    if (!highlightOrderId) return;
+    const t = setTimeout(() => {
+      document.getElementById(`order-${highlightOrderId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 180);
+    const clear = setTimeout(() => setHighlightOrderId(null), 4000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(clear);
+    };
+  }, [highlightOrderId, pathname]);
 
   const setSoundMuted = useCallback((muted: boolean) => {
     setSoundMutedState(muted);
@@ -314,6 +466,13 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     markAllRead,
     markRead,
     dismissNotification,
+    notifOpen,
+    openNotifications,
+    closeNotifications,
+    acceptNotificationOrder,
+    rejectNotificationOrder,
+    viewNotificationOrder,
+    highlightOrderId,
     refresh,
     month,
     setMonth,
@@ -322,7 +481,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     orders: visibleOrders,
     allOrdersInMonth: monthOrders,
     newCount,
-  }), [allOrders, loading, notifications, unreadCount, soundMuted, setSoundMuted, markAllRead, markRead, dismissNotification, refresh, month, searchQuery, visibleOrders, monthOrders, newCount]);
+  }), [allOrders, loading, notifications, unreadCount, soundMuted, setSoundMuted, markAllRead, markRead, dismissNotification, notifOpen, openNotifications, closeNotifications, acceptNotificationOrder, rejectNotificationOrder, viewNotificationOrder, highlightOrderId, refresh, month, searchQuery, visibleOrders, monthOrders, newCount]);
 
   return <DashboardDataCtx.Provider value={value}>{children}</DashboardDataCtx.Provider>;
 }

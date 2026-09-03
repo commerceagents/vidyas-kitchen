@@ -13,7 +13,6 @@ import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
-  DashboardNotificationPanel,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
@@ -29,13 +28,11 @@ type Driver = {
 };
 
 export default function DriversPage() {
-  const [notifOpen, setNotifOpen] = useState(false);
   const {
-    notifications,
     unreadCount,
     soundMuted,
     setSoundMuted,
-    markAllRead,
+    openNotifications,
     newCount,
     month,
     setMonth,
@@ -134,11 +131,6 @@ export default function DriversPage() {
       const saved = savedDrivers.find((s) => s.id === d.id);
       return !saved || saved.name !== d.name || saved.phone !== d.phone;
     });
-
-  const openNotifications = () => {
-    setNotifOpen(true);
-    markAllRead();
-  };
 
   const content = (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -418,6 +410,8 @@ export default function DriversPage() {
           newCount={newCount}
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
+          unreadCount={unreadCount}
+          onOpenNotifications={openNotifications}
         />
         <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column" }}>
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
@@ -491,19 +485,6 @@ export default function DriversPage() {
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{content}</div>
         </div>
       </div>
-
-      <DashboardNotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        notifications={notifications}
-        soundMuted={soundMuted}
-        onToggleSound={() => setSoundMuted(!soundMuted)}
-        onMarkAllRead={markAllRead}
-        onAccept={() => {}}
-        onReject={() => {}}
-        onView={() => {}}
-        onDismiss={() => {}}
-      />
 
       <style jsx global>{`
         @media (max-width: 1023px) {

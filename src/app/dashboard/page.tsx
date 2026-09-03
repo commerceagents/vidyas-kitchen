@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { tabForOrder, type DashboardTab, computeTodayDashboardStats } from "@/lib/dashboard/orders";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
-import { OrderStatus } from "@/lib/order-status";
-import { transitionOrderStatus } from "@/app/actions/order-transition";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
-  DashboardNotificationPanel,
   DashboardSearchOverlay,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
@@ -19,20 +16,16 @@ import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
 export default function DashboardHome() {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("new");
 
   const {
     loading,
     orders,
-    notifications,
     unreadCount,
     soundMuted,
     setSoundMuted,
-    markAllRead,
-    markRead,
-    dismissNotification,
+    openNotifications,
+    highlightOrderId,
     refresh,
     newCount,
     month,
@@ -40,49 +33,6 @@ export default function DashboardHome() {
     searchQuery,
     setSearchQuery,
   } = useDashboardData();
-
-  const handleAccept = useCallback(
-    async (orderId: string) => {
-      const r1 = await transitionOrderStatus(orderId, OrderStatus.CONFIRMED);
-      if (!r1.ok) {
-        alert(r1.error);
-        return;
-      }
-      await transitionOrderStatus(orderId, OrderStatus.PREPARING);
-      markRead(notifications.find((n) => n.orderId === orderId)?.id ?? "");
-      void refresh();
-    },
-    [markRead, notifications, refresh],
-  );
-
-  const handleReject = useCallback(
-    async (orderId: string) => {
-      if (!window.confirm("Reject this order? A full refund will be initiated.")) return;
-      const r = await transitionOrderStatus(orderId, OrderStatus.REJECTED);
-      if (!r.ok) alert(r.error);
-      void refresh();
-    },
-    [refresh],
-  );
-
-  const handleView = useCallback((orderId: string) => {
-    setHighlightOrderId(orderId);
-    setNotifOpen(false);
-    setTimeout(() => {
-      document.getElementById(`order-${orderId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-  }, []);
-
-  useEffect(() => {
-    if (!highlightOrderId) return;
-    const t = setTimeout(() => setHighlightOrderId(null), 4000);
-    return () => clearTimeout(t);
-  }, [highlightOrderId]);
-
-  const openNotifications = () => {
-    setNotifOpen(true);
-    markAllRead();
-  };
 
   const tabCounts = useMemo(() => {
     const c: Record<DashboardTab, number> = {
@@ -111,6 +61,8 @@ export default function DashboardHome() {
           newCount={newCount}
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
+          unreadCount={unreadCount}
+          onOpenNotifications={openNotifications}
         />
         {loading ? (
           <div style={{ flex: 1, minHeight: 0 }}>
@@ -218,19 +170,6 @@ export default function DashboardHome() {
         value={searchQuery}
         onChange={setSearchQuery}
         onClose={() => setSearchOpen(false)}
-      />
-
-      <DashboardNotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        notifications={notifications}
-        soundMuted={soundMuted}
-        onToggleSound={() => setSoundMuted(!soundMuted)}
-        onMarkAllRead={markAllRead}
-        onAccept={(id) => void handleAccept(id)}
-        onReject={(id) => void handleReject(id)}
-        onView={handleView}
-        onDismiss={dismissNotification}
       />
 
       <style jsx global>{`

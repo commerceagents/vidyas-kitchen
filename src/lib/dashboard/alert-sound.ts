@@ -1,31 +1,56 @@
-/** Short kitchen alert — Web Audio fallback when no mp3 file is present. */
+/** Kitchen bell — two-tone chime, then fall back to mp3 if present. */
 export function playNewOrderAlert() {
   if (typeof window === "undefined") return;
+  playBellChime();
+}
+
+function playBellChime() {
   try {
-    const audio = new Audio("/sounds/new-order.mp3");
-    audio.volume = 0.85;
-    void audio.play().catch(() => playBeepFallback());
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) {
+      playMp3Fallback();
+      return;
+    }
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const strike = (freq: number, start: number, duration: number, volume: number) => {
+      const osc = ctx.createOscillator();
+      const overtone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      overtone.type = "sine";
+      osc.frequency.setValueAtTime(freq, start);
+      overtone.frequency.setValueAtTime(freq * 2.01, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(gain);
+      overtone.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      overtone.start(start);
+      osc.stop(start + duration);
+      overtone.stop(start + duration);
+    };
+
+    // Classic ding-dong
+    strike(1046.5, now, 0.55, 0.28);
+    strike(784, now + 0.22, 0.75, 0.24);
+
+    window.setTimeout(() => {
+      void ctx.close().catch(() => {});
+    }, 1200);
   } catch {
-    playBeepFallback();
+    playMp3Fallback();
   }
 }
 
-function playBeepFallback() {
+function playMp3Fallback() {
   try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.36);
-    void ctx.close();
+    const audio = new Audio("/sounds/new-order.mp3");
+    audio.volume = 0.85;
+    void audio.play().catch(() => {});
   } catch {
     /* silent */
   }

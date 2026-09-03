@@ -1,27 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
-  DashboardNotificationPanel,
 } from "@/components/dashboard/DashboardChrome";
 import { RevenueDashboard } from "@/components/dashboard/RevenueDashboard";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { computeRevenueDashboardStats } from "@/lib/dashboard/revenue-stats";
 
 export default function DaySummaryPage() {
-  const [notifOpen, setNotifOpen] = useState(false);
-
   const {
     loading,
     orders,
-    notifications,
     unreadCount,
     soundMuted,
     setSoundMuted,
-    markAllRead,
+    openNotifications,
     newCount,
     month,
     setMonth,
@@ -33,11 +29,6 @@ export default function DaySummaryPage() {
     () => computeRevenueDashboardStats(orders, month),
     [orders, month],
   );
-
-  const openNotifications = () => {
-    setNotifOpen(true);
-    markAllRead();
-  };
 
   const content = loading ? (
     <DashboardSpinner minHeight="100%" />
@@ -62,6 +53,8 @@ export default function DaySummaryPage() {
           newCount={newCount}
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
+          unreadCount={unreadCount}
+          onOpenNotifications={openNotifications}
         />
         <div style={{ padding: "16px", overflowY: "auto", flex: 1 }}>{content}</div>
       </div>
@@ -134,19 +127,6 @@ export default function DaySummaryPage() {
           </div>
         </div>
       </div>
-
-      <DashboardNotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        notifications={notifications}
-        soundMuted={soundMuted}
-        onToggleSound={() => setSoundMuted(!soundMuted)}
-        onMarkAllRead={markAllRead}
-        onAccept={() => {}}
-        onReject={() => {}}
-        onView={() => {}}
-        onDismiss={() => {}}
-      />
 
       <style jsx global>{`
         @media (max-width: 1023px) {

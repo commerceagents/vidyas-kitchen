@@ -9,7 +9,7 @@ import {
   shortOrderId,
   type MonthKey,
 } from "@/lib/dashboard/orders";
-import type { DashboardNotification } from "@/hooks/DashboardDataContext";
+import { TEST_NOTIFICATION_ID, type DashboardNotification } from "@/hooks/DashboardDataContext";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -164,12 +164,16 @@ type MobileHeaderProps = {
   newCount: number;
   soundMuted: boolean;
   onToggleSound: () => void;
+  unreadCount?: number;
+  onOpenNotifications?: () => void;
 };
 
 export function DashboardMobileHeader({
   newCount,
   soundMuted,
   onToggleSound,
+  unreadCount = 0,
+  onOpenNotifications,
 }: MobileHeaderProps) {
   const handleLogout = async () => {
     if (!window.confirm("Are you sure you want to logout?")) return;
@@ -195,6 +199,38 @@ export function DashboardMobileHeader({
           <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>Admin</h1>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {onOpenNotifications ? (
+            <button
+              type="button"
+              onClick={onOpenNotifications}
+              aria-label="Notifications"
+              style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", position: "relative" }}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 ? (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    right: "4px",
+                    minWidth: "16px",
+                    height: "16px",
+                    padding: "0 4px",
+                    borderRadius: "6px",
+                    background: "#F5A623",
+                    color: "#fff",
+                    fontSize: "10px",
+                    fontWeight: 800,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onToggleSound}
@@ -430,10 +466,12 @@ export function DashboardNotificationPanel({
                 }}
               >
                 <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, color: "#f5e32d" }}>
-                  New paid order
+                  {n.isTest || n.orderId === TEST_NOTIFICATION_ID ? "Test notification" : "New paid order"}
                 </p>
                 <p style={{ margin: "0 0 2px", fontSize: "15px", fontWeight: 700, color: "#fff" }}>
-                  #{shortOrderId(n.order.id, n.order.order_number)}
+                  {n.isTest || n.orderId === TEST_NOTIFICATION_ID
+                    ? "Sample order card"
+                    : `#${shortOrderId(n.order.id, n.order.order_number)}`}
                 </p>
                 <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>
                   ₹{n.order.total_amount ?? "—"} ·{" "}

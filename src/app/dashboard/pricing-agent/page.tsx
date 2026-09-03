@@ -7,7 +7,6 @@ import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
-  DashboardNotificationPanel,
 } from "@/components/dashboard/DashboardChrome";
 import {
   approvePricingDecisionAction,
@@ -69,13 +68,11 @@ type AgentState = {
 };
 
 export default function PricingAgentPage() {
-  const [notifOpen, setNotifOpen] = useState(false);
   const {
-    notifications,
     unreadCount,
     soundMuted,
     setSoundMuted,
-    markAllRead,
+    openNotifications,
     newCount,
     month,
     setMonth,
@@ -173,11 +170,6 @@ export default function PricingAgentPage() {
     else setMsg(r.error ?? "Update failed");
   };
 
-  const openNotifications = () => {
-    setNotifOpen(true);
-    markAllRead();
-  };
-
   const pending = state.decisions.filter((d) => d.status === "pending");
   const recent = state.decisions.filter((d) => d.status !== "pending" && d.status !== "expired").slice(0, 20);
 
@@ -255,6 +247,8 @@ export default function PricingAgentPage() {
           newCount={newCount}
           soundMuted={soundMuted}
           onToggleSound={() => setSoundMuted(!soundMuted)}
+          unreadCount={unreadCount}
+          onOpenNotifications={openNotifications}
         />
         <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Mobile: agent chip + toggle */}
@@ -348,19 +342,6 @@ export default function PricingAgentPage() {
           </div>
         </div>
       </div>
-
-      <DashboardNotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        notifications={notifications}
-        soundMuted={soundMuted}
-        onToggleSound={() => setSoundMuted(!soundMuted)}
-        onMarkAllRead={markAllRead}
-        onAccept={() => {}}
-        onReject={() => {}}
-        onView={() => {}}
-        onDismiss={() => {}}
-      />
 
       <style jsx global>{`
         @media (max-width: 1023px) {
