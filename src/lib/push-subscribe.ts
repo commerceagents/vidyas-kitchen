@@ -1,65 +1,23 @@
 /**
- * Turning browser notifications on and off from the app.
+ * Turning browser notifications on and off for a CUSTOMER.
  *
- * Three separate things have to line up before a notification can arrive: the
- * browser must support push, the customer must have granted permission, and
- * the resulting subscription must be filed against their phone number on our
- * server. This module owns all three so the UI only has to ask "on or off".
+ * Subscriptions are filed against the customer's phone number, because that is
+ * what an order carries and what the send side looks up. The browser plumbing
+ * itself lives in `push-client` and is shared with the driver app.
  */
 
-export type PushState =
-  | "unsupported" // no service worker or push API — iOS Safari outside a home-screen app
-  | "blocked" // permission denied; only the browser's own settings can undo it
-  | "off"
-  | "on";
+import {
+  currentPushState,
+  ensureSubscription,
+  existingSubscription,
+  keyToBase64,
+  pushSupported,
+  requestPushPermission,
+  type PushState,
+} from "@/lib/push-client";
 
-const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-
-export function pushSupported(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window &&
-    Boolean(VAPID_KEY)
-  );
-}
-
-/** VAPID keys travel as base64url; the subscribe call wants raw bytes. */
-function urlBase64ToUint8Array(base64: string): Uint8Array {
-  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(padded);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
-  return out;
-}
-
-function keyToBase64(sub: PushSubscription, name: "p256dh" | "auth"): string {
-  const key = sub.getKey(name);
-  if (!key) return "";
-  return btoa(String.fromCharCode(...new Uint8Array(key)));
-}
-
-async function registration(): Promise<ServiceWorkerRegistration> {
-  await navigator.serviceWorker.register("/sw.js");
-  // `ready` rather than the register() result: a worker that is registered but
-  // still installing cannot be subscribed to yet.
-  return navigator.serviceWorker.ready;
-}
-
-export async function currentPushState(): Promise<PushState> {
-  if (!pushSupported()) return "unsupported";
-  if (Notification.permission === "denied") return "blocked";
-  if (Notification.permission !== "granted") return "off";
-
-  try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    const sub = await reg?.pushManager.getSubscription();
-    return sub ? "on" : "off";
-  } catch {
-    return "off";
-  }
-}
+export { currentPushState, pushSupported };
+export type { PushState };
 
 async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -76,30 +34,11 @@ async function authHeaders(): Promise<Record<string, string>> {
 export type EnableResult = { ok: true } | { ok: false; state: PushState; error: string };
 
 export async function enablePush(phone: string): Promise<EnableResult> {
-  if (!pushSupported()) {
-    return { ok: false, state: "unsupported", error: "This browser can't show notifications." };
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission === "denied") {
-    return {
-      ok: false,
-      state: "blocked",
-      error: "Notifications are blocked for this site. Turn them back on in your browser settings.",
-    };
-  }
-  if (permission !== "granted") {
-    return { ok: false, state: "off", error: "" };
-  }
+  const permitted = await requestPushPermission();
+  if (!permitted.ok) return permitted;
 
   try {
-    const reg = await registration();
-    const sub =
-      (await reg.pushManager.getSubscription()) ??
-      (await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as BufferSource,
-      }));
+    const sub = await ensureSubscription();
 
     const res = await fetch("/api/push/subscribe", {
       method: "POST",
@@ -129,8 +68,7 @@ export async function enablePush(phone: string): Promise<EnableResult> {
 
 export async function disablePush(): Promise<void> {
   try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    const sub = await reg?.pushManager.getSubscription();
+    const sub = await existingSubscription();
     if (!sub) return;
 
     await fetch("/api/push/unsubscribe", {

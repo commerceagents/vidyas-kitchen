@@ -19,6 +19,8 @@ export type PushPayload = {
   body: string;
   tag?: string;
   url?: string;
+  /** Buzz the phone and keep the card up until it is acted on (driver alerts). */
+  urgent?: boolean;
 };
 
 export async function sendPushNotification(

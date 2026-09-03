@@ -12,6 +12,7 @@ import {
 } from "@/lib/whatsapp-order-notify";
 import { refundPayment } from "@/lib/payments";
 import { sendOrderPushNotifications } from "@/lib/push-order-notify";
+import { notifyDriversOrderReady } from "@/lib/push-driver-notify";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
@@ -74,6 +75,10 @@ export async function transitionOrderStatusInDb(
   if (next === OrderStatus.READY) {
     void notifyWhatsAppDriverNewDeliveryReady(supabase, orderId).catch((e) =>
       console.error("[order-transition] driver WhatsApp", e),
+    );
+    // The driver queue is shared, so every driver with alerts on hears about it.
+    void notifyDriversOrderReady(supabase, orderId).catch((e) =>
+      console.error("[order-transition] driver push", e),
     );
   }
 

@@ -16,6 +16,13 @@ self.addEventListener("push", (event) => {
     tag: data.tag || "vk-order",
     data: { url: data.url || "/" },
   };
+  // A driver on the road has the phone in a pocket, so those alerts ask to
+  // buzz and to stay on screen until acted on. Customer updates stay quiet.
+  if (data.urgent) {
+    options.requireInteraction = true;
+    options.renotify = true;
+    options.vibrate = [220, 90, 220, 90, 220];
+  }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 

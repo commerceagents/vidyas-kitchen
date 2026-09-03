@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { sendText } from "@/lib/twilio-whatsapp";
+import { normalizeDriverPhone } from "@/lib/driver-auth";
+import { notifyDriverAssigned } from "@/lib/push-driver-notify";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://vidyaskitchenhome.com";
 
@@ -56,6 +58,20 @@ export async function POST(req: NextRequest) {
     const digits = driverPhone.replace(/\D/g, "");
     const to = digits.startsWith("91") ? digits : `91${digits}`;
     await sendText(to, text);
+
+    // Push lands on the lock screen in a second; WhatsApp above is the backstop
+    // for a driver who never turned alerts on. Failing to find the driver row
+    // must not fail the dispatch — the message has already gone out.
+    const phoneKey = normalizeDriverPhone(driverPhone);
+    const { data: drivers } = await supabaseAdmin.from("drivers").select("id, phone");
+    const driver = (drivers ?? []).find(
+      (d: { id: string; phone: string }) => normalizeDriverPhone(d.phone) === phoneKey,
+    );
+    if (driver) {
+      void notifyDriverAssigned(supabaseAdmin, driver.id, orderId).catch((e) =>
+        console.error("[assign-driver] push", e),
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {

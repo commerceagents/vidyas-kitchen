@@ -7,6 +7,7 @@ import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-st
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "./driver-theme";
 import { DriverAuthShell, DriverLogoutButton, useSignedInDriver } from "./driver-auth-gate";
+import { DriverAlerts } from "./driver-alerts";
 
 type Row = {
   id: string;
@@ -160,6 +161,7 @@ function DriverHubInner() {
       </header>
 
       <div style={{ flex: 1, padding: "18px 20px 0", overflowY: "auto" }}>
+        <DriverAlerts />
         {loading ? (
           <Centered>
             <Loader2 size={24} style={{ color: D.faint, animation: "spin 1s linear infinite" }} />
