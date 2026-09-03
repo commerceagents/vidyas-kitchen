@@ -335,6 +335,16 @@ function defaultVariantWeight(item: MenuItem): string {
   );
 }
 
+function cartTotalPrice(cart: Record<string, number>, allItems: MenuItem[]): number {
+  return Object.entries(cart).reduce((acc, [key, q]) => {
+    const [id, weight] = key.split(":");
+    const item = allItems.find((it) => it.id === id);
+    if (!item) return acc;
+    const variant = item.variants.find((v) => v.weight === weight);
+    return acc + (variant?.price || 0) * q;
+  }, 0);
+}
+
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
 const SAMPLE_REVIEWS = [
   {
@@ -2117,6 +2127,7 @@ export function MobileHomeScreen({
 
 
   const cartTotalItems = Object.values(cart).reduce((sum, q) => sum + q, 0);
+  const cartTotalAmount = useMemo(() => cartTotalPrice(cart, items), [cart, items]);
 
   const goCheckout = useCallback(() => {
     const resumeId = dishDetailItem?.id ?? null;
@@ -2134,6 +2145,9 @@ export function MobileHomeScreen({
   }, []);
 
   const windowOpen = isOrderingWindowOpen() && !previewClosed;
+
+  const showHomeCartBar =
+    windowOpen && activeNav === "home" && activeScreen !== "menu" && !dishDetailItem && cartTotalItems > 0;
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
@@ -2563,7 +2577,8 @@ export function MobileHomeScreen({
           padding: `0 ${sp(2)}px`,
           paddingTop: sp(2),
           overflowY: "auto",
-          paddingBottom: 180, // Increased to clear floating warning
+          // Clears the floating warning, and the cart bar above it when shown.
+          paddingBottom: showHomeCartBar ? 268 : 180,
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -3136,6 +3151,95 @@ export function MobileHomeScreen({
         />
       )}
 
+      {/*
+        The cart outlives the app now, so it has to be reachable from the screen
+        the app opens on. Browse Menu and dish detail carry their own bar; the
+        home tab had none, which meant a basket saved from yesterday was still
+        there but invisible, and reopening the app looked exactly like losing it.
+      */}
+      <AnimatePresence>
+        {showHomeCartBar && (
+          <motion.div
+            key="home-cart-bar"
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+            style={{
+              position: "fixed",
+              left: 16,
+              right: 16,
+              // Clears the nav pill, which sits 32px up and stands 66px tall.
+              bottom: "calc(110px + env(safe-area-inset-bottom))",
+              background: "rgba(255,255,255,0.94)",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+              padding: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              zIndex: 110,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "rgba(0,0,0,0.42)",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {`${cartTotalItems} item${cartTotalItems === 1 ? "" : "s"} in your cart`}
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: 22,
+                  fontWeight: 900,
+                  color: C.red,
+                  letterSpacing: "-0.02em",
+                  fontFamily: C.mono,
+                }}
+              >
+                ₹{cartTotalAmount.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={goCheckout}
+              style={{
+                height: 52,
+                padding: "0 22px",
+                borderRadius: 18,
+                border: "none",
+                background: C.red,
+                color: "#fff",
+                fontFamily: C.mono,
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: `0 8px 24px ${C.redGlow}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              View cart
+              <ArrowRight size={16} weight="bold" color="#fff" />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
@@ -3410,13 +3514,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
     .sort((a, b) => a.variants[0].price - b.variants[0].price); 
   const totalCards = filtered.length;
   
-  const totalPrice = Object.entries(cart).reduce((acc, [key, q]) => {
-    const [id, weight] = key.split(":");
-    const item = allItems.find(it => it.id === id);
-    if (!item) return acc;
-    const variant = item.variants.find(v => v.weight === weight);
-    return acc + (variant?.price || 0) * q;
-  }, 0);
+  const totalPrice = cartTotalPrice(cart, allItems);
 
   const cartItemCount = Object.values(cart).reduce((sum, q) => sum + q, 0);
   
