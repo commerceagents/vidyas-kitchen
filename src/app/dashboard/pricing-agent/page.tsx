@@ -155,7 +155,6 @@ export default function PricingAgentPage() {
 
   const pending = state.decisions.filter((d) => d.status === "pending");
   const recent = state.decisions.filter((d) => d.status !== "pending").slice(0, 20);
-  const allDecisions = [...pending, ...recent];
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },
@@ -174,23 +173,47 @@ export default function PricingAgentPage() {
         </div>
       )}
 
-      {allDecisions.length === 0 ? (
+      {pending.length === 0 && recent.length === 0 ? (
         <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
           <Bot size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>No decisions yet</p>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>Run the agent to generate pricing recommendations</p>
         </div>
       ) : (
-        <ul className="vk-order-grid vk-pricing-decisions-grid" style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-          {allDecisions.map((d) => (
-            <DecisionCard
-              key={d.id}
-              decision={d}
-              onApprove={d.status === "pending" ? (pct) => handleApprove(d.id, pct) : undefined}
-              onReject={d.status === "pending" ? () => handleReject(d.id) : undefined}
-            />
-          ))}
-        </ul>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+          {pending.length > 0 && (
+            <div>
+              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#F59E0B", fontFamily: FONT }}>
+                Needs your approval
+              </p>
+              <ul className="vk-order-grid vk-pricing-decisions-grid" style={{ margin: 0, padding: 0 }}>
+                {pending.map((d) => (
+                  <DecisionCard
+                    key={d.id}
+                    decision={d}
+                    onApprove={(pct) => handleApprove(d.id, pct)}
+                    onReject={() => handleReject(d.id)}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+          {recent.length > 0 && (
+            <details open={pending.length === 0}>
+              <summary style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#555", fontFamily: FONT, cursor: "pointer", listStyle: "none", marginBottom: 10 }}>
+                Recent history ({recent.length})
+              </summary>
+              <ul className="vk-order-grid vk-pricing-decisions-grid" style={{ margin: 0, padding: 0 }}>
+                {recent.map((d) => (
+                  <DecisionCard
+                    key={d.id}
+                    decision={d}
+                  />
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       )}
     </>
   );
