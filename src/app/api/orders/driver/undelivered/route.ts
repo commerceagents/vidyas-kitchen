@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDriverSession } from "@/lib/driver-auth";
 import { markOrderUndelivered } from "@/lib/order-transition";
 import { COD_FAILURE_REASONS, type CodFailureReason } from "@/lib/order-status";
 
@@ -13,6 +14,9 @@ function isUuid(s: string) {
  * COD, bars the number from paying with cash next time.
  */
 export async function POST(request: Request) {
+  const auth = await requireDriverSession();
+  if (!auth.ok) return auth.response;
+
   let body: { orderId?: string; reason?: string };
   try {
     body = (await request.json()) as { orderId?: string; reason?: string };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDriverSession } from "@/lib/driver-auth";
 import { transitionOrderStatusInDb } from "@/lib/order-transition";
 import { OrderStatus } from "@/lib/order-status";
 
@@ -9,6 +10,9 @@ function isUuid(s: string) {
 
 /** Driver: READY → OUT_FOR_DELIVERY */
 export async function POST(request: Request) {
+  const auth = await requireDriverSession();
+  if (!auth.ok) return auth.response;
+
   let body: { orderId?: string };
   try {
     body = (await request.json()) as { orderId?: string };

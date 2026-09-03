@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDriverSession } from "@/lib/driver-auth";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 
 function isUuid(s: string) {
@@ -8,6 +9,9 @@ function isUuid(s: string) {
 
 /** Driver app: report GPS while en route (updates customer map). */
 export async function POST(request: Request) {
+  const auth = await requireDriverSession();
+  if (!auth.ok) return auth.response;
+
   let body: { orderId?: string; lat?: number; lng?: number };
   try {
     body = (await request.json()) as { orderId?: string; lat?: number; lng?: number };

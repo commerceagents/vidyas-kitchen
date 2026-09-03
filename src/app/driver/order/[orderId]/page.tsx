@@ -18,6 +18,7 @@ import { haversineMeters } from "@/lib/geo";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS, formatOrderRef } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "../../driver-theme";
+import { DriverAuthShell, useSignedInDriver } from "../../driver-auth-gate";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
@@ -200,8 +201,17 @@ function SwipeAction({
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function DriverOrderDetailPage() {
+  return (
+    <DriverAuthShell>
+      <DriverOrderDetailInner />
+    </DriverAuthShell>
+  );
+}
+
+function DriverOrderDetailInner() {
   const params = useParams();
   const router = useRouter();
+  const { logout } = useSignedInDriver();
   const orderId = String(params.orderId || "");
 
   const [order, setOrder] = useState<DriverOrder | null>(null);
@@ -236,6 +246,10 @@ export default function DriverOrderDetailPage() {
     if (!orderId) return;
     try {
       const res = await fetch(`/api/orders/driver-order?id=${encodeURIComponent(orderId)}`);
+      if (res.status === 401) {
+        await logout();
+        return;
+      }
       const j = (await res.json().catch(() => ({}))) as { error?: string; order?: DriverOrder };
       if (!res.ok) throw new Error(j.error || "Could not load order");
       setOrder(j.order || null);
@@ -243,7 +257,7 @@ export default function DriverOrderDetailPage() {
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : "Load failed");
     }
-  }, [orderId]);
+  }, [orderId, logout]);
 
   useEffect(() => {
     void load();
@@ -379,6 +393,10 @@ export default function DriverOrderDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
+      if (res.status === 401) {
+        await logout();
+        return;
+      }
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Pickup failed");
       await load();
@@ -404,6 +422,10 @@ export default function DriverOrderDetailPage() {
           codCollected: cashOutstanding ? true : undefined,
         }),
       });
+      if (res.status === 401) {
+        await logout();
+        return;
+      }
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not complete");
       router.push("/driver");
@@ -424,6 +446,10 @@ export default function DriverOrderDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, reason }),
       });
+      if (res.status === 401) {
+        await logout();
+        return;
+      }
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not update order");
       router.push("/driver");

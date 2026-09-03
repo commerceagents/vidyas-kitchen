@@ -399,7 +399,6 @@ export function OrderTrackingPanel({
     (trackSnap?.paymentMethod || "").toLowerCase() === "cod" &&
     (trackSnap?.paymentStatus || "pending") !== "paid" &&
     !cancelled &&
-    !delivered &&
     !undelivered;
   const canEditAddress =
     !!onEditAddress && !!trackSnap && (normalizeTrackStatus(trackSnap.status) === "paid" || normalizeTrackStatus(trackSnap.status) === "pending_payment");
@@ -694,7 +693,9 @@ export function OrderTrackingPanel({
                     >
                       <Money size={20} weight="regular" color="rgba(255,255,255,0.7)" />
                       <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: fontUi, lineHeight: 1.45 }}>
-                        Keep ₹{total.toLocaleString("en-IN")} in cash ready for the driver
+                        {delivered
+                          ? `₹${total.toLocaleString("en-IN")} cash is still outstanding`
+                          : `Keep ₹${total.toLocaleString("en-IN")} in cash ready for the driver`}
                       </span>
                     </div>
                   )}

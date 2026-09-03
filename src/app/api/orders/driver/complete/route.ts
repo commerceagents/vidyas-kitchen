@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDriverSession } from "@/lib/driver-auth";
 import { transitionOrderStatusInDb, markCodCollected } from "@/lib/order-transition";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { haversineMeters } from "@/lib/geo";
@@ -12,6 +13,9 @@ const MAX_METRES = 120; // ~100m + GPS jitter
 
 /** Driver: complete delivery (proximity-checked when drop-off pin exists). */
 export async function POST(request: Request) {
+  const auth = await requireDriverSession();
+  if (!auth.ok) return auth.response;
+
   let body: { orderId?: string; lat?: number; lng?: number; codCollected?: boolean };
   try {
     body = (await request.json()) as {

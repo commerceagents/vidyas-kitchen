@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Save, Trash2, Truck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { listDriverPinFlags, setDriverPin } from "@/app/actions/driver-pin";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
@@ -48,13 +49,18 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pinFlags, setPinFlags] = useState<Record<string, boolean>>({});
+  const [pinDraft, setPinDraft] = useState<Record<string, string>>({});
+  const [pinBusyId, setPinBusyId] = useState<string | null>(null);
+  const [pinMsg, setPinMsg] = useState<Record<string, string>>({});
 
   const fetchDrivers = useCallback(async () => {
-    const { data } = await supabase
-      .from("drivers")
-      .select("id, name, phone")
-      .order("created_at", { ascending: true });
+    const [{ data }, flags] = await Promise.all([
+      supabase.from("drivers").select("id, name, phone").order("created_at", { ascending: true }),
+      listDriverPinFlags(),
+    ]);
     if (data) setDrivers(data as Driver[]);
+    setPinFlags(flags);
     setLoading(false);
   }, []);
 
@@ -78,6 +84,21 @@ export default function DriversPage() {
     if (!confirm("Remove this driver?")) return;
     await supabase.from("drivers").delete().eq("id", id);
     setDrivers((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const savePin = async (id: string) => {
+    const pin = (pinDraft[id] || "").replace(/\D/g, "");
+    setPinBusyId(id);
+    setPinMsg((prev) => ({ ...prev, [id]: "" }));
+    const r = await setDriverPin(id, pin);
+    setPinBusyId(null);
+    if (!r.ok) {
+      setPinMsg((prev) => ({ ...prev, [id]: r.error || "Could not set PIN" }));
+      return;
+    }
+    setPinFlags((prev) => ({ ...prev, [id]: true }));
+    setPinDraft((prev) => ({ ...prev, [id]: "" }));
+    setPinMsg((prev) => ({ ...prev, [id]: "PIN saved" }));
   };
 
   const saveAll = async () => {
@@ -207,6 +228,62 @@ export default function DriversPage() {
                             boxSizing: "border-box",
                           }}
                         />
+                        {!d.id.startsWith("new-") && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <input
+                                type="password"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                maxLength={6}
+                                placeholder={pinFlags[d.id] ? "New PIN (4–6)" : "Set PIN (4–6)"}
+                                value={pinDraft[d.id] || ""}
+                                onChange={(e) =>
+                                  setPinDraft((prev) => ({
+                                    ...prev,
+                                    [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                  }))
+                                }
+                                style={{
+                                  flex: 1,
+                                  background: "#222",
+                                  border: `1px solid ${BORDER}`,
+                                  borderRadius: 8,
+                                  padding: "8px 12px",
+                                  color: "#fff",
+                                  fontSize: 13,
+                                  fontFamily: FONT,
+                                  outline: "none",
+                                  minWidth: 0,
+                                  boxSizing: "border-box",
+                                }}
+                              />
+                              <button
+                                type="button"
+                                disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
+                                onClick={() => void savePin(d.id)}
+                                style={{
+                                  flexShrink: 0,
+                                  background: YELLOW,
+                                  color: "#111",
+                                  border: "none",
+                                  borderRadius: 8,
+                                  padding: "8px 12px",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  fontFamily: FONT,
+                                  cursor: pinBusyId === d.id ? "wait" : "pointer",
+                                  opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
+                                }}
+                              >
+                                {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Reset PIN" : "Set PIN"}
+                              </button>
+                            </div>
+                            <div style={{ fontSize: 11, fontFamily: FONT, color: pinMsg[d.id]?.includes("saved") ? "#86efac" : pinMsg[d.id] ? "#f87171" : "#888" }}>
+                              {pinMsg[d.id] || (pinFlags[d.id] ? "PIN set — enter a new one to reset" : "No PIN yet — driver cannot sign in")}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <button
                         type="button"

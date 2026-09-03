@@ -6,6 +6,7 @@ import { MapPin, Package, Loader2, ChevronRight, Clock } from "lucide-react";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "./driver-theme";
+import { DriverAuthShell, DriverLogoutButton, useSignedInDriver } from "./driver-auth-gate";
 
 type Row = {
   id: string;
@@ -55,6 +56,15 @@ function codOutstanding(order: { payment_method?: string | null; payment_status?
 }
 
 export default function DriverHubPage() {
+  return (
+    <DriverAuthShell>
+      <DriverHubInner />
+    </DriverAuthShell>
+  );
+}
+
+function DriverHubInner() {
+  const { logout } = useSignedInDriver();
   const [orders, setOrders] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -67,6 +77,10 @@ export default function DriverHubPage() {
     const load = async () => {
       try {
         const res = await fetch("/api/orders/driver-queue");
+        if (res.status === 401) {
+          await logout();
+          return;
+        }
         const j = (await res.json().catch(() => ({}))) as { orders?: Row[]; error?: string };
         if (cancel) return;
         if (!res.ok || !j.orders) throw new Error(j.error || "Could not load deliveries");
@@ -86,7 +100,7 @@ export default function DriverHubPage() {
     void load();
     const t = setInterval(load, 10_000);
     return () => { cancel = true; clearInterval(t); };
-  }, []);
+  }, [logout]);
 
   const pickup = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.READY);
   const enRoute = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.OUT_FOR_DELIVERY);
@@ -123,10 +137,13 @@ export default function DriverHubPage() {
             <h1 style={{ margin: "3px 0 0", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em" }}>Deliveries</h1>
           </div>
           <div style={{ flex: 1 }} />
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 7, height: 7, borderRadius: 4, background: D.green, animation: "pulse 2s ease-in-out infinite" }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Live</span>
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <DriverLogoutButton />
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 4, background: D.green, animation: "pulse 2s ease-in-out infinite" }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Live</span>
+            </span>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 18, marginTop: 16 }}>

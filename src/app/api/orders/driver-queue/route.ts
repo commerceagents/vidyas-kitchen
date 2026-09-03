@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { requireDriverSession } from "@/lib/driver-auth";
 import { OrderStatus } from "@/lib/order-status";
 
-/**
- * Driver list: orders ready for pickup or out for delivery (service role).
- * No auth — protect route by URL obscurity / network in production if needed.
- */
+/** Driver list: ready / out-for-delivery orders. Requires a signed driver session. */
 export async function GET() {
+  const auth = await requireDriverSession();
+  if (!auth.ok) return auth.response;
+
   try {
     const supabase = createServerSupabase();
     const { data, error } = await supabase
