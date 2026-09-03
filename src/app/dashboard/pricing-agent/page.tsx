@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Bot, Play, Pause, Zap, Clock, CheckCircle2, AlertTriangle, Percent } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
@@ -92,6 +92,7 @@ export default function PricingAgentPage() {
   });
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const msgTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -121,16 +122,31 @@ export default function PricingAgentPage() {
     if (!r.ok) setState((s) => ({ ...s, enabled: !next }));
   };
 
+  const flashMsg = useCallback((text: string) => {
+    if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
+    setMsg(text);
+    msgTimerRef.current = setTimeout(() => setMsg(null), 5000);
+  }, []);
+
   const handleRun = async () => {
     setRunning(true);
     setMsg(null);
     const r = await runAgentManuallyAction();
     setRunning(false);
     if (r.ok) {
-      setMsg(`Agent run complete: ${r.result?.totalDecisions ?? 0} decisions`);
+      const total = r.result?.totalDecisions ?? 0;
+      const pending = r.result?.pendingApproval ?? 0;
+      const auto = r.result?.autoApplied ?? 0;
+      if (total === 0) {
+        flashMsg("All good — no changes needed right now.");
+      } else if (pending > 0) {
+        flashMsg(`${pending} new suggestion${pending > 1 ? "s" : ""} need your approval.`);
+      } else {
+        flashMsg(`${auto} change${auto > 1 ? "s" : ""} auto-applied.`);
+      }
       void load();
     } else {
-      setMsg(r.error ?? "Run failed");
+      flashMsg(r.error ?? "Run failed — check Vercel logs.");
     }
   };
 

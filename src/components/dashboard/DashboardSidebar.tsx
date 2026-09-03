@@ -5,15 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   Bot,
+  CalendarDays,
   ChevronsLeft,
   ChevronsRight,
-  History,
   LayoutDashboard,
   LogOut,
   Truck,
   TrendingUp,
+  UtensilsCrossed,
 } from "lucide-react";
 
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
@@ -22,6 +22,8 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/summary", label: "Revenue", icon: TrendingUp, exact: false },
   { href: "/dashboard/pricing-agent", label: "AI Pricing", icon: Bot, exact: false },
+  { href: "/dashboard/festivals", label: "Festivals", icon: CalendarDays, exact: false },
+  { href: "/dashboard/dishes", label: "Dishes", icon: UtensilsCrossed, exact: false },
   { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
 ] as const;
 

@@ -70,7 +70,7 @@ export default function DishesPricingPage() {
     setMsg(null);
     const r = await upsertDishDiscountAction(row);
     setSavingId(null);
-    setMsg(r.ok ? "Saved. PWA will pick up on next load." : (r.error ?? "Save failed — check Supabase table & service role."));
+    setMsg(r.ok ? "Saved. Customers will see the new price on next menu load." : (r.error ?? "Save failed — try again or check your connection."));
   }, [rows]);
 
   return (
@@ -111,9 +111,8 @@ export default function DishesPricingPage() {
             Dishes &amp; discount pricing
           </h1>
           <p style={{ margin: "0.5rem 0 0", fontSize: "0.875rem", color: "rgba(255,255,255,0.45)", maxWidth: 560 }}>
-            Overrides sync to Supabase <code style={{ fontFamily: fontData, fontSize: "0.8em" }}>dish_discount_settings</code>.
-            Run <code style={{ fontFamily: fontData, fontSize: "0.8em" }}>supabase/migrations-dish-discounts.sql</code> first.
-            Use <strong style={{ color: "#fff" }}>service role</strong> in server env for saves.
+            Set a % off for any dish. Customers see the crossed-out price and the offer badge on the menu.
+            Changes go live after save.
           </p>
         </div>
       </header>

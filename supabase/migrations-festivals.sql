@@ -25,8 +25,12 @@ COMMENT ON TABLE festivals IS 'Seasonal promo windows; PWA applies discount_over
 INSERT INTO festivals (name, date_start, date_end, discount_override, chip_label, active) VALUES
   ('Puthandu (Tamil New Year)', '2026-04-14', '2026-04-15', 30, 'PUTHANDU OFFER', TRUE),
   ('Ramzan / Eid', '2026-03-30', '2026-03-31', 35, 'EID SPECIAL', FALSE),
+  ('Krishna Jayanti', '2026-09-04', '2026-09-04', 20, 'KRISHNA JAYANTI', FALSE),
   ('Vinayagar Chaturthi', '2026-09-14', '2026-09-15', 25, 'FESTIVE OFFER', FALSE),
+  ('Navaratri', '2026-10-02', '2026-10-11', 20, 'NAVARATRI OFFER', FALSE),
+  ('Vijaya Dasami (Dussehra)', '2026-10-12', '2026-10-12', 20, 'FESTIVE OFFER', FALSE),
   ('Independence Day', '2026-08-15', '2026-08-15', 20, 'INDEPENDENCE OFFER', TRUE),
+  ('Karthigai Deepam', '2026-11-30', '2026-12-01', 20, 'KARTHIGAI OFFER', FALSE),
   ('Diwali', '2026-11-08', '2026-11-10', 30, 'DIWALI SPECIAL', TRUE),
   ('Christmas', '2026-12-25', '2026-12-26', 30, 'CHRISTMAS OFFER', TRUE),
   ('New Year', '2027-01-01', '2027-01-01', 35, 'NEW YEAR SPECIAL', TRUE),
