@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       .select(
         `
         id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
-        payment_method, payment_status, cod_failure_reason,
+        payment_method, payment_status, cod_failure_reason, payment_link_id,
         delivery_lat, delivery_lng, cancellation_deadline,
         driver_last_lat, driver_last_lng, driver_location_at,
         refund_status, refund_amount,
@@ -94,6 +94,7 @@ export async function GET(request: Request) {
       cancellationDeadline: (row as { cancellation_deadline?: string | null }).cancellation_deadline ?? null,
       refundStatus: (row as { refund_status?: string | null }).refund_status ?? null,
       refundAmount: (row as { refund_amount?: number | null }).refund_amount ?? null,
+      paymentLinkId: (row as { payment_link_id?: string | null }).payment_link_id ?? null,
       lines,
       breakdown: {
         itemsSubtotal: breakdown.itemsSubtotal,

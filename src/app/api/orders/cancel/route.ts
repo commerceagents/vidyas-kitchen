@@ -48,10 +48,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const now = Date.now();
-    const deadline = row.cancellation_deadline ? new Date(row.cancellation_deadline).getTime() : 0;
-    if (deadline > 0 && now >= deadline) {
-      return NextResponse.json({ error: "Cancellation window has closed (12 hours before slot)." }, { status: 400 });
+    // pending_payment orders never took any money and never reached the kitchen,
+    // so the cancellation deadline that protects placed orders doesn't apply —
+    // always allow the customer to dismiss an unpaid checkout.
+    if (String(row.status ?? "").toLowerCase() !== "pending_payment") {
+      const now = Date.now();
+      const deadline = row.cancellation_deadline ? new Date(row.cancellation_deadline).getTime() : 0;
+      if (deadline > 0 && now >= deadline) {
+        return NextResponse.json({ error: "Cancellation window has closed (12 hours before slot)." }, { status: 400 });
+      }
     }
 
     const result = await transitionOrderStatusInDb(supabase, orderId, OrderStatus.CANCELLED);

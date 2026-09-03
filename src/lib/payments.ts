@@ -37,9 +37,12 @@ export async function createPaymentLink(amount: number, orderId: string, custome
 
     return { short_url: paymentLink.short_url, id: paymentLink.id };
   } catch (error) {
+    // Surface the error to the caller. checkout/route.ts will delete the
+    // orphaned order row and return a clear "try again" message to the
+    // customer. Falling back to a UPI deeplink pointed at an unverified
+    // env var used to mask this failure and route money to the wrong address.
     console.error("Razorpay Link Error:", error);
-    // Fallback to UPI link if Razorpay fails or is not configured
-    return { short_url: generateUPILink(amount, orderId), id: null };
+    throw error;
   }
 }
 

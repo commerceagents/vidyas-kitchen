@@ -163,6 +163,20 @@ export async function markOrderPaidAndNotify(
     cur === OrderStatus.OUT_FOR_DELIVERY ||
     cur === OrderStatus.DELIVERED
   ) {
+    // Already in the kitchen or beyond — both the webhook and the browser
+    // callback can legitimately fire for the same payment; either one
+    // arriving first is fine, and the second one should do nothing.
+    return { ok: true };
+  }
+
+  if (cur === OrderStatus.CANCELLED || cur === OrderStatus.REJECTED) {
+    // The order was called off before payment landed (e.g. stale checkout
+    // expired by the cron, then Razorpay sends a late webhook). Do not
+    // resurrect it — log so a human can investigate and return ok so the
+    // webhook is not retried.
+    console.warn(
+      `[markOrderPaidAndNotify] payment arrived for ${cur} order ${orderId} — ignoring`,
+    );
     return { ok: true };
   }
 

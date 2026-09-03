@@ -239,29 +239,32 @@ export async function POST(request: Request) {
     const reqProto = request.headers.get("x-forwarded-proto") || requestUrl.protocol.replace(":", "") || "http";
     const origin = `${reqProto}://${reqHost}`;
 
-    const { short_url, id: paymentLinkId } = await createPaymentLink(
-      grandTotal,
-      orderId,
-      customerName,
-      phone.replace(/\s/g, ""),
-      origin
-    );
-
-    if (paymentLinkId) {
-      await supabase.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", orderId);
-    }
-
-    if (!short_url) {
-      // Nothing can ever pay this row — there's no link to send anyone to. Left
-      // behind it becomes a permanent "Payment pending" order in the customer's
-      // history and a phantom in the kitchen's cancelled list, so drop it and
-      // let the customer retry cleanly.
+    // createPaymentLink throws when Razorpay is unreachable or misconfigured.
+    // Catch it here so we can delete the orphaned row before surfacing the
+    // error — without this, a Razorpay outage fills the DB with pending_payment
+    // rows that no payment link can ever resolve.
+    let paymentResult: { short_url: string; id: string | null };
+    try {
+      paymentResult = await createPaymentLink(
+        grandTotal,
+        orderId,
+        customerName,
+        phone.replace(/\s/g, ""),
+        origin,
+      );
+    } catch {
       await supabase.from("order_items").delete().eq("order_id", orderId);
       await supabase.from("orders").delete().eq("id", orderId);
       return NextResponse.json(
         { error: "Couldn't reach the payment provider. Nothing was charged — please try again in a moment." },
         { status: 502 },
       );
+    }
+
+    const { short_url, id: paymentLinkId } = paymentResult;
+
+    if (paymentLinkId) {
+      await supabase.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", orderId);
     }
 
     return NextResponse.json({

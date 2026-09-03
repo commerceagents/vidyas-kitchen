@@ -54,6 +54,7 @@ export type OrderTrackSnap = {
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
   cancellationDeadline?: string | null;
+  paymentLinkId?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number }[];
   breakdown?: {
     itemsSubtotal: number;
@@ -76,7 +77,9 @@ function normalizeTrackStatus(s: string): string {
 
 function canCustomerCancelStatus(status: string): boolean {
   const s = normalizeTrackStatus(status);
-  return ["paid", "confirmed"].includes(s);
+  // pending_payment is included: no money has been taken and the kitchen
+  // hasn't seen the order, so there is nothing to protect with a deadline.
+  return ["pending_payment", "paid", "confirmed"].includes(s);
 }
 
 /** "2 days 4 hours", "3 hours 20 mins", "8 mins" — coarse near the top, precise near the end. */
@@ -370,6 +373,8 @@ export function OrderTrackingPanel({
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
+  const [resumeFetching, setResumeFetching] = useState(false);
+  const [resumeErr, setResumeErr] = useState<string | null>(null);
 
   const mapToken = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "" : "";
   const stage = trackSnap ? trackStage(trackSnap.status) : -1;
@@ -406,11 +411,34 @@ export function OrderTrackingPanel({
     canCustomerCancelStatus(trackSnap.status) &&
     (!trackSnap.cancellationDeadline || Date.now() < new Date(trackSnap.cancellationDeadline).getTime());
 
-  const cancellationWindowClosed = 
-    !!trackSnap && 
-    canCustomerCancelStatus(trackSnap.status) && 
-    !!trackSnap.cancellationDeadline && 
+  const cancellationWindowClosed =
+    !!trackSnap &&
+    canCustomerCancelStatus(trackSnap.status) &&
+    normalizeTrackStatus(trackSnap.status) !== "pending_payment" &&
+    !!trackSnap.cancellationDeadline &&
     Date.now() >= new Date(trackSnap.cancellationDeadline).getTime();
+
+  const isPendingPayment = n === "pending_payment";
+
+  const handleResumePayment = async () => {
+    if (!trackingOrderId || resumeFetching) return;
+    setResumeErr(null);
+    setResumeFetching(true);
+    try {
+      const phone = customerPhone.trim();
+      const res = await fetch(
+        `/api/payments/resume?orderId=${encodeURIComponent(trackingOrderId)}&phone=${encodeURIComponent(phone)}`,
+      );
+      const data = (await res.json().catch(() => ({}))) as { paymentUrl?: string; error?: string };
+      if (!res.ok || !data.paymentUrl) {
+        throw new Error(data.error || "Could not retrieve payment link");
+      }
+      window.location.href = data.paymentUrl;
+    } catch (e) {
+      setResumeErr(e instanceof Error ? e.message : "Could not open payment page");
+      setResumeFetching(false);
+    }
+  };
 
   const handleConfirmCancel = async () => {
     if (!trackingOrderId) return;
@@ -1001,6 +1029,48 @@ export function OrderTrackingPanel({
                 </div>
               ) : null}
 
+              {/* Pending-payment actions: Pay now + dismiss */}
+              {isPendingPayment && trackSnap.paymentLinkId && (
+                <div style={{ marginBottom: 12 }}>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.97 }}
+                    disabled={resumeFetching}
+                    onClick={() => void handleResumePayment()}
+                    style={{
+                      width: "100%",
+                      padding: "16px 18px",
+                      borderRadius: 16,
+                      border: "none",
+                      background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                      color: C.white,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: resumeFetching ? "wait" : "pointer",
+                      fontFamily: fontUi,
+                      opacity: resumeFetching ? 0.7 : 1,
+                    }}
+                  >
+                    {resumeFetching ? "Opening payment…" : "Complete payment"}
+                  </motion.button>
+                  {resumeErr ? (
+                    <p
+                      role="alert"
+                      style={{
+                        margin: "8px 2px 0",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: C.red,
+                        fontFamily: fontUi,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {resumeErr}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+
               {/* Cancel order */}
               {canCancelOrder ? (
                 <div style={{ marginBottom: 16 }}>
@@ -1018,18 +1088,20 @@ export function OrderTrackingPanel({
                       width: "100%",
                       padding: "16px 18px",
                       borderRadius: 16,
-                      border: "none",
-                      background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                      color: C.white,
+                      border: isPendingPayment ? `1px solid ${C.border}` : "none",
+                      background: isPendingPayment
+                        ? C.surfaceDeep
+                        : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                      color: isPendingPayment ? C_TEXT_MUTED : C.white,
                       fontSize: 15,
                       fontWeight: 800,
                       cursor: "pointer",
                       fontFamily: fontUi,
                     }}
                   >
-                    Cancel order
+                    {isPendingPayment ? "Cancel this checkout" : "Cancel order"}
                   </motion.button>
-                  <CancelCountdown deadline={trackSnap.cancellationDeadline} />
+                  {!isPendingPayment && <CancelCountdown deadline={trackSnap.cancellationDeadline} />}
                 </div>
               ) : cancellationWindowClosed ? (
                 <div style={{ 
