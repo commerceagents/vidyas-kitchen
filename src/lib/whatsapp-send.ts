@@ -7,8 +7,11 @@ import {
   sendButtons as metaSendButtons,
   sendCtaUrl as metaSendCtaUrl,
   sendList as metaSendList,
+  sendCarousel as metaSendCarousel,
+  sendProductList as metaSendProductList,
   type ListSection,
   type SendButtonsOptions,
+  type CarouselCard,
 } from "@/lib/meta-whatsapp";
 import {
   sendText as twilioSendText,
@@ -63,7 +66,42 @@ export async function sendCtaUrl(
   if (r.error) console.error("[whatsapp-send] Twilio CTA failed:", r.error);
 }
 
-export type { ListSection };
+export type { ListSection, CarouselCard };
+
+/** Image carousel. Returns false if Meta rejects so caller can use a list. */
+export async function sendCarousel(
+  to: string,
+  bodyText: string,
+  cards: CarouselCard[],
+): Promise<boolean> {
+  if (!useMetaApi() || cards.length < 2) return false;
+  const r = await metaSendCarousel(to, bodyText, cards);
+  if (!r.success) {
+    console.error("[whatsapp-send] Meta carousel failed:", r.error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Commerce Manager product list. Returns false if catalog isn't configured
+ * or Meta rejects (do not invent retailer IDs).
+ */
+export async function sendProductList(
+  to: string,
+  catalogId: string,
+  headerText: string,
+  bodyText: string,
+  sections: { title: string; productRetailerIds: string[] }[],
+): Promise<boolean> {
+  if (!useMetaApi() || !catalogId || !sections.some((s) => s.productRetailerIds.length)) return false;
+  const r = await metaSendProductList(to, catalogId, headerText, bodyText, sections);
+  if (!r.success) {
+    console.error("[whatsapp-send] Meta product_list failed:", r.error);
+    return false;
+  }
+  return true;
+}
 
 /** Interactive list (Meta) or numbered fallback (Twilio). */
 export async function sendList(

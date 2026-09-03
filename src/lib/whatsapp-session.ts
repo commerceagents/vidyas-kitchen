@@ -18,6 +18,8 @@ export type SessionState =
   | "picking_date"
   | "picking_slot"
   | "picking_address"
+  | "confirming_last"
+  | "picking_pay_method"
   | "awaiting_payment"
   | "ai_chat";
 

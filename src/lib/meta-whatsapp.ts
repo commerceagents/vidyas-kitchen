@@ -306,6 +306,143 @@ export async function sendList(
   }
 }
 
+export type CarouselCard = {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string;
+  buttonTitle?: string;
+};
+
+/**
+ * Native image carousel (no Commerce Manager IDs).
+ * Meta may reject this on unverified accounts — caller must fall back.
+ */
+export async function sendCarousel(
+  to: string,
+  bodyText: string,
+  cards: CarouselCard[],
+): Promise<MetaSendResult> {
+  try {
+    const { accessToken, phoneNumberId } = getConfig();
+    const recipient = toMetaPhoneNumber(to);
+    const slice = cards.slice(0, 10);
+    if (slice.length < 2) {
+      return { success: false, error: "Carousel needs at least 2 cards" };
+    }
+
+    const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "carousel",
+          body: { text: bodyText.substring(0, 1024) },
+          action: {
+            cards: slice.map((card, i) => ({
+              card_index: i,
+              header: {
+                type: "image",
+                image: { link: card.imageUrl },
+              },
+              body: { text: card.body.substring(0, 160) },
+              action: {
+                buttons: [
+                  {
+                    type: "reply",
+                    reply: {
+                      id: card.id.substring(0, 200),
+                      title: (card.buttonTitle || card.title).substring(0, 20),
+                    },
+                  },
+                ],
+              },
+            })),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("[Meta WhatsApp] Send carousel error:", data);
+      return { success: false, error: data.error?.message || "Failed to send carousel" };
+    }
+    return { success: true, messageId: data.messages?.[0]?.id };
+  } catch (error) {
+    console.error("[Meta WhatsApp] Send carousel exception:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Commerce Manager product list. Only call with a real catalog_id and
+ * retailer IDs that exist in that catalog.
+ */
+export async function sendProductList(
+  to: string,
+  catalogId: string,
+  headerText: string,
+  bodyText: string,
+  sections: { title: string; productRetailerIds: string[] }[],
+): Promise<MetaSendResult> {
+  try {
+    const { accessToken, phoneNumberId } = getConfig();
+    const recipient = toMetaPhoneNumber(to);
+
+    const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "product_list",
+          header: { type: "text", text: headerText.substring(0, 60) },
+          body: { text: bodyText.substring(0, 1024) },
+          action: {
+            catalog_id: catalogId,
+            sections: sections.slice(0, 10).map((sec) => ({
+              title: sec.title.substring(0, 24),
+              product_items: sec.productRetailerIds.slice(0, 30).map((id) => ({
+                product_retailer_id: id,
+              })),
+            })),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("[Meta WhatsApp] Send product_list error:", data);
+      return { success: false, error: data.error?.message || "Failed to send product list" };
+    }
+    return { success: true, messageId: data.messages?.[0]?.id };
+  } catch (error) {
+    console.error("[Meta WhatsApp] Send product_list exception:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 /**
  * Mark a message as read
  */

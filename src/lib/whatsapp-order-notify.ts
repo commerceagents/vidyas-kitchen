@@ -15,6 +15,7 @@ import {
   notifyOrderRejected,
 } from "@/lib/whatsapp-copy";
 import { updateSession } from "@/lib/whatsapp-session";
+import { langForPhone } from "@/lib/whatsapp-lang";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** WhatsApp reply id: rate + star (1–5) + 32-char hex uuid (no dashes). */
@@ -77,41 +78,42 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
   const amtStr =
     order.total_amount != null ? `₹${Number(order.total_amount).toLocaleString("en-IN")}` : "the order amount";
+  const lang = langForPhone(to);
 
   switch (order.status) {
     case OrderStatus.PAID: {
       // A COD order reaches `paid` (= placed) with nothing collected yet, so it
       // must never claim we received money.
       const body = isCod
-        ? notifyOrderPlacedCod(short, amtStr, slotLine || undefined)
-        : notifyOrderPaid(short, slotLine || undefined);
+        ? notifyOrderPlacedCod(short, amtStr, slotLine || undefined, lang)
+        : notifyOrderPaid(short, slotLine || undefined, lang);
       await sendCtaUrl(to, body, trackUrl, "Track Order");
       break;
     }
     case OrderNotifyEvent.COD_COLLECTED: {
-      await sendText(to, notifyCodCollected(short, amtStr));
+      await sendText(to, notifyCodCollected(short, amtStr, lang));
       break;
     }
     case OrderStatus.UNDELIVERED: {
-      await sendText(to, notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase()));
+      await sendText(to, notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase(), lang));
       break;
     }
     case OrderStatus.CONFIRMED: {
       const cancelUrl = `${publicSiteOrigin()}/?cancelOrder=${order.id}&phone=${encodeURIComponent(order.phone_number || "")}`;
-      const body = notifyOrderAccepted(short, slotLine || undefined);
+      const body = notifyOrderAccepted(short, slotLine || undefined, lang);
       await sendCtaUrl(to, body, cancelUrl, "Cancel Order");
       break;
     }
     case OrderStatus.PREPARING: {
-      await sendButtons(to, notifyOrderPreparing(), [{ id: "track_order", title: "Track Order" }]);
+      await sendButtons(to, notifyOrderPreparing(lang), [{ id: "track_order", title: "Track Order" }]);
       break;
     }
     case OrderStatus.OUT_FOR_DELIVERY: {
-      await sendButtons(to, notifyOrderOutForDelivery(), [{ id: "track_order", title: "Track Order" }]);
+      await sendButtons(to, notifyOrderOutForDelivery(lang), [{ id: "track_order", title: "Track Order" }]);
       break;
     }
     case OrderStatus.DELIVERED: {
-      const ratingMsg = notifyOrderDelivered();
+      const ratingMsg = notifyOrderDelivered(lang);
       // Reply "1"…"5" → resolveNumbered → correct ★ (1=Excellent=5★)
       try {
         await updateSession(to, { pending_options: deliveredRatingPendingOptions(order.id) });
@@ -122,12 +124,12 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       break;
     }
     case OrderStatus.CANCELLED: {
-      await sendText(to, notifyOrderCancelled(short));
+      await sendText(to, notifyOrderCancelled(short, lang));
       break;
     }
     case OrderStatus.REJECTED: {
       // Nothing was collected on a COD order, so don't promise a refund.
-      await sendText(to, notifyOrderRejected(short, amtStr, !isCod));
+      await sendText(to, notifyOrderRejected(short, amtStr, !isCod, lang));
       break;
     }
     default:
