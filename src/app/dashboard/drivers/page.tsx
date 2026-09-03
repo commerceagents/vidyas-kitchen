@@ -49,6 +49,7 @@ export default function DriversPage() {
   const [saving, setSaving] = useState(false);
   const [pinFlags, setPinFlags] = useState<Record<string, boolean>>({});
   const [pinDraft, setPinDraft] = useState<Record<string, string>>({});
+  const [pinEditing, setPinEditing] = useState<Record<string, boolean>>({});
   const [pinBusyId, setPinBusyId] = useState<string | null>(null);
   const [pinMsg, setPinMsg] = useState<Record<string, string>>({});
 
@@ -105,7 +106,8 @@ export default function DriversPage() {
     }
     setPinFlags((prev) => ({ ...prev, [id]: true }));
     setPinDraft((prev) => ({ ...prev, [id]: "" }));
-    setPinMsg((prev) => ({ ...prev, [id]: "PIN saved" }));
+    setPinEditing((prev) => ({ ...prev, [id]: false }));
+    setPinMsg((prev) => ({ ...prev, [id]: "PIN added" }));
   };
 
   const saveAll = async () => {
@@ -242,81 +244,111 @@ export default function DriversPage() {
                       }}
                     />
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          maxLength={6}
-                          placeholder={
-                            unsaved
-                              ? "PIN (4–6 digits)"
-                              : pinFlags[d.id]
-                                ? "New PIN (4–6)"
-                                : "Set PIN (4–6)"
-                          }
-                          value={pinDraft[d.id] || ""}
-                          onChange={(e) =>
-                            setPinDraft((prev) => ({
-                              ...prev,
-                              [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
-                            }))
-                          }
-                          style={{
-                            flex: 1,
-                            background: "#222",
-                            border: `1px solid ${BORDER}`,
-                            borderRadius: 8,
-                            padding: "8px 12px",
-                            color: "#fff",
-                            fontSize: 13,
-                            fontFamily: FONT,
-                            outline: "none",
-                            minWidth: 0,
-                            boxSizing: "border-box",
-                          }}
-                        />
-                        {!unsaved ? (
+                      {!unsaved && pinFlags[d.id] && !pinEditing[d.id] ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#86efac", fontFamily: FONT }}>
+                            PIN added
+                          </div>
                           <button
                             type="button"
-                            disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
-                            onClick={() => void savePin(d.id)}
+                            onClick={() => {
+                              setPinEditing((prev) => ({ ...prev, [d.id]: true }));
+                              setPinMsg((prev) => ({ ...prev, [d.id]: "" }));
+                            }}
                             style={{
-                              flexShrink: 0,
-                              background: YELLOW,
-                              color: "#111",
-                              border: "none",
+                              background: "transparent",
+                              border: `1px solid ${YELLOW}50`,
                               borderRadius: 8,
-                              padding: "8px 12px",
+                              padding: "6px 10px",
+                              color: YELLOW,
                               fontSize: 12,
                               fontWeight: 700,
                               fontFamily: FONT,
-                              cursor: pinBusyId === d.id ? "wait" : "pointer",
-                              opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
+                              cursor: "pointer",
                             }}
                           >
-                            {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Reset PIN" : "Set PIN"}
+                            Change PIN
                           </button>
-                        ) : null}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontFamily: FONT,
-                          color: pinMsg[d.id]?.includes("saved")
-                            ? "#86efac"
-                            : pinMsg[d.id]
-                              ? "#f87171"
-                              : "#888",
-                        }}
-                      >
-                        {pinMsg[d.id]
-                          || (unsaved
-                            ? "PIN is saved with the driver"
-                            : pinFlags[d.id]
-                              ? "PIN set — enter a new one to reset"
-                              : "No PIN yet — driver cannot sign in")}
-                      </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <input
+                              type="password"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              maxLength={6}
+                              placeholder={
+                                unsaved
+                                  ? "PIN (4–6 digits)"
+                                  : pinFlags[d.id]
+                                    ? "New PIN (4–6)"
+                                    : "Set PIN (4–6)"
+                              }
+                              value={pinDraft[d.id] || ""}
+                              onChange={(e) =>
+                                setPinDraft((prev) => ({
+                                  ...prev,
+                                  [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                }))
+                              }
+                              style={{
+                                flex: 1,
+                                background: "#222",
+                                border: `1px solid ${BORDER}`,
+                                borderRadius: 8,
+                                padding: "8px 12px",
+                                color: "#fff",
+                                fontSize: 13,
+                                fontFamily: FONT,
+                                outline: "none",
+                                minWidth: 0,
+                                boxSizing: "border-box",
+                              }}
+                            />
+                            {!unsaved ? (
+                              <button
+                                type="button"
+                                disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
+                                onClick={() => void savePin(d.id)}
+                                style={{
+                                  flexShrink: 0,
+                                  background: YELLOW,
+                                  color: "#111",
+                                  border: "none",
+                                  borderRadius: 8,
+                                  padding: "8px 12px",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  fontFamily: FONT,
+                                  cursor: pinBusyId === d.id ? "wait" : "pointer",
+                                  opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
+                                }}
+                              >
+                                {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Save new PIN" : "Set PIN"}
+                              </button>
+                            ) : null}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontFamily: FONT,
+                              color: pinMsg[d.id]?.includes("added") || pinMsg[d.id]?.includes("saved")
+                                ? "#86efac"
+                                : pinMsg[d.id]
+                                  ? "#f87171"
+                                  : "#888",
+                            }}
+                          >
+                            {pinMsg[d.id]
+                              || (unsaved
+                                ? "PIN is saved with the driver"
+                                : pinFlags[d.id]
+                                  ? "Enter a new PIN, then Save new PIN"
+                                  : "No PIN yet — driver cannot sign in")}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <button
