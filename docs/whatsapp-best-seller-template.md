@@ -65,9 +65,12 @@ Take the three `h` values and paste them into
 `bestSellerTemplateDefinition()` in `src/lib/whatsapp-marketing.ts`, replacing
 `REPLACE_WITH_MEDIA_HANDLE_1/2/3`.
 
-Any three appetising dish photos work — the images are fixed at approval and
-only the dish name and price change per send. Pick photos that stay true
-whichever dishes are actually selling.
+Any three appetising dish photos work here — these are only the samples Meta
+reviews. The actual images sent per campaign are uploaded automatically from
+the real dish photos, because a carousel card header is the one template header
+that will not accept a public URL and needs a media asset ID instead. That
+upload is cached, so a campaign uploads three images total rather than three per
+recipient.
 
 ## Step 3 — submit for review
 
@@ -90,7 +93,13 @@ Templates → Create → Carousel, matching the structure in
 - Three cards, each with an image header, a two-variable body
   (`{{1}}` dish name, `{{2}}` price) and one quick-reply button, "Order this"
 
-Review usually lands within a few hours, occasionally 24.
+All cards must carry identical components — same button count, same body
+presence — or Meta rejects the template. A card takes at most two buttons and
+needs at least one. The card count is fixed at approval: an approved
+three-card template can only ever send three cards.
+
+Review usually lands within a few hours, occasionally 24. Rather than polling,
+you can subscribe to the `message_template_status_update` webhook.
 
 ## Step 4 — check status
 
@@ -131,6 +140,19 @@ only asked a question is the fastest route to a block.
 Any customer replying **STOP** is opted out immediately, handled before
 anything else in the webhook. Order updates keep flowing — those are
 transactional, not marketing, and are unaffected.
+
+## India's per-user marketing cap
+
+Meta enforces a per-user limit on marketing templates, and India is in scope
+for it — the exclusions are the EEA, UK, Japan and South Korea. It applies to
+marketing templates only, so order updates are unaffected.
+
+When a recipient is over their cap the send comes back as a `failed` status
+webhook with error **`131049`**. That is not a bug to retry: Meta's guidance is
+to wait at least 24 hours, and hammering it can lock the number out for a day.
+The campaign result counts these under `failed`, so a run where most sends fail
+with 131049 means the audience is being messaged too often, not that the
+template is broken.
 
 ## Cadence
 

@@ -137,6 +137,19 @@ import {
  *  - Every branch replies with something. A silent bot reads as a broken bot.
  */
 
+/**
+ * A line from an `order` webhook.
+ *
+ * `quantity` is deliberately not typed as a number. Meta's reference calls it
+ * an integer but prints a decimal in the same table, and the official Node SDK
+ * types it as a string, so it is coerced at the point of use. Meta's prices are
+ * not modelled at all — they are re-derived server-side, never read.
+ */
+type CatalogOrderItem = {
+  product_retailer_id?: string;
+  quantity?: string | number;
+};
+
 function ack() {
   return new Response(JSON.stringify({ status: "ok" }), {
     status: 200,
@@ -306,7 +319,7 @@ export async function POST(req: Request) {
     let messageId = "";
 
     let interactiveReplyId: string | null = null;
-    let catalogProductItems: { product_retailer_id?: string; quantity?: number }[] | null = null;
+    let catalogProductItems: CatalogOrderItem[] | null = null;
 
     if (contentType.includes("application/json")) {
       const json = await req.json();
@@ -336,13 +349,20 @@ export async function POST(req: Request) {
           } else if (interactive?.type === "nfm_reply") {
             interactiveReplyId = null;
             body = interactive.nfm_reply?.body || "";
+          } else {
+            // Meta documents no webhook shape for a carousel card tap. It is
+            // expected to arrive as button_reply above; if a new shape shows
+            // up, this is the only record of what it looked like.
+            console.error(
+              `[WA] unrecognised interactive type "${interactive?.type}": ${JSON.stringify(interactive)}`,
+            );
           }
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
           console.log(`[Meta WA Interactive] From=${from} Id=${interactiveReplyId} Body="${body}"`);
         } else if (message && message.type === "order") {
           from = fromMetaWebhook(message.from);
-          const products = (message.order?.product_items || []) as { product_retailer_id?: string; quantity?: number }[];
+          const products = (message.order?.product_items || []) as CatalogOrderItem[];
           catalogProductItems = products;
           body = products[0]?.product_retailer_id || "catalog_order";
           profileName = contact?.profile?.name || "";
@@ -1722,7 +1742,7 @@ function findMenuItemForCatalogPrefix(menu: MenuItem[], prefix: string): MenuIte
  */
 async function handleCatalogOrder(
   from: string,
-  items: { product_retailer_id?: string; quantity?: number }[],
+  items: CatalogOrderItem[],
 ) {
   const menu = await getMenu();
   const session = await getSession(from);

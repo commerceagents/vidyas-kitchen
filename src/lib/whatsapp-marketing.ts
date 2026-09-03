@@ -21,7 +21,12 @@
  */
 
 import { createServerSupabase } from "./supabase-server";
-import { fetchTemplateStatus, sendTemplate, type TemplateStatus } from "./meta-whatsapp";
+import {
+  fetchTemplateStatus,
+  sendTemplate,
+  uploadMediaFromUrl,
+  type TemplateStatus,
+} from "./meta-whatsapp";
 import { publicSiteOrigin } from "./site-url";
 import { allDishPricing, formatInr, type DishPricing } from "./menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "./menu/best-selling";
@@ -71,6 +76,9 @@ export function bestSellerTemplateDefinition(): Record<string, unknown> {
     name: BEST_SELLER_TEMPLATE_NAME,
     language: BEST_SELLER_TEMPLATE_LANG,
     category: "MARKETING",
+    // Lets Meta re-file the template instead of rejecting it outright if it
+    // reads the wording as a different category.
+    allow_category_change: true,
     components: [
       {
         type: "BODY",
@@ -85,7 +93,17 @@ export function bestSellerTemplateDefinition(): Record<string, unknown> {
 }
 
 /** Components for one send, filling the variables the template declared. */
-export function bestSellerTemplateComponents(dishes: CampaignDish[]): Record<string, unknown>[] {
+/**
+ * Fill the approved template for today's dishes.
+ *
+ * Card images are passed as Meta media IDs, not links — a carousel card header
+ * is the one template header that will not accept a URL. `mediaIds` comes from
+ * uploading each image once per campaign.
+ */
+export function bestSellerTemplateComponents(
+  dishes: CampaignDish[],
+  mediaIds: string[],
+): Record<string, unknown>[] {
   return [
     {
       type: "carousel",
@@ -94,7 +112,7 @@ export function bestSellerTemplateComponents(dishes: CampaignDish[]): Record<str
         components: [
           {
             type: "header",
-            parameters: [{ type: "image", image: { link: entry.imageUrl } }],
+            parameters: [{ type: "image", image: { id: mediaIds[index] } }],
           },
           {
             type: "body",
@@ -228,7 +246,24 @@ export async function sendBestSellerCampaign(opts?: {
     return { status, attempted: audience.length, sent: 0, failed: 0, skippedReason: "Dry run — nothing sent." };
   }
 
-  const components = bestSellerTemplateComponents(dishes);
+  // Upload the three card images once, not once per recipient.
+  const cards = dishes.slice(0, BEST_SELLER_CARD_COUNT);
+  const mediaIds: string[] = [];
+  for (const entry of cards) {
+    const id = await uploadMediaFromUrl(entry.imageUrl);
+    if (!id) {
+      return {
+        status,
+        attempted: 0,
+        sent: 0,
+        failed: 0,
+        skippedReason: `Could not upload the card image for ${entry.dish.name}. Nothing sent.`,
+      };
+    }
+    mediaIds.push(id);
+  }
+
+  const components = bestSellerTemplateComponents(cards, mediaIds);
   let sent = 0;
   let failed = 0;
 

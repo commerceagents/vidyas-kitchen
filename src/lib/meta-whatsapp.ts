@@ -1,9 +1,11 @@
 /**
  * Meta WhatsApp Cloud API.
  *
- * Pinned to v23.0: the free-form interactive carousel only exists from v22
- * onwards, and every carousel we sent on v21 came back 400 and silently fell
- * through to a plain text list — which is why the menu never had photos.
+ * Pinned to v23.0, which is what Meta's own carousel examples use and is GA
+ * until October 2027. Meta documents no minimum version for the free-form
+ * carousel, so this is the lowest version the payload is known good on rather
+ * than the lowest that works. The carousels we sent on v21 came back 400 and
+ * fell through to a plain text list, which is why the menu had no photos.
  *
  * Every send funnels through `postMessage` so a rejection is logged with Meta's
  * own error code and payload path. Richer message types fail for boring
@@ -231,39 +233,49 @@ export async function sendCarousel(
     return { success: false, error: "Carousel needs at least 2 cards" };
   }
 
+  // "Button types and numbers must match across all cards." One stray card
+  // with a url would otherwise invalidate the whole message, so the first
+  // card decides the shape and the rest follow it.
+  const asLinks = Boolean(slice[0].url);
+
   return postMessage(
     "carousel",
     envelope(to, {
       type: "interactive",
       interactive: {
         type: "carousel",
+        // Main header, footer and buttons are not supported on a carousel.
         body: { text: bodyText.substring(0, 1024) },
         action: {
-          cards: slice.map((card, i) => {
-            const isLink = Boolean(card.url);
-            const button = isLink
+          cards: slice.map((card, i) => ({
+            card_index: i,
+            // Always cta_url, even for quick-reply cards. Meta's docs show
+            // this literal value in both worked examples and document no
+            // quick_reply card type at all.
+            type: "cta_url",
+            header: { type: "image", image: { link: card.imageUrl } },
+            body: { text: card.body.substring(0, 160) },
+            action: asLinks
               ? {
-                  type: "cta_url",
-                  cta_url: {
+                  // A url card puts its single button here, not in buttons[].
+                  name: "cta_url",
+                  parameters: {
                     display_text: (card.buttonTitle || card.title).substring(0, 20),
                     url: card.url,
                   },
                 }
               : {
-                  type: "quick_reply",
-                  quick_reply: {
-                    id: card.id.substring(0, 256),
-                    title: (card.buttonTitle || card.title).substring(0, 20),
-                  },
-                };
-            return {
-              card_index: i,
-              type: isLink ? "cta_url" : "quick_reply",
-              header: { type: "image", image: { link: card.imageUrl } },
-              body: { text: card.body.substring(0, 160) },
-              action: { buttons: [button] },
-            };
-          }),
+                  buttons: [
+                    {
+                      type: "quick_reply",
+                      quick_reply: {
+                        id: card.id.substring(0, 256),
+                        title: (card.buttonTitle || card.title).substring(0, 20),
+                      },
+                    },
+                  ],
+                },
+          })),
         },
       },
     }),
@@ -379,6 +391,66 @@ export async function sendTemplate(
       },
     }),
   );
+}
+
+/**
+ * Upload an image to Meta and get back a media asset ID.
+ *
+ * Carousel template cards are the one place a media header will not take a
+ * public URL: Meta documents `id` only, unlike every other template header
+ * where `link` works. So each card image has to be pushed through here first.
+ *
+ * IDs are reusable for 30 days, and a campaign send hits every recipient with
+ * the same three images, so results are cached well inside that window rather
+ * than re-uploading per recipient.
+ */
+const mediaIdCache = new Map<string, { id: string; expires: number }>();
+const MEDIA_ID_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function uploadMediaFromUrl(imageUrl: string): Promise<string | null> {
+  const cached = mediaIdCache.get(imageUrl);
+  if (cached && cached.expires > Date.now()) return cached.id;
+
+  let config: MetaWhatsAppConfig;
+  try {
+    config = getConfig();
+  } catch {
+    return null;
+  }
+
+  try {
+    const source = await fetch(imageUrl);
+    if (!source.ok) {
+      console.error(`[Meta WhatsApp] media upload: could not fetch ${imageUrl} (http=${source.status})`);
+      return null;
+    }
+    const contentType = source.headers.get("content-type") || "image/jpeg";
+    const blob = await source.blob();
+
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", contentType);
+    form.append("file", blob, imageUrl.split("/").pop() || "image.jpg");
+
+    const res = await fetch(`${GRAPH_API_URL}/${config.phoneNumberId}/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(describeMetaError("media_upload", res.status, data as MetaErrorBody));
+      return null;
+    }
+
+    const id = (data as { id?: string }).id;
+    if (!id) return null;
+    mediaIdCache.set(imageUrl, { id, expires: Date.now() + MEDIA_ID_TTL_MS });
+    return id;
+  } catch (e) {
+    console.error("[Meta WhatsApp] media upload threw:", e);
+    return null;
+  }
 }
 
 export async function markAsRead(messageId: string): Promise<boolean> {
