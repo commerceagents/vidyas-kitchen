@@ -19,12 +19,12 @@ import {
   sendCtaUrl as twilioSendCtaUrl,
 } from "@/lib/twilio-whatsapp";
 
-function useMetaApi(): boolean {
+function isMetaApiConfigured(): boolean {
   return Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 }
 
 export async function sendText(to: string, text: string): Promise<void> {
-  if (useMetaApi()) {
+  if (isMetaApiConfigured()) {
     const r = await metaSendText(to, text);
     if (!r.success) console.error("[whatsapp-send] Meta text failed:", r.error);
     return;
@@ -41,7 +41,7 @@ export async function sendButtons(
   buttons: { id: string; title: string }[],
   options?: SendButtonsOptions,
 ): Promise<void> {
-  if (useMetaApi()) {
+  if (isMetaApiConfigured()) {
     const r = await metaSendButtons(to, bodyText, buttons, options);
     if (!r.success) console.error("[whatsapp-send] Meta buttons failed:", r.error);
     return;
@@ -57,7 +57,7 @@ export async function sendCtaUrl(
   url: string,
   buttonText: string,
 ): Promise<void> {
-  if (useMetaApi()) {
+  if (isMetaApiConfigured()) {
     const r = await metaSendCtaUrl(to, bodyText, buttonText, url);
     if (!r.success) console.error("[whatsapp-send] Meta CTA failed:", r.error);
     return;
@@ -74,7 +74,7 @@ export async function sendCarousel(
   bodyText: string,
   cards: CarouselCard[],
 ): Promise<boolean> {
-  if (!useMetaApi() || cards.length < 2) return false;
+  if (!isMetaApiConfigured() || cards.length < 2) return false;
   const r = await metaSendCarousel(to, bodyText, cards);
   if (!r.success) {
     console.error("[whatsapp-send] Meta carousel failed:", r.error);
@@ -94,7 +94,7 @@ export async function sendProductList(
   bodyText: string,
   sections: { title: string; productRetailerIds: string[] }[],
 ): Promise<boolean> {
-  if (!useMetaApi() || !catalogId || !sections.some((s) => s.productRetailerIds.length)) return false;
+  if (!isMetaApiConfigured() || !catalogId || !sections.some((s) => s.productRetailerIds.length)) return false;
   const r = await metaSendProductList(to, catalogId, headerText, bodyText, sections);
   if (!r.success) {
     console.error("[whatsapp-send] Meta product_list failed:", r.error);
@@ -110,7 +110,7 @@ export async function sendList(
   buttonLabel: string,
   sections: ListSection[],
 ): Promise<void> {
-  if (useMetaApi()) {
+  if (isMetaApiConfigured()) {
     const r = await metaSendList(to, bodyText, buttonLabel, sections);
     if (!r.success) {
       console.error("[whatsapp-send] Meta list failed:", r.error);
