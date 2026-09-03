@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MapPin, Package, Loader2, ChevronRight, Clock } from "lucide-react";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
@@ -57,6 +57,10 @@ function codOutstanding(order: { payment_method?: string | null; payment_status?
 export default function DriverHubPage() {
   const [orders, setOrders] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Once we've served a successful response, subsequent poll failures keep the
+  // last known list visible rather than strobing an error banner every 10 s.
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancel = false;
@@ -64,9 +68,20 @@ export default function DriverHubPage() {
       try {
         const res = await fetch("/api/orders/driver-queue");
         const j = (await res.json().catch(() => ({}))) as { orders?: Row[]; error?: string };
-        if (!cancel && j.orders) setOrders(j.orders);
-      } catch {}
-      if (!cancel) setLoading(false);
+        if (cancel) return;
+        if (!res.ok || !j.orders) throw new Error(j.error || "Could not load deliveries");
+        setOrders(j.orders);
+        setLoadError(null);
+        hasLoadedRef.current = true;
+      } catch (e) {
+        // Avoid replacing a healthy list with an error banner on a transient
+        // network blip; only surface the error when we have no data to show.
+        if (!cancel && !hasLoadedRef.current) {
+          setLoadError(e instanceof Error ? e.message : "Could not load deliveries");
+        }
+      } finally {
+        if (!cancel) setLoading(false);
+      }
     };
     void load();
     const t = setInterval(load, 10_000);
@@ -132,6 +147,30 @@ export default function DriverHubPage() {
           <Centered>
             <Loader2 size={24} style={{ color: D.faint, animation: "spin 1s linear infinite" }} />
             <p style={{ color: D.muted, fontSize: 14, margin: 0, fontWeight: 600 }}>Loading deliveries…</p>
+          </Centered>
+        ) : loadError ? (
+          <Centered>
+            <Package size={36} strokeWidth={1.5} style={{ color: D.red }} />
+            <p style={{ color: D.text, fontSize: 15, fontWeight: 700, margin: 0 }}>Couldn&apos;t load deliveries</p>
+            <p style={{ color: D.muted, fontSize: 13, margin: 0, textAlign: "center" }}>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: 6,
+                padding: "10px 22px",
+                borderRadius: 12,
+                border: "none",
+                background: D.red,
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                fontFamily: D.font,
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
           </Centered>
         ) : orders.length === 0 ? (
           <Centered>

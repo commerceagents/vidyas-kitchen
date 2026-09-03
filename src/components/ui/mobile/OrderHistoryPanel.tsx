@@ -10,6 +10,7 @@ import { parseRecipeTag } from "@/lib/dish-name";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { OrderReceiptSheet } from "@/components/ui/mobile/OrderReceiptSheet";
 import { AnimatePresence } from "framer-motion";
+import { auth } from "@/lib/firebase";
 
 export type HistoryOrder = {
   orderId: string;
@@ -149,7 +150,13 @@ export function OrderHistoryPanel({
     if (!signedIn) return;
     setError(null);
     try {
-      const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`);
+      const headers: Record<string, string> = {};
+      try {
+        const token = await auth?.currentUser?.getIdToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch { /* session not yet restored */ }
+
+      const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`, { headers });
       const data = (await res.json().catch(() => ({}))) as {
         orders?: HistoryOrder[];
         error?: string;

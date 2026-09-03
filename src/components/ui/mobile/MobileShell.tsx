@@ -13,6 +13,7 @@ import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-sessi
 import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
 import { isOrderInFlight } from "@/lib/order-status";
 import { disablePush } from "@/lib/push-subscribe";
+import { auth } from "@/lib/firebase";
 import {
   applyServerSavedPlaces,
   loadSavedPlaces,
@@ -125,7 +126,14 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [location, setLocation] = useState<LocationData | null>(initialData.location);
 
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
-  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  // Reading directly from sessionStorage during state initialisation avoids the
+  // race where both effects run in the same commit on warm refresh: the restore
+  // effect hasn't yet called setTrackingOrderId, so auto-resume sees null and
+  // overwrites a deliberately-opened past order.
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(SS_TRACK_ORDER) || null;
+  });
   /** Where "back" from the map returns to; null during first-time setup. */
   const [locationBackStep, setLocationBackStep] = useState<MobileStep | null>(null);
   /** Set while the location screen is being used to move an existing order. */
@@ -417,14 +425,28 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
     void (async () => {
       try {
-        const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`);
+        const headers: Record<string, string> = {};
+        try {
+          const token = await auth?.currentUser?.getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        } catch { /* session not yet restored — server rejects gracefully */ }
+
+        const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`, { headers });
         const data = (await res.json().catch(() => ({}))) as {
           orders?: { orderId: string; status: string }[];
         };
-        if (cancelled || !Array.isArray(data.orders)) return;
+        if (cancelled || !res.ok || !Array.isArray(data.orders)) return;
 
         // The API already returns newest first.
-        const live = data.orders.find((o) => isOrderInFlight(o.status));
+        // Skip pending_payment: those haven't reached the kitchen yet and
+        // no money has changed hands. Auto-resuming them latches the app to
+        // an abandoned checkout screen with no usable actions, and gives the
+        // kitchen board a stream of ghost "Pending Pay" rows on every app
+        // open. The customer can find unpaid orders in their history if
+        // they want to retry or dismiss them.
+        const live = data.orders.find(
+          (o) => isOrderInFlight(o.status) && o.status !== "pending_payment",
+        );
         if (live) {
           sessionStorage.setItem(SS_TRACK_ORDER, live.orderId);
           setTrackingOrderId(live.orderId);

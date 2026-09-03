@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { authorizePhone } from "@/lib/firebase-verify";
 
 /** Last 10 digits for India-style numbers stored as +91… or plain. */
 function phoneKey(raw: string) {
@@ -21,6 +22,9 @@ export async function GET(request: Request) {
   if (key.length < 10) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
+
+  const auth = await authorizePhone(request, phone);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const BASE_COLUMNS = `
     id, order_number, status, created_at, updated_at, total_amount,

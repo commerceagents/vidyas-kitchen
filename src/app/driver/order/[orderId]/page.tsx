@@ -60,7 +60,7 @@ function SwipeAction({
   label,
   doneLabel,
 }: {
-  onSwipe: () => void;
+  onSwipe: () => Promise<void>;
   disabled?: boolean;
   label: string;
   doneLabel: string;
@@ -69,6 +69,9 @@ function SwipeAction({
   const [dragging, setDragging] = useState(false);
   const [offsetX, setOffsetX] = useState(0);
   const [completed, setCompleted] = useState(false);
+  // Ref rather than state: guards against a second swipe landing while the
+  // async action is in-flight, without triggering an extra render.
+  const inFlightRef = useRef(false);
   const startXRef = useRef(0);
   const HANDLE = 52;
 
@@ -78,7 +81,7 @@ function SwipeAction({
   };
 
   const handleStart = (clientX: number) => {
-    if (disabled || completed) return;
+    if (disabled || completed || inFlightRef.current) return;
     setDragging(true);
     startXRef.current = clientX - offsetX;
   };
@@ -93,10 +96,25 @@ function SwipeAction({
     setDragging(false);
     const max = getMaxOffset();
     if (offsetX > max * 0.85) {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       setCompleted(true);
       setOffsetX(max);
       if (navigator.vibrate) navigator.vibrate(60);
-      setTimeout(onSwipe, 180);
+      // Brief pause so the "done" animation is visible before the network call.
+      setTimeout(() => {
+        void (async () => {
+          try {
+            await onSwipe();
+            // On success the page navigates away; nothing to reset.
+          } catch {
+            // The action failed — reset so the driver can swipe again.
+            setCompleted(false);
+            setOffsetX(0);
+            inFlightRef.current = false;
+          }
+        })();
+      }, 180);
     } else {
       setOffsetX(0);
     }
@@ -390,7 +408,10 @@ export default function DriverOrderDetailPage() {
       if (!res.ok) throw new Error(j.error || "Could not complete");
       router.push("/driver");
     } catch (e) {
-      setActionErr(e instanceof Error ? e.message : "Could not complete");
+      const msg = e instanceof Error ? e.message : "Could not complete";
+      setActionErr(msg);
+      // Re-throw so SwipeAction can reset itself and let the driver retry.
+      throw e;
     }
   };
 
