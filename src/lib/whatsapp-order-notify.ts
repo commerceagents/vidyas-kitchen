@@ -65,6 +65,7 @@ type NotifyOrderRow = {
   delivery_slot_kind?: string | null;
   total_amount?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
   /** Set for the synthetic cod_collected / undelivered events. */
   cod_failure_reason?: string | null;
 };
@@ -180,6 +181,8 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const trackUrl = `${publicSiteOrigin()}/?track=${order.id}`;
   const short = formatOrderRef(order.order_number, order.id).replace(/^#/, "");
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
+  const wasPaid =
+    !isCod && String(order.payment_status || "").toLowerCase() === "paid";
   const amtStr = order.total_amount != null ? formatInr(Number(order.total_amount)) : "the order amount";
   const lang = (await loadWaLang(to)) ?? undefined;
   const bill = await loadOrderBill(order);
@@ -220,10 +223,10 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       break;
     }
     case OrderStatus.CANCELLED:
-      await sendText(to, notifyOrderCancelled(short, lang));
+      await sendText(to, notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null));
       break;
     case OrderStatus.REJECTED:
-      await sendText(to, notifyOrderRejected(short, amtStr, !isCod, lang));
+      await sendText(to, notifyOrderRejected(short, amtStr, wasPaid, lang));
       break;
     default:
       break;

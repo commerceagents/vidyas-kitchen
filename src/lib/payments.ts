@@ -47,20 +47,46 @@ export async function createPaymentLink(amount: number, orderId: string, custome
 }
 
 /**
- * Initiate a full refund for a captured payment via Razorpay.
- * `paymentId` is the `razorpay_payment_id` stored on the order row.
+ * Send the captured amount back to the same UPI / card / net-banking account
+ * through Razorpay. `amountInr` is the ticket total — items, packaging,
+ * delivery and GST — because that is what was charged.
+ *
+ * Instant (`optimum`) when the Razorpay account allows it; otherwise the
+ * usual 5–7 working day settlement. Swiggy-style: no one has to ask.
  */
 export async function refundPayment(
   paymentId: string,
   amountInr: number,
+  reason: "kitchen_reject" | "customer_cancel" = "kitchen_reject",
 ): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
+  if (!paymentId.startsWith("pay_")) {
+    return { ok: false, error: "Not a Razorpay payment id — cannot refund" };
+  }
+  const amountPaise = Math.round(Number(amountInr) * 100);
+  if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+    return { ok: false, error: "Refund amount is empty" };
+  }
+  const notes = {
+    reason: reason === "customer_cancel" ? "Customer cancelled the order" : "Kitchen could not accept the order",
+  };
+
   try {
-    const refund = await razorpay.payments.refund(paymentId, {
-      amount: Math.round(amountInr * 100),
-      speed: "normal",
-      notes: { reason: "Order rejected by kitchen" },
-    });
-    return { ok: true, refundId: String((refund as { id?: string }).id ?? paymentId) };
+    try {
+      const instant = await razorpay.payments.refund(paymentId, {
+        amount: amountPaise,
+        speed: "optimum",
+        notes,
+      });
+      return { ok: true, refundId: String((instant as { id?: string }).id ?? paymentId) };
+    } catch (instantErr) {
+      console.warn("[refundPayment] instant refund unavailable, using normal:", instantErr);
+      const refund = await razorpay.payments.refund(paymentId, {
+        amount: amountPaise,
+        speed: "normal",
+        notes,
+      });
+      return { ok: true, refundId: String((refund as { id?: string }).id ?? paymentId) };
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Razorpay refund failed";
     console.error("[refundPayment]", msg);

@@ -123,7 +123,7 @@ const content = {
 
         <section id="process" style={{ scrollMarginTop: '100px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Refund Process</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>If you cancel within the window above, or we are unable to accept your order, the refund is raised automatically — you do not need to ask for it. The money goes back to whatever you paid with through Razorpay and typically reaches you within 5-7 business days.</p>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>If you cancel within the window above, or we are unable to accept your order, the refund is raised automatically — you do not need to ask for it. The whole ticket comes back (food, packaging, delivery and GST) to the same UPI, card or net-banking account through Razorpay. UPI is often instant; cards typically take 5-7 business days.</p>
           <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>For a quality issue, message us on WhatsApp with photos within 1 hour of delivery. Once approved, the refund follows the same route and timeline.</p>
           <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>Cash on Delivery orders are only paid for at the door, so a cancelled order has nothing to refund.</p>
         </section>

@@ -85,13 +85,19 @@ export async function transitionOrderStatusInDb(
   if (next === OrderStatus.REJECTED || next === OrderStatus.CANCELLED) {
     const paymentId = (row as { payment_id?: string | null }).payment_id;
     const totalAmount = (row as { total_amount?: number | null }).total_amount;
+    const paymentStatus = String((row as { payment_status?: string | null }).payment_status || "");
     // Only an actually-collected online payment can be refunded. A COD order
-    // has no payment_id, so we clear the refund flag instead of leaving it
-    // stuck on "initiated" forever.
-    if (!paymentId) {
+    // was never charged, so there is nothing to send back — same as Swiggy
+    // cash-on-delivery. The amount we do send back is the full ticket
+    // (items + packaging + delivery + GST) to the original UPI / card.
+    if (isCod || !paymentId || paymentStatus !== PaymentStatus.PAID) {
       await supabase.from("orders").update({ refund_status: null }).eq("id", orderId);
     } else if (totalAmount != null && totalAmount > 0) {
-      const refResult = await refundPayment(paymentId, Number(totalAmount)).catch((e) => {
+      const refResult = await refundPayment(
+        paymentId,
+        Number(totalAmount),
+        next === OrderStatus.CANCELLED ? "customer_cancel" : "kitchen_reject",
+      ).catch((e) => {
         console.error("[order-transition] Razorpay refund error", e);
         return { ok: false as const, error: "Refund exception" };
       });
@@ -122,6 +128,7 @@ export async function transitionOrderStatusInDb(
       delivery_slot_kind: (row as { delivery_slot_kind?: string | null }).delivery_slot_kind ?? null,
       total_amount: (row as { total_amount?: number | null }).total_amount ?? null,
       payment_method: paymentMethod || null,
+      payment_status: (row as { payment_status?: string | null }).payment_status ?? null,
     });
   } catch (e) {
     console.error("[order-transition] WhatsApp notify failed", e);

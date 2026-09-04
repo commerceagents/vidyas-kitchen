@@ -57,7 +57,7 @@ export const REFUND_POLICY: Policy = {
       heading: "How the money comes back",
       blocks: [
         {
-          text: "Refunds are raised automatically — you do not have to ask. The money returns through Razorpay to whatever you paid with, and usually lands within 5–7 business days.",
+          text: "Refunds are raised automatically — you do not have to ask. The whole ticket comes back: food, packaging, delivery and GST, to the same UPI, card or net-banking account you paid with. UPI is often instant; cards usually take 5–7 business days.",
         },
         {
           text: "For a problem with the food, message us on WhatsApp with photos within an hour of delivery. Once we approve it, the refund follows the same route.",

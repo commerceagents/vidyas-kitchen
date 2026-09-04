@@ -1200,16 +1200,23 @@ export function ratingCommentThanks(lang?: WaLang): string {
   );
 }
 
-export function notifyOrderCancelled(shortId: string, lang?: WaLang): string {
+export function notifyOrderCancelled(shortId: string, lang?: WaLang, refund?: { amount: string } | null): string {
+  const refundLine = refund
+    ? pickLang(
+        lang,
+        `A full refund of *${refund.amount}* — food, packaging, delivery and GST — is going back to the same UPI or card you paid with. Usually 5 to 7 working days; often faster on UPI.`,
+        `*${refund.amount}* full refund — food, packing, delivery, GST — neenga pay panna UPI / card-ku thirumbi pogum. Usually 5 to 7 working days; UPI-la often faster.`,
+      )
+    : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
   return pickLang(
     lang,
     msg({
       title: `Order ${shortId} cancelled`,
-      lines: ["It's off the stove. Whenever you're hungry again, we're here."],
+      lines: [refundLine, "", "It's off the stove. Whenever you're hungry again, we're here."],
     }),
     msg({
       title: `Order ${shortId} cancel aayiduchu`,
-      lines: ["Stove-la irundhu eduthuduchom. Adutha vaatti pasikkum bodhu, naanga irukom."],
+      lines: [refundLine, "", "Stove-la irundhu eduthuduchom. Adutha vaatti pasikkum bodhu, naanga irukom."],
     }),
   );
 }
@@ -1218,8 +1225,8 @@ export function notifyOrderRejected(shortId: string, amtStr: string, wasPaid = t
   const refundLine = wasPaid
     ? pickLang(
         lang,
-        `A full refund of *${amtStr}* is on its way, in 5 to 7 working days.`,
-        `*${amtStr}* full refund start aayiduchu, 5 to 7 working days.`,
+        `A full refund of *${amtStr}* — food, packaging, delivery and GST — is going back to the same UPI or card you paid with. Usually 5 to 7 working days; often faster on UPI.`,
+        `*${amtStr}* full refund — food, packing, delivery, GST — neenga pay panna UPI / card-ku thirumbi pogum. Usually 5 to 7 working days; UPI-la often faster.`,
       )
     : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
   return pickLang(
