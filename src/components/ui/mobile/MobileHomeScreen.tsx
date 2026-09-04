@@ -2151,7 +2151,6 @@ export function MobileHomeScreen({
 
 
   const cartTotalItems = Object.values(cart).reduce((sum, q) => sum + q, 0);
-  const cartTotalAmount = useMemo(() => cartTotalPrice(cart, items), [cart, items]);
 
   const goCheckout = useCallback(() => {
     const resumeId = dishDetailItem?.id ?? null;
@@ -2169,13 +2168,6 @@ export function MobileHomeScreen({
   }, []);
 
   const windowOpen = isOrderingWindowOpen() && !previewClosed;
-
-  const showHomeCartBar =
-    windowOpen &&
-    !dishDetailItem &&
-    activeScreen !== "menu" &&
-    cartTotalItems > 0 &&
-    (activeNav === "home" || activeNav === "orders" || activeNav === "account");
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
@@ -2605,8 +2597,8 @@ export function MobileHomeScreen({
           padding: `0 ${sp(2)}px`,
           paddingTop: sp(2),
           overflowY: "auto",
-          // Clears the floating warning, and the cart bar above it when shown.
-          paddingBottom: showHomeCartBar ? 268 : 180,
+          // Clears the floating warning and the nav pill.
+          paddingBottom: 180,
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -3186,95 +3178,6 @@ export function MobileHomeScreen({
         />
       )}
 
-      {/*
-        The cart outlives the app now, so it has to be reachable from the screen
-        the app opens on. Browse Menu and dish detail carry their own bar; the
-        home tab had none, which meant a basket saved from yesterday was still
-        there but invisible, and reopening the app looked exactly like losing it.
-      */}
-      <AnimatePresence>
-        {showHomeCartBar && (
-          <motion.div
-            key="home-cart-bar"
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            style={{
-              position: "fixed",
-              left: 16,
-              right: 16,
-              // Clears the nav pill, which sits 32px up and stands 66px tall.
-              bottom: "calc(110px + env(safe-area-inset-bottom))",
-              background: "rgba(255,255,255,0.94)",
-              backdropFilter: "blur(20px) saturate(180%)",
-              WebkitBackdropFilter: "blur(20px) saturate(180%)",
-              borderRadius: 24,
-              border: `1px solid ${C.border}`,
-              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
-              padding: 10,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              zIndex: 110,
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0, paddingLeft: 6 }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "rgba(0,0,0,0.42)",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {`${cartTotalItems} item${cartTotalItems === 1 ? "" : "s"} in your cart`}
-              </p>
-              <p
-                style={{
-                  margin: "2px 0 0",
-                  fontSize: 22,
-                  fontWeight: 900,
-                  color: C.red,
-                  letterSpacing: "-0.02em",
-                  fontFamily: C.mono,
-                }}
-              >
-                ₹{cartTotalAmount.toLocaleString("en-IN")}
-              </p>
-            </div>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              onClick={goCheckout}
-              style={{
-                height: 52,
-                padding: "0 22px",
-                borderRadius: 18,
-                border: "none",
-                background: C.red,
-                color: "#fff",
-                fontFamily: C.mono,
-                fontSize: 15,
-                fontWeight: 900,
-                cursor: "pointer",
-                boxShadow: `0 8px 24px ${C.redGlow}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                flexShrink: 0,
-              }}
-            >
-              View cart
-              <ArrowRight size={16} weight="bold" color="#fff" />
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── FLOATING NAVBAR — Ripple Ring ─────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
@@ -3472,6 +3375,67 @@ export function MobileHomeScreen({
                   </motion.button>
                 );
               })}
+              {cartTotalItems > 0 ? (
+                <>
+                  <div
+                    aria-hidden
+                    style={{
+                      width: 1,
+                      alignSelf: "stretch",
+                      margin: "10px 2px",
+                      background: "rgba(0,0,0,0.12)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.94 }}
+                    onClick={goCheckout}
+                    aria-label={`${cartTotalItems} item${cartTotalItems === 1 ? "" : "s"} in cart`}
+                    style={{
+                      width: NAV_CIRCLE,
+                      height: NAV_CIRCLE,
+                      borderRadius: 999,
+                      border: "none",
+                      background: "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      outline: "none",
+                      position: "relative",
+                      flexShrink: 0,
+                      padding: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        right: 2,
+                        minWidth: 18,
+                        height: 18,
+                        padding: "0 5px",
+                        borderRadius: 999,
+                        background: C.red,
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 900,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `2px solid ${C.bg}`,
+                        boxSizing: "border-box",
+                        zIndex: 2,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {cartTotalItems > 9 ? "9+" : cartTotalItems}
+                    </span>
+                    <ShoppingBag size={22} weight="regular" color="rgba(0,0,0,0.35)" aria-hidden />
+                  </motion.button>
+                </>
+              ) : null}
             </div>
           )}
         </div>
