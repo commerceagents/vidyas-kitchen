@@ -134,10 +134,15 @@ export function OrderHistoryPanel({
   customerPhone,
   activeOrderId,
   onTrackOrder,
+  cartItemCount = 0,
+  onViewCart,
 }: {
   customerPhone: string;
   activeOrderId: string | null;
   onTrackOrder: (orderId: string) => void;
+  /** A basket is not an order — used so the empty state can say so. */
+  cartItemCount?: number;
+  onViewCart?: () => void;
 }) {
   const [orders, setOrders] = useState<HistoryOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -184,14 +189,18 @@ export function OrderHistoryPanel({
   }
 
   if (orders.length === 0) {
+    const waitingInCart = !error && cartItemCount > 0;
     return (
       <Empty
         text={
           error
             ? `${error} Tap retry in a moment.`
-            : "No orders yet. Once you place your first order it'll show up here with its full receipt."
+            : waitingInCart
+              ? "That's still in your cart — it becomes an order after you check out."
+              : "No orders yet. Once you place your first order it'll show up here with its full receipt."
         }
         onRetry={error ? load : undefined}
+        onViewCart={waitingInCart ? onViewCart : undefined}
       />
     );
   }
@@ -367,14 +376,45 @@ function OrderRow({
   );
 }
 
-function Empty({ text, onRetry }: { text: string; onRetry?: () => void }) {
+function Empty({
+  text,
+  onRetry,
+  onViewCart,
+}: {
+  text: string;
+  onRetry?: () => void;
+  onViewCart?: () => void;
+}) {
   return (
     <EmptyState
       fill
       icon={<Receipt size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
       text={text}
       action={
-        onRetry ? (
+        onViewCart ? (
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={onViewCart}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 2,
+              padding: "11px 18px",
+              borderRadius: 14,
+              border: "none",
+              background: C.red,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: "pointer",
+              fontFamily: fontUi,
+            }}
+          >
+            View cart
+          </motion.button>
+        ) : onRetry ? (
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}

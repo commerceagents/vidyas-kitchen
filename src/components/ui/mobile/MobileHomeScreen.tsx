@@ -345,6 +345,13 @@ function cartTotalPrice(cart: Record<string, number>, allItems: MenuItem[]): num
   }, 0);
 }
 
+/** Cart keys are `id` or `id:weight` — either means this dish is already in the badge. */
+function dishInCart(itemId: string, cart: Record<string, number>): boolean {
+  return Object.entries(cart).some(
+    ([key, qty]) => qty > 0 && (key === itemId || key.startsWith(`${itemId}:`)),
+  );
+}
+
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
 const SAMPLE_REVIEWS = [
   {
@@ -1938,6 +1945,21 @@ export function MobileHomeScreen({
     return ranked.slice(0, 5);
   }, [items, bestSellingIds]);
 
+  // A dish that's already in the basket lives on the cart badge, not the
+  // home carousel — otherwise yesterday's add looks like a second listing.
+  const homeBestSelling = useMemo(() => {
+    const kept = bestFive.filter((d) => !dishInCart(d.id, cart));
+    if (kept.length >= bestFive.length) return kept;
+    const seen = new Set(kept.map((d) => d.id));
+    for (const d of items) {
+      if (kept.length >= 5) break;
+      if (seen.has(d.id) || dishInCart(d.id, cart)) continue;
+      seen.add(d.id);
+      kept.push(d);
+    }
+    return kept;
+  }, [bestFive, cart, items]);
+
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">(
     uiBootstrap.homeDishFeedTab
@@ -2149,7 +2171,11 @@ export function MobileHomeScreen({
   const windowOpen = isOrderingWindowOpen() && !previewClosed;
 
   const showHomeCartBar =
-    windowOpen && activeNav === "home" && activeScreen !== "menu" && !dishDetailItem && cartTotalItems > 0;
+    windowOpen &&
+    !dishDetailItem &&
+    activeScreen !== "menu" &&
+    cartTotalItems > 0 &&
+    (activeNav === "home" || activeNav === "orders" || activeNav === "account");
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
@@ -2692,7 +2718,10 @@ export function MobileHomeScreen({
           </div>
 
           {(() => {
-            const carouselItems = homeDishFeedTab === "bestSelling" ? bestFive : favoriteItems;
+            const carouselItems =
+              homeDishFeedTab === "bestSelling"
+                ? homeBestSelling
+                : favoriteItems.filter((d) => !dishInCart(d.id, cart));
             const showSkeleton = loading && carouselItems.length === 0;
             const isEmpty = !loading && carouselItems.length === 0;
             
@@ -2722,7 +2751,9 @@ export function MobileHomeScreen({
                             icon={<Heart size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
                             text={
                               homeDishFeedTab === "favorites"
-                                ? "No favorites yet. Tap the heart on a dish to save it here."
+                                ? favoriteItems.length > 0
+                                  ? "Those dishes are in your cart."
+                                  : "No favorites yet. Tap the heart on a dish to save it here."
                                 : bestSellingSource === "kitchen_picks"
                                   ? "Kitchen picks will appear here."
                                   : "No best selling dishes available."
@@ -2909,6 +2940,8 @@ export function MobileHomeScreen({
                 <OrderHistoryPanel
                   customerPhone={customerPhone}
                   activeOrderId={trackingOrderId}
+                  cartItemCount={cartTotalItems}
+                  onViewCart={goCheckout}
                   onTrackOrder={(id) => {
                     onTrackOrder?.(id);
                     setOrdersView("track");
