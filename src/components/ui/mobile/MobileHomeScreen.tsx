@@ -2892,11 +2892,17 @@ export function MobileHomeScreen({
           <div
             style={{
               margin: `0 -${sp(2)}px`,
-              flex: 1,
               alignSelf: "stretch",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
+              // Live order must grow with the bill so the parent can scroll.
+              // All-orders empty state still wants to fill the leftover tab.
+              ...(ordersView === "track"
+                ? {}
+                : {
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column" as const,
+                    minHeight: 0,
+                  }),
             }}
           >
             {ordersView === "track" ? (
@@ -2963,7 +2969,7 @@ export function MobileHomeScreen({
         )}
       </div>
 
-      {(activeNav === "orders" || activeNav === "account") && !dishDetailItem ? (
+      {activeNav === "account" && !dishDetailItem ? (
         <div
           aria-hidden
           style={{
@@ -3164,8 +3170,8 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette (home tabs only — not browse menu / dish detail) ─ */}
-      {!dishDetailItem && activeScreen !== "menu" && (
+      {/* ── Bottom Vignette (home / account only — orders must stay readable) ─ */}
+      {!dishDetailItem && activeScreen !== "menu" && activeNav !== "orders" && (
         <div
           style={{
             position: "fixed",

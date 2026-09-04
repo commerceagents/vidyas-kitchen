@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { Motorcycle, Money, MapPin, PencilSimple, CookingPot } from "@phosphor-icons/react";
+import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package } from "@phosphor-icons/react";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
@@ -253,6 +253,179 @@ function etaParts(slotIso: string | null | undefined): { date: string; time: str
 
 const PANEL_DARK = "#151515";
 
+/**
+ * Status mascot in the dark card. The icon matches the stage and keeps moving
+ * a little so the screen doesn't look frozen while they wait.
+ */
+function StatusMascot({ stage }: { stage: number }) {
+  const wrap = {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    flexShrink: 0 as const,
+    background: "rgba(189,35,32,0.18)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden" as const,
+  };
+
+  if (stage <= 0) {
+    return (
+      <span style={wrap} aria-hidden>
+        <motion.span
+          animate={{ scale: [1, 1.12, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          style={{ display: "flex" }}
+        >
+          <Package size={24} weight="fill" color={C.red} />
+        </motion.span>
+      </span>
+    );
+  }
+  if (stage === 1) {
+    return (
+      <span style={{ ...wrap, overflow: "visible", position: "relative" }} aria-hidden>
+        <motion.span
+          animate={{ rotate: [-8, 8, -8], y: [0, -2, 0] }}
+          transition={{ duration: 0.65, repeat: Infinity, ease: "easeInOut" }}
+          style={{ display: "flex" }}
+        >
+          <CookingPot size={24} weight="fill" color={C.red} />
+        </motion.span>
+        {[0, 1, 2].map((i) => (
+          <motion.span
+            key={i}
+            animate={{ y: [6, -16], opacity: [0, 0.85, 0], scale: [0.35, 1.05] }}
+            transition={{ duration: 1.05, repeat: Infinity, delay: i * 0.22, ease: "easeOut" }}
+            style={{
+              position: "absolute",
+              left: 14 + i * 6,
+              top: 4,
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.8)",
+              pointerEvents: "none",
+            }}
+          />
+        ))}
+      </span>
+    );
+  }
+  if (stage === 2) {
+    return (
+      <span style={wrap} aria-hidden>
+        <motion.span
+          animate={{ x: [-7, 7, -7], y: [1, -2, 1], rotate: [-8, 6, -8] }}
+          transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut" }}
+          style={{ display: "flex" }}
+        >
+          <Motorcycle size={24} weight="fill" color={C.red} />
+        </motion.span>
+      </span>
+    );
+  }
+  return (
+    <span style={wrap} aria-hidden>
+      <motion.span
+        animate={{ scale: [0.92, 1.08, 0.92] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+        style={{ display: "flex" }}
+      >
+        <CheckCircle size={24} weight="fill" color={C.red} />
+      </motion.span>
+    </span>
+  );
+}
+
+/** Same burst chip as the location-screen tips — plays once when an order lands. */
+function PlacedBurstChip({ orderId }: { orderId: string }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const key = `vk_placed_burst_${orderId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* private mode — still show once this mount */
+    }
+    setShow(true);
+    const t = window.setTimeout(() => setShow(false), 2200);
+    return () => window.clearTimeout(t);
+  }, [orderId]);
+
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.div
+          key={`burst-${orderId}`}
+          initial={{ opacity: 0, y: 20, scale: 0.88 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.75, y: 10 }}
+          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+          style={{
+            position: "fixed",
+            bottom: 108,
+            left: 0,
+            right: 0,
+            margin: "0 auto",
+            width: "fit-content",
+            maxWidth: "80vw",
+            zIndex: 200,
+            padding: "10px 20px",
+            borderRadius: 24,
+            background: "rgba(255,255,255,0.96)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            border: "1px solid rgba(189,35,32,0.45)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
+            fontSize: 13.5,
+            fontWeight: 800,
+            color: C.text,
+            fontFamily: fontUi,
+            overflow: "visible",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Order placed
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => {
+            const angle = (i / 12) * 2 * Math.PI;
+            const near = 18;
+            const far = 44 + (i % 4) * 12;
+            return (
+              <motion.span
+                key={i}
+                initial={{ opacity: 0, x: Math.cos(angle) * near, y: Math.sin(angle) * near, scale: 0 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: [0, 1.1, 0.9, 0.1],
+                  x: [Math.cos(angle) * near, Math.cos(angle) * far],
+                  y: [Math.sin(angle) * near, Math.sin(angle) * far],
+                }}
+                transition={{ duration: 0.55, delay: 0.04 * i, ease: "easeOut" }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: 6,
+                  height: 6,
+                  margin: -3,
+                  borderRadius: "50%",
+                  background: "rgba(189,35,32,0.95)",
+                  pointerEvents: "none",
+                }}
+              />
+            );
+          })}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 /** Horizontal 4-dot progress rail on the dark status panel. */
 function StageRail({ stage }: { stage: number }) {
   const filled = Math.max(0, stage);
@@ -261,14 +434,14 @@ function StageRail({ stage }: { stage: number }) {
   return (
     <div style={{ marginTop: 22 }}>
       <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
-        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.14)" }} />
+        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.14)", zIndex: 0 }} />
         <motion.div
           initial={false}
           animate={{ width: `calc(${pct}% - ${(pct / 100) * 18}px)` }}
           transition={{ type: "spring", stiffness: 140, damping: 22 }}
-          style={{ position: "absolute", left: 9, height: 6, borderRadius: 3, background: C.red }}
+          style={{ position: "absolute", left: 9, height: 6, borderRadius: 3, background: C.red, zIndex: 1 }}
         />
-        <div style={{ position: "relative", display: "flex", justifyContent: "space-between", width: "100%" }}>
+        <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", width: "100%" }}>
           {TRACK_STAGES.map((label, i) => {
             const done = i <= stage && stage >= 0;
             const current = i === stage;
@@ -279,8 +452,9 @@ function StageRail({ stage }: { stage: number }) {
                   width: 18,
                   height: 18,
                   borderRadius: "50%",
-                  background: done ? C.red : "rgba(255,255,255,0.18)",
-                  border: done ? "none" : "1px solid rgba(255,255,255,0.12)",
+                  // Opaque fill — the rail sits behind and must not show through.
+                  background: done ? C.red : "#3d3d3d",
+                  border: `2px solid ${done ? C.red : "#3d3d3d"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -403,7 +577,6 @@ export function OrderTrackingPanel({
   const canEditAddress =
     !!onEditAddress && !!trackSnap && (normalizeTrackStatus(trackSnap.status) === "paid" || normalizeTrackStatus(trackSnap.status) === "pending_payment");
   const canCancelOrder =
-    !!onDismiss &&
     !!trackingOrderId &&
     !!trackSnap &&
     customerPhone.trim().replace(/\D/g, "").length >= 10 &&
@@ -521,7 +694,7 @@ export function OrderTrackingPanel({
         flex: 1,
         minHeight: "72vh",
         background: C.bg,
-        padding: `14px 18px max(32px, env(safe-area-inset-bottom))`,
+        padding: `14px 18px 220px`,
         fontFamily: fontUi,
       }}
     >
@@ -552,13 +725,16 @@ export function OrderTrackingPanel({
           text="No live order right now. Once you check out, your schedule and updates appear here."
         />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {trackErr ? (
             <p style={{ margin: "0 0 18px", color: "#fca5a5", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>{trackErr}</p>
           ) : null}
 
           {trackSnap ? (
             <>
+              {(n === "paid" || n === "confirmed") && trackingOrderId ? (
+                <PlacedBurstChip orderId={trackingOrderId} />
+              ) : null}
               {/* Hero — map backdrop + floating ETA card */}
               <div style={{ position: "relative", marginBottom: 14 }}>
                 <div
@@ -640,21 +816,7 @@ export function OrderTrackingPanel({
                         {hero.sub}
                       </p>
                     </div>
-                    <span
-                      style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 14,
-                        flexShrink: 0,
-                        background: "rgba(189,35,32,0.18)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      aria-hidden
-                    >
-                      <Motorcycle size={24} weight="fill" color={C.red} />
-                    </span>
+                    <StatusMascot stage={stage} />
                   </div>
 
                   {undelivered ? (
@@ -722,6 +884,49 @@ export function OrderTrackingPanel({
                   </a>
                 </div>
               )}
+
+              {canCancelOrder ? (
+                <div style={{ marginBottom: 14 }}>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setCancelErr(null);
+                      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+                        void Notification.requestPermission();
+                      }
+                      setCancelModalOpen(true);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "16px 18px",
+                      borderRadius: 16,
+                      border: isPendingPayment ? `1px solid ${C.border}` : "none",
+                      background: isPendingPayment
+                        ? C.surfaceDeep
+                        : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                      color: isPendingPayment ? C_TEXT_MUTED : C.white,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      fontFamily: fontUi,
+                    }}
+                  >
+                    {isPendingPayment ? "Cancel this checkout" : "Cancel order"}
+                  </motion.button>
+                  {!isPendingPayment && <CancelCountdown deadline={trackSnap.cancellationDeadline} />}
+                </div>
+              ) : cancellationWindowClosed ? (
+                <div style={{
+                  marginBottom: 14, padding: "14px 18px", borderRadius: 16,
+                  background: "rgba(189,35,32,0.06)", border: `1px dashed ${C.border}`,
+                  textAlign: "center",
+                }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.42)", fontFamily: fontUi }}>
+                    Cancellation window has closed
+                  </p>
+                </div>
+              ) : null}
 
               {cancelled ? (
                 <div
@@ -1072,49 +1277,6 @@ export function OrderTrackingPanel({
                 </div>
               )}
 
-              {/* Cancel order */}
-              {canCancelOrder ? (
-                <div style={{ marginBottom: 16 }}>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      setCancelErr(null);
-                      if (typeof Notification !== "undefined" && Notification.permission === "default") {
-                        void Notification.requestPermission();
-                      }
-                      setCancelModalOpen(true);
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "16px 18px",
-                      borderRadius: 16,
-                      border: isPendingPayment ? `1px solid ${C.border}` : "none",
-                      background: isPendingPayment
-                        ? C.surfaceDeep
-                        : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                      color: isPendingPayment ? C_TEXT_MUTED : C.white,
-                      fontSize: 15,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      fontFamily: fontUi,
-                    }}
-                  >
-                    {isPendingPayment ? "Cancel this checkout" : "Cancel order"}
-                  </motion.button>
-                  {!isPendingPayment && <CancelCountdown deadline={trackSnap.cancellationDeadline} />}
-                </div>
-              ) : cancellationWindowClosed ? (
-                <div style={{ 
-                  marginBottom: 16, padding: "14px 18px", borderRadius: 16, 
-                  background: "rgba(189,35,32,0.06)", border: `1px dashed ${C.border}`,
-                  textAlign: "center"
-                }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.42)", fontFamily: fontUi }}>
-                    Cancellation window has closed
-                  </p>
-                </div>
-              ) : null}
             </>
           ) : (
             !trackErr && <CenterSpinner fill label="Loading your order" />
