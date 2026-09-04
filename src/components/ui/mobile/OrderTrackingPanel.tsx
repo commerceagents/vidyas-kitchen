@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
@@ -14,6 +15,13 @@ import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
+// Mapbox GL is ~200kB and only ever renders while an order is out for
+// delivery, so it stays out of the main bundle.
+const LiveDeliveryMap = dynamic(
+  () => import("@/components/ui/mobile/LiveDeliveryMap").then((m) => m.LiveDeliveryMap),
+  { ssr: false },
+);
+
 /** Status + address cards — match home location pin tile. */
 const ORDER_CARD_ICON_BOX = {
   width: 48,
@@ -24,6 +32,9 @@ const ORDER_CARD_ICON_BOX = {
 } as const;
 
 const fontUi = C.mono;
+
+/** The one non-red accent: "driver is here" is good news, not an alert. */
+const ARRIVED_GREEN = "#12833F";
 
 const TYPO = {
   eyebrow: { ...TypeScale.bodyMedium, margin: 0, fontWeight: 800, letterSpacing: "0.04em", color: "rgba(0,0,0,0.38)", fontFamily: fontUi },
@@ -56,6 +67,7 @@ export type OrderTrackSnap = {
   driverLastLat?: number | null;
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
+  driverArrivedAt?: string | null;
   cancellationDeadline?: string | null;
   paymentLinkId?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
@@ -185,27 +197,6 @@ function isFreshDriverFix(at: string | null | undefined): boolean {
   if (!at) return false;
   const t = new Date(at).getTime();
   return Number.isFinite(t) && Date.now() - t < DRIVER_FIX_MAX_AGE_MS;
-}
-
-function mapStaticUrl(
-  userLat: number,
-  userLng: number,
-  token: string,
-  driverLat?: number | null,
-  driverLng?: number | null,
-): string {
-  const pins: string[] = [`pin-s+BD2320(${userLng},${userLat})`];
-  // Only pin the driver when we genuinely have their GPS — a synthetic pin here
-  // told customers their food was a kilometre away when we had no idea.
-  if (
-    driverLat != null &&
-    driverLng != null &&
-    Number.isFinite(driverLat) &&
-    Number.isFinite(driverLng)
-  ) {
-    pins.push(`pin-s+1A1A1A(${driverLng},${driverLat})`);
-  }
-  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins.join(",")}/auto/640x420@2x?padding=70&access_token=${encodeURIComponent(token)}`;
 }
 
 /** Headline + supporting line for the hero card. */
@@ -546,8 +537,12 @@ export function OrderTrackingPanel({
   submitOrderRating: (n: number) => void;
 }) {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [pickedStars, setPickedStars] = useState<number | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => setPortalReady(true), []);
+  useEffect(() => {
+    setPickedStars(null);
+  }, [trackingOrderId]);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
   const [resumeFetching, setResumeFetching] = useState(false);
@@ -559,7 +554,12 @@ export function OrderTrackingPanel({
   const cancelled = n === "cancelled" || n === "rejected";
   const outForDelivery = n === "out_for_delivery";
   const delivered = n === "delivered";
-  const hero = heroCopy(trackSnap?.status ?? "");
+  // Arrival is a moment inside out_for_delivery rather than its own status, so
+  // it overrides the hero copy instead of moving the stage rail forward.
+  const driverArrived = outForDelivery && Boolean(trackSnap?.driverArrivedAt);
+  const hero = driverArrived
+    ? { headline: "Your driver has arrived", sub: "They're at your door with your order" }
+    : heroCopy(trackSnap?.status ?? "");
   const eta = etaParts(trackSnap?.deliverySlot);
   const undelivered = n === "undelivered";
   // Prefer the address the order was actually placed against; the `location`
@@ -764,10 +764,13 @@ export function OrderTrackingPanel({
                   }}
                 >
                   {showLiveMap && pinLat != null && pinLng != null ? (
-                    <img
-                      src={mapStaticUrl(pinLat, pinLng, mapToken, driverLat, driverLng)}
-                      alt={driverLat != null ? "Delivery map with driver position" : "Delivery map"}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    <LiveDeliveryMap
+                      token={mapToken}
+                      customerLat={pinLat}
+                      customerLng={pinLng}
+                      driverLat={driverLat ?? null}
+                      driverLng={driverLng ?? null}
+                      height={280}
                     />
                   ) : null}
                 </div>
@@ -842,6 +845,47 @@ export function OrderTrackingPanel({
                 </div>
               </div>
               )}
+
+              {driverArrived ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 14,
+                    padding: "14px 16px",
+                    borderRadius: 18,
+                    background: "rgba(18,131,63,0.10)",
+                    border: "1px solid rgba(18,131,63,0.28)",
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      background: ARRIVED_GREEN,
+                      animation: "vkArrivedPulse 1.6s ease-in-out infinite",
+                    }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: ARRIVED_GREEN, fontFamily: fontUi, letterSpacing: "-0.01em" }}>
+                      Your driver is at your door
+                    </p>
+                    <p style={{ margin: "3px 0 0", fontSize: 12.5, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.45 }}>
+                      {codPending ? "Please head down with the cash ready." : "Please head down to collect your order."}
+                    </p>
+                  </div>
+                  <style>{`
+                    @keyframes vkArrivedPulse {
+                      0%, 100% { opacity: 1; transform: scale(1); }
+                      50% { opacity: 0.45; transform: scale(0.8); }
+                    }
+                  `}</style>
+                </div>
+              ) : null}
 
               {/* Delivery status — dark panel */}
               {!cancelled && (
@@ -1246,63 +1290,104 @@ export function OrderTrackingPanel({
                   }}
                 >
                   {driverLat != null
-                    ? "Red pin is your address, dark pin is your driver — updating live."
-                    : "Your driver's location will appear on the map once they share it."}
+                    ? "The bike is your driver, moving live towards your red pin."
+                    : "Your driver will appear on the map once they start sharing their location."}
                 </p>
               ) : null}
 
               {delivered ? (
                 <div style={{ background: C.surfaceDeep, border: `1px solid ${C.border}`, borderRadius: 18, padding: 16, marginBottom: 14 }}>
                   {trackSnap.ratingStars ? (
-                    <p style={{ margin: 0, fontSize: 18, fontFamily: fontUi, fontWeight: 800, color: C.red, lineHeight: 1.35 }}>
-                      Thank you · {trackSnap.ratingStars}★
-                    </p>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 18, fontFamily: fontUi, fontWeight: 800, color: C.red, lineHeight: 1.35 }}>
+                        Thank you for the feedback
+                      </p>
+                      <p style={{ margin: "6px 0 0", fontSize: 14, fontWeight: 700, color: C_TEXT_MUTED, fontFamily: fontUi }}>
+                        {trackSnap.ratingStars}★
+                      </p>
+                      {trackSnap.ratingComment ? (
+                        <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_SEC, fontFamily: fontUi, lineHeight: 1.45 }}>
+                          {trackSnap.ratingComment}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : (
                     <>
                       <p style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 800, color: C.text, fontFamily: fontUi, lineHeight: 1.35 }}>Rate this meal</p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <motion.button
-                            key={n}
-                            type="button"
-                            whileTap={{ scale: 0.96 }}
+                        {[1, 2, 3, 4, 5].map((n) => {
+                          const selected = pickedStars === n;
+                          return (
+                            <motion.button
+                              key={n}
+                              type="button"
+                              whileTap={{ scale: 0.96 }}
+                              disabled={ratingSending}
+                              onClick={() => setPickedStars(n)}
+                              aria-pressed={selected}
+                              style={{
+                                padding: "12px 16px",
+                                borderRadius: 12,
+                                border: `1px solid ${selected ? C.red : C.border}`,
+                                background: selected ? C.redFaint : C.glass,
+                                color: selected ? C.red : C.text,
+                                fontSize: 16,
+                                fontWeight: 800,
+                                cursor: ratingSending ? "wait" : "pointer",
+                                fontFamily: fontUi,
+                              }}
+                            >
+                              {n}★
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                      {pickedStars != null ? (
+                        <>
+                          <textarea
+                            value={ratingCommentDraft}
+                            onChange={(e) => setRatingCommentDraft(e.target.value)}
+                            placeholder="Tell us how the food was"
+                            rows={3}
                             disabled={ratingSending}
-                            onClick={() => submitOrderRating(n)}
                             style={{
-                              padding: "12px 16px",
+                              marginTop: 14,
+                              width: "100%",
+                              boxSizing: "border-box",
                               borderRadius: 12,
                               border: `1px solid ${C.border}`,
                               background: C.glass,
                               color: C.text,
-                              fontSize: 16,
+                              padding: 12,
+                              fontSize: 15,
+                              fontFamily: fontUi,
+                              resize: "none",
+                              lineHeight: 1.45,
+                            }}
+                          />
+                          <motion.button
+                            type="button"
+                            whileTap={{ scale: 0.97 }}
+                            disabled={ratingSending}
+                            onClick={() => submitOrderRating(pickedStars)}
+                            style={{
+                              width: "100%",
+                              marginTop: 12,
+                              minHeight: 50,
+                              borderRadius: 14,
+                              border: "none",
+                              background: C.red,
+                              color: C.white,
+                              fontSize: 15,
                               fontWeight: 800,
                               cursor: ratingSending ? "wait" : "pointer",
                               fontFamily: fontUi,
                             }}
                           >
-                            {n}★
+                            {ratingSending ? "Sending…" : "Submit feedback"}
                           </motion.button>
-                        ))}
-                      </div>
-                      <textarea
-                        value={ratingCommentDraft}
-                        onChange={(e) => setRatingCommentDraft(e.target.value)}
-                        placeholder="Optional note (saved with your next star)"
-                        rows={2}
-                        style={{
-                          marginTop: 14,
-                          width: "100%",
-                          borderRadius: 12,
-                          border: `1px solid ${C.border}`,
-                          background: C.glass,
-                          color: C.text,
-                          padding: 12,
-                          fontSize: 15,
-                          fontFamily: fontUi,
-                          resize: "none",
-                          lineHeight: 1.45,
-                        }}
-                      />
+                        </>
+                      ) : null}
                     </>
                   )}
                 </div>

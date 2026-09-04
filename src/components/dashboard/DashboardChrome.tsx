@@ -514,50 +514,62 @@ export function DashboardNotificationPanel({
           </p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: "8px 0", flex: 1, minHeight: 0, maxHeight: "min(420px, 60vh)", overflowY: "auto" }}>
-            {notifications.map((n) => (
-              <li
-                key={n.id}
-                style={{
-                  padding: "14px 16px",
-                  borderBottom: "1px solid #1a1a1a",
-                  background: n.read ? "transparent" : "rgba(245,227,45,0.04)",
-                }}
-              >
-                <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, color: "#f5e32d" }}>
-                  {n.isTest || n.orderId === TEST_NOTIFICATION_ID ? "Test notification" : "New paid order"}
-                </p>
-                <p style={{ margin: "0 0 2px", fontSize: "15px", fontWeight: 700, color: "#fff" }}>
-                  {n.isTest || n.orderId === TEST_NOTIFICATION_ID
-                    ? "Sample order card"
-                    : `#${shortOrderId(n.order.id, n.order.order_number)}`}
-                </p>
-                <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>
-                  ₹{n.order.total_amount ?? "—"} ·{" "}
-                  {formatSlotLineForCustomer(n.order.delivery_slot, n.order.delivery_slot_kind) || "No slot"}
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  <ActionChip label="Accept" primary onClick={() => onAccept(n.orderId)} />
-                  <ActionChip
-                    label="Reject"
-                    danger
-                    onClick={() => {
-                      if (n.isTest || n.orderId === TEST_NOTIFICATION_ID) {
-                        onReject(n.orderId);
-                        return;
-                      }
-                      setRejectTarget(n);
-                    }}
-                  />
-                  <ActionChip
-                    label="View"
-                    onClick={() => {
-                      onView(n.orderId);
-                      onDismiss(n.id);
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+            {notifications.map((n) => {
+              const arrived = n.kind === "driver_arrived";
+              const isSample = Boolean(n.isTest) || n.orderId === TEST_NOTIFICATION_ID;
+              return (
+                <li
+                  key={n.id}
+                  style={{
+                    padding: "14px 16px",
+                    borderBottom: "1px solid #1a1a1a",
+                    background: n.read
+                      ? "transparent"
+                      : arrived
+                        ? "rgba(52,211,153,0.06)"
+                        : "rgba(245,227,45,0.04)",
+                  }}
+                >
+                  <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, color: arrived ? "#34D399" : "#f5e32d" }}>
+                    {arrived ? "Driver reached the customer" : isSample ? "Test notification" : "New paid order"}
+                  </p>
+                  <p style={{ margin: "0 0 2px", fontSize: "15px", fontWeight: 700, color: "#fff" }}>
+                    {isSample ? "Sample order card" : `#${shortOrderId(n.order.id, n.order.order_number)}`}
+                  </p>
+                  <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>
+                    {arrived
+                      ? `${n.order.customer_name || "Customer"} · waiting at the door`
+                      : `₹${n.order.total_amount ?? "—"} · ${formatSlotLineForCustomer(n.order.delivery_slot, n.order.delivery_slot_kind) || "No slot"}`}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {arrived ? null : (
+                      <>
+                        <ActionChip label="Accept" primary onClick={() => onAccept(n.orderId)} />
+                        <ActionChip
+                          label="Reject"
+                          danger
+                          onClick={() => {
+                            if (isSample) {
+                              onReject(n.orderId);
+                              return;
+                            }
+                            setRejectTarget(n);
+                          }}
+                        />
+                      </>
+                    )}
+                    <ActionChip
+                      label="View"
+                      primary={arrived}
+                      onClick={() => {
+                        onView(n.orderId);
+                        onDismiss(n.id);
+                      }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
         {notifications.length > 0 ? (

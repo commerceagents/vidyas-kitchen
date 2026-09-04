@@ -31,6 +31,8 @@ export type DashboardNotification = {
   at: string;
   order: DashboardOrder;
   isTest?: boolean;
+  /** Absent on notifications stored before arrival alerts existed. */
+  kind?: "new_order" | "driver_arrived";
 };
 
 type DashboardDataValue = {
@@ -123,6 +125,7 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       driver_last_lat: null,
       driver_last_lng: null,
       driver_location_at: null,
+      driver_arrived_at: null,
       items: dinnerItems,
     },
     {
@@ -143,6 +146,7 @@ function applyDevPreviewOrders(orders: DashboardOrder[]): DashboardOrder[] {
       driver_last_lat: null,
       driver_last_lng: null,
       driver_location_at: null,
+      driver_arrived_at: null,
       items: [
         {
           quantity: 1,
@@ -202,6 +206,7 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
     driver_last_lat: row.driver_last_lat != null ? Number(row.driver_last_lat) : null,
     driver_last_lng: row.driver_last_lng != null ? Number(row.driver_last_lng) : null,
     driver_location_at: (row.driver_location_at as string | null) ?? null,
+    driver_arrived_at: (row.driver_arrived_at as string | null) ?? null,
     items,
   };
 }
@@ -232,6 +237,7 @@ function buildTestNotification(): DashboardNotification {
       driver_last_lat: null,
       driver_last_lng: null,
       driver_location_at: null,
+      driver_arrived_at: null,
       items: [
         {
           quantity: 1,
@@ -281,6 +287,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [month, setMonth] = useState<MonthKey>(currentMonthKey);
   const [searchQuery, setSearchQuery] = useState("");
   const knownPaidRef = useRef<Set<string>>(new Set());
+  const knownArrivedRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
   const notifHydratedRef = useRef(false);
 
@@ -317,6 +324,10 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
         if (isNewPaidOrder(o.status)) knownPaidRef.current.add(o.id);
       });
       withPreviews.filter(isDevPreviewOrder).forEach((o) => knownPaidRef.current.add(o.id));
+      // Drivers who arrived before this tab was opened are history, not news.
+      mapped.forEach((o) => {
+        if (o.driver_arrived_at) knownArrivedRef.current.add(o.id);
+      });
       bootstrappedRef.current = true;
     }
   }, []);
@@ -347,15 +358,18 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [load]);
 
-  const pushNotification = useCallback((order: DashboardOrder) => {
-    setNotifications((prev) => {
-      if (prev.some((n) => n.orderId === order.id && !n.read)) return prev;
-      return [
-        { id: `${order.id}-${Date.now()}`, orderId: order.id, read: false, at: new Date().toISOString(), order },
-        ...prev,
-      ].slice(0, 30);
-    });
-  }, []);
+  const pushNotification = useCallback(
+    (order: DashboardOrder, kind: "new_order" | "driver_arrived" = "new_order") => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.orderId === order.id && (n.kind ?? "new_order") === kind && !n.read)) return prev;
+        return [
+          { id: `${order.id}-${kind}-${Date.now()}`, orderId: order.id, kind, read: false, at: new Date().toISOString(), order },
+          ...prev,
+        ].slice(0, 30);
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!bootstrappedRef.current) return;
@@ -364,6 +378,19 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       if (knownPaidRef.current.has(o.id)) continue;
       knownPaidRef.current.add(o.id);
       pushNotification(o);
+      if (!isDashboardSoundMuted()) playNewOrderAlert();
+    }
+  }, [allOrders, pushNotification]);
+
+  // The driver tapped "I've reached the customer". Alerted once per order, on
+  // the transition — the stamp itself stays set for the rest of the delivery.
+  useEffect(() => {
+    if (!bootstrappedRef.current) return;
+    for (const o of allOrders) {
+      if (!o.driver_arrived_at) continue;
+      if (knownArrivedRef.current.has(o.id)) continue;
+      knownArrivedRef.current.add(o.id);
+      pushNotification(o, "driver_arrived");
       if (!isDashboardSoundMuted()) playNewOrderAlert();
     }
   }, [allOrders, pushNotification]);

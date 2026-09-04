@@ -100,7 +100,12 @@ export async function POST(request: Request) {
   // sitting in our database. Drop it.
   await supabase
     .from("orders")
-    .update({ driver_last_lat: null, driver_last_lng: null, driver_location_at: null })
+    .update({
+      driver_last_lat: null,
+      driver_last_lng: null,
+      driver_location_at: null,
+      driver_arrived_at: null,
+    })
     .eq("id", orderId);
 
   return NextResponse.json({ ok: true });

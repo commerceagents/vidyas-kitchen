@@ -1,6 +1,6 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
-import { OrderStatus, codFailureLabel, formatOrderRef } from "@/lib/order-status";
+import { OrderStatus, codFailureLabel, formatOrderRef, normalizeOrderStatus } from "@/lib/order-status";
 import { sendText, sendCtaUrl, sendCarousel } from "@/lib/whatsapp-send";
 import {
   buildOrderStatusWhatsApp,
@@ -9,6 +9,7 @@ import {
   notifyOrderCancelled,
   notifyOrderRejected,
   driverPinCaption,
+  notifyDriverArrived,
   BTN,
   type WaOrderBill,
   type WaOrderStage,
@@ -115,10 +116,13 @@ async function loadOrderBill(order: NotifyOrderRow): Promise<WaOrderBill> {
         name: parseRecipeTag(rawName).cleanName || rawName,
         quantity: qty,
         lineTotal: unit * qty,
-        imageUrl: publicDishImageUrl({
-          image_url: row.menu_items?.image_url ?? undefined,
-          retailer_id: row.menu_items?.retailer_id ?? undefined,
-        }),
+        imageUrl: publicDishImageUrl(
+          {
+            image_url: row.menu_items?.image_url ?? undefined,
+            retailer_id: row.menu_items?.retailer_id ?? undefined,
+          },
+          { fallbackLogo: false },
+        ) || undefined,
       };
     });
 
@@ -166,7 +170,9 @@ async function sendOrderCard(
   bill: WaOrderBill,
   trackUrl: string,
 ): Promise<void> {
-  const photos = bill.items.filter((it) => it.imageUrl);
+  // Never use the brand logo as a status header — that is why every update
+  // used to open with the same red chef card.
+  const photos = bill.items.filter((it) => it.imageUrl && !it.imageUrl.includes("vk_logo_full"));
   if (photos.length >= 2) {
     const sent = await sendCarousel(
       to,
@@ -201,7 +207,15 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const bill = await loadOrderBill(order);
 
   const card = async (stage: WaOrderStage) => {
-    await sendOrderCard(to, buildOrderStatusWhatsApp(stage, bill, lang), bill, trackUrl);
+    const body = buildOrderStatusWhatsApp(stage, bill, lang);
+    // Photo + receipt only on the first confirmation. Later updates stay
+    // short — repeating the same header (or the brand logo) made the thread
+    // look like a stack of identical posters.
+    if (stage === "placed_cod" || stage === "placed_paid") {
+      await sendOrderCard(to, body, bill, trackUrl);
+      return;
+    }
+    await sendCtaUrl(to, body, trackUrl, BTN.track);
   };
 
   switch (order.status) {
@@ -315,6 +329,44 @@ export async function notifyWhatsAppDriverLocation(
     .update({ driver_pin_sent_at: new Date().toISOString() })
     .eq("id", orderId);
   if (stampError) console.error("[whatsapp-order-notify] driver pin stamp:", stampError.message);
+}
+
+/** The driver has reached the door — sent once, from the arrival endpoint. */
+export async function notifyWhatsAppDriverArrived(
+  supabase: SupabaseClient,
+  orderId: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, phone_number, status, payment_method, payment_status, total_amount")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error || !data) return;
+
+  const row = data as {
+    phone_number?: string | null;
+    status?: string | null;
+    payment_method?: string | null;
+    payment_status?: string | null;
+    total_amount?: number | null;
+  };
+  if (normalizeOrderStatus(String(row.status || "")) !== OrderStatus.OUT_FOR_DELIVERY) return;
+
+  const to = row.phone_number ? toPhone(row.phone_number) : null;
+  if (!to) return;
+
+  const cashDue =
+    String(row.payment_method || "").toLowerCase() === "cod" &&
+    String(row.payment_status || "").toLowerCase() !== "paid";
+  const lang = (await loadWaLang(to)) ?? undefined;
+
+  await sendCtaUrl(
+    to,
+    notifyDriverArrived(cashDue, Number(row.total_amount) || 0, lang),
+    `${publicSiteOrigin()}/?track=${orderId}`,
+    BTN.track,
+  );
 }
 
 type OrderItemRow = {

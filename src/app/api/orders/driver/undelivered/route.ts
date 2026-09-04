@@ -41,6 +41,10 @@ export async function POST(request: Request) {
       console.error("[driver/undelivered]", result.error);
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
+    // The driver may have reached the door before the handover failed; leaving
+    // the stamp would keep the kitchen board saying "driver at the door".
+    await supabase.from("orders").update({ driver_arrived_at: null }).eq("id", orderId);
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[driver/undelivered]", e);

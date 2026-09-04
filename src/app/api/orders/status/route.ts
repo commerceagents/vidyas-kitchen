@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
         payment_method, payment_status, cod_failure_reason, payment_link_id,
         delivery_lat, delivery_lng, cancellation_deadline,
-        driver_last_lat, driver_last_lng, driver_location_at,
+        driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         refund_status, refund_amount,
         order_items (
           quantity,
@@ -107,6 +107,7 @@ export async function GET(request: Request) {
       driverLastLat: (row as { driver_last_lat?: number | null }).driver_last_lat ?? null,
       driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
       driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
+      driverArrivedAt: (row as { driver_arrived_at?: string | null }).driver_arrived_at ?? null,
       cancellationDeadline: (row as { cancellation_deadline?: string | null }).cancellation_deadline ?? null,
       refundStatus: (row as { refund_status?: string | null }).refund_status ?? null,
       refundAmount: (row as { refund_amount?: number | null }).refund_amount ?? null,

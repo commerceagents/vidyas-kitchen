@@ -80,6 +80,7 @@ function mapOrderRow(row: Record<string, unknown>): DashboardOrder {
     driver_last_lat: null,
     driver_last_lng: null,
     driver_location_at: null,
+    driver_arrived_at: null,
     items,
   };
 }

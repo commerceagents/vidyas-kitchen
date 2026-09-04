@@ -81,17 +81,26 @@ export function guessRetailerId(item: {
   return null;
 }
 
-/** Public HTTPS image WhatsApp can fetch. */
-export function publicDishImageUrl(item: {
-  image_url?: string;
-  retailer_id?: string;
-  id?: string;
-}): string {
+/**
+ * Public HTTPS image WhatsApp can fetch.
+ *
+ * Order-status cards pass `fallbackLogo: false` so a missing dish photo
+ * becomes no header, not the brand logo on every update.
+ */
+export function publicDishImageUrl(
+  item: {
+    image_url?: string;
+    retailer_id?: string;
+    id?: string;
+  },
+  opts?: { fallbackLogo?: boolean },
+): string {
   const raw = item.image_url?.trim();
   if (raw?.startsWith("https://")) return raw;
+  if (raw?.startsWith("/")) return `${publicSiteOrigin()}${raw}`;
   const rid = guessRetailerId(item);
   if (rid) return `${publicSiteOrigin()}/menu-images/${rid}.jpg`;
-  return welcomeLogoImageUrl();
+  return opts?.fallbackLogo === false ? "" : welcomeLogoImageUrl();
 }
 
 export const CATEGORY_CAROUSEL_IMAGES: Record<string, string> = {

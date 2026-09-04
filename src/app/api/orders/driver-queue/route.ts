@@ -28,7 +28,40 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ orders: data ?? [] });
+    // Guest checkouts carry no customer_id, so the embedded user is empty and
+    // the driver just sees "Customer". Resolve the rest by phone number.
+    const rows = data ?? [];
+    type UserRef = { full_name?: string | null; phone_number?: string | null };
+    const flat = (u: unknown): UserRef | null =>
+      (Array.isArray(u) ? u[0] : u) as UserRef | null;
+
+    const missing = [
+      ...new Set(
+        rows
+          .filter((r) => !flat(r.users)?.full_name && r.phone_number)
+          .map((r) => r.phone_number as string),
+      ),
+    ];
+
+    const nameByPhone = new Map<string, string>();
+    if (missing.length > 0) {
+      const { data: userRows } = await supabase
+        .from("users")
+        .select("full_name, phone_number")
+        .in("phone_number", missing);
+      for (const u of (userRows ?? []) as UserRef[]) {
+        if (u.phone_number && u.full_name) nameByPhone.set(u.phone_number, u.full_name);
+      }
+    }
+
+    const orders = rows.map((r) => {
+      const joined = flat(r.users);
+      if (joined?.full_name || !r.phone_number) return { ...r, users: joined };
+      const full_name = nameByPhone.get(r.phone_number);
+      return { ...r, users: full_name ? { full_name, phone_number: r.phone_number } : joined };
+    });
+
+    return NextResponse.json({ orders });
   } catch (e) {
     console.error("[driver-queue]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

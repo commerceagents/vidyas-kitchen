@@ -22,9 +22,11 @@ import {
   tabForOrder,
   paymentBadgeForOrder,
   driverFixForOrder,
+  driverArrivedAgoLabel,
   type DashboardOrder,
   type DashboardOrderItem,
   type DashboardTab,
+  type DriverFix,
   type PaymentBadge,
 } from "@/lib/dashboard/orders";
 
@@ -1563,7 +1565,7 @@ function OrderCard({
         )}
       </div>
 
-      {isDispatched && driverFixForOrder(order) ? <DriverTrackRow order={order} /> : null}
+      {isDispatched && (order.driver_arrived_at || driverFixForOrder(order)) ? <DriverTrackRow order={order} /> : null}
       {isUndelivered ? <CodBlockRow order={order} /> : null}
 
       {/* Footer — totals left, actions right (compact when cards are narrow) */}
@@ -1689,6 +1691,7 @@ function CodBlockRow({ order }: { order: DashboardOrder }) {
 function DriverTrackRow({ order }: { order: DashboardOrder }) {
   const [, setTick] = useState(0);
   const fix = driverFixForOrder(order);
+  const arrivedAgo = driverArrivedAgoLabel(order);
 
   // The label is relative to now, so re-render on a timer or "12s ago" would
   // sit there reading 12s for the whole delivery.
@@ -1697,6 +1700,35 @@ function DriverTrackRow({ order }: { order: DashboardOrder }) {
     return () => clearInterval(t);
   }, []);
 
+  return (
+    <>
+      {arrivedAgo ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 12,
+            padding: "9px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(52,211,153,0.32)",
+            background: "rgba(52,211,153,0.10)",
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: "#34D399" }} aria-hidden />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#34D399" }}>
+            Driver at the customer&apos;s door · {arrivedAgo}
+          </span>
+        </div>
+      ) : null}
+
+      {fix ? <DriverFixRow fix={fix} /> : null}
+    </>
+  );
+}
+
+function DriverFixRow({ fix }: { fix: NonNullable<DriverFix> }) {
   return (
     <div
       onClick={(e) => e.stopPropagation()}
@@ -1711,29 +1743,18 @@ function DriverTrackRow({ order }: { order: DashboardOrder }) {
         background: "#141414",
       }}
     >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          flexShrink: 0,
-          background: fix ? "#34D399" : "#555",
-        }}
-        aria-hidden
-      />
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: fix ? "#bbb" : "#777" }}>
-        {fix ? `Driver seen ${fix.agoLabel}` : "No recent driver fix"}
+      <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: "#34D399" }} aria-hidden />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#bbb" }}>
+        Driver seen {fix.agoLabel}
       </span>
-      {fix ? (
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${fix.lat},${fix.lng}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 12, fontWeight: 700, color: YELLOW, textDecoration: "none", flexShrink: 0 }}
-        >
-          View map
-        </a>
-      ) : null}
+      <a
+        href={`https://www.google.com/maps/search/?api=1&query=${fix.lat},${fix.lng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ fontSize: 12, fontWeight: 700, color: YELLOW, textDecoration: "none", flexShrink: 0 }}
+      >
+        View map
+      </a>
     </div>
   );
 }

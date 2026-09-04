@@ -1825,6 +1825,7 @@ type TrackSnapshot = {
   driverLastLat?: number | null;
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
+  driverArrivedAt?: string | null;
   cancellationDeadline?: string | null;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
@@ -1861,6 +1862,7 @@ function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
     driverLastLat: num(raw.driverLastLat),
     driverLastLng: num(raw.driverLastLng),
     driverLocationAt: str(raw.driverLocationAt),
+    driverArrivedAt: str(raw.driverArrivedAt),
     cancellationDeadline: str(raw.cancellationDeadline),
     paymentMethod: str(raw.paymentMethod),
     paymentStatus: str(raw.paymentStatus),
@@ -2096,6 +2098,7 @@ export function MobileHomeScreen({
         const snap = await fetch(`/api/orders/status?${q}`);
         const j = (await snap.json().catch(() => ({}))) as Record<string, unknown>;
         if (snap.ok) setTrackSnap(toTrackSnapshot(j));
+        setRatingCommentDraft("");
       } catch (e) {
         setTrackErr(e instanceof Error ? e.message : "Rating failed");
       } finally {

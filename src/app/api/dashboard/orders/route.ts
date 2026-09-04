@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         `
         id, order_number, status, phone_number, total_amount, created_at,
         delivery_slot, delivery_slot_kind, payment_method, payment_status,
-        cod_failure_reason, driver_last_lat, driver_last_lng, driver_location_at,
+        cod_failure_reason, driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         refund_status, refund_amount,
         order_items ( id, quantity, unit_price, menu_item_id,
           menu_items ( name, image_url, price ) )

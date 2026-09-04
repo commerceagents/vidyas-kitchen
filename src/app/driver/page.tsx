@@ -263,7 +263,11 @@ function Section({ title, count, children }: { title: string; count: number; chi
 }
 
 function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
-  const customerName = order.recipient_name?.trim() || order.users?.full_name?.trim() || "Customer";
+  const customerName =
+    order.recipient_name?.trim() ||
+    order.users?.full_name?.trim() ||
+    (order.recipient_phone || order.users?.phone_number || order.phone_number || "").trim() ||
+    "Customer";
   const hasRecipient = Boolean(order.recipient_name?.trim() || order.recipient_phone?.trim());
   const summary = itemsSummary(order);
   const img = firstImage(order);

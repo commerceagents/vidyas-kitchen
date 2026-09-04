@@ -736,7 +736,7 @@ export type WaBillLine = {
   variant?: string;
   quantity: number;
   lineTotal: number;
-  imageUrl: string;
+  imageUrl?: string;
 };
 
 export type WaOrderBill = {
@@ -854,11 +854,11 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: "The kadhai is hot",
+          title: "The stove is on",
           intro: `${ref ? `Order ${ref}` : "Your order"} — someone at the stove is taking this personally. In a good way.`,
         },
         {
-          title: "Kadhai sooda aayiduchu",
+          title: "Stove on aayiduchu",
           intro: `${ref ? `Order ${ref}` : "Unga order"} — stove-la oruthar personally eduthuttanga. Nalla sense-la.`,
         },
       );
@@ -952,9 +952,9 @@ function stageWelcome(
 }
 
 /**
- * Receipt-shaped status card: welcome, then YOUR ORDER / BILL / WHEN.
- * Later stages drop the fee table so the same dish photo doesn't come with
- * a lecture every time.
+ * Receipt-shaped status card. The fee table lives only on the first
+ * confirmation — repeating Items / Packaging / GST on every update is why
+ * the thread looks like a stack of invoices.
  */
 export function buildOrderStatusWhatsApp(
   stage: WaOrderStage,
@@ -963,8 +963,8 @@ export function buildOrderStatusWhatsApp(
   extra?: { refundLine?: string; undeliveredReason?: string },
 ): string {
   const welcome = stageWelcome(stage, bill, extra, lang);
-  const fullBill = stage === "placed_cod" || stage === "placed_paid" || stage === "accepted";
-  const showItems = bill.items.length > 0 && stage !== "cancelled" && stage !== "rejected" && stage !== "undelivered";
+  const isReceipt = stage === "placed_cod" || stage === "placed_paid";
+  const showItems = isReceipt && bill.items.length > 0;
 
   const lines: (string | null)[] = [welcome.intro, ""];
 
@@ -972,21 +972,12 @@ export function buildOrderStatusWhatsApp(
     lines.push(...heading(pickLang(lang, "YOUR ORDER", "UNGA ORDER")));
     lines.push(...billItemLines(bill.items));
     lines.push("");
-  }
-
-  if (fullBill) {
     lines.push(...heading(pickLang(lang, "BILL", "BILL")));
     lines.push(...billMoneyLines(bill, lang));
     lines.push("");
-  } else if (showItems && (stage === "preparing" || stage === "packed" || stage === "dispatched")) {
-    lines.push(dottedRow(pickLang(lang, "To pay", "Kattanum"), money(bill.amount)));
-    if (bill.isCod) {
-      lines.push(pickLang(lang, "Cash on delivery", "Cash on delivery"));
-    }
-    lines.push("");
   }
 
-  if (bill.slotLine && stage !== "delivered" && stage !== "cancelled" && stage !== "rejected") {
+  if (bill.slotLine && (isReceipt || stage === "accepted") && stage !== "delivered") {
     lines.push(...heading(pickLang(lang, "WHEN", "EPPODHU")));
     lines.push(bill.slotLine);
     lines.push("");
@@ -1113,6 +1104,29 @@ export function notifyOrderOutForDelivery(lang?: WaLang): string {
       breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
     },
     lang,
+  );
+}
+
+/** The driver is standing at the door. Short, because it is read in a hurry. */
+export function notifyDriverArrived(isCod: boolean, amount: number, lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Your driver has arrived",
+      lines: [
+        "Your driver is at your door with your order.",
+        isCod ? `Please keep ${money(amount)} in cash ready.` : null,
+      ],
+      note: "Can't find them? Call the driver from your order page.",
+    }),
+    msg({
+      title: "Driver vandhutaaru",
+      lines: [
+        "Unga driver order-oda veetu vaasal-la wait panraaru.",
+        isCod ? `${money(amount)} cash ready-ah vachukonga.` : null,
+      ],
+      note: "Kaanoma? Order page-la irundhu driver-ku call pannunga.",
+    }),
   );
 }
 
@@ -1250,7 +1264,7 @@ export function helpAndSupportReply(lang?: WaLang): string {
     msg({
       title: "Help",
       lines: [
-        "Track an order, see your past ones, call the kitchen, or change your language.",
+        "Track an order, see your past ones, call the kitchen, or tap Language to switch English / Tanglish.",
         "",
         "Late order, wrong dish, anything else — just type it. I'll sort it or bring in a human.",
       ],
@@ -1258,7 +1272,7 @@ export function helpAndSupportReply(lang?: WaLang): string {
     msg({
       title: "Help",
       lines: [
-        "Order track pannunga, pazhaya order paarunga, kitchen-ku call pannunga, illa language change pannunga.",
+        "Order track pannunga, pazhaya order paarunga, kitchen-ku call pannunga, illa Language tap pannunga — English / Tanglish.",
         "",
         "Late, wrong dish, vera edhachum — type pannunga. Naan paarthukren, illa oru human-a kootitu varen.",
       ],

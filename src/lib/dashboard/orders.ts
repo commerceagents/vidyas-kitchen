@@ -31,6 +31,8 @@ export type DashboardOrder = {
   driver_last_lat: number | null;
   driver_last_lng: number | null;
   driver_location_at: string | null;
+  /** Set when the driver marked themselves at the customer's door. */
+  driver_arrived_at: string | null;
   items: DashboardOrderItem[];
 };
 
@@ -56,6 +58,16 @@ export function driverFixForOrder(order: DashboardOrder): DriverFix {
     lng,
     agoLabel: secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)} min ago`,
   };
+}
+
+/** "2 min ago"-style label for the arrival stamp, or null if the driver hasn't. */
+export function driverArrivedAgoLabel(order: DashboardOrder): string | null {
+  const at = order.driver_arrived_at;
+  if (!at) return null;
+  const t = new Date(at).getTime();
+  if (!Number.isFinite(t)) return null;
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return mins < 1 ? "just now" : mins === 1 ? "1 min ago" : `${mins} min ago`;
 }
 
 export type MonthKey = { year: number; month: number };

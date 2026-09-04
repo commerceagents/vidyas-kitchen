@@ -92,10 +92,41 @@ export async function sendOrderPushNotifications(
   orderNumber?: number | null,
   paymentMethod?: string | null,
 ): Promise<void> {
-  if (!phoneNumber) return;
-
   const payload = pushPayloadForStatus(status, orderId, deliverySlot, orderNumber, paymentMethod);
   if (!payload) return;
+  await pushToCustomer(supabase, phoneNumber, payload);
+}
+
+/**
+ * Arrival isn't an order status, so it can't ride on the status switch above.
+ * This is the alert a customer most needs to actually reach their lock screen:
+ * someone is at the door right now.
+ */
+export async function sendDriverArrivedPush(
+  supabase: SupabaseClient,
+  phoneNumber: string | null | undefined,
+  orderId: string,
+  orderNumber?: number | null,
+  paymentMethod?: string | null,
+): Promise<void> {
+  const short = formatOrderRef(orderNumber, orderId).replace(/^#/, "");
+  const isCod = String(paymentMethod || "").toLowerCase() === "cod";
+  await pushToCustomer(supabase, phoneNumber, {
+    title: "Your driver has arrived",
+    body: isCod
+      ? `Order #${short} is at your door. Please keep the cash ready.`
+      : `Order #${short} is at your door.`,
+    tag: `vk-${orderId}-arrived`,
+    url: `${publicSiteOrigin()}/?track=${orderId}`,
+  });
+}
+
+async function pushToCustomer(
+  supabase: SupabaseClient,
+  phoneNumber: string | null | undefined,
+  payload: PushPayload,
+): Promise<void> {
+  if (!phoneNumber) return;
 
   const phone = toE164Phone(phoneNumber);
   if (!phone) return;
