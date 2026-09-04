@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { DriverPwa } from "./driver-pwa";
 
 export const metadata: Metadata = {
@@ -31,9 +30,6 @@ export const viewport: Viewport = {
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Script id="vk-driver-manifest" strategy="beforeInteractive">
-        {`(function(){document.querySelectorAll('link[rel="manifest"]').forEach(function(el){el.remove();});var l=document.createElement("link");l.rel="manifest";l.href="/driver/manifest.webmanifest";document.head.appendChild(l);})();`}
-      </Script>
       <DriverPwa />
       {children}
     </>

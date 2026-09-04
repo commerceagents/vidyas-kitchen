@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * Makes /driver installable as its own app, and registers the shared worker
- * so a lock-screen tap can open this PWA rather than a browser tab.
+ * Install banner for VK's Driver.
  *
- * Install UI lives here (not only on the hub) so a driver can pin the app
- * from the sign-in screen, before they have a session.
+ * Chrome's own prompt only fires when the manifest is valid and a service
+ * worker is controlling the page. We always show this card unless the app is
+ * already on the home screen — waiting for `beforeinstallprompt` left Android
+ * with a blank page when the prompt never came.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -26,17 +27,9 @@ export function DriverPwa() {
   const [isApple, setIsApple] = useState(false);
   const [viaChrome, setViaChrome] = useState(false);
   const [iosHint, setIosHint] = useState(false);
+  const [canPrompt, setCanPrompt] = useState(false);
 
   useEffect(() => {
-    // Next still emits the customer <link rel="manifest"> from the root layout.
-    // Chrome reads that href for the install prompt, so swap it before the
-    // prompt fires a second time.
-    document.querySelectorAll('link[rel="manifest"]').forEach((el) => el.remove());
-    const link = document.createElement("link");
-    link.rel = "manifest";
-    link.href = "/driver/manifest.webmanifest";
-    document.head.appendChild(link);
-
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
@@ -48,13 +41,10 @@ export function DriverPwa() {
         setShowInstall(false);
         return;
       }
-      const apple = isAppleTouchDevice();
-      setIsApple(apple);
-      const samsung = isSamsungInternet();
-      setViaChrome(samsung);
-      // Apple has no install API — we always offer the Share steps. Android
-      // waits for the native prompt (or Chrome, on Samsung Internet).
-      setShowInstall(apple || samsung || hasNativePrompt());
+      setIsApple(isAppleTouchDevice());
+      setViaChrome(isSamsungInternet());
+      setCanPrompt(hasNativePrompt());
+      setShowInstall(true);
     };
     recompute();
     return subscribePwaInstall(recompute);
@@ -78,10 +68,22 @@ export function DriverPwa() {
       openInChrome();
       return;
     }
-    await triggerNativeInstall();
-  }, [isApple, viaChrome]);
+    if (canPrompt) {
+      await triggerNativeInstall();
+      return;
+    }
+    setIosHint(true);
+  }, [isApple, viaChrome, canPrompt]);
 
   if (!showInstall) return null;
+
+  const body = iosHint
+    ? isApple
+      ? "Tap Share, then Add to Home Screen. Open it from the new icon — alerts only work from there."
+      : "Tap the browser menu (⋮), then Install app / Add to Home screen."
+    : viaChrome
+      ? "Open this page in Chrome, then install. Samsung's own install is blocked on new Androids."
+      : "Pin this to your home screen. New orders will buzz, and tapping one opens the delivery.";
 
   return (
     <div
@@ -108,11 +110,7 @@ export function DriverPwa() {
           Install VK&apos;s Driver
         </p>
         <p style={{ margin: "3px 0 0", fontSize: 12.5, color: D.muted, fontWeight: 600, lineHeight: 1.45 }}>
-          {iosHint
-            ? "Tap Share, then Add to Home Screen. Open it from the new icon — alerts only work from there."
-            : viaChrome
-              ? "Open this page in Chrome, then install. Samsung's own install is blocked on new Androids."
-              : "Pin this to your home screen. New orders will buzz, and tapping one opens the delivery."}
+          {body}
         </p>
         <button
           type="button"
@@ -134,8 +132,16 @@ export function DriverPwa() {
             cursor: "pointer",
           }}
         >
-          {isApple && <Share size={13} strokeWidth={2.4} />}
-          {iosHint ? "Show steps again" : isApple ? "How to install" : viaChrome ? "Open in Chrome" : "Install"}
+          {(isApple || iosHint) && <Share size={13} strokeWidth={2.4} />}
+          {iosHint
+            ? "Show steps again"
+            : isApple
+              ? "How to install"
+              : viaChrome
+                ? "Open in Chrome"
+                : canPrompt
+                  ? "Install"
+                  : "How to install"}
         </button>
       </div>
     </div>

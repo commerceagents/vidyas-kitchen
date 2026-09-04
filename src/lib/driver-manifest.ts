@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+export function driverManifest(): MetadataRoute.Manifest {
   return {
     id: "/driver",
     name: "VK's Driver",
