@@ -2169,7 +2169,12 @@ export function MobileHomeScreen({
 
   const windowOpen = isOrderingWindowOpen() && !previewClosed;
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
+  const bindScrollRef = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el;
+    setScrollNode(el);
+  }, []);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeIdleTimer = useRef(0);
   const showChrome = windowOpen && chromeVisible && !dishDetailItem && activeScreen !== "menu";
@@ -2179,11 +2184,18 @@ export function MobileHomeScreen({
       setChromeVisible(true);
       return;
     }
-    const el = scrollRef.current;
+    const el = scrollNode;
     if (!el) return;
 
     setChromeVisible(true);
-    const hide = () => setChromeVisible(false);
+    const canScroll = () => el.scrollHeight > el.clientHeight + 8;
+    const hide = () => {
+      if (!canScroll()) {
+        setChromeVisible(true);
+        return;
+      }
+      setChromeVisible(false);
+    };
     const reveal = () => {
       setChromeVisible(true);
       window.clearTimeout(chromeIdleTimer.current);
@@ -2192,11 +2204,15 @@ export function MobileHomeScreen({
 
     chromeIdleTimer.current = window.setTimeout(hide, 1800);
     el.addEventListener("scroll", reveal, { passive: true });
+    el.addEventListener("wheel", reveal, { passive: true });
+    el.addEventListener("touchmove", reveal, { passive: true });
     return () => {
       window.clearTimeout(chromeIdleTimer.current);
       el.removeEventListener("scroll", reveal);
+      el.removeEventListener("wheel", reveal);
+      el.removeEventListener("touchmove", reveal);
     };
-  }, [windowOpen, dishDetailItem, activeScreen, activeNav]);
+  }, [windowOpen, dishDetailItem, activeScreen, activeNav, scrollNode]);
 
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
@@ -2619,7 +2635,7 @@ export function MobileHomeScreen({
       </div>
 
       <div 
-        ref={scrollRef}
+        ref={bindScrollRef}
         className="vk-scroll-container no-scrollbar"
         style={{
           position: "relative", zIndex: 1,
