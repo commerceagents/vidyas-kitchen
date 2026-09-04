@@ -82,18 +82,20 @@ function canCustomerCancelStatus(status: string): boolean {
   return ["pending_payment", "paid", "confirmed"].includes(s);
 }
 
-/** "2 days 4 hours", "3 hours 20 mins", "8 mins" — coarse near the top, precise near the end. */
+/** "2 days 4 hrs 12 min 8 sec", tightening as the window runs down. */
 function formatRemaining(ms: number): string {
-  const totalMins = Math.max(0, Math.floor(ms / 60000));
-  const days = Math.floor(totalMins / 1440);
-  const hours = Math.floor((totalMins % 1440) / 60);
-  const mins = totalMins % 60;
+  const totalSecs = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSecs / 86400);
+  const hours = Math.floor((totalSecs % 86400) / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
 
   const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-  if (days > 0) return `${unit(days, "day")} ${unit(hours, "hr")}`;
-  if (hours > 0) return `${unit(hours, "hr")} ${unit(mins, "min")}`;
-  return unit(mins, "min");
+  if (days > 0) return `${unit(days, "day")} ${unit(hours, "hr")} ${unit(mins, "min")} ${unit(secs, "sec")}`;
+  if (hours > 0) return `${unit(hours, "hr")} ${unit(mins, "min")} ${unit(secs, "sec")}`;
+  if (mins > 0) return `${unit(mins, "min")} ${unit(secs, "sec")}`;
+  return unit(secs, "sec");
 }
 
 /**
@@ -109,8 +111,7 @@ function CancelCountdown({ deadline }: { deadline: string | null | undefined }) 
 
   useEffect(() => {
     if (!Number.isFinite(target)) return;
-    // Minute resolution is all the copy shows, so tick once a minute.
-    const t = setInterval(() => setNow(Date.now()), 30_000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [target]);
 
