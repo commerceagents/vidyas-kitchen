@@ -2214,21 +2214,12 @@ export function MobileHomeScreen({
     };
   }, [windowOpen, dishDetailItem, activeScreen, activeNav, scrollNode]);
 
-  // ── Ripple Ring navbar state ────────────────────────────────────────────
-  const NAV_CIRCLE = 48;  // Smaller for the pill look
-  const NAV_BORDER = 1;
-  const NAV_PAD = 46;
-  const NAV_ICON_CELL = 44;
-  const NAV_ICON_INSET = 1;
-  const [rippleKey,    setRippleKey]    = useState(0);
-  const [rippleTarget, setRippleTarget] = useState("home");
+  const NAV_CIRCLE = 48;
 
   function handleNav(id: string) {
     if (id === activeNav) return;
     setLocationOpen(false);
     setActiveNav(id);
-    setRippleTarget(id);
-    setRippleKey((k) => k + 1);
     setChromeVisible(true);
     window.clearTimeout(chromeIdleTimer.current);
     chromeIdleTimer.current = window.setTimeout(() => setChromeVisible(false), 1400);
@@ -3295,7 +3286,6 @@ export function MobileHomeScreen({
               {NAV_ITEMS.map((item) => {
                 const { id, label: navLabel, icon: Icon, activeWidth } = item;
                 const isActive   = activeNav === id;
-                const showRipple = rippleTarget === id;
 
                 return (
                   <motion.button
@@ -3323,6 +3313,9 @@ export function MobileHomeScreen({
                       gap: 6,
                       cursor: "pointer",
                       outline: "none",
+                      WebkitTapHighlightColor: "transparent",
+                      WebkitAppearance: "none",
+                      appearance: "none",
                       position: "relative",
                       overflow: "visible",
                       fontFamily: C.mono,
@@ -3341,32 +3334,8 @@ export function MobileHomeScreen({
                         justifyContent: "center",
                         pointerEvents: "none",
                         zIndex: 1,
-                        overflow: "visible",
                       }}
                     >
-                      <AnimatePresence>
-                        {showRipple && (
-                          <motion.div
-                            key={rippleKey}
-                            initial={{ scale: 0.4, opacity: 1 }}
-                            animate={{ scale: 3, opacity: 0 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.6, ease: "easeOut" }}
-                            style={{
-                              position: "absolute",
-                              top: "50%",
-                              left: "50%",
-                              width: NAV_ICON_CELL,
-                              height: NAV_ICON_CELL,
-                              borderRadius: "50%",
-                              border: "2px solid rgba(189,35,32,0.6)",
-                              transform: "translate(-50%, -50%)",
-                              pointerEvents: "none",
-                              zIndex: 0,
-                            }}
-                          />
-                        )}
-                      </AnimatePresence>
                       <span
                         style={{
                           position: "relative",
@@ -3465,6 +3434,9 @@ export function MobileHomeScreen({
                       justifyContent: "center",
                       cursor: "pointer",
                       outline: "none",
+                      WebkitTapHighlightColor: "transparent",
+                      WebkitAppearance: "none",
+                      appearance: "none",
                       position: "relative",
                       flexShrink: 0,
                       padding: 0,
