@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendPushNotification, type PushPayload } from "@/lib/web-push";
+import { sendPushNotificationResult, type PushPayload } from "@/lib/web-push";
 import { formatOrderRef, PaymentStatus } from "@/lib/order-status";
 import { publicSiteOrigin } from "@/lib/site-url";
 
@@ -22,12 +22,15 @@ async function deliver(
 
   await Promise.allSettled(
     subs.map(async (sub) => {
-      const ok = await sendPushNotification(
+      const result = await sendPushNotificationResult(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
         payload,
       );
-      if (ok) sent += 1;
-      else expired.push(sub.endpoint);
+      if (result === "sent") sent += 1;
+      // Only a retired endpoint should be dropped. A VAPID miss or a
+      // transient 5xx used to delete the only row, then the next tap
+      // claimed there was no device.
+      if (result === "gone") expired.push(sub.endpoint);
     }),
   );
 
@@ -38,16 +41,23 @@ async function deliver(
   return sent;
 }
 
-async function subsForDriver(supabase: SupabaseClient, driverId: string): Promise<SubRow[]> {
+export async function loadDriverSubs(
+  supabase: SupabaseClient,
+  driverId: string,
+): Promise<{ subs: SubRow[]; error: string | null }> {
   const { data, error } = await supabase
     .from("driver_push_subscriptions")
     .select("endpoint, p256dh, auth")
     .eq("driver_id", driverId);
   if (error) {
     console.error("[push-driver] load subs", error.message);
-    return [];
+    return { subs: [], error: error.message };
   }
-  return (data ?? []) as SubRow[];
+  return { subs: (data ?? []) as SubRow[], error: null };
+}
+
+async function subsForDriver(supabase: SupabaseClient, driverId: string): Promise<SubRow[]> {
+  return (await loadDriverSubs(supabase, driverId)).subs;
 }
 
 async function subsForAllDrivers(supabase: SupabaseClient): Promise<SubRow[]> {

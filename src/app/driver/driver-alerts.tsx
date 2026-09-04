@@ -27,7 +27,25 @@ export function DriverAlerts() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void currentPushState().then(setState);
+    let cancel = false;
+    void (async () => {
+      const browser = await currentPushState();
+      if (cancel) return;
+      // The kitchen PWA shares this origin's service worker. Permission can
+      // already be "on" here without a row in driver_push_subscriptions —
+      // Send test then looks like a dead device. Re-file against this driver.
+      if (browser === "on") {
+        const res = await enableDriverPush();
+        if (cancel) return;
+        if (res.ok) setState("on");
+        else setState(res.state === "unsupported" || res.state === "blocked" ? res.state : "off");
+        return;
+      }
+      setState(browser);
+    })();
+    return () => {
+      cancel = true;
+    };
   }, []);
 
   // Both banners share this: a message that lingers reads as the current state

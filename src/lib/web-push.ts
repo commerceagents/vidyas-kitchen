@@ -23,13 +23,22 @@ export type PushPayload = {
   urgent?: boolean;
 };
 
+export type PushSendResult = "sent" | "gone" | "failed";
+
 export async function sendPushNotification(
   sub: PushSubscriptionRecord,
   payload: PushPayload,
 ): Promise<boolean> {
+  return (await sendPushNotificationResult(sub, payload)) === "sent";
+}
+
+export async function sendPushNotificationResult(
+  sub: PushSubscriptionRecord,
+  payload: PushPayload,
+): Promise<PushSendResult> {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
     console.warn("[web-push] Skipped: VAPID keys not configured");
-    return false;
+    return "failed";
   }
 
   const subscription = {
@@ -39,13 +48,11 @@ export async function sendPushNotification(
 
   try {
     await webpush.sendNotification(subscription, JSON.stringify(payload));
-    return true;
+    return "sent";
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number })?.statusCode;
-    if (statusCode === 410 || statusCode === 404) {
-      return false;
-    }
+    if (statusCode === 410 || statusCode === 404) return "gone";
     console.error("[web-push] Send failed:", err);
-    return false;
+    return "failed";
   }
 }
