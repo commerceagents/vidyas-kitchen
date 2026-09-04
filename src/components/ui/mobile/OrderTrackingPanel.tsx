@@ -700,7 +700,7 @@ export function OrderTrackingPanel({
         display: "flex",
         flexDirection: "column",
         flex: 1,
-        minHeight: trackingOrderId && trackSnap ? undefined : "72vh",
+        minHeight: trackingOrderId && trackSnap ? undefined : 0,
         background: C.bg,
         // Parent scroll already clears the nav (~180px). Extra padding here
         // was leaving a blank half-screen under the bill.
@@ -735,7 +735,13 @@ export function OrderTrackingPanel({
           text="No live order right now. Once you check out, your schedule and updates appear here."
         />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            ...(trackSnap ? {} : { flex: 1, minHeight: 0 }),
+          }}
+        >
           {trackErr ? (
             <p style={{ margin: "0 0 18px", color: "#fca5a5", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>{trackErr}</p>
           ) : null}

@@ -2895,7 +2895,7 @@ export function MobileHomeScreen({
               alignSelf: "stretch",
               // Live order must grow with the bill so the parent can scroll.
               // All-orders empty state still wants to fill the leftover tab.
-              ...(ordersView === "track"
+              ...(ordersView === "track" && trackingOrderId && trackSnap
                 ? {}
                 : {
                     flex: 1,
