@@ -2969,7 +2969,7 @@ export function MobileHomeScreen({
         )}
       </div>
 
-      {activeNav === "account" && !dishDetailItem ? (
+      {(activeNav === "orders" || activeNav === "account") && !dishDetailItem ? (
         <div
           aria-hidden
           style={{
@@ -3170,8 +3170,8 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette (home / account only — orders must stay readable) ─ */}
-      {!dishDetailItem && activeScreen !== "menu" && activeNav !== "orders" && (
+      {/* ── Bottom Vignette (home tabs only — not browse menu / dish detail) ─ */}
+      {!dishDetailItem && activeScreen !== "menu" && (
         <div
           style={{
             position: "fixed",
