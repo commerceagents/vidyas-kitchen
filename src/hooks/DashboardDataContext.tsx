@@ -415,7 +415,6 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       dismissNotification(TEST_NOTIFICATION_ID);
       return;
     }
-    if (!window.confirm("Reject this order? A full refund will be initiated.")) return;
     const r = await transitionOrderStatus(orderId, OrderStatus.REJECTED);
     if (!r.ok) alert(r.error);
     const match = notifications.find((n) => n.orderId === orderId);

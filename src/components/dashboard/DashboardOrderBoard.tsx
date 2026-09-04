@@ -8,6 +8,7 @@ import { normalizeOrderStatus, OrderStatus, codFailureLabel } from "@/lib/order-
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal, getOrderDisplayTotal, orderItemsSubtotal } from "@/lib/order-pricing";
 import { useToast } from "@/components/dashboard/DashboardToast";
+import { DashboardConfirmDialog, rejectConfirmCopy } from "@/components/dashboard/DashboardConfirmDialog";
 import { DriverRowsSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import {
@@ -513,6 +514,7 @@ export function DashboardOrderBoard({
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detailOrder, setDetailOrder] = useState<DashboardOrder | null>(null);
+  const [rejectOrder, setRejectOrder] = useState<DashboardOrder | null>(null);
 
   const visibleTabs = useMemo(() => {
     if (!allowedTabs) return TABS;
@@ -559,7 +561,6 @@ export function DashboardOrderBoard({
   };
 
   const runReject = async (orderId: string) => {
-    if (!window.confirm("Reject this order? A full refund will be initiated.")) return;
     setBusyId(orderId);
     const r = await transitionOrderStatus(orderId, OrderStatus.REJECTED);
     if (!r.ok) alert(r.error);
@@ -715,7 +716,7 @@ export function DashboardOrderBoard({
                   highlighted={highlightOrderId === order.id}
                   busy={busyId === order.id}
                   onAccept={() => void runAccept(order.id)}
-                  onReject={() => void runReject(order.id)}
+                  onReject={() => setRejectOrder(order)}
                   onFoodReady={() => void runFoodReady(order.id)}
                   onCollected={() => void runCollected(order.id)}
                   onDelivered={() => void runDelivered(order.id)}
@@ -737,7 +738,7 @@ export function DashboardOrderBoard({
             onClose={() => setDetailOrder(null)}
             busy={busyId === detailOrder.id}
             onAccept={() => void runAccept(detailOrder.id)}
-            onReject={() => void runReject(detailOrder.id)}
+            onReject={() => setRejectOrder(detailOrder)}
             onFoodReady={() => void runFoodReady(detailOrder.id)}
             onCollected={() => void runCollected(detailOrder.id)}
             onDelivered={() => void runDelivered(detailOrder.id)}
@@ -749,6 +750,20 @@ export function DashboardOrderBoard({
           />
         )
       )}
+
+      <DashboardConfirmDialog
+        open={!!rejectOrder}
+        title="Reject this order?"
+        body={rejectConfirmCopy(rejectOrder?.payment_method)}
+        confirmLabel="Yes, reject"
+        busy={!!rejectOrder && busyId === rejectOrder.id}
+        onCancel={() => setRejectOrder(null)}
+        onConfirm={() => {
+          const id = rejectOrder?.id;
+          setRejectOrder(null);
+          if (id) void runReject(id);
+        }}
+      />
 
       <style>{ORDER_BTN_HOVER_CSS}</style>
 

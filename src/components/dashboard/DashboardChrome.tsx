@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, ChevronLeft, ChevronRight, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/dashboard/orders";
 import { TEST_NOTIFICATION_ID, type DashboardNotification } from "@/hooks/DashboardDataContext";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
+import { DashboardConfirmDialog, rejectConfirmCopy } from "@/components/dashboard/DashboardConfirmDialog";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -414,6 +415,8 @@ export function DashboardNotificationPanel({
   onView,
   onDismiss,
 }: NotificationPanelProps) {
+  const [rejectTarget, setRejectTarget] = useState<DashboardNotification | null>(null);
+
   return (
     <>
       <style jsx global>{`
@@ -534,7 +537,17 @@ export function DashboardNotificationPanel({
                 </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   <ActionChip label="Accept" primary onClick={() => onAccept(n.orderId)} />
-                  <ActionChip label="Reject" danger onClick={() => onReject(n.orderId)} />
+                  <ActionChip
+                    label="Reject"
+                    danger
+                    onClick={() => {
+                      if (n.isTest || n.orderId === TEST_NOTIFICATION_ID) {
+                        onReject(n.orderId);
+                        return;
+                      }
+                      setRejectTarget(n);
+                    }}
+                  />
                   <ActionChip
                     label="View"
                     onClick={() => {
@@ -582,6 +595,18 @@ export function DashboardNotificationPanel({
       </motion.div>
         ) : null}
       </AnimatePresence>
+      <DashboardConfirmDialog
+        open={!!rejectTarget}
+        title="Reject this order?"
+        body={rejectConfirmCopy(rejectTarget?.order.payment_method)}
+        confirmLabel="Yes, reject"
+        onCancel={() => setRejectTarget(null)}
+        onConfirm={() => {
+          const id = rejectTarget?.orderId;
+          setRejectTarget(null);
+          if (id) onReject(id);
+        }}
+      />
     </>
   );
 }

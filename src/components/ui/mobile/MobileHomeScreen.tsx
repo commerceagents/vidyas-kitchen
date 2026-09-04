@@ -2230,7 +2230,8 @@ export function MobileHomeScreen({
   const ordersNavBadge = useMemo(() => {
     if (!trackingOrderId) return 0;
     if (!trackSnap?.status) return 1;
-    if (String(trackSnap.status).toLowerCase() === "delivered") return 0;
+    const st = String(trackSnap.status).toLowerCase();
+    if (st === "delivered" || st === "cancelled" || st === "rejected") return 0;
     return 1;
   }, [trackingOrderId, trackSnap?.status]);
 

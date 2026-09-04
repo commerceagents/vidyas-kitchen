@@ -228,6 +228,7 @@ function heroCopy(status: string): { headline: string; sub: string } {
     case "undelivered":
       return { headline: "Delivery unsuccessful", sub: "Our team will reach out to you" };
     case "cancelled":
+    case "rejected":
       return { headline: "Order cancelled", sub: "Nothing more to do here" };
     default:
       return { headline: "Order update", sub: "Fetching the latest status" };
@@ -555,7 +556,7 @@ export function OrderTrackingPanel({
   const mapToken = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "" : "";
   const stage = trackSnap ? trackStage(trackSnap.status) : -1;
   const n = trackSnap ? normalizeTrackStatus(trackSnap.status) : "";
-  const cancelled = n === "cancelled";
+  const cancelled = n === "cancelled" || n === "rejected";
   const outForDelivery = n === "out_for_delivery";
   const delivered = n === "delivered";
   const hero = heroCopy(trackSnap?.status ?? "");
@@ -749,6 +750,7 @@ export function OrderTrackingPanel({
           {trackSnap ? (
             <>
               {/* Hero — map backdrop + floating ETA card */}
+              {!cancelled && (
               <div style={{ position: "relative", marginBottom: 14 }}>
                 <div
                   style={{
@@ -839,6 +841,7 @@ export function OrderTrackingPanel({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Delivery status — dark panel */}
               {!cancelled && (
@@ -983,7 +986,7 @@ export function OrderTrackingPanel({
                   }}
                 >
                   <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C_TEXT_SEC, fontFamily: fontUi, lineHeight: 1.35 }}>
-                    This order has been cancelled
+                    Order cancelled
                   </p>
                   <p
                     style={{
@@ -1001,6 +1004,8 @@ export function OrderTrackingPanel({
               ) : null}
 
               {/* Address card */}
+              {!cancelled && (
+              <>
               <div
                 style={{
                   display: "flex",
@@ -1344,6 +1349,8 @@ export function OrderTrackingPanel({
                   ) : null}
                 </div>
               )}
+              </>
+              )}
 
             </>
           ) : (
@@ -1386,7 +1393,7 @@ export function OrderTrackingPanel({
                 <WhatsAppBrandIcon size={22} />
               </span>
               <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.45, fontFamily: fontUi, color: C_TEXT_SEC }}>
-                Need help? Message us on WhatsApp
+                Need help? Chat with us
               </span>
             </a>
           ) : null}
