@@ -23,6 +23,10 @@ export const metadata: Metadata = {
   title: "Vidya's Kitchen | Premium Home Catering",
   description:
     "Experience the finest home catering with Vidya's Kitchen. Fresh ingredients, traditional recipes, and modern convenience.",
+  // File-convention app/manifest.ts always injected this and ignored child
+  // overrides — /driver then installed the food app. Customer file is now a
+  // route; driver/dashboard layouts set their own href.
+  manifest: "/manifest.webmanifest",
   // iOS ignores the manifest's icons and reads these instead, so a home screen
   // install on Safari falls back to a screenshot of the page without them.
   icons: {

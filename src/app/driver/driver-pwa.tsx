@@ -28,6 +28,15 @@ export function DriverPwa() {
   const [iosHint, setIosHint] = useState(false);
 
   useEffect(() => {
+    // Next still emits the customer <link rel="manifest"> from the root layout.
+    // Chrome reads that href for the install prompt, so swap it before the
+    // prompt fires a second time.
+    document.querySelectorAll('link[rel="manifest"]').forEach((el) => el.remove());
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = "/driver/manifest.webmanifest";
+    document.head.appendChild(link);
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
@@ -96,7 +105,7 @@ export function DriverPwa() {
       <Download size={16} strokeWidth={2.2} style={{ color: D.red, flexShrink: 0, marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: D.text, letterSpacing: "-0.01em" }}>
-          Install the driver app
+          Install VK&apos;s Driver
         </p>
         <p style={{ margin: "3px 0 0", fontSize: 12.5, color: D.muted, fontWeight: 600, lineHeight: 1.45 }}>
           {iosHint
