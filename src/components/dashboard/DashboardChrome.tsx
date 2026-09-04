@@ -430,7 +430,16 @@ export function DashboardNotificationPanel({
           background: "rgba(0,0,0,0.45)",
         }}
       />
-      <div className="vk-dash-notif-panel" style={{ fontFamily: FONT }}>
+      <div
+        className="vk-dash-notif-panel"
+        style={{
+          fontFamily: FONT,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          pointerEvents: "auto",
+        }}
+      >
         <div
           style={{
             display: "flex",
@@ -438,6 +447,7 @@ export function DashboardNotificationPanel({
             justifyContent: "space-between",
             padding: "16px 16px 12px",
             borderBottom: "1px solid #222",
+            flexShrink: 0,
           }}
         >
           <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#fff" }}>Notifications</h2>
@@ -455,7 +465,7 @@ export function DashboardNotificationPanel({
             No new alerts
           </p>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: "8px 0", maxHeight: "min(420px, 60vh)", overflowY: "auto" }}>
+          <ul style={{ listStyle: "none", margin: 0, padding: "8px 0", flex: 1, minHeight: 0, maxHeight: "min(420px, 60vh)", overflowY: "auto" }}>
             {notifications.map((n) => (
               <li
                 key={n.id}
@@ -495,18 +505,27 @@ export function DashboardNotificationPanel({
         {notifications.length > 0 ? (
           <button
             type="button"
-            onClick={onMarkAllRead}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onMarkAllRead();
+            }}
             style={{
               display: "block",
               width: "100%",
+              flexShrink: 0,
+              minHeight: 48,
               padding: "14px",
               border: "none",
               borderTop: "1px solid #222",
-              background: "transparent",
-              color: "#888",
+              background: "#141414",
+              color: "#f5e32d",
               fontSize: "14px",
-              fontWeight: 600,
+              fontWeight: 800,
               fontFamily: FONT,
+              cursor: "pointer",
+              position: "relative",
+              zIndex: 2,
             }}
           >
             Mark all as read
