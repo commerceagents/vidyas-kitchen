@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -40,7 +41,8 @@ export async function GET(request: Request) {
         order_items (
           quantity,
           unit_price,
-          menu_items ( name )
+          menu_item_id,
+          menu_items ( name, image_url )
         )
       `,
       )
@@ -56,13 +58,27 @@ export async function GET(request: Request) {
     }
 
     const rawItems = (row as { order_items?: unknown }).order_items;
-    const lines: { name: string; quantity: number; unitPrice: number }[] = [];
+    const lines: { name: string; quantity: number; unitPrice: number; imageUrl: string | null }[] = [];
     if (Array.isArray(rawItems)) {
-      for (const it of rawItems as { quantity?: number; unit_price?: number; menu_items?: { name?: string } | null }[]) {
+      for (const it of rawItems as {
+        quantity?: number;
+        unit_price?: number;
+        menu_item_id?: string | null;
+        menu_items?: { name?: string; image_url?: string | null } | null;
+      }[]) {
         const name = it.menu_items?.name ? String(it.menu_items.name) : "Item";
         const quantity = Math.max(1, Math.floor(Number(it.quantity) || 1));
         const unitPrice = Number(it.unit_price) || 0;
-        lines.push({ name, quantity, unitPrice });
+        lines.push({
+          name,
+          quantity,
+          unitPrice,
+          imageUrl: resolveOrderItemImageUrl({
+            name,
+            imageUrl: it.menu_items?.image_url ?? null,
+            menuItemId: it.menu_item_id ?? null,
+          }),
+        });
       }
     }
 

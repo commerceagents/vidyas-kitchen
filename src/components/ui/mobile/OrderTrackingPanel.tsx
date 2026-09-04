@@ -11,6 +11,7 @@ import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mob
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
 /** Status + address cards — match home location pin tile. */
@@ -57,7 +58,7 @@ export type OrderTrackSnap = {
   driverLocationAt?: string | null;
   cancellationDeadline?: string | null;
   paymentLinkId?: string | null;
-  lines?: { name: string; quantity: number; unitPrice: number }[];
+  lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
   breakdown?: {
     itemsSubtotal: number;
     packaging: number;
@@ -1088,11 +1089,14 @@ export function OrderTrackingPanel({
                 >
                   <p style={{ ...TYPO.eyebrow, margin: "0 0 14px" }}>Your dishes</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                    {lines.map((l, idx) => (
+                    {lines.map((l, idx) => {
+                      const thumb = l.imageUrl || resolveOrderItemImageUrl({ name: l.name });
+                      return (
                       <div
                         key={idx}
                         style={{
                           display: "flex",
+                          alignItems: "center",
                           justifyContent: "space-between",
                           gap: 12,
                           padding: "12px 0",
@@ -1100,12 +1104,34 @@ export function OrderTrackingPanel({
                           color: C_TEXT_SEC,
                         }}
                       >
+                        <span
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 14,
+                            flexShrink: 0,
+                            overflow: "hidden",
+                            background: C.redFaint,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          aria-hidden
+                        >
+                          {thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- menu photo from public/menu-images
+                            <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <CookingPot size={22} weight="regular" color={C.red} />
+                          )}
+                        </span>
                         <span style={{ fontFamily: fontUi, fontWeight: 700, lineHeight: 1.4, flex: 1, fontSize: 16, color: C.text }}>
                           {l.quantity}× {toTitleCaseLine(l.name)}
                         </span>
                         <span style={{ fontFamily: fontUi, fontWeight: 800, color: C.red, fontSize: 16 }}>₹{Math.round(l.quantity * l.unitPrice)}</span>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {fee ? (
                     <>

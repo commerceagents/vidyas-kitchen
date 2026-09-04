@@ -1832,7 +1832,7 @@ type TrackSnapshot = {
   refundStatus?: string | null;
   refundAmount?: number | null;
   paymentLinkId?: string | null;
-  lines?: { name: string; quantity: number; unitPrice: number }[];
+  lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
   breakdown?: {
     itemsSubtotal: number;
     packaging: number;
