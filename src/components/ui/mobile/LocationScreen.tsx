@@ -8,6 +8,7 @@ import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
+import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LocationData {
@@ -65,7 +66,6 @@ const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 /** Location screen typography — shared scale */
 const LOC = {
-  tip: { ...TYPO.caption, color: "#1A1A1A", letterSpacing: "0.01em", textAlign: "center" as const },
   eyebrow: { ...TYPO.caption, margin: 0, fontSize: 11, color: "rgba(0,0,0,0.45)", letterSpacing: "0.02em", lineHeight: 1.25 },
   placeName: {
     ...TYPO.bodyMedium,
@@ -780,95 +780,14 @@ export function LocationScreen({
   return (
     <>
     <div style={{ position: "fixed", inset: 0, background: "#F5F5F7", overflow: "hidden" }}>
-      {/* Floating status tooltip (small, cute, bottom-centered) */}
-      <AnimatePresence>
-        {floatingTip && (
-          <motion.div
-            key={floatingTip.id}
-            initial={{ opacity: 0, y: 20, scale: 0.88 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.75, y: 10 }}
-            transition={{ type: "spring", stiffness: 420, damping: 28 }}
-            style={{
-              position: "fixed",
-              bottom: 100,
-              left: 0,
-              right: 0,
-              margin: "0 auto",
-              width: "fit-content",
-              maxWidth: "80vw",
-              zIndex: 9999,
-              padding: "10px 20px",
-              borderRadius: 24,
-              background: "rgba(255,255,255,0.96)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              border: `1px solid ${
-                floatingTip.tone === "warn"
-                  ? "rgba(189,35,32,0.6)"
-                  : floatingTip.tone === "success"
-                  ? "rgba(34,197,94,0.5)"
-                  : "rgba(0,0,0,0.1)"
-              }`,
-              ...LOC.tip,
-              boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
-              pointerEvents: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              whiteSpace: "nowrap",
-              overflow: "visible",
-            }}
-          >
-            {floatingTip.tone === "warn" && <span style={{ color: "#BD2320" }}>!</span>}
-            {floatingTip.text}
-
-            {/* Burst particles — invisible until they exit the pill, then pop and fly */}
-            {[0,1,2,3,4,5,6,7,8,9,10,11].map((i) => {
-              const angle = (i / 12) * 2 * Math.PI;
-              const near = 18;  // start just outside pill edge
-              const far  = 44 + (i % 4) * 12;
-              const color =
-                floatingTip.tone === "warn"
-                  ? "rgba(189,35,32,0.95)"
-                  : floatingTip.tone === "success"
-                  ? "rgba(34,197,94,0.95)"
-                  : "rgba(0,0,0,0.5)";
-              return (
-                <motion.span
-                  key={`dot-${floatingTip.id}-${i}`}
-                  initial={{ opacity: 0, x: Math.cos(angle) * near, y: Math.sin(angle) * near, scale: 0 }}
-                  animate={{
-                    opacity: [0, 1, 1, 0],
-                    scale:   [0, 1.1, 0.9, 0.1],
-                    x: [Math.cos(angle) * near, Math.cos(angle) * far],
-                    y: [Math.sin(angle) * near, Math.sin(angle) * far],
-                  }}
-                  transition={{
-                    duration: 0.55,
-                    times: [0, 0.15, 0.65, 1],
-                    ease: "easeOut",
-                    delay: (i % 4) * 0.03,
-                  }}
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "50%",
-                    width: i % 3 === 0 ? 5 : i % 3 === 1 ? 4 : 3,
-                    height: i % 3 === 0 ? 5 : i % 3 === 1 ? 4 : 3,
-                    borderRadius: "50%",
-                    background: color,
-                    pointerEvents: "none",
-                    marginLeft: "-2px",
-                    marginTop: "-2px",
-                  }}
-                />
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <GraffitiSpotlight
+        show={!!floatingTip}
+        chipKey={`loc-${floatingTip?.id ?? 0}`}
+        tone={floatingTip?.tone ?? "info"}
+      >
+        {floatingTip?.tone === "warn" ? <span style={{ color: "#BD2320" }}>!</span> : null}
+        {floatingTip?.text}
+      </GraffitiSpotlight>
 
       {/* ── FULL SCREEN MAP ── */}
       {hasToken ? (

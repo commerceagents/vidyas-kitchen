@@ -10,6 +10,7 @@ import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mob
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
 /** Status + address cards — match home location pin tile. */
 const ORDER_CARD_ICON_BOX = {
@@ -340,42 +341,6 @@ function StatusMascot({ stage }: { stage: number }) {
   );
 }
 
-function BurstDots() {
-  return (
-    <>
-      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => {
-        const angle = (i / 12) * 2 * Math.PI;
-        const near = 18;
-        const far = 44 + (i % 4) * 12;
-        return (
-          <motion.span
-            key={i}
-            initial={{ opacity: 0, x: Math.cos(angle) * near, y: Math.sin(angle) * near, scale: 0 }}
-            animate={{
-              opacity: [0, 1, 1, 0],
-              scale: [0, 1.1, 0.9, 0.1],
-              x: [Math.cos(angle) * near, Math.cos(angle) * far],
-              y: [Math.sin(angle) * near, Math.sin(angle) * far],
-            }}
-            transition={{ duration: 0.55, delay: 0.04 * i, ease: "easeOut" }}
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              width: 6,
-              height: 6,
-              margin: -3,
-              borderRadius: "50%",
-              background: "rgba(189,35,32,0.95)",
-              pointerEvents: "none",
-            }}
-          />
-        );
-      })}
-    </>
-  );
-}
-
 const STAGE_BURST_LABEL = ["", "Preparing", "On the way", "Delivered"] as const;
 
 /** Graffiti chip on the time card — once, when the kitchen moves the stage on. */
@@ -411,40 +376,9 @@ function StageChangeBurst({ orderId, stage }: { orderId: string; stage: number }
   }, [orderId, stage]);
 
   return (
-    <AnimatePresence>
-      {label ? (
-        <motion.div
-          key={`stage-${orderId}-${label}`}
-          initial={{ opacity: 0, y: 10, scale: 0.88 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8, y: 6 }}
-          transition={{ type: "spring", stiffness: 420, damping: 28 }}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: "42%",
-            margin: "0 auto",
-            width: "fit-content",
-            zIndex: 3,
-            padding: "8px 16px",
-            borderRadius: 24,
-            background: "rgba(255,255,255,0.96)",
-            border: "1px solid rgba(189,35,32,0.45)",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
-            fontSize: 13,
-            fontWeight: 800,
-            color: C.text,
-            fontFamily: fontUi,
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {label}
-          <BurstDots />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <GraffitiSpotlight show={!!label} chipKey={`stage-${orderId}-${label ?? ""}`} tone="info">
+      {label}
+    </GraffitiSpotlight>
   );
 }
 
@@ -508,44 +442,9 @@ function PlacedBurstChip({ orderId }: { orderId: string }) {
   }, [orderId]);
 
   return (
-    <AnimatePresence>
-      {show ? (
-        <motion.div
-          key={`burst-${orderId}`}
-          initial={{ opacity: 0, y: 20, scale: 0.88 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.75, y: 10 }}
-          transition={{ type: "spring", stiffness: 420, damping: 28 }}
-          style={{
-            position: "fixed",
-            bottom: 108,
-            left: 0,
-            right: 0,
-            margin: "0 auto",
-            width: "fit-content",
-            maxWidth: "80vw",
-            zIndex: 200,
-            padding: "10px 20px",
-            borderRadius: 24,
-            background: "rgba(255,255,255,0.96)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(189,35,32,0.45)",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
-            fontSize: 13.5,
-            fontWeight: 800,
-            color: C.text,
-            fontFamily: fontUi,
-            overflow: "visible",
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Order placed
-          <BurstDots />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <GraffitiSpotlight show={show} chipKey={`placed-${orderId}`} tone="success">
+      Order placed
+    </GraffitiSpotlight>
   );
 }
 
