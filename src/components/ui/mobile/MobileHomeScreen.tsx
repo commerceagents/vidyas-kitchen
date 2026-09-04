@@ -3270,13 +3270,39 @@ export function MobileHomeScreen({
                       cursor: "pointer",
                       outline: "none",
                       position: "relative",
-                      overflow: "hidden",
+                      overflow: "visible",
                       fontFamily: C.mono,
                       flexShrink: 0,
                       background: "transparent",
                       padding: 0,
                     }}
                   >
+                    {id === "orders" && ordersNavBadge > 0 ? (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: -5,
+                          right: -5,
+                          minWidth: 18,
+                          height: 18,
+                          padding: "0 5px",
+                          borderRadius: 999,
+                          background: C.red,
+                          color: "#fff",
+                          fontSize: 10,
+                          fontWeight: 900,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: `2px solid ${C.bg}`,
+                          boxSizing: "border-box",
+                          zIndex: 3,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {ordersNavBadge}
+                      </span>
+                    ) : null}
                     <div
                       style={{
                         position: "relative",
@@ -3287,34 +3313,9 @@ export function MobileHomeScreen({
                         justifyContent: "center",
                         pointerEvents: "none",
                         zIndex: 1,
+                        overflow: "hidden",
                       }}
                     >
-                      {id === "orders" && ordersNavBadge > 0 ? (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: 2,
-                            right: 2,
-                            minWidth: 18,
-                            height: 18,
-                            padding: "0 5px",
-                            borderRadius: 999,
-                            background: C.red,
-                            color: "#fff",
-                            fontSize: 10,
-                            fontWeight: 900,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: `2px solid ${C.bg}`,
-                            boxSizing: "border-box",
-                            zIndex: 2,
-                            pointerEvents: "none",
-                          }}
-                        >
-                          {ordersNavBadge}
-                        </span>
-                      ) : null}
                       <AnimatePresence>
                         {showRipple && (
                           <motion.div
