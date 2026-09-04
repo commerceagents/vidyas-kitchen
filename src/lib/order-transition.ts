@@ -134,6 +134,7 @@ export async function transitionOrderStatusInDb(
     row.id as string,
     row.delivery_slot as string | null,
     (row as { order_number?: number | null }).order_number ?? null,
+    paymentMethod || null,
   ).catch((e) => console.error("[order-transition] push notify failed", e));
 
   return { ok: true };
@@ -221,6 +222,7 @@ export async function markOrderPaidAndNotify(
     row.id as string,
     row.delivery_slot as string | null,
     (row as { order_number?: number | null }).order_number ?? null,
+    isCod ? "cod" : "online",
   ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e));
 
   return { ok: true };

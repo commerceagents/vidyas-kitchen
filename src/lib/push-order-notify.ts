@@ -9,9 +9,11 @@ function pushPayloadForStatus(
   orderId: string,
   deliverySlot?: string | null,
   orderNumber?: number | null,
+  paymentMethod?: string | null,
 ): PushPayload | null {
   const trackUrl = `${publicSiteOrigin()}/?track=${orderId}`;
   const short = formatOrderRef(orderNumber, orderId).replace(/^#/, "");
+  const isCod = String(paymentMethod || "").toLowerCase() === "cod";
 
   switch (status) {
     // The first thing that happens after checkout, and the one a customer most
@@ -61,14 +63,18 @@ function pushPayloadForStatus(
     case OrderStatus.CANCELLED:
       return {
         title: "Order cancelled",
-        body: `Order #${short} has been cancelled. Refund initiated if applicable.`,
+        body: isCod
+          ? `Order #${short} has been cancelled. You have not been charged.`
+          : `Order #${short} has been cancelled. Refund initiated if applicable.`,
         tag: `vk-${orderId}-cancelled`,
         url: trackUrl,
       };
     case OrderStatus.REJECTED:
       return {
         title: "Order could not be accepted",
-        body: `Sorry, order #${short} was rejected. A full refund has been initiated (5-7 working days).`,
+        body: isCod
+          ? `Sorry, order #${short} was rejected. You have not been charged.`
+          : `Sorry, order #${short} was rejected. A full refund has been initiated (5-7 working days).`,
         tag: `vk-${orderId}-rejected`,
         url: trackUrl,
       };
@@ -84,10 +90,11 @@ export async function sendOrderPushNotifications(
   orderId: string,
   deliverySlot?: string | null,
   orderNumber?: number | null,
+  paymentMethod?: string | null,
 ): Promise<void> {
   if (!phoneNumber) return;
 
-  const payload = pushPayloadForStatus(status, orderId, deliverySlot, orderNumber);
+  const payload = pushPayloadForStatus(status, orderId, deliverySlot, orderNumber, paymentMethod);
   if (!payload) return;
 
   const phone = toE164Phone(phoneNumber);
