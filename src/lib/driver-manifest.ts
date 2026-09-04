@@ -15,8 +15,10 @@ export function driverManifest(): MetadataRoute.Manifest {
     icons: [
       { src: "/driver-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/driver-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/driver-icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/driver-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // Launchers crop maskable icons to their own shape. These keep the rider
+      // inside the area that survives a circle, so nothing is cut off.
+      { src: "/driver-icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/driver-icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

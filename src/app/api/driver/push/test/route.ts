@@ -38,6 +38,7 @@ export async function POST() {
       supabase,
       gate.driver.id,
       driverOrderAlertPayload({
+        driverName: gate.driver.name,
         ref: "#00042",
         address: "12, 2nd Main Road, T. Nagar, Chennai",
         itemLine: "Pepper chicken × 2",

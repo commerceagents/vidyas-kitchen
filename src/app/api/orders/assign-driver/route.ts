@@ -72,12 +72,12 @@ export async function POST(req: NextRequest) {
     // for a driver who never turned alerts on. Failing to find the driver row
     // must not fail the dispatch — the message has already gone out.
     const phoneKey = normalizeDriverPhone(driverPhone);
-    const { data: drivers } = await supabaseAdmin.from("drivers").select("id, phone");
+    const { data: drivers } = await supabaseAdmin.from("drivers").select("id, name, phone");
     const driver = (drivers ?? []).find(
       (d: { id: string; phone: string }) => normalizeDriverPhone(d.phone) === phoneKey,
     );
     if (driver) {
-      void notifyDriverAssigned(supabaseAdmin, driver.id, orderId).catch((e) =>
+      void notifyDriverAssigned(supabaseAdmin, driver.id, orderId, driver.name).catch((e) =>
         console.error("[assign-driver] push", e),
       );
     }

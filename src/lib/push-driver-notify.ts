@@ -60,15 +60,40 @@ async function subsForDriver(supabase: SupabaseClient, driverId: string): Promis
   return (await loadDriverSubs(supabase, driverId)).subs;
 }
 
-async function subsForAllDrivers(supabase: SupabaseClient): Promise<SubRow[]> {
+/**
+ * Every driver's devices, bucketed by driver so a broadcast can still greet
+ * each one by name instead of going out anonymous.
+ */
+async function subsByDriver(
+  supabase: SupabaseClient,
+): Promise<{ driverId: string; name: string; subs: SubRow[] }[]> {
   const { data, error } = await supabase
     .from("driver_push_subscriptions")
-    .select("endpoint, p256dh, auth");
+    .select("endpoint, p256dh, auth, driver_id, drivers ( name )");
   if (error) {
     console.error("[push-driver] load all subs", error.message);
     return [];
   }
-  return (data ?? []) as SubRow[];
+
+  const rows = (data ?? []) as (SubRow & {
+    driver_id: string;
+    drivers?: { name?: string | null } | null;
+  })[];
+
+  const byDriver = new Map<string, { driverId: string; name: string; subs: SubRow[] }>();
+  for (const row of rows) {
+    const existing = byDriver.get(row.driver_id);
+    const sub = { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth };
+    if (existing) existing.subs.push(sub);
+    else {
+      byDriver.set(row.driver_id, {
+        driverId: row.driver_id,
+        name: row.drivers?.name?.trim() || "",
+        subs: [sub],
+      });
+    }
+  }
+  return [...byDriver.values()];
 }
 
 export async function sendDriverPushTo(
@@ -79,11 +104,16 @@ export async function sendDriverPushTo(
   return deliver(supabase, await subsForDriver(supabase, driverId), payload);
 }
 
+/** Same order, one card per driver, each addressed to them. */
 export async function sendDriverPushToAll(
   supabase: SupabaseClient,
-  payload: PushPayload,
+  buildPayload: (driverName: string) => PushPayload,
 ): Promise<number> {
-  return deliver(supabase, await subsForAllDrivers(supabase), payload);
+  const groups = await subsByDriver(supabase);
+  const counts = await Promise.all(
+    groups.map((group) => deliver(supabase, group.subs, buildPayload(group.name))),
+  );
+  return counts.reduce((total, n) => total + n, 0);
 }
 
 type OrderSummary = {
@@ -167,11 +197,38 @@ function cashLine(s: Pick<OrderSummary, "collectCash" | "amount">): string | nul
   return `Collect ₹${s.amount.toLocaleString("en-IN")} cash`;
 }
 
+/** Just the name they'd be called by, so the greeting doesn't read like a form. */
+function firstName(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? "";
+}
+
+const GREETINGS = [
+  "back on the road?",
+  "up for one more run?",
+  "shall we roll?",
+  "next drop is yours",
+  "the road is calling",
+];
+
+/**
+ * A driver reads this in three seconds at a traffic light, so the greeting
+ * carries their name and the body is the three facts they act on.
+ */
+function greetingLine(driverName: string, tag: string): string {
+  const name = firstName(driverName);
+  if (!name) return "You've got a new order";
+  // Same order gives the same greeting, so a re-send doesn't reword itself.
+  let hash = 0;
+  for (const ch of tag) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return `Hi ${name}, ${GREETINGS[hash % GREETINGS.length]}`;
+}
+
 /**
  * Lock-screen card for a driver: welcome, order id, location, then the job.
  * Phones only show a few lines, so this is the whole design.
  */
 export function driverOrderAlertPayload(input: {
+  driverName?: string;
   ref: string;
   address: string;
   itemLine?: string;
@@ -187,8 +244,8 @@ export function driverOrderAlertPayload(input: {
   })].filter(Boolean).join(" · ");
 
   return {
-    title: "You got a new order",
-    body: [`Order ${input.ref}`, shortDeliveryLocation(input.address), extra]
+    title: greetingLine(input.driverName ?? "", input.tag),
+    body: [`Order ${input.ref} is ready`, shortDeliveryLocation(input.address), extra]
       .filter(Boolean)
       .join("\n"),
     tag: input.tag,
@@ -213,9 +270,9 @@ export async function notifyDriversOrderReady(
   const s = await loadOrderSummary(supabase, orderId);
   if (!s) return;
 
-  await sendDriverPushToAll(
-    supabase,
+  await sendDriverPushToAll(supabase, (driverName) =>
     driverOrderAlertPayload({
+      driverName,
       ref: s.ref,
       address: s.address,
       itemLine: s.itemLine,
@@ -233,6 +290,7 @@ export async function notifyDriverAssigned(
   supabase: SupabaseClient,
   driverId: string,
   orderId: string,
+  driverName?: string,
 ): Promise<void> {
   const s = await loadOrderSummary(supabase, orderId);
   if (!s) return;
@@ -241,6 +299,7 @@ export async function notifyDriverAssigned(
     supabase,
     driverId,
     driverOrderAlertPayload({
+      driverName,
       ref: s.ref,
       address: s.address,
       itemLine: s.itemLine,
