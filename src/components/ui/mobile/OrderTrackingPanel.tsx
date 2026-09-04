@@ -692,9 +692,11 @@ export function OrderTrackingPanel({
         display: "flex",
         flexDirection: "column",
         flex: 1,
-        minHeight: "72vh",
+        minHeight: trackingOrderId && trackSnap ? undefined : "72vh",
         background: C.bg,
-        padding: `14px 18px 220px`,
+        // Parent scroll already clears the nav (~180px). Extra padding here
+        // was leaving a blank half-screen under the bill.
+        padding: "14px 18px 8px",
         fontFamily: fontUi,
       }}
     >
@@ -1046,7 +1048,7 @@ export function OrderTrackingPanel({
                     background: C.surfaceDeep,
                     border: `1px solid ${C.border}`,
                     borderRadius: 18,
-                    padding: 16,
+                    padding: "18px 16px 20px",
                     marginBottom: 12,
                   }}
                 >
