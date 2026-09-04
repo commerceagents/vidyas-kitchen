@@ -7,10 +7,6 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  event.waitUntil(handlePush(event));
-});
-
-async function handlePush(event) {
   const data = event.data ? event.data.json() : {};
   const title = data.title || "Vidya's Kitchen";
   const options = {
@@ -19,9 +15,7 @@ async function handlePush(event) {
     badge: data.badge || data.icon || "/icon-192.png",
     tag: data.tag || "vk-order",
     data: { url: data.url || "/" },
-    lang: "en",
   };
-  if (data.sound) options.sound = data.sound;
   if (Array.isArray(data.actions) && data.actions.length > 0) {
     options.actions = data.actions;
   }
@@ -32,28 +26,8 @@ async function handlePush(event) {
     options.renotify = true;
     options.vibrate = [220, 90, 220, 90, 220];
   }
-  if (data.playBell) {
-    await ringOpenDriverClients();
-  }
-  await self.registration.showNotification(title, options);
-}
-
-/**
- * Websites cannot replace the phone's lock-screen tone. If the driver app is
- * already open, we play the kitchen ding-dong there instead.
- */
-async function ringOpenDriverClients() {
-  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  for (const client of windows) {
-    try {
-      if (new URL(client.url).pathname.startsWith("/driver")) {
-        client.postMessage({ type: "vk-order-bell" });
-      }
-    } catch {
-      /* ignore a bad client url */
-    }
-  }
-}
+  event.waitUntil(self.registration.showNotification(title, options));
+});
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

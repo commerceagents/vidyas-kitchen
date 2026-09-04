@@ -252,8 +252,6 @@ export function driverOrderAlertPayload(input: {
     url: input.url,
     icon: `${origin}/driver-icon-192.png`,
     badge: `${origin}/driver-icon-192.png`,
-    sound: `${origin}/sounds/order-bell.wav`,
-    playBell: true,
     urgent: true,
     actions: [{ action: "open", title: "Open order" }],
   };

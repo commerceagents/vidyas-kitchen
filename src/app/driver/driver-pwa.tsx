@@ -20,7 +20,6 @@ import {
   subscribePwaInstall,
   triggerNativeInstall,
 } from "@/lib/pwa-install";
-import { playOrderBell, unlockOrderBell } from "@/lib/order-bell";
 import { D, RADIUS } from "./driver-theme";
 
 export function DriverPwa() {
@@ -31,18 +30,9 @@ export function DriverPwa() {
   const [canPrompt, setCanPrompt] = useState(false);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    void navigator.serviceWorker.register("/sw.js").catch(() => {});
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "vk-order-bell") playOrderBell();
-    };
-    navigator.serviceWorker.addEventListener("message", onMessage);
-    const unlock = () => unlockOrderBell();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    return () => {
-      navigator.serviceWorker.removeEventListener("message", onMessage);
-      window.removeEventListener("pointerdown", unlock);
-    };
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
   useEffect(() => {

@@ -8,7 +8,6 @@ import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "./driver-theme";
 import { DriverAuthShell, DriverLogoutButton, useSignedInDriver } from "./driver-auth-gate";
 import { DriverAlerts } from "./driver-alerts";
-import { DriverBell } from "./driver-bell";
 
 type Row = {
   id: string;
@@ -163,7 +162,6 @@ function DriverHubInner() {
 
       <div style={{ flex: 1, padding: "18px 20px 0", overflowY: "auto" }}>
         <DriverAlerts />
-        <DriverBell />
         {loading ? (
           <Centered>
             <Loader2 size={24} style={{ color: D.faint, animation: "spin 1s linear infinite" }} />
