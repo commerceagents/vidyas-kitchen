@@ -757,7 +757,7 @@ export function OrderTrackingPanel({
                     borderRadius: 22,
                     overflow: "hidden",
                     border: `1px solid ${C.border}`,
-                    height: showLiveMap ? 232 : 150,
+                    height: showLiveMap ? 280 : 150,
                     background: showLiveMap
                       ? undefined
                       : "linear-gradient(140deg, rgba(189,35,32,0.10) 0%, rgba(189,35,32,0.03) 60%, rgba(0,0,0,0.02) 100%)",
@@ -775,7 +775,7 @@ export function OrderTrackingPanel({
                 <div
                   style={{
                     position: "relative",
-                    marginTop: showLiveMap ? -74 : -108,
+                    marginTop: showLiveMap ? 12 : -108,
                     marginLeft: 16,
                     marginRight: 16,
                     background: C.white,

@@ -289,11 +289,11 @@ export async function notifyDriverAssigned(
   driverId: string,
   orderId: string,
   driverName?: string,
-): Promise<void> {
+): Promise<number> {
   const s = await loadOrderSummary(supabase, orderId);
-  if (!s) return;
+  if (!s) return 0;
 
-  await sendDriverPushTo(
+  return sendDriverPushTo(
     supabase,
     driverId,
     driverOrderAlertPayload({

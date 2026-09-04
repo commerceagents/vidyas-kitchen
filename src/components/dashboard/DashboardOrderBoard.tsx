@@ -557,6 +557,7 @@ export function DashboardOrderBoard({
     }
     await transitionOrderStatus(orderId, OrderStatus.PREPARING);
     setBusyId(null);
+    setTab("preparing");
     onActionDone();
   };
 
@@ -573,6 +574,7 @@ export function DashboardOrderBoard({
     const r = await transitionOrderStatus(orderId, OrderStatus.READY);
     if (!r.ok) alert(r.error);
     setBusyId(null);
+    if (r.ok) setTab("awaiting");
     onActionDone();
   };
 
@@ -597,6 +599,7 @@ export function DashboardOrderBoard({
     const r = await transitionOrderStatus(orderId, OrderStatus.OUT_FOR_DELIVERY);
     if (!r.ok) alert(r.error);
     setBusyId(null);
+    if (r.ok) setTab("dispatched");
     onActionDone();
   };
 
@@ -605,6 +608,7 @@ export function DashboardOrderBoard({
     const r = await transitionOrderStatus(orderId, OrderStatus.DELIVERED);
     if (!r.ok) alert(r.error);
     setBusyId(null);
+    if (r.ok) setTab("completed");
     onActionDone();
   };
 
@@ -1559,7 +1563,7 @@ function OrderCard({
         )}
       </div>
 
-      {isDispatched ? <DriverTrackRow order={order} /> : null}
+      {isDispatched && driverFixForOrder(order) ? <DriverTrackRow order={order} /> : null}
       {isUndelivered ? <CodBlockRow order={order} /> : null}
 
       {/* Footer — totals left, actions right (compact when cards are narrow) */}
