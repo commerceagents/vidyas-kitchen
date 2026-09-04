@@ -2169,6 +2169,35 @@ export function MobileHomeScreen({
 
   const windowOpen = isOrderingWindowOpen() && !previewClosed;
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const chromeIdleTimer = useRef(0);
+  const showChrome = windowOpen && chromeVisible && !dishDetailItem && activeScreen !== "menu";
+
+  useEffect(() => {
+    if (!windowOpen || dishDetailItem || activeScreen === "menu") {
+      setChromeVisible(true);
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+
+    setChromeVisible(true);
+    const hide = () => setChromeVisible(false);
+    const reveal = () => {
+      setChromeVisible(true);
+      window.clearTimeout(chromeIdleTimer.current);
+      chromeIdleTimer.current = window.setTimeout(hide, 1400);
+    };
+
+    chromeIdleTimer.current = window.setTimeout(hide, 1800);
+    el.addEventListener("scroll", reveal, { passive: true });
+    return () => {
+      window.clearTimeout(chromeIdleTimer.current);
+      el.removeEventListener("scroll", reveal);
+    };
+  }, [windowOpen, dishDetailItem, activeScreen, activeNav]);
+
   // ── Ripple Ring navbar state ────────────────────────────────────────────
   const NAV_CIRCLE = 48;  // Smaller for the pill look
   const NAV_BORDER = 1;
@@ -2184,6 +2213,9 @@ export function MobileHomeScreen({
     setActiveNav(id);
     setRippleTarget(id);
     setRippleKey((k) => k + 1);
+    setChromeVisible(true);
+    window.clearTimeout(chromeIdleTimer.current);
+    chromeIdleTimer.current = window.setTimeout(() => setChromeVisible(false), 1400);
   }
 
   /** One active in-flight order pill on the Order tab (hide once delivered). */
@@ -2587,6 +2619,7 @@ export function MobileHomeScreen({
       </div>
 
       <div 
+        ref={scrollRef}
         className="vk-scroll-container no-scrollbar"
         style={{
           position: "relative", zIndex: 1,
@@ -2980,6 +3013,8 @@ export function MobileHomeScreen({
             height: "clamp(108px, 24dvh, 188px)",
             pointerEvents: "none",
             zIndex: 42,
+            opacity: showChrome ? 1 : 0,
+            transition: "opacity 0.35s ease",
             background: `linear-gradient(to top, ${C.bg} 0%, ${C.bg} 18%, rgba(245,245,247,0.92) 38%, rgba(245,245,247,0.55) 62%, rgba(245,245,247,0.12) 82%, transparent 100%)`,
           }}
         />
@@ -3180,6 +3215,9 @@ export function MobileHomeScreen({
             background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
             pointerEvents: "none",
             zIndex: 115,
+            opacity: !windowOpen || showChrome ? 1 : 0,
+            transform: !windowOpen || showChrome ? "translateY(0)" : "translateY(28px)",
+            transition: "opacity 0.35s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         />
       )}
@@ -3188,10 +3226,10 @@ export function MobileHomeScreen({
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{
-          opacity: windowOpen && !dishDetailItem && activeScreen !== "menu" ? 1 : !windowOpen ? 1 : 0,
-          y: windowOpen && !dishDetailItem && activeScreen !== "menu" ? 0 : !windowOpen ? 0 : 24,
+          opacity: !windowOpen || showChrome ? 1 : 0,
+          y: !windowOpen ? 0 : showChrome ? 0 : 88,
         }}
-        transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.35 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
         style={{
           position: "fixed",
           bottom: 32, left: 16, right: 16,
@@ -3215,7 +3253,7 @@ export function MobileHomeScreen({
             borderRadius: 999,
             border: `1px solid ${windowOpen ? "rgba(0,0,0,0.06)" : "rgba(189, 35, 32, 0.25)"}`,
             boxShadow: windowOpen ? "0 4px 24px rgba(0,0,0,0.08)" : "0 4px 20px rgba(189,35,32,0.12)",
-            pointerEvents: dishDetailItem || activeScreen === "menu" ? "none" : "auto",
+            pointerEvents: dishDetailItem || activeScreen === "menu" || (windowOpen && !chromeVisible) ? "none" : "auto",
             transition: "all 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
