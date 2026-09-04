@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Bell, ChevronLeft, ChevronRight, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
 import {
   currentMonthKey,
@@ -413,15 +414,52 @@ export function DashboardNotificationPanel({
   onView,
   onDismiss,
 }: NotificationPanelProps) {
-  if (!open) return null;
-
   return (
     <>
-      <button
+      <style jsx global>{`
+        @media (min-width: 1024px) {
+          .vk-dash-notif-panel {
+            position: fixed !important;
+            top: calc(16px + 10dvh + 8px) !important;
+            right: 32px !important;
+            width: 360px !important;
+            z-index: 56 !important;
+            border-radius: 16px !important;
+            border: 1px solid #222 !important;
+            background: #141414 !important;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+          }
+        }
+        @media (max-width: 1023px) {
+          .vk-dash-notif-panel {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 56 !important;
+            border-radius: 20px 20px 0 0 !important;
+            border: 1px solid #222 !important;
+            background: #141414 !important;
+            padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+            max-height: 85dvh !important;
+          }
+          .vk-dash-notif-backdrop {
+            backdrop-filter: blur(4px);
+          }
+        }
+      `}</style>
+      <AnimatePresence>
+        {open ? (
+      <motion.button
+        key="vk-dash-notif-backdrop"
         type="button"
         aria-label="Close notifications"
         onClick={onClose}
         className="vk-dash-notif-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22 }}
         style={{
           position: "fixed",
           inset: 0,
@@ -430,8 +468,15 @@ export function DashboardNotificationPanel({
           background: "rgba(0,0,0,0.45)",
         }}
       />
-      <div
+        ) : null}
+        {open ? (
+      <motion.div
+        key="vk-dash-notif-panel"
         className="vk-dash-notif-panel"
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 36 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
         style={{
           fontFamily: FONT,
           display: "flex",
@@ -526,44 +571,17 @@ export function DashboardNotificationPanel({
               cursor: "pointer",
               position: "relative",
               zIndex: 2,
+              outline: "none",
+              boxShadow: "none",
+              WebkitTapHighlightColor: "transparent",
             }}
           >
             Mark all as read
           </button>
         ) : null}
-      </div>
-      <style jsx global>{`
-        @media (min-width: 1024px) {
-          .vk-dash-notif-panel {
-            position: fixed !important;
-            top: calc(16px + 10dvh + 8px) !important;
-            right: 32px !important;
-            width: 360px !important;
-            z-index: 56 !important;
-            border-radius: 16px !important;
-            border: 1px solid #222 !important;
-            background: #141414 !important;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
-          }
-        }
-        @media (max-width: 1023px) {
-          .vk-dash-notif-panel {
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            z-index: 56 !important;
-            border-radius: 20px 20px 0 0 !important;
-            border: 1px solid #222 !important;
-            background: #141414 !important;
-            padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
-            max-height: 85dvh !important;
-          }
-          .vk-dash-notif-backdrop {
-            backdrop-filter: blur(4px);
-          }
-        }
-      `}</style>
+      </motion.div>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

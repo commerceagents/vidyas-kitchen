@@ -373,7 +373,8 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifOpen(false);
+    window.setTimeout(() => setNotifications([]), 300);
   }, []);
 
   const markRead = useCallback((id: string) => {
