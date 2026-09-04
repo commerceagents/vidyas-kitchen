@@ -96,9 +96,14 @@ export async function sendCtaUrl(
   bodyText: string,
   url: string,
   buttonText: string,
+  options?: { headerImageUrl?: string; footer?: string },
 ): Promise<void> {
   if (isMetaApiConfigured()) {
-    const r = await metaSendCtaUrl(to, bodyText, buttonText, url);
+    let r = await metaSendCtaUrl(to, bodyText, buttonText, url, options);
+    if (!r.success && options?.headerImageUrl) {
+      console.error("[whatsapp-send] CTA with image failed, retrying without:", r.error);
+      r = await metaSendCtaUrl(to, bodyText, buttonText, url);
+    }
     if (r.success) {
       logWhatsAppMessageSoon({
         phone: to,

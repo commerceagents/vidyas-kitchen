@@ -156,21 +156,23 @@ export async function sendCtaUrl(
   bodyText: string,
   buttonText: string,
   url: string,
+  options?: { headerImageUrl?: string; footer?: string },
 ): Promise<MetaSendResult> {
-  return postMessage(
-    "cta_url",
-    envelope(to, {
-      type: "interactive",
-      interactive: {
-        type: "cta_url",
-        body: { text: bodyText.substring(0, 1024) },
-        action: {
-          name: "cta_url",
-          parameters: { display_text: buttonText.substring(0, 20), url },
-        },
-      },
-    }),
-  );
+  const interactive: Record<string, unknown> = {
+    type: "cta_url",
+    body: { text: bodyText.substring(0, 1024) },
+    action: {
+      name: "cta_url",
+      parameters: { display_text: buttonText.substring(0, 20), url },
+    },
+  };
+  if (options?.headerImageUrl) {
+    interactive.header = { type: "image", image: { link: options.headerImageUrl } };
+  }
+  if (options?.footer) {
+    interactive.footer = { text: options.footer.substring(0, 60) };
+  }
+  return postMessage("cta_url", envelope(to, { type: "interactive", interactive }));
 }
 
 export type ListRow = { id: string; title: string; description?: string };

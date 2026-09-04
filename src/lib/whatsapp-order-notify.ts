@@ -1,25 +1,29 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { OrderStatus, codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { sendText, sendButtons, sendCtaUrl } from "@/lib/whatsapp-send";
+import { sendText, sendCtaUrl, sendCarousel } from "@/lib/whatsapp-send";
 import {
-  notifyOrderPaid,
-  notifyOrderPlacedCod,
+  buildOrderStatusWhatsApp,
   notifyCodCollected,
   notifyOrderUndelivered,
-  notifyOrderAccepted,
-  notifyOrderPreparing,
-  notifyOrderOutForDelivery,
-  notifyOrderDelivered,
   notifyOrderCancelled,
   notifyOrderRejected,
   driverPinCaption,
   BTN,
+  type WaOrderBill,
+  type WaOrderStage,
 } from "@/lib/whatsapp-copy";
 import { updateSession } from "@/lib/whatsapp-session";
 import { loadWaLang } from "@/lib/whatsapp-lang";
 import { formatInr } from "@/lib/menu/dish-pricing";
+import { parseRecipeTag } from "@/lib/dish-name";
+import { publicDishImageUrl } from "@/lib/whatsapp-catalog";
+import {
+  computeOrderBreakdownFromItemSubtotal,
+  orderItemsSubtotal,
+} from "@/lib/order-pricing";
 import { sendLocation } from "@/lib/whatsapp-send";
+import { createServerSupabase } from "@/lib/supabase-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** WhatsApp reply id: rate + star (1–5) + 32-char hex uuid (no dashes). */
@@ -70,74 +74,157 @@ export const OrderNotifyEvent = {
   COD_COLLECTED: "cod_collected",
 } as const;
 
+async function loadOrderBill(order: NotifyOrderRow): Promise<WaOrderBill> {
+  const short = formatOrderRef(order.order_number, order.id).replace(/^#/, "");
+  const isCod = String(order.payment_method || "").toLowerCase() === "cod";
+  const empty: WaOrderBill = {
+    ref: short,
+    slotLine: formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind) || undefined,
+    isCod,
+    amount: Math.round(Number(order.total_amount) || 0),
+    items: [],
+    breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
+  };
+
+  try {
+    const supabase = createServerSupabase();
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        `id, total_amount, order_items ( quantity, unit_price, menu_items ( name, image_url, retailer_id ) )`,
+      )
+      .eq("id", order.id)
+      .maybeSingle();
+    if (error || !data) return empty;
+
+    const rows = (data as {
+      total_amount?: number | null;
+      order_items?: {
+        quantity?: number | null;
+        unit_price?: number | null;
+        menu_items?: { name?: string | null; image_url?: string | null; retailer_id?: string | null } | null;
+      }[] | null;
+    }).order_items;
+
+    const items = (Array.isArray(rows) ? rows : []).map((row) => {
+      const qty = Math.max(1, Math.floor(Number(row.quantity) || 1));
+      const unit = Number(row.unit_price) || 0;
+      const rawName = String(row.menu_items?.name || "Item");
+      return {
+        name: parseRecipeTag(rawName).cleanName || rawName,
+        quantity: qty,
+        lineTotal: unit * qty,
+        imageUrl: publicDishImageUrl({
+          image_url: row.menu_items?.image_url ?? undefined,
+          retailer_id: row.menu_items?.retailer_id ?? undefined,
+        }),
+      };
+    });
+
+    const subtotal = orderItemsSubtotal(
+      (Array.isArray(rows) ? rows : []).map((row) => ({
+        quantity: Number(row.quantity) || 0,
+        unit_price: Number(row.unit_price) || 0,
+      })),
+    );
+    const breakdown = computeOrderBreakdownFromItemSubtotal(subtotal);
+    const stored = Number(data.total_amount ?? order.total_amount) || 0;
+
+    return {
+      ...empty,
+      amount: stored > 0 ? Math.round(stored) : Math.round(breakdown.computedTotal),
+      items,
+      breakdown,
+    };
+  } catch (e) {
+    console.error("[whatsapp-order-notify] bill load", e);
+    return empty;
+  }
+}
+
+/**
+ * Photo + receipt card, with Track opening the app (`/?track=`).
+ * Two or more dishes become a carousel; one dish is an image header.
+ */
+async function sendOrderCard(
+  to: string,
+  body: string,
+  bill: WaOrderBill,
+  trackUrl: string,
+): Promise<void> {
+  const photos = bill.items.filter((it) => it.imageUrl);
+  if (photos.length >= 2) {
+    const sent = await sendCarousel(
+      to,
+      body,
+      photos.slice(0, 10).map((it, i) => ({
+        id: `dish-${i}`,
+        title: it.name.slice(0, 60),
+        body: `× ${it.quantity} · ${formatInr(it.lineTotal)}`.slice(0, 160),
+        imageUrl: it.imageUrl,
+        buttonTitle: BTN.track,
+        url: trackUrl,
+      })),
+    );
+    if (sent) return;
+  }
+  await sendCtaUrl(to, body, trackUrl, BTN.track, {
+    headerImageUrl: photos[0]?.imageUrl,
+  });
+}
+
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
   const to = order.phone_number ? toPhone(order.phone_number) : null;
   if (!to) return;
 
   const trackUrl = `${publicSiteOrigin()}/?track=${order.id}`;
-  const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind);
-  // Same reference the kitchen dashboard and the app show, so a customer
-  // quoting it over WhatsApp can actually be looked up.
   const short = formatOrderRef(order.order_number, order.id).replace(/^#/, "");
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
   const amtStr = order.total_amount != null ? formatInr(Number(order.total_amount)) : "the order amount";
-  // Read the stored choice rather than the in-memory cache: an outbound
-  // notification usually runs on a serverless instance that has never seen
-  // this customer, and the cache would silently answer "English".
   const lang = (await loadWaLang(to)) ?? undefined;
+  const bill = await loadOrderBill(order);
+
+  const card = async (stage: WaOrderStage) => {
+    await sendOrderCard(to, buildOrderStatusWhatsApp(stage, bill, lang), bill, trackUrl);
+  };
 
   switch (order.status) {
-    case OrderStatus.PAID: {
-      // A COD order reaches `paid` (= placed) with nothing collected yet, so it
-      // must never claim we received money.
-      const body = isCod
-        ? notifyOrderPlacedCod(short, amtStr, slotLine || undefined, lang)
-        : notifyOrderPaid(short, slotLine || undefined, lang);
-      await sendCtaUrl(to, body, trackUrl, BTN.track);
+    case OrderStatus.PAID:
+      await card(isCod ? "placed_cod" : "placed_paid");
       break;
-    }
-    case OrderNotifyEvent.COD_COLLECTED: {
+    case OrderNotifyEvent.COD_COLLECTED:
       await sendText(to, notifyCodCollected(short, amtStr, lang));
       break;
-    }
-    case OrderStatus.UNDELIVERED: {
+    case OrderStatus.UNDELIVERED:
       await sendText(to, notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase(), lang));
       break;
-    }
-    case OrderStatus.CONFIRMED: {
-      const cancelUrl = `${publicSiteOrigin()}/?cancelOrder=${order.id}&phone=${encodeURIComponent(order.phone_number || "")}`;
-      const body = notifyOrderAccepted(short, slotLine || undefined, lang);
-      await sendCtaUrl(to, body, cancelUrl, "Cancel Order");
+    case OrderStatus.CONFIRMED:
+      await card("accepted");
       break;
-    }
-    case OrderStatus.PREPARING: {
-      await sendButtons(to, notifyOrderPreparing(lang), [{ id: "track_order", title: BTN.track }]);
+    case OrderStatus.PREPARING:
+      await card("preparing");
       break;
-    }
-    case OrderStatus.OUT_FOR_DELIVERY: {
-      await sendButtons(to, notifyOrderOutForDelivery(lang), [{ id: "track_order", title: BTN.track }]);
+    case OrderStatus.READY:
+      await card("packed");
       break;
-    }
+    case OrderStatus.OUT_FOR_DELIVERY:
+      await card("dispatched");
+      break;
     case OrderStatus.DELIVERED: {
-      const ratingMsg = notifyOrderDelivered(lang);
-      // Reply "1"…"5" → resolveNumbered → correct ★ (1=Excellent=5★)
       try {
         await updateSession(to, { pending_options: deliveredRatingPendingOptions(order.id) });
       } catch (e) {
         console.error("[WA] store delivered rating options", e);
       }
-      await sendText(to, ratingMsg);
+      await sendOrderCard(to, buildOrderStatusWhatsApp("delivered", bill, lang), bill, trackUrl);
       break;
     }
-    case OrderStatus.CANCELLED: {
+    case OrderStatus.CANCELLED:
       await sendText(to, notifyOrderCancelled(short, lang));
       break;
-    }
-    case OrderStatus.REJECTED: {
-      // Nothing was collected on a COD order, so don't promise a refund.
+    case OrderStatus.REJECTED:
       await sendText(to, notifyOrderRejected(short, amtStr, !isCod, lang));
       break;
-    }
     default:
       break;
   }

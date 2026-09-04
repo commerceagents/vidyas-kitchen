@@ -729,40 +729,319 @@ export function buildCodPlacedMessage(shortId: string, amtStr: string, lang?: Wa
 
 // ─── Order status notifications ──────────────────────────────────────────────
 
+const RULE = "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈";
+
+export type WaBillLine = {
+  name: string;
+  variant?: string;
+  quantity: number;
+  lineTotal: number;
+  imageUrl: string;
+};
+
+export type WaOrderBill = {
+  ref: string;
+  slotLine?: string;
+  isCod: boolean;
+  amount: number;
+  items: WaBillLine[];
+  breakdown: { itemsSubtotal: number; packaging: number; delivery: number; gst: number };
+};
+
+export type WaOrderStage =
+  | "placed_cod"
+  | "placed_paid"
+  | "accepted"
+  | "preparing"
+  | "packed"
+  | "dispatched"
+  | "delivered"
+  | "cancelled"
+  | "rejected"
+  | "cod_collected"
+  | "undelivered";
+
+/** Label ······ value — WhatsApp collapses tabs, so we draw the dots ourselves. */
+function dottedRow(label: string, value: string, width = 28): string {
+  const fill = Math.max(2, width - label.length - value.length);
+  return `${label} ${"·".repeat(fill)} ${value}`;
+}
+
+function heading(label: string): string[] {
+  return [RULE, label, RULE];
+}
+
+function billItemLines(items: WaBillLine[]): string[] {
+  const shown = items.slice(0, 6);
+  const lines: string[] = [];
+  for (const it of shown) {
+    const qty = Math.max(1, it.quantity);
+    const size = it.variant ? `${it.variant}  × ${qty}` : `× ${qty}`;
+    lines.push(it.name, `${size} · ${money(it.lineTotal)}`);
+  }
+  if (items.length > shown.length) {
+    lines.push(`+${items.length - shown.length} more in the app`);
+  }
+  return lines;
+}
+
+function billMoneyLines(bill: WaOrderBill, lang?: WaLang): string[] {
+  const pay = money(bill.amount);
+  return [
+    dottedRow(pickLang(lang, "Items", "Items"), money(bill.breakdown.itemsSubtotal)),
+    dottedRow(pickLang(lang, "Packaging", "Packing"), money(bill.breakdown.packaging)),
+    dottedRow(pickLang(lang, "Delivery", "Delivery"), money(bill.breakdown.delivery)),
+    dottedRow("GST", money(bill.breakdown.gst)),
+    `*${dottedRow(pickLang(lang, "To pay", "Kattanum"), pay)}*`,
+    bill.isCod
+      ? pickLang(lang, "Pay at the door, exact if you can.", "Veetula cash — exact irundha nalla.")
+      : pickLang(lang, "Already paid online.", "Online-la already pay aayiduchu."),
+  ];
+}
+
+function stageWelcome(
+  stage: WaOrderStage,
+  bill: WaOrderBill,
+  extra?: { refundLine?: string; undeliveredReason?: string },
+  lang?: WaLang,
+): { title: string; intro: string; note?: string } {
+  const ref = bill.ref;
+  const pay = money(bill.amount);
+  switch (stage) {
+    case "placed_cod":
+      return pickLang(
+        lang,
+        {
+          title: "We've reserved the stove",
+          intro: `Hi. Order ${ref} is in. You rest — the gravy is our problem now.`,
+          note: "We'll write again as it moves.",
+        },
+        {
+          title: "Stove reserve aayiduchu",
+          intro: `Hi. Order ${ref} in-la irukku. Neenga rest pannunga — gravy enga vela.`,
+          note: "Move aana write pannuvom.",
+        },
+      );
+    case "placed_paid":
+      return pickLang(
+        lang,
+        {
+          title: "Payment in. Dinner is ours",
+          intro: `Order ${ref} is confirmed. No need to start cooking at home.`,
+          note: "We'll write again as it moves.",
+        },
+        {
+          title: "Payment vandhuduchu",
+          intro: `Order ${ref} confirm. Veetla stove on panna vendaam.`,
+          note: "Move aana write pannuvom.",
+        },
+      );
+    case "accepted":
+      return pickLang(
+        lang,
+        {
+          title: "The kitchen said yes",
+          intro: `Order ${ref} is on the board. The onions have been warned.`,
+          note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
+        },
+        {
+          title: "Kitchen yes solliduchu",
+          intro: `Order ${ref} board-la vandhuduchu. Onion-ku warning kuduthutom.`,
+          note: "Cancel-na app-la, slot-ku 12 hours munnadi.",
+        },
+      );
+    case "preparing":
+      return pickLang(
+        lang,
+        {
+          title: "The kadhai is hot",
+          intro: `${ref ? `Order ${ref}` : "Your order"} — someone at the stove is taking this personally. In a good way.`,
+        },
+        {
+          title: "Kadhai sooda aayiduchu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} — stove-la oruthar personally eduthuttanga. Nalla sense-la.`,
+        },
+      );
+    case "packed":
+      return pickLang(
+        lang,
+        {
+          title: "Packed. Pretending to be patient",
+          intro: `${ref ? `Order ${ref}` : "Your order"} is in a box by the door. The driver is next.`,
+        },
+        {
+          title: "Pack aayiduchu. Patience act pannudhu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} box-la, door side. Driver next.`,
+        },
+      );
+    case "dispatched":
+      return pickLang(
+        lang,
+        {
+          title: "Out the gate",
+          intro: `${ref ? `Order ${ref}` : "Your order"} has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins.`,
+        },
+        {
+          title: "Gate-la kilambiduchu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} kitchen-la irundhu kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum.`,
+        },
+      );
+    case "delivered":
+      return pickLang(
+        lang,
+        {
+          title: "That's it — enjoy",
+          intro: `Order ${ref} is at your door. How was it?`,
+        },
+        {
+          title: "Vandhuduchu — enjoy",
+          intro: `Order ${ref} veetla. Eppadi irundhuchu?`,
+        },
+      );
+    case "cancelled":
+      return pickLang(
+        lang,
+        {
+          title: `Order ${ref} is off the stove`,
+          intro: "Whenever you're hungry again, we're here.",
+        },
+        {
+          title: `Order ${ref} stove-la irundhu down`,
+          intro: "Adutha vaatti pasikkum bodhu, naanga irukom.",
+        },
+      );
+    case "rejected":
+      return pickLang(
+        lang,
+        {
+          title: `We couldn't take order ${ref}`,
+          intro: extra?.refundLine || "Sorry about this.",
+        },
+        {
+          title: `Order ${ref} accept panna mudiyala`,
+          intro: extra?.refundLine || "Sorry.",
+        },
+      );
+    case "cod_collected":
+      return pickLang(
+        lang,
+        {
+          title: `Cash received for ${ref}`,
+          intro: `Got *${pay}*. Our driver says thank you. We say enjoy.`,
+        },
+        {
+          title: `${ref}-ku cash vandhuduchu`,
+          intro: `*${pay}* kittuchu. Driver thanks solraaru. Naanga solrom — enjoy pannunga.`,
+        },
+      );
+    case "undelivered":
+      return pickLang(
+        lang,
+        {
+          title: `We couldn't deliver ${ref}`,
+          intro: extra?.undeliveredReason || "Something got in the way.",
+          note: "Reply here and we'll sort it out. We're not going anywhere.",
+        },
+        {
+          title: `${ref} deliver panna mudiyala`,
+          intro: extra?.undeliveredReason || "Oru thada vandhuduchu.",
+          note: "Inga reply pannunga, sari pannuvom.",
+        },
+      );
+  }
+}
+
+/**
+ * Receipt-shaped status card: welcome, then YOUR ORDER / BILL / WHEN.
+ * Later stages drop the fee table so the same dish photo doesn't come with
+ * a lecture every time.
+ */
+export function buildOrderStatusWhatsApp(
+  stage: WaOrderStage,
+  bill: WaOrderBill,
+  lang?: WaLang,
+  extra?: { refundLine?: string; undeliveredReason?: string },
+): string {
+  const welcome = stageWelcome(stage, bill, extra, lang);
+  const fullBill = stage === "placed_cod" || stage === "placed_paid" || stage === "accepted";
+  const showItems = bill.items.length > 0 && stage !== "cancelled" && stage !== "rejected" && stage !== "undelivered";
+
+  const lines: (string | null)[] = [welcome.intro, ""];
+
+  if (showItems) {
+    lines.push(...heading(pickLang(lang, "YOUR ORDER", "UNGA ORDER")));
+    lines.push(...billItemLines(bill.items));
+    lines.push("");
+  }
+
+  if (fullBill) {
+    lines.push(...heading(pickLang(lang, "BILL", "BILL")));
+    lines.push(...billMoneyLines(bill, lang));
+    lines.push("");
+  } else if (showItems && (stage === "preparing" || stage === "packed" || stage === "dispatched")) {
+    lines.push(dottedRow(pickLang(lang, "To pay", "Kattanum"), money(bill.amount)));
+    if (bill.isCod) {
+      lines.push(pickLang(lang, "Cash on delivery", "Cash on delivery"));
+    }
+    lines.push("");
+  }
+
+  if (bill.slotLine && stage !== "delivered" && stage !== "cancelled" && stage !== "rejected") {
+    lines.push(...heading(pickLang(lang, "WHEN", "EPPODHU")));
+    lines.push(bill.slotLine);
+    lines.push("");
+  }
+
+  if (stage === "delivered") {
+    lines.push(
+      "1. Excellent",
+      "2. Good",
+      "3. Okay",
+      "4. Could be better",
+      "5. Not satisfied",
+    );
+  }
+
+  return msg({
+    title: welcome.title,
+    lines,
+    note:
+      welcome.note ??
+      (stage === "delivered"
+        ? pickLang(lang, "Reply with a number. It takes a second and it genuinely helps.", "Oru number anupunga. Oru second dhaan.")
+        : undefined),
+  });
+}
+
 export function notifyOrderPaid(shortId: string, slotLine?: string, lang?: WaLang): string {
-  return pickLang(
+  return buildOrderStatusWhatsApp(
+    "placed_paid",
+    {
+      ref: shortId,
+      slotLine,
+      isCod: false,
+      amount: 0,
+      items: [],
+      breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
+    },
     lang,
-    msg({
-      title: `Order ${shortId} confirmed`,
-      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Payment received. The kitchen has your order — no need to start cooking at home."],
-    }),
-    msg({
-      title: `Order ${shortId} confirm aayiduchu`,
-      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Payment vandhuduchu. Kitchen-ku theriyum — veetla stove on panna vendaam."],
-    }),
   );
 }
 
 /** Cash on delivery — nothing has been paid yet, so never say "payment received". */
 export function notifyOrderPlacedCod(shortId: string, amtStr: string, slotLine?: string, lang?: WaLang): string {
-  return pickLang(
+  const amount = Number(String(amtStr).replace(/[^\d.]/g, "")) || 0;
+  return buildOrderStatusWhatsApp(
+    "placed_cod",
+    {
+      ref: shortId,
+      slotLine,
+      isCod: true,
+      amount,
+      items: [],
+      breakdown: { itemsSubtotal: amount, packaging: 0, delivery: 0, gst: 0 },
+    },
     lang,
-    msg({
-      title: `Order ${shortId} confirmed`,
-      lines: [
-        slotLine ? `Delivery: ${slotLine}` : null,
-        `Cash on delivery — please have *${amtStr}* ready.`,
-        "The kitchen has it. We'll message you as it moves.",
-      ],
-    }),
-    msg({
-      title: `Order ${shortId} confirm aayiduchu`,
-      lines: [
-        slotLine ? `Delivery: ${slotLine}` : null,
-        `Cash on delivery — *${amtStr}* ready-a vachukonga.`,
-        "Kitchen-ku theriyum. Update anupuvom.",
-      ],
-    }),
   );
 }
 
@@ -795,38 +1074,45 @@ export function notifyOrderUndelivered(shortId: string, reasonLine: string, lang
 }
 
 export function notifyOrderAccepted(shortId: string, slotLine?: string, lang?: WaLang): string {
-  return pickLang(
+  return buildOrderStatusWhatsApp(
+    "accepted",
+    {
+      ref: shortId,
+      slotLine,
+      isCod: false,
+      amount: 0,
+      items: [],
+      breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
+    },
     lang,
-    msg({
-      title: `Kitchen accepted ${shortId}`,
-      lines: [slotLine ? `Delivery: ${slotLine}` : null, "It's on the board. Cancelling lives in the app, up to 12 hours before your slot."],
-    }),
-    msg({
-      title: `Kitchen ${shortId} accept panniduchu`,
-      lines: [slotLine ? `Delivery: ${slotLine}` : null, "Board-la vandhuduchu. Cancel pannanumna app-la, slot-ku 12 hours munnadi."],
-    }),
   );
 }
 
 export function notifyOrderPreparing(lang?: WaLang): string {
-  return pickLang(
+  return buildOrderStatusWhatsApp(
+    "preparing",
+    {
+      ref: "",
+      isCod: false,
+      amount: 0,
+      items: [],
+      breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
+    },
     lang,
-    msg({ title: "Preparing your order", lines: ["The kitchen is on it. Resist the urge to start cooking at home."] }),
-    msg({ title: "Order prepare aagudhu", lines: ["Kitchen velai start panniduchu. Veetla stove on panna vendaam."] }),
   );
 }
 
 export function notifyOrderOutForDelivery(lang?: WaLang): string {
-  return pickLang(
+  return buildOrderStatusWhatsApp(
+    "dispatched",
+    {
+      ref: "",
+      isCod: false,
+      amount: 0,
+      items: [],
+      breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
+    },
     lang,
-    msg({
-      title: "Out for delivery",
-      lines: ["Your food has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins."],
-    }),
-    msg({
-      title: "Delivery-ku kilambiduchu",
-      lines: ["Saapadu kitchen-la kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum."],
-    }),
   );
 }
 
