@@ -20,7 +20,7 @@ Run: python3 scripts/generate-icons.py
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC = ROOT / "public"
@@ -61,7 +61,29 @@ def compose(art: Image.Image, size: int, art_fraction: float) -> Image.Image:
     # Paste through the alpha channel so the disc's anti-aliased rim blends into
     # the identical red behind it rather than leaving a hard edge.
     canvas.paste(scaled, (offset, offset), scaled)
-    return canvas.convert("RGB")
+    return canvas
+
+
+def round_corners(img: Image.Image, radius_frac: float = 0.22) -> Image.Image:
+    """Bake a transparent rounded-rect so browser tabs are not a sharp square.
+
+    Maskable and Apple touch icons stay square — those platforms apply their
+    own mask. Favicons and `purpose: any` icons do not, so the radius has to
+    live in the PNG.
+    """
+    size = img.size[0]
+    radius = max(1, int(size * radius_frac))
+    scale = 4
+    mask = Image.new("L", (size * scale, size * scale), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, size * scale - 1, size * scale - 1),
+        radius=radius * scale,
+        fill=255,
+    )
+    mask = mask.resize((size, size), Image.LANCZOS)
+    out = img.convert("RGBA")
+    out.putalpha(mask)
+    return out
 
 
 def trim_rim(img: Image.Image, pixels: int = 9) -> Image.Image:
@@ -92,19 +114,31 @@ def main() -> None:
     art = squared(trim_rim(flatten_background(Image.open(SOURCE))))
     print(f"source {art.width}x{art.height}, brand red #{'%02X%02X%02X' % BRAND_RED}")
 
+    tile_192 = compose(art, 192, PLAIN_ART)
+    tile_512 = compose(art, 512, PLAIN_ART)
+    tile_180 = compose(art, 180, PLAIN_ART)
+    favicon_48 = round_corners(compose(art, 48, PLAIN_ART))
+
     outputs = {
-        "icon-192.png": compose(art, 192, PLAIN_ART),
-        "icon-512.png": compose(art, 512, PLAIN_ART),
-        # iOS never masks; it only rounds the corners.
-        "apple-touch-icon.png": compose(art, 180, PLAIN_ART),
-        "icon-maskable-192.png": compose(art, 192, MASKABLE_ART),
-        "icon-maskable-512.png": compose(art, 512, MASKABLE_ART),
+        "icon-192.png": round_corners(tile_192),
+        "icon-512.png": round_corners(tile_512),
+        # iOS never masks; it only rounds the corners of a square tile.
+        "apple-touch-icon.png": tile_180.convert("RGB"),
+        "icon-maskable-192.png": compose(art, 192, MASKABLE_ART).convert("RGB"),
+        "icon-maskable-512.png": compose(art, 512, MASKABLE_ART).convert("RGB"),
     }
 
     for name, image in outputs.items():
         path = PUBLIC / name
         image.save(path, "PNG", optimize=True)
         print(f"  wrote {name} ({path.stat().st_size // 1024} KB)")
+
+    app = ROOT / "src" / "app"
+    # Next.js file-convention icons win the browser tab over /public.
+    round_corners(tile_512).save(app / "icon.png", "PNG", optimize=True)
+    tile_180.convert("RGB").save(app / "apple-icon.png", "PNG", optimize=True)
+    favicon_48.save(app / "favicon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48)])
+    print(f"  wrote src/app/icon.png, apple-icon.png, favicon.ico")
 
 
 if __name__ == "__main__":
