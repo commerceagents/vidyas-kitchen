@@ -3277,32 +3277,6 @@ export function MobileHomeScreen({
                       padding: 0,
                     }}
                   >
-                    {id === "orders" && ordersNavBadge > 0 ? (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: -5,
-                          right: -5,
-                          minWidth: 18,
-                          height: 18,
-                          padding: "0 5px",
-                          borderRadius: 999,
-                          background: C.red,
-                          color: "#fff",
-                          fontSize: 10,
-                          fontWeight: 900,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          border: `2px solid ${C.bg}`,
-                          boxSizing: "border-box",
-                          zIndex: 3,
-                          pointerEvents: "none",
-                        }}
-                      >
-                        {ordersNavBadge}
-                      </span>
-                    ) : null}
                     <div
                       style={{
                         position: "relative",
@@ -3313,7 +3287,7 @@ export function MobileHomeScreen({
                         justifyContent: "center",
                         pointerEvents: "none",
                         zIndex: 1,
-                        overflow: "hidden",
+                        overflow: "visible",
                       }}
                     >
                       <AnimatePresence>
@@ -3341,6 +3315,7 @@ export function MobileHomeScreen({
                       </AnimatePresence>
                       <span
                         style={{
+                          position: "relative",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -3351,6 +3326,32 @@ export function MobileHomeScreen({
                         }}
                       >
                         <Icon active={isActive} />
+                        {id === "orders" && ordersNavBadge > 0 ? (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: -5,
+                              right: -6,
+                              minWidth: 16,
+                              height: 16,
+                              padding: "0 4px",
+                              borderRadius: 999,
+                              background: isActive ? "#fff" : C.red,
+                              color: isActive ? C.red : "#fff",
+                              fontSize: 9,
+                              fontWeight: 900,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border: `2px solid ${isActive ? C.red : C.bg}`,
+                              boxSizing: "border-box",
+                              zIndex: 2,
+                              pointerEvents: "none",
+                            }}
+                          >
+                            {ordersNavBadge}
+                          </span>
+                        ) : null}
                       </span>
                     </div>
 
