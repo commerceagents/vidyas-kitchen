@@ -7,7 +7,7 @@ import { C } from "@/components/ui/mobile/mobile-design-tokens";
 
 export type GraffitiTone = "info" | "warn" | "success";
 
-function BurstDots({ tone }: { tone: GraffitiTone }) {
+export function GraffitiBurstDots({ tone }: { tone: GraffitiTone }) {
   const color =
     tone === "warn"
       ? "rgba(189,35,32,0.95)"
@@ -136,7 +136,7 @@ export function GraffitiSpotlight({
             }}
           >
             {children}
-            <BurstDots tone={tone} />
+            <GraffitiBurstDots tone={tone} />
           </motion.div>
         </motion.div>
       ) : null}

@@ -9,6 +9,7 @@ import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
+import { GraffitiBurstDots } from "@/components/ui/mobile/GraffitiChip";
 import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
 import { isOrderInFlight } from "@/lib/order-status";
@@ -825,6 +826,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                 background: "rgba(255,255,255,0.97)",
                 border: "1px solid rgba(0,0,0,0.06)",
                 textAlign: "center",
+                overflow: "visible",
                 fontFamily: "var(--font-outfit), system-ui, sans-serif",
               }}
             >
@@ -853,6 +855,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.12, duration: 0.35 }}
                     style={{
+                      position: "relative",
                       margin: "0 auto 8px",
                       display: "inline-block",
                       padding: "8px 18px",
@@ -860,11 +863,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                       background: "rgba(255,255,255,0.96)",
                       border: "1px solid rgba(34,197,94,0.45)",
                       boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                      overflow: "visible",
                     }}
                   >
                     <span style={{ color: "#1A1A1A", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em" }}>
                       {paymentFeedback.cod ? "Order confirmed" : "Payment successful"}
                     </span>
+                    <GraffitiBurstDots tone="success" />
                   </motion.div>
                 </>
               ) : paymentFeedback.kind === "error" ? (
