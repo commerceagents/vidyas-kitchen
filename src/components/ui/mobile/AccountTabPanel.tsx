@@ -761,8 +761,8 @@ function NotificationsRow({ customerPhone }: { customerPhone: string }) {
         : state === "blocked"
           ? "Blocked in your browser settings"
           : on
-            ? "Order updates on this device, plus WhatsApp"
-            : "Get order updates on this device";
+            ? "Lock-screen alerts on this phone — WhatsApp still gets every update"
+            : "Optional. WhatsApp already gets every update; this is an extra lock-screen ping";
 
   return (
     <div style={{ borderBottom: `1px solid ${C.border}` }}>

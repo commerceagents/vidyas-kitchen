@@ -35,7 +35,9 @@ function statusPill(status: string): { label: string; fg: string; bg: string } {
     case OrderStatus.DELIVERED:
       return { label: "Delivered", fg: "#12833F", bg: "rgba(18,131,63,0.10)" };
     case OrderStatus.CANCELLED:
-      return { label: "Cancelled", fg: C_TEXT_MUTED, bg: "rgba(0,0,0,0.05)" };
+      return { label: "Cancelled", fg: C.red, bg: C.redFaint };
+    case OrderStatus.REJECTED:
+      return { label: "Rejected", fg: C.red, bg: C.redFaint };
     case OrderStatus.UNDELIVERED:
       return { label: "Not delivered", fg: C.red, bg: C.redFaint };
     case OrderStatus.PENDING_PAYMENT:

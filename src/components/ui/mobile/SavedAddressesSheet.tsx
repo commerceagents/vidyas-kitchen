@@ -324,7 +324,7 @@ export function SavedAddressesSheet({
                           borderRadius: 11,
                           border: "none",
                           background: "transparent",
-                          color: C_TEXT_MUTED,
+                          color: C.red,
                           fontSize: 13.5,
                           fontWeight: 800,
                           cursor: "pointer",

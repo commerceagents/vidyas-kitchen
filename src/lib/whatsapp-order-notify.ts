@@ -143,6 +143,19 @@ async function loadOrderBill(order: NotifyOrderRow): Promise<WaOrderBill> {
   }
 }
 
+function cancelledOrderImageUrl(bill: WaOrderBill, kind: "cancelled" | "rejected"): string {
+  const origin = publicSiteOrigin();
+  const raw = bill.items.find((it) => it.imageUrl)?.imageUrl || "";
+  const img = raw.startsWith("http")
+    ? raw
+    : raw
+      ? `${origin}${raw.startsWith("/") ? "" : "/"}${raw}`
+      : "";
+  const q = new URLSearchParams({ kind });
+  if (img) q.set("img", img);
+  return `${origin}/api/og/cancelled-order?${q.toString()}`;
+}
+
 /**
  * Photo + receipt card, with Track opening the app (`/?track=`).
  * Two or more dishes become a carousel; one dish is an image header.
@@ -223,10 +236,22 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       break;
     }
     case OrderStatus.CANCELLED:
-      await sendText(to, notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null));
+      await sendCtaUrl(
+        to,
+        notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null),
+        trackUrl,
+        BTN.track,
+        { headerImageUrl: cancelledOrderImageUrl(bill, "cancelled") },
+      );
       break;
     case OrderStatus.REJECTED:
-      await sendText(to, notifyOrderRejected(short, amtStr, wasPaid, lang));
+      await sendCtaUrl(
+        to,
+        notifyOrderRejected(short, amtStr, wasPaid, lang),
+        trackUrl,
+        BTN.track,
+        { headerImageUrl: cancelledOrderImageUrl(bill, "rejected") },
+      );
       break;
     default:
       break;

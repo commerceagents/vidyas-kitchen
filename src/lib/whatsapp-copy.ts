@@ -915,7 +915,7 @@ function stageWelcome(
         lang,
         {
           title: `We couldn't take order ${ref}`,
-          intro: extra?.refundLine || "Sorry about this.",
+          intro: extra?.refundLine || "Rejected by the kitchen.",
         },
         {
           title: `Order ${ref} accept panna mudiyala`,
@@ -1233,11 +1233,11 @@ export function notifyOrderRejected(shortId: string, amtStr: string, wasPaid = t
     lang,
     msg({
       title: `We couldn't take order ${shortId}`,
-      lines: [refundLine, "", "Sorry about this. Reply if you'd like help picking something else."],
+      lines: ["Rejected by the kitchen.", refundLine, "", "Reply if you'd like help picking something else."],
     }),
     msg({
       title: `Order ${shortId} accept panna mudiyala`,
-      lines: [refundLine, "", "Sorry. Vera dish venumna inga sollunga."],
+      lines: ["Kitchen reject panniduchu.", refundLine, "", "Vera dish venumna inga sollunga."],
     }),
   );
 }

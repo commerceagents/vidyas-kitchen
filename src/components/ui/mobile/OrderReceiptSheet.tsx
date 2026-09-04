@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { MapPin, X } from "@phosphor-icons/react";
+import { CookingPot, MapPin, X } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { CenterSpinner } from "@/components/ui/mobile/EmptyState";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { parseRecipeTag } from "@/lib/dish-name";
 import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 
 const fontUi = C.mono;
 
@@ -22,7 +24,7 @@ type Receipt = {
   totalAmount: number | null;
   refundStatus: string | null;
   refundAmount: number | null;
-  lines: { name: string; quantity: number; unitPrice: number }[];
+  lines: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
   breakdown: {
     itemsSubtotal: number;
     packaging: number;
@@ -81,6 +83,8 @@ export function OrderReceiptSheet({
 }) {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,8 +115,9 @@ export function OrderReceiptSheet({
   }, [customerPhone, orderId]);
 
   const ref = formatOrderRef(receipt?.orderNumber ?? null, orderId);
+  if (!portalReady) return null;
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -121,7 +126,7 @@ export function OrderReceiptSheet({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 10000,
+        zIndex: 420,
         background: "rgba(0,0,0,0.35)",
         backdropFilter: "blur(6px)",
         WebkitBackdropFilter: "blur(6px)",
@@ -141,9 +146,10 @@ export function OrderReceiptSheet({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxHeight: "88vh",
+          maxHeight: "88dvh",
           display: "flex",
           flexDirection: "column",
+          minHeight: 0,
           background: C.bg,
           borderTopLeftRadius: 26,
           borderTopRightRadius: 26,
@@ -165,7 +171,19 @@ export function OrderReceiptSheet({
             >
               Order {ref}
             </p>
-            <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED }}>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 13,
+                fontWeight: 700,
+                color:
+                  receipt &&
+                  (normalizeOrderStatus(receipt.status) === OrderStatus.REJECTED ||
+                    normalizeOrderStatus(receipt.status) === OrderStatus.CANCELLED)
+                    ? C.red
+                    : C_TEXT_MUTED,
+              }}
+            >
               {receipt ? statusLine(receipt.status, receipt.paymentMethod, receipt.paymentStatus) : "Loading…"}
             </p>
           </div>
@@ -190,7 +208,17 @@ export function OrderReceiptSheet({
           </button>
         </div>
 
-        <div style={{ overflowY: "auto", padding: "16px 18px 8px", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "16px 18px 20px",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {error ? (
             <p style={{ margin: "20px 0", fontSize: 14.5, fontWeight: 700, color: C.red, lineHeight: 1.5 }}>{error}</p>
           ) : !receipt ? (
@@ -220,17 +248,40 @@ export function OrderReceiptSheet({
               >
                 Items
               </p>
-              {receipt.lines.map((line, i) => (
+              {receipt.lines.map((line, i) => {
+                const thumb = line.imageUrl || resolveOrderItemImageUrl({ name: line.name });
+                return (
                 <div
                   key={`${line.name}-${i}`}
                   style={{
                     display: "flex",
-                    alignItems: "baseline",
-                    gap: 10,
-                    padding: "9px 0",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 0",
                     borderBottom: `1px solid ${C.border}`,
                   }}
                 >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      flexShrink: 0,
+                      overflow: "hidden",
+                      background: C.redFaint,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- menu photo from public/menu-images
+                      <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <CookingPot size={20} weight="regular" color={C.red} />
+                    )}
+                  </span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text }}>
                     {parseRecipeTag(line.name).cleanName}
                     {line.quantity > 1 ? (
@@ -241,7 +292,8 @@ export function OrderReceiptSheet({
                     {money(line.unitPrice * line.quantity)}
                   </span>
                 </div>
-              ))}
+                );
+              })}
 
               {receipt.breakdown ? (
                 <div style={{ marginTop: 14 }}>
@@ -309,7 +361,8 @@ export function OrderReceiptSheet({
           </motion.a>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
