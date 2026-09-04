@@ -102,6 +102,7 @@ import { isCodAllowedForTotal } from "@/lib/cod-policy";
 import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
 import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
+import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, type PackSize } from "@/lib/menu/dish-pricing";
 import {
   buildProposal,
@@ -320,6 +321,8 @@ export async function POST(req: Request) {
 
     let interactiveReplyId: string | null = null;
     let catalogProductItems: CatalogOrderItem[] | null = null;
+    let inboundKind: WaMessageKind = "text";
+    let inboundProvider: "meta" | "twilio" = "meta";
 
     if (contentType.includes("application/json")) {
       const json = await req.json();
@@ -342,10 +345,12 @@ export async function POST(req: Request) {
           const interactive = message.interactive;
           if (interactive?.type === "button_reply") {
             interactiveReplyId = interactive.button_reply?.id || null;
-            body = interactiveReplyId || interactive.button_reply?.title || "";
+            body = interactive.button_reply?.title || interactiveReplyId || "";
+            inboundKind = "button";
           } else if (interactive?.type === "list_reply") {
             interactiveReplyId = interactive.list_reply?.id || null;
-            body = interactiveReplyId || interactive.list_reply?.title || "";
+            body = interactive.list_reply?.title || interactiveReplyId || "";
+            inboundKind = "list";
           } else if (interactive?.type === "nfm_reply") {
             interactiveReplyId = null;
             body = interactive.nfm_reply?.body || "";
@@ -365,19 +370,38 @@ export async function POST(req: Request) {
           const products = (message.order?.product_items || []) as CatalogOrderItem[];
           catalogProductItems = products;
           body = products[0]?.product_retailer_id || "catalog_order";
+          inboundKind = "catalog";
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
           console.log(`[Meta WA Catalog] From=${from} items=${products.length}`);
+        } else if (message) {
+          from = fromMetaWebhook(message.from);
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          inboundKind = message.type === "image" ? "image" : "media";
+          body = `[${message.type}]`;
+          await logWhatsAppMessage({
+            phone: from,
+            direction: "in",
+            kind: inboundKind,
+            body,
+            payload: { type: message.type, profileName: profileName || undefined },
+            provider: "meta",
+            waMessageId: messageId || null,
+          });
+          return ack();
         } else {
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
         }
       } else if (json.From || json.Body) {
+        inboundProvider = "twilio";
         from = fromWhatsAppFrom(json.From || "");
         body = json.Body || "";
         profileName = json.ProfileName || "";
         console.log(`[Twilio WA JSON] From=${from} Body="${body}" Name=${profileName}`);
       }
     } else if (contentType.includes("application/x-www-form-urlencoded")) {
+      inboundProvider = "twilio";
       const formData = await req.formData();
       from = fromWhatsAppFrom(formData.get("From")?.toString() || "");
       body = formData.get("Body")?.toString() || "";
@@ -388,6 +412,20 @@ export async function POST(req: Request) {
     if (!from || (!body && !catalogProductItems?.length)) {
       return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
     }
+
+    await logWhatsAppMessage({
+      phone: from,
+      direction: "in",
+      kind: inboundKind,
+      body: body.trim() || null,
+      payload: {
+        profileName: profileName || undefined,
+        replyId: interactiveReplyId || undefined,
+        catalogItems: catalogProductItems || undefined,
+      },
+      provider: inboundProvider,
+      waMessageId: messageId || null,
+    });
 
     const text = body.trim();
     const lower = text.toLowerCase();

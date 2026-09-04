@@ -26,6 +26,7 @@ import {
   sendButtons as twilioSendButtons,
   sendCtaUrl as twilioSendCtaUrl,
 } from "@/lib/twilio-whatsapp";
+import { logWhatsAppMessageSoon } from "@/lib/whatsapp-message-log";
 
 function isMetaApiConfigured(): boolean {
   return Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
@@ -35,10 +36,12 @@ export async function sendText(to: string, text: string): Promise<void> {
   if (isMetaApiConfigured()) {
     const r = await metaSendText(to, text);
     if (!r.success) console.error("[whatsapp-send] Meta text failed:", r.error);
+    else logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "meta", waMessageId: r.messageId });
     return;
   }
   const r = await twilioSendText(to, text);
   if (r.error) console.error("[whatsapp-send] Twilio text failed:", r.error);
+  else logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "twilio" });
 }
 
 export type { SendButtonsOptions };
@@ -59,12 +62,32 @@ export async function sendButtons(
     if (!r.success) {
       console.error("[whatsapp-send] buttons failed, sending numbered text:", r.error);
       const numbered = buttons.map((b, i) => `${i + 1}. ${b.title}`).join("\n");
-      await metaSendText(to, `${bodyText}\n\n${numbered}`);
+      await sendText(to, `${bodyText}\n\n${numbered}`);
+    } else {
+      logWhatsAppMessageSoon({
+        phone: to,
+        direction: "out",
+        kind: "button",
+        body: bodyText,
+        payload: { buttons: buttons.map((b) => ({ id: b.id, title: b.title })) },
+        provider: "meta",
+        waMessageId: r.messageId,
+      });
     }
     return;
   }
   const r = await twilioSendButtons(to, bodyText, buttons);
   if (r.error) console.error("[whatsapp-send] Twilio buttons failed:", r.error);
+  else {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "button",
+      body: bodyText,
+      payload: { buttons: buttons.map((b) => ({ id: b.id, title: b.title })) },
+      provider: "twilio",
+    });
+  }
 }
 
 /** bodyText, url, button label — consistent across Meta and Twilio. */
@@ -76,13 +99,34 @@ export async function sendCtaUrl(
 ): Promise<void> {
   if (isMetaApiConfigured()) {
     const r = await metaSendCtaUrl(to, bodyText, buttonText, url);
-    if (r.success) return;
+    if (r.success) {
+      logWhatsAppMessageSoon({
+        phone: to,
+        direction: "out",
+        kind: "cta",
+        body: bodyText,
+        payload: { url, buttonText },
+        provider: "meta",
+        waMessageId: r.messageId,
+      });
+      return;
+    }
     console.error("[whatsapp-send] CTA failed, sending link as text:", r.error);
-    await metaSendText(to, `${bodyText}\n\n${url}`);
+    await sendText(to, `${bodyText}\n\n${url}`);
     return;
   }
   const r = await twilioSendCtaUrl(to, bodyText, url, buttonText);
   if (r.error) console.error("[whatsapp-send] Twilio CTA failed:", r.error);
+  else {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "cta",
+      body: bodyText,
+      payload: { url, buttonText },
+      provider: "twilio",
+    });
+  }
 }
 
 export type { ListSection, CarouselCard, ProductSection };
@@ -95,6 +139,17 @@ export async function sendCarousel(
 ): Promise<boolean> {
   if (!isMetaApiConfigured() || cards.length < 2) return false;
   const r = await metaSendCarousel(to, bodyText, cards);
+  if (r.success) {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "carousel",
+      body: bodyText,
+      payload: { cards: cards.map((c) => ({ title: c.title, body: c.body })) },
+      provider: "meta",
+      waMessageId: r.messageId,
+    });
+  }
   return r.success;
 }
 
@@ -113,6 +168,17 @@ export async function sendProductList(
   if (!isMetaApiConfigured() || !catalogId) return false;
   if (!sections.some((s) => s.productRetailerIds.length)) return false;
   const r = await metaSendProductList(to, catalogId, headerText, bodyText, sections, footerText);
+  if (r.success) {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "product_list",
+      body: bodyText,
+      payload: { headerText, footerText, sections },
+      provider: "meta",
+      waMessageId: r.messageId,
+    });
+  }
   return r.success;
 }
 
@@ -125,6 +191,17 @@ export async function sendSingleProduct(
 ): Promise<boolean> {
   if (!isMetaApiConfigured() || !catalogId || !productRetailerId) return false;
   const r = await metaSendSingleProduct(to, catalogId, productRetailerId, bodyText, footerText);
+  if (r.success) {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "product",
+      body: bodyText,
+      payload: { productRetailerId, footerText },
+      provider: "meta",
+      waMessageId: r.messageId,
+    });
+  }
   return r.success;
 }
 
@@ -138,6 +215,17 @@ export async function sendLocation(
 ): Promise<boolean> {
   if (!isMetaApiConfigured()) return false;
   const r = await metaSendLocation(to, latitude, longitude, name, address);
+  if (r.success) {
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "location",
+      body: [name, address].filter(Boolean).join(" — "),
+      payload: { latitude, longitude, name, address },
+      provider: "meta",
+      waMessageId: r.messageId,
+    });
+  }
   return r.success;
 }
 
@@ -153,6 +241,16 @@ export async function sendList(
     if (!r.success) {
       console.error("[whatsapp-send] list failed, sending numbered text:", r.error);
       await sendListFallback(to, bodyText, sections);
+    } else {
+      logWhatsAppMessageSoon({
+        phone: to,
+        direction: "out",
+        kind: "list",
+        body: bodyText,
+        payload: { buttonLabel, sections },
+        provider: "meta",
+        waMessageId: r.messageId,
+      });
     }
     return;
   }

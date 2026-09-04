@@ -28,6 +28,7 @@ import {
   type TemplateStatus,
 } from "./meta-whatsapp";
 import { publicSiteOrigin } from "./site-url";
+import { logWhatsAppMessageSoon } from "./whatsapp-message-log";
 import { allDishPricing, formatInr, type DishPricing } from "./menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "./menu/best-selling";
 import { whatsappBotLink } from "./whatsapp-copy";
@@ -274,8 +275,18 @@ export async function sendBestSellerCampaign(opts?: {
       BEST_SELLER_TEMPLATE_LANG,
       components,
     );
-    if (r.success) sent += 1;
-    else failed += 1;
+    if (r.success) {
+      sent += 1;
+      logWhatsAppMessageSoon({
+        phone: recipient.phone,
+        direction: "out",
+        kind: "template",
+        body: BEST_SELLER_TEMPLATE_NAME,
+        payload: { template: BEST_SELLER_TEMPLATE_NAME, language: BEST_SELLER_TEMPLATE_LANG },
+        provider: "meta",
+        waMessageId: r.messageId,
+      });
+    } else failed += 1;
   }
 
   return { status, attempted: audience.length, sent, failed };

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { sendText } from "@/lib/twilio-whatsapp";
+import { logWhatsAppMessageSoon } from "@/lib/whatsapp-message-log";
 import { normalizeDriverPhone } from "@/lib/driver-auth";
 import { notifyDriverAssigned } from "@/lib/push-driver-notify";
 
@@ -58,6 +59,14 @@ export async function POST(req: NextRequest) {
     const digits = driverPhone.replace(/\D/g, "");
     const to = digits.startsWith("91") ? digits : `91${digits}`;
     await sendText(to, text);
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "text",
+      body: text,
+      payload: { audience: "driver", orderId },
+      provider: "twilio",
+    });
 
     // Push lands on the lock screen in a second; WhatsApp above is the backstop
     // for a driver who never turned alerts on. Failing to find the driver row
