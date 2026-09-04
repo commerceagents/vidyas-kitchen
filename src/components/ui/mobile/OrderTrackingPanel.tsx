@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
@@ -567,6 +568,8 @@ export function OrderTrackingPanel({
   submitOrderRating: (n: number) => void;
 }) {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
   const [resumeFetching, setResumeFetching] = useState(false);
@@ -1385,6 +1388,8 @@ export function OrderTrackingPanel({
         </div>
       )}
 
+      {portalReady
+        ? createPortal(
       <AnimatePresence>
         {cancelModalOpen ? (
           <motion.div
@@ -1398,7 +1403,7 @@ export function OrderTrackingPanel({
             style={{
               position: "fixed",
               inset: 0,
-              zIndex: 200,
+              zIndex: 420,
               background: "rgba(12,12,12,0.48)",
               backdropFilter: "blur(14px) saturate(140%)",
               WebkitBackdropFilter: "blur(14px) saturate(140%)",
@@ -1503,7 +1508,10 @@ export function OrderTrackingPanel({
             </motion.div>
           </motion.div>
         ) : null}
-      </AnimatePresence>
+      </AnimatePresence>,
+          document.body,
+        )
+        : null}
     </div>
   );
 }
