@@ -101,7 +101,7 @@ export function DriverAlerts() {
         tone="plain"
         icon={<BellOff size={15} strokeWidth={2.2} />}
         title="Alerts need the home-screen app"
-        body="Open this page in Safari or Chrome, tap Share, then Add to Home Screen. Open it from there and turn alerts on."
+        body="Install VK Driver from the banner below, then open it from the new icon and turn alerts on."
       />
     );
   }

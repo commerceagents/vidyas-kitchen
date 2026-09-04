@@ -28,16 +28,23 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  const raw = event.notification.data?.url || "/";
+  const target = new URL(raw, self.location.origin).href;
+  const isDriver = /\/driver(\/|$|\?)/.test(target);
+
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.navigate(url);
-          return client.focus();
-        }
+      // The food app and the driver app share this worker. Focusing "any
+      // window on this origin" would open a delivery inside the customer PWA.
+      const match = clients.find((client) => {
+        const path = new URL(client.url).pathname;
+        return isDriver ? path.startsWith("/driver") : !path.startsWith("/driver") && !path.startsWith("/dashboard");
+      });
+      if (match && "focus" in match) {
+        if ("navigate" in match) match.navigate(target);
+        return match.focus();
       }
-      return self.clients.openWindow(url);
+      return self.clients.openWindow(target);
     }),
   );
 });
