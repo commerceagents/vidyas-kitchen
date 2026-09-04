@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Bot, Play, Pause, Zap, Clock, CheckCircle2, AlertTriangle, Percent } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
@@ -173,7 +173,6 @@ export default function PricingAgentPage() {
 
   const pending = state.decisions.filter((d) => d.status === "pending");
   const recent = state.decisions.filter((d) => d.status !== "pending" && d.status !== "expired").slice(0, 20);
-  const shown = listTab === "upcoming" ? pending : recent;
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },
@@ -185,81 +184,16 @@ export default function PricingAgentPage() {
   const content = state.loading ? (
     <DashboardSpinner minHeight="100%" />
   ) : (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexShrink: 0 }}>
-        <div
-          style={{
-            display: "inline-flex",
-            padding: 3,
-            borderRadius: 10,
-            background: "#111",
-            border: `1px solid ${BORDER}`,
-          }}
-        >
-          {([
-            { id: "upcoming" as const, label: "Upcoming", count: pending.length },
-            { id: "past" as const, label: "Past", count: recent.length },
-          ]).map((t) => {
-            const active = listTab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setListTab(t.id)}
-                style={{
-                  height: 32,
-                  padding: "0 12px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: active ? YELLOW : "transparent",
-                  color: active ? "#111" : "#888",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: FONT,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                {t.label}
-                <span style={{ opacity: 0.7 }}>{t.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {msg && (
-        <div style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: CARD_BG, fontSize: 13, color: "#ccc", fontFamily: FONT, marginBottom: 12, flexShrink: 0 }}>
-          {msg}
-        </div>
-      )}
-
-      {shown.length === 0 ? (
-        <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
-          <Bot size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
-            {listTab === "upcoming" ? "Nothing upcoming" : "No past decisions"}
-          </p>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
-            {listTab === "upcoming" ? "New festival and dish offers will show up here." : "Approved and applied offers will land here."}
-          </p>
-        </div>
-      ) : (
-        <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0, overflowY: "auto", flex: 1, minHeight: 0 }}>
-          {shown.map((d) => (
-            <DecisionCard
-              key={d.id}
-              decision={d}
-              onApprove={listTab === "upcoming" ? (pct) => handleApprove(d.id, pct) : undefined}
-              onReject={listTab === "upcoming" ? () => handleReject(d.id) : undefined}
-              onUpdate={listTab === "past" ? (pct) => handleUpdate(d.id, pct) : undefined}
-            />
-          ))}
-        </ul>
-      )}
-    </div>
+    <PricingDecisionsPanel
+      listTab={listTab}
+      onTabChange={setListTab}
+      pending={pending}
+      recent={recent}
+      msg={msg}
+      onApprove={handleApprove}
+      onReject={handleReject}
+      onUpdate={handleUpdate}
+    />
   );
 
   return (
@@ -473,6 +407,212 @@ function PricingMetricTabs({
               </p>
             </div>
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const TAB_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const TAB_MS = 280;
+
+function PricingDecisionsPanel({
+  listTab,
+  onTabChange,
+  pending,
+  recent,
+  msg,
+  onApprove,
+  onReject,
+  onUpdate,
+}: {
+  listTab: "upcoming" | "past";
+  onTabChange: (tab: "upcoming" | "past") => void;
+  pending: Decision[];
+  recent: Decision[];
+  msg: string | null;
+  onApprove: (id: string, pct?: number | null) => void;
+  onReject: (id: string) => void;
+  onUpdate: (id: string, pct: number) => void | Promise<void>;
+}) {
+  const [motionOn, setMotionOn] = useState(false);
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduce) setMotionOn(true);
+  }, []);
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexShrink: 0 }}>
+        <ListTabSwitch
+          value={listTab}
+          onChange={onTabChange}
+          upcomingCount={pending.length}
+          pastCount={recent.length}
+          motionOn={motionOn}
+        />
+      </div>
+
+      {msg && (
+        <div style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: CARD_BG, fontSize: 13, color: "#ccc", fontFamily: FONT, marginBottom: 12, flexShrink: 0 }}>
+          {msg}
+        </div>
+      )}
+
+      <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
+        {(["upcoming", "past"] as const).map((tab) => {
+          const active = listTab === tab;
+          const items = tab === "upcoming" ? pending : recent;
+          return (
+            <div
+              key={tab}
+              aria-hidden={!active}
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflowY: active ? "auto" : "hidden",
+                opacity: active ? 1 : 0,
+                transform: active ? "translateX(0)" : tab === "upcoming" ? "translateX(-14px)" : "translateX(14px)",
+                transition: motionOn ? `opacity ${TAB_MS}ms ${TAB_EASE}, transform ${TAB_MS}ms ${TAB_EASE}` : "none",
+                pointerEvents: active ? "auto" : "none",
+              }}
+            >
+              {items.length === 0 ? (
+                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
+                  <Bot size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+                    {tab === "upcoming" ? "Nothing upcoming" : "No past decisions"}
+                  </p>
+                  <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+                    {tab === "upcoming" ? "New festival and dish offers will show up here." : "Approved and applied offers will land here."}
+                  </p>
+                </div>
+              ) : (
+                <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0, height: "100%", overflowY: "auto" }}>
+                  {items.map((d) => (
+                    <DecisionCard
+                      key={d.id}
+                      decision={d}
+                      onApprove={tab === "upcoming" ? (pct) => onApprove(d.id, pct) : undefined}
+                      onReject={tab === "upcoming" ? () => onReject(d.id) : undefined}
+                      onUpdate={tab === "past" ? (pct) => onUpdate(d.id, pct) : undefined}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ListTabSwitch({
+  value,
+  onChange,
+  upcomingCount,
+  pastCount,
+  motionOn,
+}: {
+  value: "upcoming" | "past";
+  onChange: (tab: "upcoming" | "past") => void;
+  upcomingCount: number;
+  pastCount: number;
+  motionOn: boolean;
+}) {
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const btnRefs = React.useRef<Partial<Record<"upcoming" | "past", HTMLButtonElement | null>>>({});
+  const [pill, setPill] = useState({ left: 3, width: 0, ready: false });
+
+  const measure = useCallback(() => {
+    const wrap = wrapRef.current;
+    const btn = btnRefs.current[value];
+    if (!wrap || !btn) return;
+    const wr = wrap.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    setPill({ left: br.left - wr.left, width: br.width, ready: true });
+  }, [value]);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, upcomingCount, pastCount]);
+
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  const tabs = [
+    { id: "upcoming" as const, label: "Upcoming", count: upcomingCount },
+    { id: "past" as const, label: "Past", count: pastCount },
+  ];
+
+  return (
+    <div
+      ref={wrapRef}
+      role="tablist"
+      aria-label="Pricing decisions"
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        padding: 3,
+        borderRadius: 10,
+        background: "#111",
+        border: `1px solid ${BORDER}`,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 3,
+          bottom: 3,
+          left: pill.left,
+          width: pill.width,
+          borderRadius: 8,
+          background: YELLOW,
+          opacity: pill.ready ? 1 : 0,
+          transition: pill.ready && motionOn
+            ? `left ${TAB_MS}ms ${TAB_EASE}, width ${TAB_MS}ms ${TAB_EASE}`
+            : "none",
+          pointerEvents: "none",
+        }}
+      />
+      {tabs.map((t) => {
+        const active = value === t.id;
+        return (
+          <button
+            key={t.id}
+            ref={(el) => {
+              btnRefs.current[t.id] = el;
+            }}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.id)}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              height: 32,
+              padding: "0 12px",
+              borderRadius: 8,
+              border: "none",
+              background: "transparent",
+              color: active ? "#111" : "#888",
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: FONT,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: motionOn ? `color ${TAB_MS}ms ${TAB_EASE}` : "none",
+            }}
+          >
+            {t.label}
+            <span style={{ opacity: 0.7 }}>{t.count}</span>
+          </button>
         );
       })}
     </div>
