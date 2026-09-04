@@ -50,6 +50,8 @@ const LS_NAME = "vk_display_name";
 /** Cached so the account header can draw the photo before the profile fetch lands. */
 const LS_AVATAR = "vk_avatar_url";
 const SS_TRACK_ORDER = "vk_track_order";
+/** Set only on checkout success. The live-order toast reads this, then clears it. */
+const SS_JUST_PLACED = "vk_just_placed";
 /** Snapshot cart before opening Razorpay so cancel/error can restore after full page reload. */
 const SS_PENDING_CHECKOUT_CART = "vk_pending_checkout_cart";
 
@@ -265,6 +267,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       localStorage.removeItem(LS_NAME);
       localStorage.removeItem(LS_AVATAR);
       sessionStorage.removeItem(SS_TRACK_ORDER);
+      sessionStorage.removeItem(SS_JUST_PLACED);
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       clearUiSession();
       clearSavedCart();
@@ -282,6 +285,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     if (paidOk && orderIdParam) {
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
       sessionStorage.setItem(SS_TRACK_ORDER, orderIdParam);
+      sessionStorage.setItem(SS_JUST_PLACED, orderIdParam);
       // Clear right away — don't wait on the modal's dismiss button. Otherwise a
       // refresh (or navigating away) before tapping "Continue" leaves the old
       // order's items stuck in the cart forever.
@@ -522,6 +526,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     localStorage.removeItem(LS_NAME);
     localStorage.removeItem(LS_AVATAR);
     sessionStorage.removeItem(SS_TRACK_ORDER);
+    sessionStorage.removeItem(SS_JUST_PLACED);
     sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
     clearUiSession();
     clearSavedCart();

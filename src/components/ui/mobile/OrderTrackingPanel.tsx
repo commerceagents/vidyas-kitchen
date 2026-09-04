@@ -430,12 +430,13 @@ function PlacedBurstChip({ orderId }: { orderId: string }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const key = `vk_placed_burst_${orderId}`;
+    // Only the checkout-success redirect sets this. Opening the app onto an
+    // existing live order must not replay "Order placed".
     try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
+      if (sessionStorage.getItem("vk_just_placed") !== orderId) return;
+      sessionStorage.removeItem("vk_just_placed");
     } catch {
-      /* private mode — still show once this mount */
+      return;
     }
     setShow(true);
     const t = window.setTimeout(() => setShow(false), 2200);
