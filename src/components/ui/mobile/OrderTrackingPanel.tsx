@@ -784,6 +784,12 @@ export function OrderTrackingPanel({
     trackSnap?.totalAmount != null && Number.isFinite(Number(trackSnap.totalAmount))
       ? Math.round(Number(trackSnap.totalAmount))
       : lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
+  const cancelConfirmBody = isPendingPayment
+    ? "This checkout will be dropped. Nothing has been charged."
+    : (trackSnap?.paymentMethod || "").toLowerCase() === "cod" ||
+        (trackSnap?.paymentStatus || "").toLowerCase() !== "paid"
+      ? "We'll notify the kitchen on WhatsApp. You haven't paid yet, so there's nothing to refund."
+      : `We'll notify the kitchen, and ₹${total.toLocaleString("en-IN")} will be refunded to your original payment method. Banks usually take 5–7 working days.`;
   const itemsSubtotal = lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
   const apiBreakdown = trackSnap?.breakdown;
   const computedFees =
@@ -1493,11 +1499,13 @@ export function OrderTrackingPanel({
               position: "fixed",
               inset: 0,
               zIndex: 200,
-              background: "rgba(0,0,0,0.45)",
+              background: "rgba(12,12,12,0.48)",
+              backdropFilter: "blur(14px) saturate(140%)",
+              WebkitBackdropFilter: "blur(14px) saturate(140%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: 20,
+              padding: 24,
             }}
             onClick={() => {
               if (!cancelSubmitting) setCancelModalOpen(false);
@@ -1511,12 +1519,11 @@ export function OrderTrackingPanel({
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "100%",
-                maxWidth: 360,
-                borderRadius: 20,
-                padding: "26px 22px",
-                background: C.surfaceDeep,
-                border: `1px solid ${C.border}`,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+                maxWidth: 340,
+                borderRadius: 24,
+                padding: "28px 22px 20px",
+                background: C.white,
+                boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
               }}
             >
               <h2
@@ -1544,7 +1551,7 @@ export function OrderTrackingPanel({
                   textAlign: "center",
                 }}
               >
-                Are you sure you want to cancel the order? We’ll notify the kitchen and send you the same update on WhatsApp.
+                {cancelConfirmBody}
               </p>
               {cancelErr ? (
                 <p style={{ margin: "12px 0 0", fontSize: 14, fontWeight: 700, color: "#fca5a5", fontFamily: fontUi, textAlign: "center", lineHeight: 1.45 }}>
