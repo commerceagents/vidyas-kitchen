@@ -153,8 +153,53 @@ function orderUrl(orderId: string): string {
   return `${publicSiteOrigin()}/driver/order/${encodeURIComponent(orderId)}`;
 }
 
-function cashSuffix(s: OrderSummary): string {
-  return s.collectCash ? ` · Collect ₹${s.amount.toLocaleString("en-IN")} cash` : "";
+/** First two address parts — enough to recognise the drop from the lock screen. */
+export function shortDeliveryLocation(address: string): string {
+  const oneLine = address.replace(/\s+/g, " ").trim();
+  if (!oneLine) return "Address in app";
+  const parts = oneLine.split(",").map((p) => p.trim()).filter(Boolean);
+  const compact = parts.length >= 2 ? parts.slice(0, 2).join(", ") : oneLine;
+  return compact.length > 56 ? `${compact.slice(0, 54)}…` : compact;
+}
+
+function cashLine(s: Pick<OrderSummary, "collectCash" | "amount">): string | null {
+  if (!s.collectCash) return null;
+  return `Collect ₹${s.amount.toLocaleString("en-IN")} cash`;
+}
+
+/**
+ * Lock-screen card for a driver: welcome, order id, location, then the job.
+ * Phones only show a few lines, so this is the whole design.
+ */
+export function driverOrderAlertPayload(input: {
+  ref: string;
+  address: string;
+  itemLine?: string;
+  collectCash?: boolean;
+  amount?: number;
+  url: string;
+  tag: string;
+}): PushPayload {
+  const origin = publicSiteOrigin();
+  const extra = [input.itemLine, cashLine({
+    collectCash: Boolean(input.collectCash),
+    amount: input.amount ?? 0,
+  })].filter(Boolean).join(" · ");
+
+  return {
+    title: "You got a new order",
+    body: [`Order ${input.ref}`, shortDeliveryLocation(input.address), extra]
+      .filter(Boolean)
+      .join("\n"),
+    tag: input.tag,
+    url: input.url,
+    icon: `${origin}/driver-icon-192.png`,
+    badge: `${origin}/driver-icon-192.png`,
+    sound: `${origin}/sounds/order-bell.wav`,
+    playBell: true,
+    urgent: true,
+    actions: [{ action: "open", title: "Open order" }],
+  };
 }
 
 /**
@@ -168,14 +213,19 @@ export async function notifyDriversOrderReady(
   const s = await loadOrderSummary(supabase, orderId);
   if (!s) return;
 
-  await sendDriverPushToAll(supabase, {
-    title: `Order ${s.ref} ready for pickup`,
-    body: `${s.customerName} · ${s.itemLine}\n${s.address}${cashSuffix(s)}`,
-    // Keyed per order so a re-send replaces the old card instead of stacking.
-    tag: `vk-driver-${orderId}-ready`,
-    url: orderUrl(orderId),
-    urgent: true,
-  });
+  await sendDriverPushToAll(
+    supabase,
+    driverOrderAlertPayload({
+      ref: s.ref,
+      address: s.address,
+      itemLine: s.itemLine,
+      collectCash: s.collectCash,
+      amount: s.amount,
+      // Keyed per order so a re-send replaces the old card instead of stacking.
+      tag: `vk-driver-${orderId}-ready`,
+      url: orderUrl(orderId),
+    }),
+  );
 }
 
 /** The kitchen picked this driver for this order. */
@@ -187,11 +237,17 @@ export async function notifyDriverAssigned(
   const s = await loadOrderSummary(supabase, orderId);
   if (!s) return;
 
-  await sendDriverPushTo(supabase, driverId, {
-    title: `New delivery: ${s.ref}`,
-    body: `${s.customerName} · ${s.itemLine}\n${s.address}${cashSuffix(s)}`,
-    tag: `vk-driver-${orderId}-assigned`,
-    url: orderUrl(orderId),
-    urgent: true,
-  });
+  await sendDriverPushTo(
+    supabase,
+    driverId,
+    driverOrderAlertPayload({
+      ref: s.ref,
+      address: s.address,
+      itemLine: s.itemLine,
+      collectCash: s.collectCash,
+      amount: s.amount,
+      tag: `vk-driver-${orderId}-assigned`,
+      url: orderUrl(orderId),
+    }),
+  );
 }

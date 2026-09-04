@@ -19,6 +19,13 @@ export type PushPayload = {
   body: string;
   tag?: string;
   url?: string;
+  icon?: string;
+  badge?: string;
+  /** Kitchen ding-dong. Most phones ignore this and use the system tone. */
+  sound?: string;
+  actions?: { action: string; title: string }[];
+  /** Play the kitchen bell in any open driver window. */
+  playBell?: boolean;
   /** Buzz the phone and keep the card up until it is acted on (driver alerts). */
   urgent?: boolean;
 };

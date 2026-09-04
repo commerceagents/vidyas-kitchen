@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDriverSession } from "@/lib/driver-auth";
-import { loadDriverSubs, sendDriverPushTo } from "@/lib/push-driver-notify";
+import { driverOrderAlertPayload, loadDriverSubs, sendDriverPushTo } from "@/lib/push-driver-notify";
 import { publicSiteOrigin } from "@/lib/site-url";
 
 export async function POST() {
@@ -34,13 +34,19 @@ export async function POST() {
       );
     }
 
-    const sent = await sendDriverPushTo(supabase, gate.driver.id, {
-      title: "Alerts are on",
-      body: "This is how a new delivery will reach you.",
-      tag: "vk-driver-test",
-      url: `${publicSiteOrigin()}/driver`,
-      urgent: true,
-    });
+    const sent = await sendDriverPushTo(
+      supabase,
+      gate.driver.id,
+      driverOrderAlertPayload({
+        ref: "#00042",
+        address: "12, 2nd Main Road, T. Nagar, Chennai",
+        itemLine: "Pepper chicken × 2",
+        collectCash: true,
+        amount: 480,
+        tag: "vk-driver-test",
+        url: `${publicSiteOrigin()}/driver`,
+      }),
+    );
 
     if (sent === 0) {
       return NextResponse.json(
