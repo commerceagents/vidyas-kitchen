@@ -2177,6 +2177,7 @@ export function MobileHomeScreen({
   }, []);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeIdleTimer = useRef(0);
+  const CHROME_IDLE_MS = 3500;
   const showChrome = windowOpen && chromeVisible && !dishDetailItem && activeScreen !== "menu";
 
   useEffect(() => {
@@ -2199,10 +2200,10 @@ export function MobileHomeScreen({
     const reveal = () => {
       setChromeVisible(true);
       window.clearTimeout(chromeIdleTimer.current);
-      chromeIdleTimer.current = window.setTimeout(hide, 1400);
+      chromeIdleTimer.current = window.setTimeout(hide, CHROME_IDLE_MS);
     };
 
-    chromeIdleTimer.current = window.setTimeout(hide, 1800);
+    chromeIdleTimer.current = window.setTimeout(hide, CHROME_IDLE_MS);
     el.addEventListener("scroll", reveal, { passive: true });
     el.addEventListener("wheel", reveal, { passive: true });
     el.addEventListener("touchmove", reveal, { passive: true });
@@ -2222,7 +2223,7 @@ export function MobileHomeScreen({
     setActiveNav(id);
     setChromeVisible(true);
     window.clearTimeout(chromeIdleTimer.current);
-    chromeIdleTimer.current = window.setTimeout(() => setChromeVisible(false), 1400);
+    chromeIdleTimer.current = window.setTimeout(() => setChromeVisible(false), CHROME_IDLE_MS);
   }
 
   /** One active in-flight order pill on the Order tab (hide once delivered). */
