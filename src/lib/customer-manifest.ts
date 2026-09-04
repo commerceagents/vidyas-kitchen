@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai";
+const CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
 
 /** Customer PWA. Served at /manifest.webmanifest via a route, not app/manifest.ts
  *  — that special file always injects a root <link rel="manifest"> and won

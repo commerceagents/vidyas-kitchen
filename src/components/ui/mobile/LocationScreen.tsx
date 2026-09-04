@@ -7,6 +7,7 @@ import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
+import { DELIVERY_ZONE } from "@/lib/delivery-zone";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
@@ -45,20 +46,6 @@ interface LocationScreenProps {
 type TipTone = "info" | "warn" | "success";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-/**
- * Where the kitchen cooks and how far it will drive. The name is shown to the
- * customer when they pick somewhere we can't reach, so it has to match reality.
- *
- * Overridable per environment so a move — or a second kitchen — is a config
- * change rather than a deploy of new constants.
- */
-const DELIVERY_ZONE = {
-  name: process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai",
-  lat: Number(process.env.NEXT_PUBLIC_KITCHEN_LAT) || 13.0827,
-  lng: Number(process.env.NEXT_PUBLIC_KITCHEN_LNG) || 80.2707,
-  radiusKm: Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM) || 25,
-};
-
 const KITCHEN_CENTER = { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
 const MAX_DISTANCE_KM = DELIVERY_ZONE.radiusKm;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";

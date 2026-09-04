@@ -47,7 +47,7 @@ import {
 const sp = (n: number) => n * 8;
 
 const APP_VERSION = "1.0.0";
-const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai";
+const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
 
 /** The same green "Instant" treatment used on the Vidya Bot tile at home. */
 function VerifiedChip() {
