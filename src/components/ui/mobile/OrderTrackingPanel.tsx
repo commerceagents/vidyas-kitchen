@@ -425,31 +425,6 @@ function WarmWash() {
   );
 }
 
-/** Same burst chip as the location-screen tips — plays once when an order lands. */
-function PlacedBurstChip({ orderId }: { orderId: string }) {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    // Only the checkout-success redirect sets this. Opening the app onto an
-    // existing live order must not replay "Order placed".
-    try {
-      if (sessionStorage.getItem("vk_just_placed") !== orderId) return;
-      sessionStorage.removeItem("vk_just_placed");
-    } catch {
-      return;
-    }
-    setShow(true);
-    const t = window.setTimeout(() => setShow(false), 2200);
-    return () => window.clearTimeout(t);
-  }, [orderId]);
-
-  return (
-    <GraffitiSpotlight show={show} chipKey={`placed-${orderId}`} tone="success">
-      Order placed
-    </GraffitiSpotlight>
-  );
-}
-
 /** Horizontal 4-dot progress rail on the dark status panel. */
 function StageRail({ stage }: { stage: number }) {
   const filled = Math.max(0, stage);
@@ -766,9 +741,6 @@ export function OrderTrackingPanel({
 
           {trackSnap ? (
             <>
-              {(n === "paid" || n === "confirmed") && trackingOrderId ? (
-                <PlacedBurstChip orderId={trackingOrderId} />
-              ) : null}
               {/* Hero — map backdrop + floating ETA card */}
               <div style={{ position: "relative", marginBottom: 14 }}>
                 <div
