@@ -1920,7 +1920,6 @@ export function MobileHomeScreen({
   const [activeNav, setActiveNav] = useState(uiBootstrap.activeNav);
   const [activeScreen, setActiveScreen] = useState<"home" | "menu">(uiBootstrap.activeScreen);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [proximityAlert, setProximityAlert] = useState(true);
   const [trackSnap, setTrackSnap] = useState<TrackSnapshot | null>(null);
   const [trackErr, setTrackErr] = useState<string | null>(null);
   const [trackBanner, setTrackBanner] = useState<string | null>(null);
@@ -2275,8 +2274,6 @@ export function MobileHomeScreen({
     };
   }, []);
 
-  useEffect(() => { if (!inRange) setProximityAlert(true); }, [inRange]);
-
   useEffect(() => {
     if (activeNav === "orders" || activeNav === "account") setLocationOpen(false);
   }, [activeNav]);
@@ -2574,55 +2571,6 @@ export function MobileHomeScreen({
                       Change Address
                     </motion.button>
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Proximity alert */}
-            <AnimatePresence>
-              {!inRange && proximityAlert && !locationOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                  style={{
-                    marginTop: 8,
-                    background: "rgba(189,35,32,0.08)",
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    border: "1px solid rgba(189,35,32,0.2)",
-                    borderRadius: 16, padding: "12px 14px",
-                    display: "flex", alignItems: "center", gap: 12,
-                  }}
-                >
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 10,
-                    background: C.redFaint, border: `1px solid ${C.redBorder}`,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  }}>
-                    <Warning size={15} color={C.red} weight="fill" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 12, color: C.text, fontWeight: 700, lineHeight: 1.3 }}>
-                      Is this the right address?
-                    </p>
-                    <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(0,0,0,0.38)", fontWeight: 500 }}>
-                      It looks a little far from you.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setProximityAlert(false)}
-                    style={{
-                      background: "rgba(0,0,0,0.06)", border: "none",
-                      borderRadius: 8, width: 28, height: 28,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", color: "rgba(0,0,0,0.38)",
-                      fontSize: 18, flexShrink: 0,
-                    }}
-                  >
-                    ×
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>

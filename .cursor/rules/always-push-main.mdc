@@ -1,0 +1,13 @@
+---
+description: Always commit finished work and push it to origin/main
+alwaysApply: true
+---
+
+# Always ship to main
+
+When a change is done, commit it and `git push origin HEAD` to `origin/main` without asking first.
+
+- Do not wait for “have you pushed?”
+- After a push that should go live, confirm the Vercel production deploy (or trigger a redeploy if only env vars changed)
+- Skip empty commits. Do not commit secrets (`.env`, tokens, keys)
+- Destructive git (`push --force` to main, hard reset) still requires an explicit request
