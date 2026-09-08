@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, CaretLeft } from "@phosphor-icons/react";
 import Image from "next/image";
-import { isTestBypassPhone } from "@/lib/test-numbers";
 import { setVkStoredToken } from "@/lib/vk-session";
 import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
  
@@ -813,11 +812,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
             )}
             {sendLoading ? "Sending…" : "Send OTP"}
           </motion.button>
-          {!isFirebaseConfigured && (
-            <p style={{ color: C.green, fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: T.sp3, fontFamily: C.mono, lineHeight: 1.5, opacity: 0.85 }}>
-              ⚠️ Dev Mode: Mock OTP active (use any code)
-            </p>
-          )}
           {sendError && (
             <p style={{ color: C.red, fontSize: 13, fontWeight: 600, textAlign: "center", marginTop: T.sp3, fontFamily: C.mono, lineHeight: 1.5, padding: "0 10px" }}>
               {sendError}
