@@ -352,6 +352,30 @@ function dishInCart(itemId: string, cart: Record<string, number>): boolean {
   );
 }
 
+function qtyForDish(item: MenuItem, cart: Record<string, number>): number {
+  return Object.entries(cart).reduce((sum, [key, q]) => {
+    if (key === item.id || key.startsWith(`${item.id}:`)) return sum + q;
+    return sum;
+  }, 0);
+}
+
+function decrementDish(
+  item: MenuItem,
+  cart: Record<string, number>,
+  updateQty: (id: string, delta: number) => void,
+) {
+  const defaultW = defaultVariantWeight(item);
+  const preferred = defaultW ? `${item.id}:${defaultW}` : item.id;
+  if ((cart[preferred] || 0) > 0) {
+    updateQty(preferred, -1);
+    return;
+  }
+  const key = Object.keys(cart).find(
+    (k) => (k === item.id || k.startsWith(`${item.id}:`)) && (cart[k] || 0) > 0,
+  );
+  if (key) updateQty(key, -1);
+}
+
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
 const SAMPLE_REVIEWS = [
   {
@@ -3493,7 +3517,9 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
 }) {
   const [activeCat, setActiveCat] = useState("chicken");
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [sizePickItem, setSizePickItem] = useState<MenuItem | null>(null);
   const carouselRef               = useRef<HTMLDivElement>(null);
+  const activeFestival = useActiveFestival();
   
   const filtered = allItems
     .filter(i => (i.category || "").toLowerCase() === activeCat.toLowerCase())
@@ -3596,6 +3622,19 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
           Browse Menu
         </h2>
       </div>
+      <p
+        style={{
+          margin: "0 16px 4px",
+          textAlign: "center",
+          fontSize: 12,
+          fontWeight: 600,
+          color: "rgba(0,0,0,0.4)",
+          fontFamily: C.mono,
+          flexShrink: 0,
+        }}
+      >
+        Tap a dish for details
+      </p>
 
       <div style={{
         padding: `12px ${sp(2)}px 24px`, // Added top padding to move down
@@ -3684,14 +3723,13 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
               gap: 12,
             }}>
               {filtered.map((item) => {
-                const defaultW = defaultVariantWeight(item);
-                const cartKey = defaultW ? `${item.id}:${defaultW}` : item.id;
                 return (
                   <MenuGridCard
                     key={item.id}
                     item={item}
-                    qty={cart[cartKey] || 0}
-                    onUpdate={(d) => updateQty(cartKey, d)}
+                    qty={qtyForDish(item, cart)}
+                    onPickSize={() => setSizePickItem(item)}
+                    onMinus={() => decrementDish(item, cart, updateQty)}
                     onOpenDetail={() => onOpenDishDetail(item)}
                   />
                 );
@@ -3810,6 +3848,122 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {sizePickItem && (
+          <motion.div
+            key="vk-size-sheet"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 240,
+              background: "rgba(12,12,12,0.45)",
+              backdropFilter: "blur(12px) saturate(140%)",
+              WebkitBackdropFilter: "blur(12px) saturate(140%)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+            }}
+            onClick={() => setSizePickItem(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 34 }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="vk-size-sheet-title"
+              style={{
+                background: C.bg,
+                borderRadius: "24px 24px 0 0",
+                padding: "8px 20px max(20px, env(safe-area-inset-bottom))",
+                boxShadow: "0 -12px 40px rgba(0,0,0,0.18)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "center", paddingTop: 6, paddingBottom: 10 }}>
+                <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,0.12)" }} />
+              </div>
+              <h3 id="vk-size-sheet-title" style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: C.text }}>
+                Choose size
+              </h3>
+              <p style={{ margin: "0 0 16px", fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.42)" }}>
+                {parseRecipeTag(sizePickItem.name).cleanName}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {sizePickItem.variants.map((v) => {
+                  const listPrice = listPriceForVariant(sizePickItem, v.id, v.price, new Date(), activeFestival);
+                  const meta = sizeServingMeta(v.weight || v.label);
+                  const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
+                  const cartKey = v.weight ? `${sizePickItem.id}:${v.weight}` : sizePickItem.id;
+                  return (
+                    <motion.button
+                      key={v.weight || v.label}
+                      type="button"
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        updateQty(cartKey, 1);
+                        setSizePickItem(null);
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        padding: "14px",
+                        borderRadius: 20,
+                        background: C.surface,
+                        border: `1.5px solid ${C.border}`,
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 16,
+                          background: "rgba(189,35,32,0.1)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon size={24} weight="duotone" color={C.red} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.text }}>
+                          {v.label}
+                        </span>
+                        <span style={{ display: "block", marginTop: 3, fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>
+                          {meta.servings}
+                        </span>
+                      </span>
+                      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                        {listPrice != null && listPrice > v.price && (
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.4)", textDecoration: "line-through" }}>
+                            ₹{listPrice.toLocaleString("en-IN")}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 20, fontWeight: 900, color: C.red }}>
+                          ₹{v.price.toLocaleString("en-IN")}
+                        </span>
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -3817,12 +3971,14 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
 function MenuGridCard({
   item,
   qty,
-  onUpdate,
+  onPickSize,
+  onMinus,
   onOpenDetail,
 }: {
   item: MenuItem;
   qty: number;
-  onUpdate: (d: number) => void;
+  onPickSize: () => void;
+  onMinus: () => void;
   onOpenDetail: () => void;
 }) {
   const activeFestival = useActiveFestival();
@@ -3843,11 +3999,11 @@ function MenuGridCard({
 
   const handleAdd = () => {
     if (!orderingOpen) return;
-    onUpdate(1);
+    onPickSize();
   };
 
   const handleMinus = () => {
-    onUpdate(-1);
+    onMinus();
   };
 
   return (
@@ -4076,7 +4232,7 @@ function MenuGridCard({
               <button
                 type="button"
                 aria-label="Increase quantity"
-                onClick={() => onUpdate(1)}
+                onClick={handleAdd}
                 style={{
                   width: 32,
                   height: 32,
