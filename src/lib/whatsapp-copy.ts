@@ -10,8 +10,7 @@
  *  - No emojis. Anywhere. The tone comes from the words.
  *  - Button labels: `BTN`, kept under WhatsApp's 20 characters, and the same
  *    label always means the same thing.
- *  - English is real English. Tanglish is its own register, not English with
- *    Tamil words dropped in — the English welcome used to open "Vanakkam".
+ *  - English only. Tanglish variants in this file are unused leftovers.
  *
  * Client components import from this file, so it must stay free of anything
  * server-only (no Supabase, no service-role key).
@@ -1264,7 +1263,7 @@ export function helpAndSupportReply(lang?: WaLang): string {
     msg({
       title: "Help",
       lines: [
-        "Track an order, see your past ones, call the kitchen, or tap Language to switch English / Tanglish.",
+        "Track an order, see your past ones, or call the kitchen.",
         "",
         "Late order, wrong dish, anything else — just type it. I'll sort it or bring in a human.",
       ],

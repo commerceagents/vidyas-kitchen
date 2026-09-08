@@ -1,12 +1,9 @@
 /**
- * English vs Tanglish for WhatsApp copy. One bot, two registers — button
- * titles stay short English either way (20-char limit).
+ * WhatsApp copy is English-only. Tanglish strings still exist in
+ * `whatsapp-copy.ts` but `pickLang` never selects them.
  *
- * The choice lives in `whatsapp_sessions.lang`. It used to live in a
- * module-level Map, which meant every serverless cold start forgot it and
- * dropped a Tanglish regular back into English mid-order. The Map below is now
- * only a per-instance cache, primed from the row at the top of each request so
- * the many `langOf(phone)` call sites can stay synchronous.
+ * `whatsapp_sessions.lang` is still written as `en` so old picker rows do not
+ * keep people on Tanglish. The Map is a leftover cache for that write path.
  */
 
 import { createServerSupabase } from "./supabase-server";
@@ -76,11 +73,11 @@ export async function saveWaLang(phone: string, lang: WaLang): Promise<void> {
   }
 }
 
-/** Synchronous read for copy builders. English until a choice is stored. */
-export function langForPhone(phone: string): WaLang {
-  return langCache.get(phone) || "en";
+/** Synchronous read for copy builders. The bot is English-only. */
+export function langForPhone(_phone: string): WaLang {
+  return "en";
 }
 
-export function pickLang<T>(lang: WaLang | undefined, en: T, tanglish: T): T {
-  return lang === "tanglish" ? tanglish : en;
+export function pickLang<T>(_lang: WaLang | undefined, en: T, _tanglish: T): T {
+  return en;
 }

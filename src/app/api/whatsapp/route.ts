@@ -72,7 +72,6 @@ import {
   complaintPrompt,
   helpAndSupportReply,
   callUsDialReply,
-  languagePickerBody,
   languageSetReply,
   marketingOptOutReply,
   notUnderstoodReply,
@@ -87,8 +86,6 @@ import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
 import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
 import {
-  detectWaLang,
-  loadWaLang,
   saveWaLang,
   langForPhone,
   type WaLang,
@@ -430,21 +427,11 @@ export async function POST(req: Request) {
     const text = body.trim();
     const lower = text.toLowerCase();
 
-    // Fills the synchronous cache the copy builders read. Null means this
-    // number has never picked a language.
-    const storedLang = await loadWaLang(from);
-
     const session = await getSession(from);
 
-    // Language choice, before anything else can use it.
+    // Old chats may still have the language picker buttons.
     if (interactiveReplyId === "lang_en" || interactiveReplyId === "lang_tanglish") {
-      return await applyLanguageChoice(from, interactiveReplyId === "lang_en" ? "en" : "tanglish", profileName);
-    }
-
-    // Asked once, and only when they are not mid-order — interrupting someone
-    // at the payment step to ask about language would be its own bug.
-    if (storedLang === null && session.state === "idle" && !catalogProductItems?.length) {
-      return await showLanguagePicker(from, profileName, text);
+      return await applyLanguageChoice(from, "en", profileName);
     }
 
     const isGreeting = /^(hi|hello|hey|namaste|vanakkam|start|restart)\b/i.test(text);
@@ -507,7 +494,7 @@ export async function POST(req: Request) {
       return await showCart(from, session.cart);
     }
     if (isLangCmd) {
-      return await showLanguagePicker(from, profileName, text);
+      return await showWelcome(from, profileName);
     }
     if (isHelpCmd) {
       return await showHelpSupport(from);
@@ -577,30 +564,8 @@ export async function POST(req: Request) {
 
 // ─── Language ──────────────────────────────────────────────────────────────
 
-async function showLanguagePicker(from: string, profileName: string, incoming: string) {
-  const firstName = profileName?.trim().split(/\s+/)[0];
-  // Their own words only decide which button reads first, never the answer.
-  const guess = detectWaLang(incoming);
-  const buttons =
-    guess === "tanglish"
-      ? [
-          { id: "lang_tanglish", title: BTN.tanglish },
-          { id: "lang_en", title: BTN.english },
-        ]
-      : [
-          { id: "lang_en", title: BTN.english },
-          { id: "lang_tanglish", title: BTN.tanglish },
-        ];
-
-  await storeOptions(from, buttons);
-  await sendButtons(from, languagePickerBody(firstName), buttons, {
-    headerImageUrl: welcomeLogoImageUrl(),
-  });
-  return ack();
-}
-
 async function applyLanguageChoice(from: string, lang: WaLang, profileName: string) {
-  await saveWaLang(from, lang);
+  await saveWaLang(from, "en");
   await sendText(from, languageSetReply(lang));
   return await showWelcome(from, profileName);
 }
@@ -642,7 +607,7 @@ async function handleResolvedId(
     case "lang_tanglish":
       return await applyLanguageChoice(from, "tanglish", profileName);
     case "hs_language":
-      return await showLanguagePicker(from, profileName, "");
+      return await showWelcome(from, profileName);
     case "browse_menu":
     case "view_menu":
       return await showFullMenu(from);
@@ -1654,12 +1619,12 @@ async function showHelpSupport(from: string) {
     ? [
         { id: "hs_track", title: BTN.track },
         { id: "hs_call", title: BTN.callUs },
-        { id: "hs_language", title: BTN.language },
+        { id: "hs_complaint", title: BTN.somethingWrong },
       ]
     : [
         { id: "hs_your_orders", title: BTN.yourOrders },
         { id: "hs_call", title: BTN.callUs },
-        { id: "hs_language", title: BTN.language },
+        { id: "hs_complaint", title: BTN.somethingWrong },
       ];
   await storeOptions(from, options);
   await sendButtons(from, helpAndSupportReply(langOf(from)), options);
