@@ -6,7 +6,15 @@ import Map, { Marker } from "react-map-gl/mapbox";
 import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, CaretLeft } from "@phosphor-icons/react";
 
 import "mapbox-gl/dist/mapbox-gl.css";
-import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
+import {
+  type SavedPlace,
+  type SavedPlaceId,
+  loadSavedPlaces,
+  savePlaces,
+  DEFAULT_SAVED_PLACES,
+  MAX_PLACE_LABEL,
+  emptyAddressFor,
+} from "@/lib/vk-saved-places";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
@@ -17,6 +25,21 @@ interface LocationData {
   lat: number;
   lng: number;
   inRange: boolean;
+  /** Custom name for the Other slot (Home / Work stay fixed). */
+  placeLabel?: string;
+}
+
+function composeDeliveryLabel(street: string, house: string, building: string, landmark: string) {
+  const streetPart = street.trim();
+  const extras = [house.trim(), building.trim()].filter(Boolean);
+  let out = extras.length && streetPart
+    ? `${extras.join(", ")}, ${streetPart}`
+    : extras.length
+      ? extras.join(", ")
+      : streetPart;
+  const mark = landmark.trim();
+  if (mark) out = out ? `${out}, near ${mark}` : `near ${mark}`;
+  return out;
 }
 
 interface GeoFeature {
@@ -47,8 +70,8 @@ interface LocationScreenProps {
    * `delivery-pin` — checkout / recipient: the pin must be inside the zone.
    */
   mode?: "my-gps" | "delivery-pin";
-  /** First login: apply GPS and continue without a Confirm tap. */
-  autoAdvanceOnGps?: boolean;
+  /** Account drawer: which saved slot this pin is being filed against. */
+  savedSlotId?: SavedPlaceId | null;
 }
 type TipTone = "info" | "warn" | "success";
 
@@ -114,7 +137,7 @@ const LOC = {
 const MAP_PAD_TOP = 80;
 const MAP_PAD_BOTTOM_EXTRA = 20;
 /** Must match initial `sheetHeight` so padding matches before the first layout measure. */
-const INITIAL_SHEET_FALLBACK_H = 320;
+const INITIAL_SHEET_FALLBACK_H = 420;
 
 /** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
 function easeSmootherstep(t: number) {
@@ -312,7 +335,7 @@ export function LocationScreen({
   onBack,
   confirmLabel,
   mode = "my-gps",
-  autoAdvanceOnGps = false,
+  savedSlotId = null,
 }: LocationScreenProps) {
   // A location we've already been given is a real pick, so the map opens zoomed
   // in on it with the confirm button live — not parked over the kitchen at city
@@ -343,6 +366,10 @@ export function LocationScreen({
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_SAVED_PLACES);
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
   const [addingPlace, setAddingPlace] = useState<SavedPlace | null>(null);
+  const [houseNo, setHouseNo] = useState("");
+  const [building, setBuilding] = useState("");
+  const [landmark, setLandmark] = useState("");
+  const [otherName, setOtherName] = useState("");
   const [floatingTip, setFloatingTip] = useState<{ text: string; tone: TipTone; id: number } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [outOfRangeModal, setOutOfRangeModal] = useState(false);
@@ -440,7 +467,10 @@ export function LocationScreen({
 
   // Load saved places from localStorage on mount
   useEffect(() => {
-    setSavedPlaces(loadSavedPlaces());
+    const places = loadSavedPlaces();
+    setSavedPlaces(places);
+    const other = places.find((p) => p.id === "other");
+    if (other && other.label !== "Other") setOtherName(other.label);
   }, []);
 
   // Keep recenter button and padding ref synced with actual drawer height.
@@ -602,16 +632,8 @@ export function LocationScreen({
           return;
         }
 
-        const addr = await applyPin(latitude, longitude);
+        await applyPin(latitude, longitude);
         setIsDetecting(false);
-        if (mode === "my-gps" && autoAdvanceOnGps && opts?.auto && addr) {
-          onLocationSet({
-            label: addr,
-            lat: latitude,
-            lng: longitude,
-            inRange: inZone,
-          });
-        }
       },
       (err) => {
         setIsDetecting(false);
@@ -629,7 +651,7 @@ export function LocationScreen({
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
-  }, [applyPin, showTip, mode, autoAdvanceOnGps, onLocationSet]);
+  }, [applyPin, showTip, mode]);
 
   // Arriving here with no address — straight out of the OTP screen — used to
   // mean the map sat over the kitchen until the customer thought to ask for
@@ -691,6 +713,7 @@ export function LocationScreen({
         searchText !== "Locating address..." &&
         searchText !== "Set your location" &&
         searchText !== "Pinned location";
+      if (place.id === "other" && place.label !== "Other") setOtherName(place.label);
       if (hasResolved) {
         showTip(`Tap "Save as ${place.label}" to use current pin`, "info");
       }
@@ -711,6 +734,9 @@ export function LocationScreen({
     setAddingPlace(null);
     setPinCoords({ lat: place.lat, lng: place.lng });
     setSearchText(place.address);
+    setHouseNo("");
+    setBuilding("");
+    setLandmark("");
     setHasPicked(true);
     animateCameraTo(place.lng, place.lat, 1700);
   };
@@ -725,7 +751,15 @@ export function LocationScreen({
       showTip("Move the pin to a named location first", "warn");
       return;
     }
-    const label = searchText.trim();
+    const label = composeDeliveryLabel(searchText, houseNo, building, landmark);
+    if (!label) {
+      showTip("Move the pin to a named location first", "warn");
+      return;
+    }
+    const nickname =
+      addingPlace.id === "other"
+        ? otherName.trim().slice(0, MAX_PLACE_LABEL) || "Other"
+        : addingPlace.label;
     const duplicate = savedPlaces.find((p) => {
       if (p.id === addingPlace.id || p.lat === 0) return false;
       const sameAddress = p.address.trim().toLowerCase() === label.toLowerCase();
@@ -738,26 +772,29 @@ export function LocationScreen({
     }
     const updated = savedPlaces.map((p) =>
       p.id === addingPlace.id
-        ? { ...p, address: label, lat: pinCoords.lat, lng: pinCoords.lng }
+        ? { ...p, label: nickname, address: label, lat: pinCoords.lat, lng: pinCoords.lng }
         : p
     );
     setSavedPlaces(updated);
     savePlaces(updated);
     setSelectedSaved(addingPlace.id);
-    showTip(`${addingPlace.label} saved!`, "success");
+    showTip(`${nickname} saved!`, "success");
     setAddingPlace(null);
   };
 
   const handleDeletePlace = (place: SavedPlace) => {
-    const resetAddress =
-      place.id === "home"
-        ? "Add home address"
-        : place.id === "work"
-        ? "Add work address"
-        : "Add other address";
     const updated = savedPlaces.map((p) =>
-      p.id === place.id ? { ...p, address: resetAddress, lat: 0, lng: 0 } : p
+      p.id === place.id
+        ? {
+            ...p,
+            label: p.id === "other" ? "Other" : p.label,
+            address: emptyAddressFor(p.id),
+            lat: 0,
+            lng: 0,
+          }
+        : p
     );
+    if (place.id === "other") setOtherName("");
     setSavedPlaces(updated);
     savePlaces(updated);
     if (selectedSaved === place.id) setSelectedSaved(null);
@@ -788,10 +825,20 @@ export function LocationScreen({
     // ("Home") is meaningless to them, so send the street address it stands for
     // and only fall back to the nickname if we never resolved one.
     const saved = selectedSaved ? savedPlaces.find((p) => p.id === selectedSaved) : undefined;
-    const label = saved
+    const street = saved
       ? saved.address?.trim() || saved.label || "Saved Location"
       : searchText.trim() || "Current Location";
-    onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange });
+    const label = composeDeliveryLabel(street, houseNo, building, landmark) || street;
+    const namingOther = addingPlace?.id === "other" || savedSlotId === "other";
+    onLocationSet({
+      label,
+      lat: pinCoords.lat,
+      lng: pinCoords.lng,
+      inRange,
+      placeLabel: namingOther
+        ? otherName.trim().slice(0, MAX_PLACE_LABEL) || undefined
+        : undefined,
+    });
   };
 
   const hasToken = MAPBOX_TOKEN.length > 0;
@@ -1254,6 +1301,79 @@ export function LocationScreen({
             </div>
           </motion.div>
 
+          {(addingPlace?.id === "other" || savedSlotId === "other") && (
+            <div style={{ marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Name this place — Mom's house, Gym…"
+                value={otherName}
+                maxLength={MAX_PLACE_LABEL}
+                onChange={(e) => setOtherName(e.target.value)}
+                style={{
+                  ...LOC.searchInput,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  background: "rgba(0,0,0,0.03)",
+                  border: "1.5px solid rgba(0,0,0,0.08)",
+                  borderRadius: 14,
+                  padding: "12px 14px",
+                }}
+              />
+            </div>
+          )}
+
+          {hasPicked && !isResolvingAddress && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="House / Flat no."
+                  value={houseNo}
+                  onChange={(e) => setHouseNo(e.target.value)}
+                  style={{
+                    ...LOC.searchInput,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    background: "rgba(0,0,0,0.03)",
+                    border: "1.5px solid rgba(0,0,0,0.08)",
+                    borderRadius: 14,
+                    padding: "11px 12px",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Building"
+                  value={building}
+                  onChange={(e) => setBuilding(e.target.value)}
+                  style={{
+                    ...LOC.searchInput,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    background: "rgba(0,0,0,0.03)",
+                    border: "1.5px solid rgba(0,0,0,0.08)",
+                    borderRadius: 14,
+                    padding: "11px 12px",
+                  }}
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Landmark (optional)"
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+                style={{
+                  ...LOC.searchInput,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  background: "rgba(0,0,0,0.03)",
+                  border: "1.5px solid rgba(0,0,0,0.08)",
+                  borderRadius: 14,
+                  padding: "11px 12px",
+                }}
+              />
+            </div>
+          )}
+
           {/* Use current location row */}
           <motion.button
             custom={3}
@@ -1360,7 +1480,7 @@ export function LocationScreen({
                   skewX: -20,
                 }}
               />
-              Save as {addingPlace.label}
+              Save as {addingPlace.id === "other" ? (otherName.trim() || "Other") : addingPlace.label}
             </motion.button>
           ) : (
             <motion.button

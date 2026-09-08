@@ -39,6 +39,7 @@ interface LocationData {
   lat: number;
   lng: number;
   inRange: boolean;
+  placeLabel?: string;
 }
 
 interface MobileShellProps {
@@ -563,7 +564,18 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       setLocationBackStep(null);
       savePlaces(
         loadSavedPlaces().map((p) =>
-          p.id === slot.id ? { ...p, address: loc.label, lat: loc.lat, lng: loc.lng } : p,
+          p.id === slot.id
+            ? {
+                ...p,
+                address: loc.label,
+                lat: loc.lat,
+                lng: loc.lng,
+                label:
+                  slot.id === "other"
+                    ? (loc.placeLabel || p.label || "Other")
+                    : p.label,
+              }
+            : p,
         ),
       );
       // Filing an address for later is not the same as saying "deliver here
@@ -649,13 +661,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                   ? "delivery-pin"
                   : "my-gps"
               }
-              autoAdvanceOnGps={
-                !location &&
-                !editingSavedPlace &&
-                !locationPickKind &&
-                !resumeCheckoutAfterLocation &&
-                !editingAddressForOrder
-              }
+              savedSlotId={editingSavedPlace?.id ?? null}
               // Placing a saved address opens on that address if it has one,
               // rather than on wherever the customer happens to be delivering.
               initialLocation={
@@ -678,7 +684,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               }
               confirmLabel={
                 editingSavedPlace
-                  ? `Save as ${editingSavedPlace.label}`
+                  ? editingSavedPlace.id === "other"
+                    ? "Save this place"
+                    : `Save as ${editingSavedPlace.label}`
                   : locationPickKind === "recipient"
                     ? "Use this drop-off"
                     : undefined
