@@ -14,7 +14,7 @@ import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-sessi
 import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
 import { isOrderInFlight } from "@/lib/order-status";
 import { disablePush } from "@/lib/push-subscribe";
-import { auth } from "@/lib/firebase";
+import { getVkToken } from "@/lib/vk-session";
 import {
   applyServerSavedPlaces,
   loadSavedPlaces,
@@ -432,7 +432,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       try {
         const headers: Record<string, string> = {};
         try {
-          const token = await auth?.currentUser?.getIdToken();
+          const token = await getVkToken();
           if (token) headers.Authorization = `Bearer ${token}`;
         } catch { /* session not yet restored — server rejects gracefully */ }
 

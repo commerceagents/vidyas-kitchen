@@ -1,12 +1,16 @@
 import { isTestBypassPhone, localPhoneDigits } from "@/lib/test-numbers";
+import { verifySessionToken } from "@/lib/vk-session-server";
 
 /**
- * Server-side check that a Firebase ID token is real and belongs to the phone
- * number the caller claims.
+ * Server-side token verification.
  *
- * Google's Identity Toolkit rejects expired, tampered or foreign-project
- * tokens for us, so this needs only the public web API key — no service
- * account, no firebase-admin dependency.
+ * Accepts two token formats:
+ *   1. VK session JWT  — issued by /api/auth/otp/verify (Twilio flow).
+ *   2. Firebase ID token — issued by Firebase phone auth (legacy, kept for
+ *      users who logged in before the Twilio migration).
+ *
+ * The Firebase path uses Google's Identity Toolkit public endpoint so no
+ * service-account / firebase-admin dependency is needed.
  */
 const LOOKUP_URL = "https://identitytoolkit.googleapis.com/v1/accounts:lookup";
 
@@ -16,8 +20,15 @@ export function firebaseAuthAvailable(): boolean {
 
 /** The verified phone number on the token, or null if the token is no good. */
 export async function phoneFromIdToken(idToken: string): Promise<string | null> {
+  if (!idToken) return null;
+
+  // Try our own session JWT first (Twilio flow).
+  const vkSession = await verifySessionToken(idToken);
+  if (vkSession) return vkSession.phone;
+
+  // Fall back to Firebase Identity Toolkit lookup (legacy Firebase sessions).
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!key || !idToken) return null;
+  if (!key) return null;
 
   try {
     const res = await fetch(`${LOOKUP_URL}?key=${encodeURIComponent(key)}`, {

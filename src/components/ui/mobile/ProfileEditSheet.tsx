@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Camera, Trash, X } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED } from "@/components/ui/mobile/mobile-design-tokens";
 import { AvatarImageError, fileToSquareJpegDataUrl } from "@/lib/avatar-image";
-import { auth } from "@/lib/firebase";
+import { getVkToken } from "@/lib/vk-session";
 
 const fontUi = C.mono;
 const MAX_NAME = 40;
@@ -82,7 +82,7 @@ export function ProfileEditSheet({
       // logins never touch Firebase, so there is simply no token to send.
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       try {
-        const token = await auth?.currentUser?.getIdToken();
+        const token = await getVkToken();
         if (token) headers.Authorization = `Bearer ${token}`;
       } catch {
         /* Unsigned request; the server decides whether that is acceptable. */

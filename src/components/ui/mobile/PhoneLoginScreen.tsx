@@ -5,9 +5,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, CaretLeft } from "@phosphor-icons/react";
 import Image from "next/image";
-import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
-import { auth, isFirebaseConfigured } from "@/lib/firebase";
 import { isTestBypassPhone } from "@/lib/test-numbers";
+import { setVkStoredToken } from "@/lib/vk-session";
 import { TYPO, SUCCESS_STATUS } from "@/components/ui/mobile/mobile-typography";
  
 // ─── Constants (squircle mask for OTP / legacy) ───────────────────
@@ -401,85 +400,16 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [canResend, setCanResend] = useState(false);
   const [resendEpoch, setResendEpoch] = useState(0);
   const otpCatcherRef = useRef<HTMLInputElement | null>(null);
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const pendingOtpRef = useRef<string | null>(null);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postOtpNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [otpVerifySuccess, setOtpVerifySuccess] = useState(false);
-  /** Bumped after the verifier is discarded, to warm a replacement. */
-  const [warmEpoch, setWarmEpoch] = useState(0);
-
-  const clearRecaptcha = useCallback(() => {
-    try {
-      recaptchaVerifierRef.current?.clear();
-    } catch { /* ignore */ }
-    recaptchaVerifierRef.current = null;
-    // Replace the entire DOM node so reCAPTCHA sees a fresh element
-    const old = document.getElementById("vk-recaptcha");
-    if (old && old.parentNode) {
-      const fresh = document.createElement("div");
-      fresh.id = "vk-recaptcha";
-      Object.assign(fresh.style, { position: "fixed", left: "0", bottom: "0", width: "1px", height: "1px", opacity: "0.01", pointerEvents: "none" });
-      old.parentNode.replaceChild(fresh, old);
-    }
-  }, []);
-
-  const getOrCreateRecaptcha = useCallback(() => {
-    if (!auth) throw new Error("Firebase Auth not available");
-
-    // Reuse a verifier we already built. Tearing it down and rebuilding on every
-    // send meant paying the reCAPTCHA script load and challenge on the tap
-    // itself, which is most of the wait before the OTP screen appears. Failed
-    // sends still clear it explicitly, so a broken challenge is never reused.
-    if (recaptchaVerifierRef.current) {
-      return recaptchaVerifierRef.current;
-    }
-
-    const container = document.getElementById("vk-recaptcha");
-    if (!container) throw new Error("reCAPTCHA container missing");
-
-    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, container, {
-      size: "invisible",
-      callback: () => {
-        console.log("reCAPTCHA solved");
-      },
-      "expired-callback": () => {
-        clearRecaptcha();
-      }
-    });
-    return recaptchaVerifierRef.current;
-  }, [clearRecaptcha]);
 
   useEffect(() => {
     return () => {
       if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
       if (postOtpNavTimerRef.current) clearTimeout(postOtpNavTimerRef.current);
-      confirmationRef.current = null;
-      clearRecaptcha();
     };
-  }, [clearRecaptcha]);
-
-  // Build and render the invisible reCAPTCHA up front, while the customer is
-  // still typing their name and number. It fetches Google's script and solves a
-  // challenge, which took seconds when it ran on the tap — leaving them staring
-  // at "Sending…". Doing it here means the tap only pays for the SMS itself.
-  useEffect(() => {
-    if (!isFirebaseConfigured || !auth) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const verifier = getOrCreateRecaptcha();
-        if (cancelled) return;
-        await verifier.render();
-      } catch {
-        // Warming is best-effort — handleSend builds one on demand if this fails.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getOrCreateRecaptcha, warmEpoch]);
+  }, []);
 
   useEffect(() => {
     if (displayName?.trim()) {
@@ -516,90 +446,30 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     return () => clearInterval(iv);
   }, [showOtp, resendEpoch, sendLoading]);
 
-  const firebaseErrorMessage = (err: unknown): string => {
-    const code = err && typeof err === "object" && "code" in err ? String((err as { code?: string }).code) : "";
-    const message = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "";
-    
-    if (code === "auth/invalid-phone-number") return "Invalid phone number.";
-    if (code === "auth/too-many-requests") return "Too many attempts. Try again later.";
-    if (code === "auth/quota-exceeded") return "SMS quota exceeded. Try again tomorrow.";
-    if (code === "auth/captcha-check-failed") return "Security check failed. Try again.";
-    if (code === "auth/network-request-failed") return "Network error. Check your connection.";
-    if (message.includes("reCAPTCHA has already been rendered")) {
-      return "System busy. Please refresh the page and try again.";
-    }
-    
-    return message || "Could not send code. Try again.";
-  };
-
-  const sendFirebaseOtp = async () => {
-    if (!isFirebaseConfigured || !auth) {
-      throw new Error("Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* env vars.");
-    }
-    const phoneE164 = `+91${rawPhone}`;
-    const verifier = getOrCreateRecaptcha();
-    const confirmation = await signInWithPhoneNumber(auth, phoneE164, verifier);
-    confirmationRef.current = confirmation;
-  };
-
   const handleSend = async () => {
     if (!isValid) return;
     setSendError(null);
     setSendLoading(true);
-    // Move to the OTP screen straight away and let it show the progress. The
-    // reCAPTCHA token and the SMS request together take a few seconds we cannot
-    // remove, and spending them on a button that just reads "Sending…" makes
-    // the app feel stuck. Any failure sends them back here with the reason.
+    // Show the OTP screen immediately so the user sees progress rather than
+    // a frozen "Send" button while the API round-trip completes.
     setShowOtp(true);
-    // Local/LAN hosts (e.g. 192.168.x.x) are not Firebase authorized domains —
-    // these numbers skip reCAPTCHA so phone testing still works.
-    const isMockBypass = isTestBypassPhone(rawPhone);
 
     try {
-      if (isMockBypass || !isFirebaseConfigured) {
-        if (typeof window !== "undefined") {
-          (window as any).__vk_mock_login_active = true;
-        }
-        setTimeout(() => otpCatcherRef.current?.focus(), 80);
-        flushPendingOtp();
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `+91${rawPhone}` }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setShowOtp(false);
+        setSendError(data.error || "Could not send OTP. Try again.");
         return;
       }
-      await sendFirebaseOtp();
       setTimeout(() => otpCatcherRef.current?.focus(), 80);
-      flushPendingOtp();
-    } catch (e) {
-      const code = e && typeof e === "object" && "code" in e ? String((e as { code?: string }).code) : "";
-      if (code === "auth/too-many-requests" || code === "auth/quota-exceeded" || String(e).includes("mock_fallback")) {
-        console.warn("Firebase threshold reached or unconfigured. Activating automatic mock-login fallback.");
-        setSendError(null);
-        if (typeof window !== "undefined") {
-          (window as any).__vk_mock_login_active = true;
-        }
-        setTimeout(() => otpCatcherRef.current?.focus(), 80);
-        flushPendingOtp();
-      } else if (code === "auth/captcha-check-failed") {
-        console.warn("reCAPTCHA failed, retrying with fresh verifier...");
-        clearRecaptcha();
-        try {
-          await sendFirebaseOtp();
-          setTimeout(() => otpCatcherRef.current?.focus(), 80);
-          flushPendingOtp();
-        } catch (retryErr) {
-          console.error("Firebase Send Error (retry):", retryErr);
-          clearRecaptcha();
-          setWarmEpoch((n) => n + 1);
-          // No code is coming, so drop them back to the number they can edit
-          // rather than leaving them on an OTP screen that will never fill.
-          setShowOtp(false);
-          setSendError(firebaseErrorMessage(retryErr));
-        }
-      } else {
-        console.error("Firebase Send Error:", e);
-        clearRecaptcha();
-        setWarmEpoch((n) => n + 1);
-        setShowOtp(false);
-        setSendError(firebaseErrorMessage(e));
-      }
+    } catch {
+      setShowOtp(false);
+      setSendError("Network error. Check your connection and try again.");
     } finally {
       setSendLoading(false);
     }
@@ -615,25 +485,24 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setOtpError(false);
     setSendError(null);
     setOtp(Array(OTP_LEN).fill(""));
-    pendingOtpRef.current = null;
     if (otpCatcherRef.current) otpCatcherRef.current.value = "";
-    confirmationRef.current = null;
-    clearRecaptcha();
     setSendLoading(true);
-    if (!isFirebaseConfigured) {
-      setTimeout(() => {
-        setSendLoading(false);
-        setResendEpoch((e) => e + 1);
-      }, 500);
-      return;
-    }
+
     try {
-      await sendFirebaseOtp();
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `+91${rawPhone}` }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setSendError(data.error || "Could not resend OTP. Try again.");
+        return;
+      }
       setResendEpoch((e) => e + 1);
       setTimeout(() => otpCatcherRef.current?.focus(), 80);
-      flushPendingOtp();
-    } catch (e) {
-      setSendError(firebaseErrorMessage(e));
+    } catch {
+      setSendError("Network error. Check your connection and try again.");
     } finally {
       setSendLoading(false);
     }
@@ -650,57 +519,26 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
 
     const finalName = displayNameInput.trim() || "Guest";
     const phoneE164 = `+91${rawPhone}`;
-    const isMockBypass =
-      isTestBypassPhone(rawPhone) ||
-      (typeof window !== "undefined" && !!(window as any).__vk_mock_login_active);
 
-    if (!isFirebaseConfigured || isMockBypass) {
-      setVerifyLoading(true);
-      setTimeout(async () => {
-        try {
-          await fetch("/api/auth/sync-profile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: phoneE164, name: finalName }),
-          });
-        } catch (dbErr) {
-          console.error("Supabase Sync Error:", dbErr);
-        }
-
-        localStorage.setItem(LS_DISPLAY_NAME, finalName);
-        setVerifyLoading(false);
-        setOtpVerifySuccess(true);
-        if (postOtpNavTimerRef.current) clearTimeout(postOtpNavTimerRef.current);
-        postOtpNavTimerRef.current = setTimeout(() => {
-          postOtpNavTimerRef.current = null;
-          onVerified(phoneE164, finalName);
-        }, OTP_VERIFIED_TOOLTIP_MS);
-      }, 800);
-      return;
-    }
-
-    if (!confirmationRef.current) {
-      // SMS landed before Firebase handed us the confirmation — keep the
-      // digits on screen and verify the moment send finishes.
-      pendingOtpRef.current = code;
-      return;
-    }
     setVerifyLoading(true);
     try {
-      await confirmationRef.current.confirm(code);
-      
-      // Save/Update user via server route (service-role) so users table can have RLS enabled
-      try {
-        await fetch("/api/auth/sync-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phoneE164, name: finalName }),
-        });
-      } catch (dbErr) {
-        console.error("Supabase Sync Error:", dbErr);
-        // We don't block the user if DB sync fails, they are already authed via Firebase
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneE164, code, name: finalName }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; token?: string; error?: string };
+
+      if (!res.ok || !data.ok) {
+        setOtpError(true);
+        setOtp(Array(OTP_LEN).fill(""));
+        if (otpCatcherRef.current) otpCatcherRef.current.value = "";
+        otpCatcherRef.current?.focus();
+        setVerifyLoading(false);
+        return;
       }
 
+      if (data.token) setVkStoredToken(data.token);
       localStorage.setItem(LS_DISPLAY_NAME, finalName);
       setVerifyLoading(false);
       setOtpVerifySuccess(true);
@@ -729,10 +567,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setOtp(n);
     setOtpError(false);
     if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
-    if (digits.length !== OTP_LEN) {
-      pendingOtpRef.current = null;
-      return;
-    }
+    if (digits.length !== OTP_LEN) return;
     autoVerifyTimerRef.current = setTimeout(() => {
       void verifyRef.current(digits);
     }, 120);
@@ -743,21 +578,28 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const applyIncomingOtpRef = useRef(applyIncomingOtp);
   applyIncomingOtpRef.current = applyIncomingOtp;
 
-  const flushPendingOtp = () => {
-    const queued = pendingOtpRef.current;
-    if (!queued || queued.length !== OTP_LEN) return;
-    pendingOtpRef.current = null;
-    void verifyRef.current(queued);
-  };
+  // Android WebOTP API — now that we send our own SMS via Twilio the message
+  // ends with "\n\n@<host> #<code>", which is the exact format Chrome needs.
+  // The browser auto-fills the catcher input without any dialog or tap.
+  useEffect(() => {
+    if (!showOtp || otpVerifySuccess) return;
+    if (typeof window === "undefined" || !("OTPCredential" in window)) return;
+    const ac = new AbortController();
+    void navigator.credentials
+      .get({ otp: { transport: ["sms"] }, signal: ac.signal } as CredentialRequestOptions)
+      .then((cred) => {
+        const code = (cred as { code?: string } | null)?.code?.replace(/\D/g, "").slice(0, OTP_LEN);
+        if (!code || code.length !== OTP_LEN) return;
+        applyIncomingOtpRef.current(code);
+      })
+      .catch(() => { /* dismissed, unsupported, or aborted — user types instead */ });
+    return () => ac.abort();
+  }, [showOtp, otpVerifySuccess, OTP_LEN]);
 
   // Native DOM "input" listener — bypasses React's synthetic event batching.
   // This is the path Android keyboard OTP suggestion reliably triggers; React's
   // onChange can miss it when the controlled value gets reconciled before the
   // state update commits.
-  // NOTE: We intentionally do NOT use navigator.credentials.get (WebOTP API)
-  // here. Firebase SMS messages don't end with "@domain #code", so that API
-  // never resolves — it only shows an intrusive permission popup and then
-  // blocks the keyboard suggestion from working.
   useEffect(() => {
     const el = otpCatcherRef.current;
     if (!el || !showOtp || otpVerifySuccess) return;
@@ -790,18 +632,12 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       clearTimeout(postOtpNavTimerRef.current);
       postOtpNavTimerRef.current = null;
     }
-    confirmationRef.current = null;
-    clearRecaptcha();
-    // Going back to edit the number leaves no verifier behind, so warm a
-    // replacement now rather than making the next send pay for it.
-    setWarmEpoch((e) => e + 1);
     setOtp(Array(OTP_LEN).fill(""));
-    pendingOtpRef.current = null;
     if (otpCatcherRef.current) otpCatcherRef.current.value = "";
     setOtpError(false);
     setVerifyLoading(false);
     setOtpVerifySuccess(false);
-  }, [OTP_LEN, clearRecaptcha, otpVerifySuccess]);
+  }, [OTP_LEN, otpVerifySuccess]);
 
   // ─── Render ─────────────────────────────────────────────────────
   return (
@@ -1265,7 +1101,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       )}
 
       {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web */}
-      <div id="vk-recaptcha" style={{ position: "fixed", left: 0, bottom: 0, width: 1, height: 1, opacity: 0.01, pointerEvents: "none" }} />
     </div>
   );
 }

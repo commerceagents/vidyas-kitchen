@@ -90,10 +90,8 @@ export function savePlaces(places: SavedPlace[]) {
 async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   try {
-    // Loaded on demand: the API routes import this module for `normalisePlaces`
-    // and must not drag the browser Firebase SDK into the server bundle.
-    const { auth } = await import("@/lib/firebase");
-    const token = await auth?.currentUser?.getIdToken();
+    const { getVkToken } = await import("@/lib/vk-session");
+    const token = await getVkToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   } catch {
     /* Unsigned; the server decides whether that is acceptable. */

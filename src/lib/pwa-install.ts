@@ -36,8 +36,8 @@ async function reportInstalled(): Promise<void> {
 
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const { auth } = await import("@/lib/firebase");
-    const token = await auth?.currentUser?.getIdToken();
+    const { getVkToken } = await import("@/lib/vk-session");
+    const token = await getVkToken();
     if (token) headers.Authorization = `Bearer ${token}`;
 
     await fetch("/api/push/app-installed", {

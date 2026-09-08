@@ -10,7 +10,7 @@ import { parseRecipeTag } from "@/lib/dish-name";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { OrderReceiptSheet } from "@/components/ui/mobile/OrderReceiptSheet";
 import { AnimatePresence } from "framer-motion";
-import { auth } from "@/lib/firebase";
+import { getVkToken } from "@/lib/vk-session";
 
 export type HistoryOrder = {
   orderId: string;
@@ -159,7 +159,7 @@ export function OrderHistoryPanel({
     try {
       const headers: Record<string, string> = {};
       try {
-        const token = await auth?.currentUser?.getIdToken();
+        const token = await getVkToken();
         if (token) headers.Authorization = `Bearer ${token}`;
       } catch { /* session not yet restored */ }
 
