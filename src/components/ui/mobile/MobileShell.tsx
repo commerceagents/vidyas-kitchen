@@ -56,6 +56,7 @@ const LS_NAME = "vk_display_name";
 /** Cached so the account header can draw the photo before the profile fetch lands. */
 const LS_AVATAR = "vk_avatar_url";
 const SS_TRACK_ORDER = "vk_track_order";
+const SS_GIFT_TRACK = "vk_gift_track";
 /** Snapshot cart before opening Razorpay so cancel/error can restore after full page reload. */
 const SS_PENDING_CHECKOUT_CART = "vk_pending_checkout_cart";
 
@@ -113,6 +114,8 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       }
     } else if (prefilledPhone) {
       step = "location";
+    } else if (new URLSearchParams(window.location.search).get("gift") || sessionStorage.getItem(SS_GIFT_TRACK)) {
+      step = "home";
     }
 
     // The cart follows the device, not the tab, so swiping the app out of
@@ -146,6 +149,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(SS_TRACK_ORDER) || null;
+  });
+  const [giftTrackToken, setGiftTrackToken] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem(SS_GIFT_TRACK) || "";
   });
   /** Where "back" from the map returns to; null during first-time setup. */
   const [locationBackStep, setLocationBackStep] = useState<MobileStep | null>(null);
@@ -340,10 +347,16 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     const uuidRe =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const deepTrack = params.get("track");
+    const giftParam = params.get("gift") || "";
     if (deepTrack && uuidRe.test(deepTrack)) {
       sessionStorage.setItem(SS_TRACK_ORDER, deepTrack);
       setTrackingOrderId(deepTrack);
+      if (giftParam) {
+        sessionStorage.setItem(SS_GIFT_TRACK, giftParam);
+        setGiftTrackToken(giftParam);
+      }
       params.delete("track");
+      params.delete("gift");
       const rest = params.toString();
       window.history.replaceState({}, "", rest ? `/?${rest}` : "/");
     }
@@ -397,6 +410,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         localStorage.setItem(LS_NAME, prefilledName);
       }
       setStep("location");
+    } else if ((deepTrack && giftParam) || sessionStorage.getItem(SS_GIFT_TRACK)) {
+      // Friend opened a gift track link — show the map without signing in as the sender.
+      setStep("home");
     }
 
     const track = sessionStorage.getItem(SS_TRACK_ORDER);
@@ -517,12 +533,16 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
   const clearOrderTracking = () => {
     sessionStorage.removeItem(SS_TRACK_ORDER);
+    sessionStorage.removeItem(SS_GIFT_TRACK);
     setTrackingOrderId(null);
+    setGiftTrackToken("");
   };
 
   /** Open live tracking for any past order picked from the history list. */
   const openOrderTracking = (orderId: string) => {
     sessionStorage.setItem(SS_TRACK_ORDER, orderId);
+    sessionStorage.removeItem(SS_GIFT_TRACK);
+    setGiftTrackToken("");
     setTrackingOrderId(orderId);
   };
 
@@ -535,6 +555,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     localStorage.removeItem(LS_NAME);
     localStorage.removeItem(LS_AVATAR);
     sessionStorage.removeItem(SS_TRACK_ORDER);
+    sessionStorage.removeItem(SS_GIFT_TRACK);
     sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
     clearUiSession();
     clearSavedCart();
@@ -543,6 +564,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     setAvatarUrl(null);
     setLocation(null);
     setTrackingOrderId(null);
+    setGiftTrackToken("");
     setCart({});
     setStep("login");
   };
@@ -756,6 +778,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               addressSaveError={addressSaveError}
               addressSavedAt={addressSavedAt}
               trackingOrderId={trackingOrderId}
+              giftTrackToken={giftTrackToken}
               customerPhone={phone}
               onDismissOrderTracking={clearOrderTracking}
               onTrackOrder={openOrderTracking}

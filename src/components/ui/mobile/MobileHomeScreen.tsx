@@ -160,6 +160,7 @@ interface MobileHomeScreenProps {
   updateQty: (id: string, delta: number) => void;
   /** Set when Razorpay returns ?status=success&orderId=… */
   trackingOrderId?: string | null;
+  giftTrackToken?: string;
   customerPhone?: string;
   onDismissOrderTracking?: () => void;
   /** Open live tracking for an order picked from the history list. */
@@ -1917,6 +1918,7 @@ export function MobileHomeScreen({
   cart,
   updateQty,
   trackingOrderId = null,
+  giftTrackToken = "",
   customerPhone = "",
   onDismissOrderTracking,
   onTrackOrder,
@@ -2054,7 +2056,7 @@ export function MobileHomeScreen({
       return;
     }
     const phone = customerPhone.trim();
-    if (phone.length < 10) {
+    if (phone.length < 10 && !giftTrackToken) {
       setTrackErr("Sign in with phone to track this order.");
       return;
     }
@@ -2067,7 +2069,9 @@ export function MobileHomeScreen({
     let cancelled = false;
     const poll = async () => {
       try {
-        const q = new URLSearchParams({ orderId: trackingOrderId, phone });
+        const q = new URLSearchParams({ orderId: trackingOrderId });
+        if (giftTrackToken) q.set("gift", giftTrackToken);
+        if (phone.length >= 10) q.set("phone", phone);
         const res = await fetch(`/api/orders/status?${q}`);
         const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         if (!res.ok) throw new Error(String(data.error || "Could not load order"));
@@ -2087,7 +2091,7 @@ export function MobileHomeScreen({
     };
     // `addressSavedAt` restarts the poll so an address the customer just changed
     // is reflected immediately rather than up to 10 seconds later.
-  }, [trackingOrderId, customerPhone, addressSavedAt]);
+  }, [trackingOrderId, customerPhone, giftTrackToken, addressSavedAt]);
 
   useEffect(() => {
     if (!trackSnap?.status) return;

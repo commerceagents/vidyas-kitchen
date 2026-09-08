@@ -10,10 +10,16 @@ import {
   notifyOrderRejected,
   driverPinCaption,
   notifyDriverArrived,
+  giftRecipientWhatsApp,
+  giftRecipientSms,
   BTN,
+  type GiftNotifyKind,
   type WaOrderBill,
   type WaOrderStage,
 } from "@/lib/whatsapp-copy";
+import { giftTrackUrl } from "@/lib/gift-track";
+import { sendSms } from "@/lib/sms";
+import { toE164Phone } from "@/lib/test-numbers";
 import { updateSession } from "@/lib/whatsapp-session";
 import { loadWaLang } from "@/lib/whatsapp-lang";
 import { formatInr } from "@/lib/menu/dish-pricing";
@@ -193,7 +199,99 @@ async function sendOrderCard(
   });
 }
 
+function giftKindForStatus(status: string): GiftNotifyKind | null {
+  switch (status) {
+    case OrderStatus.PAID:
+      return "placed";
+    case OrderStatus.OUT_FOR_DELIVERY:
+      return "dispatched";
+    case OrderStatus.DELIVERED:
+      return "delivered";
+    case OrderStatus.CANCELLED:
+    case OrderStatus.REJECTED:
+      return "cancelled";
+    default:
+      return null;
+  }
+}
+
+async function senderDisplayName(phoneRaw: string | null | undefined): Promise<string> {
+  const e164 = phoneRaw ? toE164Phone(phoneRaw) : "";
+  const digits = phoneRaw ? phoneRaw.replace(/\D/g, "").slice(-10) : "";
+  const candidates = [e164, phoneRaw || "", digits].filter((v, i, a) => v && a.indexOf(v) === i);
+  try {
+    const supabase = createServerSupabase();
+    for (const p of candidates) {
+      const { data } = await supabase.from("users").select("full_name").eq("phone_number", p).maybeSingle();
+      const name = String((data as { full_name?: string | null } | null)?.full_name || "").trim();
+      if (name) return name.split(/\s+/)[0];
+    }
+  } catch {
+    /* fall through */
+  }
+  return "A friend";
+}
+
+async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind): Promise<void> {
+  try {
+    const supabase = createServerSupabase();
+    const { data } = await supabase
+      .from("orders")
+      .select("recipient_name, recipient_phone, phone_number")
+      .eq("id", order.id)
+      .maybeSingle();
+    const recPhone = String((data as { recipient_phone?: string | null } | null)?.recipient_phone || "").replace(/\D/g, "");
+    const buyerPhone = String(
+      (data as { phone_number?: string | null } | null)?.phone_number || order.phone_number || "",
+    ).replace(/\D/g, "");
+    if (recPhone.length < 10) return;
+    if (buyerPhone.slice(-10) === recPhone.slice(-10)) return;
+
+    const sender = await senderDisplayName(order.phone_number);
+    const bill = await loadOrderBill(order);
+    const itemsLine =
+      bill.items.length === 0
+        ? "A Vidya's Kitchen order"
+        : bill.items.length === 1
+          ? `${bill.items[0].name} × ${bill.items[0].quantity}`
+          : `${bill.items[0].name} +${bill.items.length - 1} more`;
+    const url = giftTrackUrl(order.id, recPhone);
+    const isCod = String(order.payment_method || "").toLowerCase() === "cod";
+    const waBody = giftRecipientWhatsApp(kind, {
+      sender,
+      itemsLine,
+      slotLine: bill.slotLine,
+      isCod,
+      amount: bill.amount,
+    });
+    const smsBody = giftRecipientSms(kind, {
+      sender,
+      url,
+      itemsLine,
+      slotLine: bill.slotLine,
+      isCod,
+      amount: bill.amount,
+    });
+
+    const waTo = toPhone(recPhone);
+    if (waTo) {
+      try {
+        if (kind === "placed") await sendOrderCard(waTo, waBody, bill, url);
+        else await sendCtaUrl(waTo, waBody, url, BTN.track);
+      } catch (e) {
+        console.error("[whatsapp-order-notify] gift WhatsApp", e);
+      }
+    }
+    await sendSms(recPhone, smsBody);
+  } catch (e) {
+    console.error("[whatsapp-order-notify] gift recipient", e);
+  }
+}
+
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
+  const giftKind = giftKindForStatus(order.status);
+  if (giftKind) void notifyGiftRecipient(order, giftKind);
+
   const to = order.phone_number ? toPhone(order.phone_number) : null;
   if (!to) return;
 
@@ -352,6 +450,18 @@ export async function notifyWhatsAppDriverArrived(
     total_amount?: number | null;
   };
   if (normalizeOrderStatus(String(row.status || "")) !== OrderStatus.OUT_FOR_DELIVERY) return;
+
+  void notifyGiftRecipient(
+    {
+      id: orderId,
+      status: OrderStatus.OUT_FOR_DELIVERY,
+      phone_number: row.phone_number,
+      payment_method: row.payment_method,
+      payment_status: row.payment_status,
+      total_amount: row.total_amount,
+    },
+    "arrived",
+  );
 
   const to = row.phone_number ? toPhone(row.phone_number) : null;
   if (!to) return;

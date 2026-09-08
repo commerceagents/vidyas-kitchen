@@ -21,6 +21,7 @@ export default function Home() {
   const [cancelPhone, setCancelPhone] = useState<string | undefined>();
   const [wantInstall, setWantInstall] = useState(false);
   const [installQrUrl, setInstallQrUrl] = useState("");
+  const [forceMobileTrack, setForceMobileTrack] = useState(false);
 
   /** Splash only on first visit; refresh / return skips it. */
   useLayoutEffect(() => {
@@ -49,6 +50,12 @@ export default function Home() {
     const nameParam = params.get("name");
     if (phoneParam && !cancelOrder) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
+
+    if (params.get("track") || sessionStorage.getItem("vk_track_order")) {
+      setForceMobileTrack(true);
+      setShowSplash(false);
+      setInstantShellEnter(true);
+    }
 
     const installIntent = params.get("install") === "1";
     const desktopNow = window.innerWidth > 1024;
@@ -131,7 +138,7 @@ export default function Home() {
             transition={{ duration: instantShellEnter ? 0 : 0.45 }}
             className="w-full h-full"
           >
-            {isDesktop ? (
+            {isDesktop && !forceMobileTrack ? (
               wantInstall && installQrUrl ? (
                 <InstallOnPhoneQr url={installQrUrl} />
               ) : (

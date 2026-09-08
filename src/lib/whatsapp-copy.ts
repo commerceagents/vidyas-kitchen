@@ -1498,3 +1498,75 @@ export function notUnderstoodReply(lang?: WaLang): string {
     msg({ lines: ["Sariya puriyala. Order-ku Menu tap pannunga, problem-na Help."] }),
   );
 }
+
+export type GiftNotifyKind = "placed" | "dispatched" | "arrived" | "delivered" | "cancelled";
+
+export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
+  sender: string;
+  itemsLine: string;
+  slotLine?: string;
+  isCod?: boolean;
+  amount?: number;
+}): string {
+  const sender = opts.sender || "A friend";
+  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash when it arrives.` : "";
+  switch (kind) {
+    case "placed":
+      return msg({
+        title: `${sender} sent you food`,
+        lines: [
+          opts.itemsLine,
+          opts.slotLine ? `When: ${opts.slotLine}` : null,
+          opts.isCod
+            ? `Pay ${money(opts.amount || 0)} cash at the door.`
+            : "Already paid — just receive it.",
+        ],
+        note: "Tap Track to watch the driver on the map.",
+      });
+    case "dispatched":
+      return msg({
+        title: "Your food is on the way",
+        lines: [`${sender} sent this. The driver has left the kitchen.${cash}`],
+        note: "Tap Track for the live map.",
+      });
+    case "arrived":
+      return msg({
+        title: "The driver is at your door",
+        lines: [`Food from ${sender} — they're outside.${cash}`],
+      });
+    case "delivered":
+      return msg({
+        title: "Delivered",
+        lines: [`${sender}'s order is with you. Enjoy.`],
+      });
+    case "cancelled":
+      return msg({
+        title: "This order was cancelled",
+        lines: [`The food ${sender} sent will not be arriving.`],
+      });
+  }
+}
+
+export function giftRecipientSms(kind: GiftNotifyKind, opts: {
+  sender: string;
+  url: string;
+  itemsLine?: string;
+  slotLine?: string;
+  isCod?: boolean;
+  amount?: number;
+}): string {
+  const sender = opts.sender || "A friend";
+  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash at the door.` : "";
+  switch (kind) {
+    case "placed":
+      return `${sender} sent you Vidya's Kitchen food${opts.itemsLine ? `: ${opts.itemsLine}` : ""}${opts.slotLine ? ` (${opts.slotLine})` : ""}.${opts.isCod ? cash : " Already paid."} Track: ${opts.url}`;
+    case "dispatched":
+      return `Vidya's Kitchen: food from ${sender} is on the way.${cash} Track: ${opts.url}`;
+    case "arrived":
+      return `Vidya's Kitchen: the driver is at your door.${cash}`;
+    case "delivered":
+      return `Vidya's Kitchen: ${sender}'s order was delivered. Enjoy.`;
+    case "cancelled":
+      return `Vidya's Kitchen: the order ${sender} sent you was cancelled.`;
+  }
+}

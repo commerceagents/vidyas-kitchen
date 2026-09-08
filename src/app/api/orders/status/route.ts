@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
+import { verifyGiftTrackToken } from "@/lib/gift-track";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -22,8 +23,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get("orderId") || "";
   const phone = searchParams.get("phone") || "";
+  const gift = searchParams.get("gift") || "";
 
-  if (!isUuid(orderId) || phoneKey(phone).length < 10) {
+  if (!isUuid(orderId) || (phoneKey(phone).length < 10 && !gift)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
         `
         id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
         payment_method, payment_status, cod_failure_reason, payment_link_id,
-        delivery_lat, delivery_lng, cancellation_deadline,
+        delivery_lat, delivery_lng, cancellation_deadline, recipient_phone,
         driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         refund_status, refund_amount,
         order_items (
@@ -53,7 +55,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    if (phoneKey(String(row.phone_number || "")) !== phoneKey(phone)) {
+    const buyerOk = phoneKey(phone).length >= 10 && phoneKey(String(row.phone_number || "")) === phoneKey(phone);
+    const recPhone = String((row as { recipient_phone?: string | null }).recipient_phone || "");
+    const giftOk = Boolean(gift) && verifyGiftTrackToken(orderId, recPhone, gift);
+    if (!buyerOk && !giftOk) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
