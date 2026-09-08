@@ -31,6 +31,7 @@ import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 import { parseRecipeTag } from "@/lib/dish-name";
+import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 
 const C = {
   bg: "#F5F5F7",
@@ -330,6 +331,10 @@ interface CheckoutScreenProps {
   customerName: string;
   deliveryLat?: number;
   deliveryLng?: number;
+  locationInRange?: boolean;
+  recipientDrop?: { label: string; lat: number; lng: number; inRange: boolean } | null;
+  onPickRecipientAddress?: () => void;
+  onSetRecipientDrop?: (loc: { label: string; lat: number; lng: number; inRange: boolean }) => void;
 }
 
 export function CheckoutScreen({
@@ -345,6 +350,10 @@ export function CheckoutScreen({
   customerName,
   deliveryLat,
   deliveryLng,
+  locationInRange = true,
+  recipientDrop = null,
+  onPickRecipientAddress,
+  onSetRecipientDrop,
 }: CheckoutScreenProps) {
   const [phase, setPhase] = useState<CheckoutPhase>(() => {
     const saved = readUiSession()?.checkoutPhase;
@@ -455,7 +464,11 @@ export function CheckoutScreen({
   const grandTotal = itemTotal + packagingFee + deliveryFee + tax;
   const codBlockedByTotal = !isCodAllowedForTotal(grandTotal);
   const recipientIncomplete =
-    forSomeoneElse && (!recipientName.trim() || recipientPhone.replace(/\D/g, "").length < 10);
+    forSomeoneElse &&
+    (!recipientName.trim() ||
+      recipientPhone.replace(/\D/g, "").length < 10 ||
+      !recipientDrop?.label ||
+      !isInsideDeliveryZone(recipientDrop.lat, recipientDrop.lng));
   const orderCtaDisabled = placing || slotKind == null || !isOrderingWindowOpen() || recipientIncomplete;
 
   // Adding items can push the cart past the COD ceiling after it was selected.
@@ -506,7 +519,19 @@ export function CheckoutScreen({
         setCheckoutError("Enter a valid phone number for the recipient.");
         return;
       }
+      if (!recipientDrop?.label || !isInsideDeliveryZone(recipientDrop.lat, recipientDrop.lng)) {
+        setCheckoutError(`Pin ${recipientNameTrim || "their"} address in ${DELIVERY_ZONE.name}.`);
+        return;
+      }
+    } else if (!locationInRange) {
+      setCheckoutError(
+        `We deliver in ${DELIVERY_ZONE.name}. Pin a drop-off there, or send this to someone else.`,
+      );
+      return;
     }
+    const dropLabel = forSomeoneElse ? recipientDrop!.label : locationLabel;
+    const dropLat = forSomeoneElse ? recipientDrop!.lat : deliveryLat;
+    const dropLng = forSomeoneElse ? recipientDrop!.lng : deliveryLng;
     setCheckoutError(null);
     setPlacing(true);
     await waitForPaint();
@@ -517,7 +542,7 @@ export function CheckoutScreen({
         body: JSON.stringify({
           phone: phone.trim(),
           customerName: customerName.trim() || "Customer",
-          deliveryAddress: locationLabel,
+          deliveryAddress: dropLabel,
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
           paymentMethod,
@@ -530,11 +555,11 @@ export function CheckoutScreen({
             variant: it.weight,
             weightLabel: it.weightLabel,
           })),
-          ...(typeof deliveryLat === "number" &&
-          typeof deliveryLng === "number" &&
-          Number.isFinite(deliveryLat) &&
-          Number.isFinite(deliveryLng)
-            ? { deliveryLat, deliveryLng }
+          ...(typeof dropLat === "number" &&
+          typeof dropLng === "number" &&
+          Number.isFinite(dropLat) &&
+          Number.isFinite(dropLng)
+            ? { deliveryLat: dropLat, deliveryLng: dropLng }
             : {}),
         }),
       });
@@ -1095,7 +1120,9 @@ export function CheckoutScreen({
                 <ArrowRight size={16} weight="bold" color={C.muted} />
               </button>
 
-              <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>Delivery to</h3>
+              <h3 style={{ ...TYPO.sectionTitle, margin: "0 0 12px", opacity: 0.72 }}>
+                {forSomeoneElse ? "Recipient drop-off" : "Delivery to"}
+              </h3>
               <div
                 style={{
                   background: C.surface,
@@ -1104,7 +1131,15 @@ export function CheckoutScreen({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  border: `1px solid ${C.border}`,
+                  border: `1px solid ${
+                    forSomeoneElse
+                      ? recipientDrop
+                        ? C.border
+                        : "rgba(189,35,32,0.28)"
+                      : locationInRange
+                        ? C.border
+                        : "rgba(245,158,11,0.45)"
+                  }`,
                   boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
                 }}
               >
@@ -1133,15 +1168,23 @@ export function CheckoutScreen({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {locationLabel}
+                    {forSomeoneElse
+                      ? recipientDrop?.label || `Pin their ${DELIVERY_ZONE.name} address`
+                      : locationLabel}
                   </p>
                   <p style={{ margin: "3px 0 0", fontSize: 12, color: C.muted, fontWeight: 600 }}>
-                    Home-style meal, delivered to your pin
+                    {forSomeoneElse
+                      ? recipientDrop
+                        ? "Driver navigates here and calls them"
+                        : `Required — must be in ${DELIVERY_ZONE.name}`
+                      : locationInRange
+                        ? "Home-style meal, delivered to your pin"
+                        : `You're outside ${DELIVERY_ZONE.name} — send to someone there`}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={onChangeLocation}
+                  onClick={forSomeoneElse ? onPickRecipientAddress : onChangeLocation}
                   style={{
                     background: "none",
                     border: "none",
@@ -1153,7 +1196,7 @@ export function CheckoutScreen({
                     flexShrink: 0,
                   }}
                 >
-                  Change
+                  {forSomeoneElse && !recipientDrop ? "Pin" : "Change"}
                 </button>
               </div>
 
@@ -1173,7 +1216,24 @@ export function CheckoutScreen({
                     <button
                       key={place.id}
                       type="button"
-                      onClick={() => onSelectSavedLocation(place)}
+                      onClick={() => {
+                        const loc = {
+                          label: place.address,
+                          lat: place.lat,
+                          lng: place.lng,
+                          inRange: isInsideDeliveryZone(place.lat, place.lng),
+                        };
+                        if (forSomeoneElse) {
+                          if (!loc.inRange) {
+                            setCheckoutError(`That saved place is outside ${DELIVERY_ZONE.name}.`);
+                            return;
+                          }
+                          onSetRecipientDrop?.(loc);
+                          setCheckoutError(null);
+                          return;
+                        }
+                        onSelectSavedLocation(place);
+                      }}
                       style={{
                         flex: "0 0 auto",
                         padding: "8px 14px",
@@ -1309,7 +1369,7 @@ export function CheckoutScreen({
                       />
                     </div>
                     <p style={{ margin: "8px 2px 0", fontSize: 11, color: C.muted, fontWeight: 600, lineHeight: 1.45 }}>
-                      Our delivery partner will contact them directly at the address above.
+                      Pin their {DELIVERY_ZONE.name} address above. The driver navigates to that pin and calls them — not where you are.
                     </p>
                   </motion.div>
                 )}

@@ -21,6 +21,7 @@ import {
   savePlaces,
   type SavedPlace,
 } from "@/lib/vk-saved-places";
+import { isInsideDeliveryZone } from "@/lib/delivery-zone";
 
 type MobileStep = "login" | "location" | "location_marked" | "home" | "checkout";
 
@@ -127,6 +128,9 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const [location, setLocation] = useState<LocationData | null>(initialData.location);
 
   const [resumeCheckoutAfterLocation, setResumeCheckoutAfterLocation] = useState(false);
+  /** Checkout map pick: change my drop-off, or pin a recipient in Sivakasi. */
+  const [locationPickKind, setLocationPickKind] = useState<"delivery" | "recipient" | null>(null);
+  const [recipientDrop, setRecipientDrop] = useState<LocationData | null>(null);
   // Reading directly from sessionStorage during state initialisation avoids the
   // race where both effects run in the same commit on warm refresh: the restore
   // effect hasn't yet called setTrackingOrderId, so auto-resume sees null and
@@ -544,6 +548,15 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   };
 
   const handleLocationSet = (loc: LocationData) => {
+    if (locationPickKind === "recipient") {
+      setRecipientDrop(loc);
+      setLocationPickKind(null);
+      setResumeCheckoutAfterLocation(false);
+      setLocationBackStep(null);
+      setStep("checkout");
+      return;
+    }
+
     if (editingSavedPlace) {
       const slot = editingSavedPlace;
       setEditingSavedPlace(null);
@@ -629,6 +642,20 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           >
             <LocationScreen
               onLocationSet={handleLocationSet}
+              mode={
+                locationPickKind === "recipient" ||
+                locationPickKind === "delivery" ||
+                Boolean(editingAddressForOrder)
+                  ? "delivery-pin"
+                  : "my-gps"
+              }
+              autoAdvanceOnGps={
+                !location &&
+                !editingSavedPlace &&
+                !locationPickKind &&
+                !resumeCheckoutAfterLocation &&
+                !editingAddressForOrder
+              }
               // Placing a saved address opens on that address if it has one,
               // rather than on wherever the customer happens to be delivering.
               initialLocation={
@@ -641,9 +668,21 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                         inRange: true,
                       }
                     : null
-                  : location
+                  : locationPickKind === "recipient"
+                    ? recipientDrop
+                    : locationPickKind === "delivery" &&
+                        location &&
+                        !isInsideDeliveryZone(location.lat, location.lng)
+                      ? null
+                      : location
               }
-              confirmLabel={editingSavedPlace ? `Save as ${editingSavedPlace.label}` : undefined}
+              confirmLabel={
+                editingSavedPlace
+                  ? `Save as ${editingSavedPlace.label}`
+                  : locationPickKind === "recipient"
+                    ? "Use this drop-off"
+                    : undefined
+              }
               // Back is offered whenever there is somewhere to return to. A
               // saved address means home is always reachable, which also covers
               // a refresh that restores straight onto the map. Only first-time
@@ -656,6 +695,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                       setLocationBackStep(null);
                       setEditingAddressForOrder(null);
                       setResumeCheckoutAfterLocation(false);
+                      setLocationPickKind(null);
                       // Backing out of a saved address returns to the drawer it
                       // was opened from, with nothing changed.
                       if (editingSavedPlace) {
@@ -770,21 +810,31 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               customerName={name}
               deliveryLat={location.lat}
               deliveryLng={location.lng}
+              locationInRange={isInsideDeliveryZone(location.lat, location.lng)}
+              recipientDrop={recipientDrop}
               cart={cart}
               items={items}
               updateQty={updateQty}
               locationLabel={location.label}
               onChangeLocation={() => {
+                setLocationPickKind("delivery");
                 setResumeCheckoutAfterLocation(true);
                 setLocationBackStep("checkout");
                 setStep("location");
               }}
+              onPickRecipientAddress={() => {
+                setLocationPickKind("recipient");
+                setResumeCheckoutAfterLocation(true);
+                setLocationBackStep("checkout");
+                setStep("location");
+              }}
+              onSetRecipientDrop={(loc) => setRecipientDrop(loc)}
               onSelectSavedLocation={(place) => {
                 const loc: LocationData = {
                   label: place.address,
                   lat: place.lat,
                   lng: place.lng,
-                  inRange: true,
+                  inRange: isInsideDeliveryZone(place.lat, place.lng),
                 };
                 setLocation(loc);
                 localStorage.setItem("vk_location", JSON.stringify(loc));

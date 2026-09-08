@@ -247,10 +247,51 @@ const S: Record<string, CSSProperties> = {
     marginBottom: T.sp4,
   },
   otpRow: {
-    display: "flex", flexWrap: "wrap" as const,
-    gap: 8,
+    display: "flex",
+    flexWrap: "nowrap" as const,
+    alignItems: "stretch",
+    gap: "clamp(4px, 1.6vw, 8px)",
     justifyContent: "center",
+    width: "100%",
+    maxWidth: 340,
+    marginLeft: "auto",
+    marginRight: "auto",
     marginBottom: T.sp3,
+    position: "relative" as const,
+  },
+  otpBox: {
+    flex: "1 1 0",
+    minWidth: 0,
+    height: "clamp(48px, 13vw, 56px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center" as const,
+    fontSize: "clamp(20px, 6vw, 26px)",
+    fontWeight: 800,
+    borderRadius: 16,
+    background: "rgba(0,0,0,0.03)",
+    transition: "border-color 0.18s, box-shadow 0.18s",
+    fontFamily: C.mono,
+    pointerEvents: "none" as const,
+  },
+  otpCatcher: {
+    position: "absolute" as const,
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    opacity: 1,
+    zIndex: 2,
+    border: "none",
+    background: "transparent",
+    color: "transparent",
+    caretColor: "transparent",
+    outline: "none",
+    padding: 0,
+    margin: 0,
+    fontSize: 16,
+    letterSpacing: 24,
+    cursor: "text",
   },
   // Legal sheet
   legalSheet: {
@@ -347,7 +388,6 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [focused, setFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
-  const [activeOtpIdx, setActiveOtpIdx] = useState<number | null>(null);
   const [showOtp, setShowOtp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalTab>("terms");
@@ -360,8 +400,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [resendEpoch, setResendEpoch] = useState(0);
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpCatcherRef = useRef<HTMLInputElement | null>(null);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const pendingOtpRef = useRef<string | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const autoVerifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postOtpNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -519,11 +560,13 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         if (typeof window !== "undefined") {
           (window as any).__vk_mock_login_active = true;
         }
-        setTimeout(() => otpRefs.current[0]?.focus(), 350);
+        setTimeout(() => otpCatcherRef.current?.focus(), 80);
+        flushPendingOtp();
         return;
       }
       await sendFirebaseOtp();
-      setTimeout(() => otpRefs.current[0]?.focus(), 350);
+      setTimeout(() => otpCatcherRef.current?.focus(), 80);
+      flushPendingOtp();
     } catch (e) {
       const code = e && typeof e === "object" && "code" in e ? String((e as { code?: string }).code) : "";
       if (code === "auth/too-many-requests" || code === "auth/quota-exceeded" || String(e).includes("mock_fallback")) {
@@ -532,13 +575,15 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         if (typeof window !== "undefined") {
           (window as any).__vk_mock_login_active = true;
         }
-        setTimeout(() => otpRefs.current[0]?.focus(), 350);
+        setTimeout(() => otpCatcherRef.current?.focus(), 80);
+        flushPendingOtp();
       } else if (code === "auth/captcha-check-failed") {
         console.warn("reCAPTCHA failed, retrying with fresh verifier...");
         clearRecaptcha();
         try {
           await sendFirebaseOtp();
-          setTimeout(() => otpRefs.current[0]?.focus(), 350);
+          setTimeout(() => otpCatcherRef.current?.focus(), 80);
+          flushPendingOtp();
         } catch (retryErr) {
           console.error("Firebase Send Error (retry):", retryErr);
           clearRecaptcha();
@@ -570,6 +615,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setOtpError(false);
     setSendError(null);
     setOtp(Array(OTP_LEN).fill(""));
+    pendingOtpRef.current = null;
     confirmationRef.current = null;
     clearRecaptcha();
     setSendLoading(true);
@@ -583,6 +629,8 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     try {
       await sendFirebaseOtp();
       setResendEpoch((e) => e + 1);
+      setTimeout(() => otpCatcherRef.current?.focus(), 80);
+      flushPendingOtp();
     } catch (e) {
       setSendError(firebaseErrorMessage(e));
     } finally {
@@ -590,75 +638,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }
   };
 
-  const handleOtpChange = (i: number, val: string) => {
-    const digits = val.replace(/\D/g, "");
-    // Pull the digits out rather than demanding the field be nothing but
-    // digits. Pasted clipboard text usually carries the surrounding SMS wording
-    // or a stray space, and rejecting the whole value meant the paste silently
-    // did nothing. An empty value is a backspace and has to clear the box.
-    if (val && !digits) return;
-
-    setOtpError(false);
-    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
-
-    const n = [...otp];
-    if (digits.length > 1) {
-      // One field can receive the whole code at once — a paste, or the
-      // keyboard's "from Messages" suggestion. Spread it across the boxes
-      // instead of keeping a single digit and dropping the rest.
-      for (let k = 0; k < digits.length && i + k < OTP_LEN; k++) n[i + k] = digits[k];
-    } else {
-      n[i] = digits.slice(-1);
-    }
-    setOtp(n);
-
-    // Move focus in the same tick. Deferring it even 40ms meant a fast typist's
-    // next digit landed back in the box they had just filled, silently
-    // overwriting it — one digit typed, one digit lost.
-    if (digits) {
-      const next = Math.min(i + Math.max(digits.length, 1), OTP_LEN - 1);
-      otpRefs.current[next]?.focus();
-    }
-
-    if (n.every((d) => d) && !verifyLoading) {
-      const code = n.join("");
-      // Small delay so the final typed digit is visible before loader takes over.
-      autoVerifyTimerRef.current = setTimeout(() => {
-        void handleVerify(code);
-      }, 180);
-    }
-  };
-
-  /**
-   * A pasted code belongs to the whole row, not to whichever box happened to be
-   * focused. Boxes past the first also cap input at one character, so without
-   * this a paste there would keep one digit and drop the rest.
-   */
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LEN);
-    if (!digits) return;
-    e.preventDefault();
-
-    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
-    setOtpError(false);
-
-    const n = Array(OTP_LEN).fill("");
-    for (let k = 0; k < digits.length; k++) n[k] = digits[k];
-    setOtp(n);
-    otpRefs.current[Math.min(digits.length, OTP_LEN - 1)]?.focus();
-
-    if (digits.length === OTP_LEN && !verifyLoading) {
-      autoVerifyTimerRef.current = setTimeout(() => {
-        void handleVerify(digits);
-      }, 180);
-    }
-  };
-
   const handleVerify = async (code: string) => {
     if (code.length !== OTP_LEN) {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
-      otpRefs.current[0]?.focus();
+      otpCatcherRef.current?.focus();
       return;
     }
 
@@ -694,7 +678,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }
 
     if (!confirmationRef.current) {
-      setOtpError(true);
+      // SMS landed before Firebase handed us the confirmation — keep the
+      // digits on screen and verify the moment send finishes.
+      pendingOtpRef.current = code;
       return;
     }
     setVerifyLoading(true);
@@ -724,23 +710,41 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     } catch {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
-      otpRefs.current[0]?.focus();
+      otpCatcherRef.current?.focus();
       setVerifyLoading(false);
     }
   };
 
-  // handleVerify is rebuilt every render; the WebOTP listener below must not be,
-  // or each render would abort and restart the SMS request.
+  // handleVerify is rebuilt every render; the SMS listeners below must not be,
+  // or each render would abort and restart the request.
   const verifyRef = useRef(handleVerify);
-  useEffect(() => {
-    verifyRef.current = handleVerify;
-  });
+  verifyRef.current = handleVerify;
 
-  // Android Chrome can hand us the code straight out of the SMS with no typing
-  // at all. It only fires when the message ends with the site's domain and the
-  // code (`@host #123456`), so whether it triggers depends on the sender's
-  // template — hence the `autocomplete="one-time-code"` fallback on the first
-  // box, which gets iOS and Android to offer the code above the keyboard.
+  const applyIncomingOtp = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, OTP_LEN);
+    const n = Array.from({ length: OTP_LEN }, (_, i) => digits[i] ?? "");
+    setOtp(n);
+    setOtpError(false);
+    if (autoVerifyTimerRef.current) clearTimeout(autoVerifyTimerRef.current);
+    if (digits.length !== OTP_LEN) {
+      pendingOtpRef.current = null;
+      return;
+    }
+    autoVerifyTimerRef.current = setTimeout(() => {
+      void verifyRef.current(digits);
+    }, 120);
+  };
+
+  const flushPendingOtp = () => {
+    const queued = pendingOtpRef.current;
+    if (!queued || queued.length !== OTP_LEN) return;
+    pendingOtpRef.current = null;
+    void verifyRef.current(queued);
+  };
+
+  // Android Chrome: WebOTP permission dialog → code, no typing.
+  // iOS / Android Autofill: write into the single `one-time-code` field.
+  // Listen as soon as this screen opens, before the SMS lands.
   useEffect(() => {
     if (!showOtp || otpVerifySuccess) return;
     if (typeof window === "undefined" || !("OTPCredential" in window)) return;
@@ -751,15 +755,20 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       .then((cred) => {
         const code = (cred as { code?: string } | null)?.code?.replace(/\D/g, "").slice(0, OTP_LEN);
         if (!code || code.length !== OTP_LEN) return;
-        setOtp(code.split(""));
-        verifyRef.current(code);
+        applyIncomingOtp(code);
       })
       .catch(() => {
         // Aborted, dismissed, or unsupported — the customer types it instead.
       });
 
     return () => ac.abort();
-  }, [showOtp, otpVerifySuccess, OTP_LEN]);
+  }, [showOtp, otpVerifySuccess, resendEpoch, OTP_LEN]);
+
+  useEffect(() => {
+    if (!showOtp || otpVerifySuccess || verifyLoading) return;
+    const t = window.setTimeout(() => otpCatcherRef.current?.focus(), 40);
+    return () => window.clearTimeout(t);
+  }, [showOtp, sendLoading, otpVerifySuccess, verifyLoading]);
 
   const dismissOtp = useCallback(() => {
     if (otpVerifySuccess) return;
@@ -775,6 +784,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     // replacement now rather than making the next send pay for it.
     setWarmEpoch((e) => e + 1);
     setOtp(Array(OTP_LEN).fill(""));
+    pendingOtpRef.current = null;
     setOtpError(false);
     setVerifyLoading(false);
     setOtpVerifySuccess(false);
@@ -995,11 +1005,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
         createPortal(
           <div style={S.otpFullPage}>
             <div style={S.otpFullBody}>
-              {!verifyLoading && !otpVerifySuccess && !sendLoading && (
+              {!verifyLoading && !otpVerifySuccess && (
                 <div style={S.otpHeroBlock}>
                   <p style={{ ...S.sheetTitle, textAlign: "center" }}>Enter the OTP</p>
                   <p style={{ ...S.sheetSub, textAlign: "center", marginBottom: 10 }}>
-                    Sent to{" "}
+                    {sendLoading ? "Sending to" : "Sent to"}{" "}
                     <span style={{ color: "rgba(0,0,0,0.6)" }}>
                       +91 {formatDisplay(rawPhone)}
                     </span>
@@ -1026,41 +1036,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 </div>
               )}
 
-              {sendLoading && !otpVerifySuccess ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  style={{
-                    minHeight: 200,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 18,
-                    padding: `${T.sp2}px ${T.sp3}px`,
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    style={{
-                      display: "block",
-                      width: 48,
-                      height: 48,
-                      borderRadius: "50%",
-                      border: "4px solid rgba(189,35,32,0.2)",
-                      borderTopColor: C.red,
-                      animation: "vk-otp-spin 0.75s linear infinite",
-                    }}
-                  />
-                  <style>{`@keyframes vk-otp-spin { to { transform: rotate(360deg); } }`}</style>
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ ...S.sheetTitle, marginBottom: 6 }}>Sending your code</p>
-                    <p style={{ ...TYPO.bodySm, margin: 0 }}>
-                      Texting +91 {formatDisplay(rawPhone)} — this takes a few seconds.
-                    </p>
-                  </div>
-                </div>
-              ) : otpVerifySuccess ? (
+              {otpVerifySuccess ? (
                 <div
                   role="status"
                   aria-live="polite"
@@ -1100,62 +1076,63 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 </div>
               ) : (
                 <div>
-                  <div style={S.otpRow}>
-                    {otp.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => {
-                          otpRefs.current[i] = el;
-                        }}
-                        type="tel"
-                        inputMode="numeric"
-                        // Only the first box asks for the code: the keyboard
-                        // offers it there, and handleOtpChange spreads all six
-                        // digits across the row. maxLength has to allow the
-                        // whole code through for that to work.
-                        autoComplete={i === 0 ? "one-time-code" : "off"}
-                        maxLength={i === 0 ? OTP_LEN : 1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(i, e.target.value)}
-                        onPaste={handleOtpPaste}
-                        onKeyDown={(e) => {
-                          if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
-                        }}
-                        onFocus={() => setActiveOtpIdx(i)}
-                        onBlur={() => setActiveOtpIdx(null)}
-                        autoFocus={i === 0}
-                        style={{
-                          width: 46,
-                          height: 56,
-                          textAlign: "center",
-                          fontSize: 26,
-                          fontWeight: 800,
-                          color: C.text,
-                          background: "rgba(0,0,0,0.03)",
-                          border: `1.5px solid ${
-                            otpError
-                              ? "rgba(189,35,32,0.5)"
-                              : activeOtpIdx === i
-                                ? "#FACC15"
-                                : digit
-                                  ? "rgba(189,35,32,0.6)"
-                                  : "rgba(0,0,0,0.08)"
-                          }`,
-                          borderRadius: 16,
-                          outline: "none",
-                          caretColor: "#FACC15",
-                          boxShadow:
-                            activeOtpIdx === i
-                              ? "0 0 0 3px rgba(250, 204, 21, 0.18)"
-                              : digit && !otpError
-                                ? "0 0 0 3px rgba(189,35,32,0.08)"
-                                : "none",
-                          transition: "border-color 0.18s, box-shadow 0.18s",
-                          fontFamily: C.mono,
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <form
+                    autoComplete="on"
+                    onSubmit={(e) => e.preventDefault()}
+                    style={S.otpRow}
+                    onClick={() => otpCatcherRef.current?.focus()}
+                  >
+                    {otp.map((digit, i) => {
+                      const filledLen = otp.join("").length;
+                      const active = filledLen === i || (filledLen === OTP_LEN && i === OTP_LEN - 1);
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            ...S.otpBox,
+                            color: C.text,
+                            border: `1.5px solid ${
+                              otpError
+                                ? "rgba(189,35,32,0.5)"
+                                : active
+                                  ? "#FACC15"
+                                  : digit
+                                    ? "rgba(189,35,32,0.6)"
+                                    : "rgba(0,0,0,0.08)"
+                            }`,
+                            boxShadow:
+                              active
+                                ? "0 0 0 3px rgba(250, 204, 21, 0.18)"
+                                : digit && !otpError
+                                  ? "0 0 0 3px rgba(189,35,32,0.08)"
+                                  : "none",
+                          }}
+                        >
+                          {digit}
+                        </div>
+                      );
+                    })}
+                    <input
+                      ref={otpCatcherRef}
+                      id="vk-otp"
+                      name="one-time-code"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="one-time-code"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      enterKeyHint="done"
+                      maxLength={OTP_LEN}
+                      value={otp.join("")}
+                      onChange={(e) => applyIncomingOtp(e.target.value)}
+                      onInput={(e) => applyIncomingOtp((e.target as HTMLInputElement).value)}
+                      autoFocus
+                      aria-label="One-time code"
+                      style={S.otpCatcher}
+                    />
+                  </form>
 
                   {otpError && (
                     <p

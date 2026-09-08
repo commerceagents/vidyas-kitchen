@@ -7,7 +7,7 @@ import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import { type SavedPlace, loadSavedPlaces, savePlaces, DEFAULT_SAVED_PLACES } from "@/lib/vk-saved-places";
-import { DELIVERY_ZONE } from "@/lib/delivery-zone";
+import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 
@@ -42,6 +42,13 @@ interface LocationScreenProps {
    * against a saved address rather than chosen for this order.
    */
   confirmLabel?: string;
+  /**
+   * `my-gps` — after OTP: take GPS wherever they are (Chennai, Sivakasi, …).
+   * `delivery-pin` — checkout / recipient: the pin must be inside the zone.
+   */
+  mode?: "my-gps" | "delivery-pin";
+  /** First login: apply GPS and continue without a Confirm tap. */
+  autoAdvanceOnGps?: boolean;
 }
 type TipTone = "info" | "warn" | "success";
 
@@ -304,6 +311,8 @@ export function LocationScreen({
   initialLocation = null,
   onBack,
   confirmLabel,
+  mode = "my-gps",
+  autoAdvanceOnGps = false,
 }: LocationScreenProps) {
   // A location we've already been given is a real pick, so the map opens zoomed
   // in on it with the confirm button live — not parked over the kitchen at city
@@ -343,6 +352,7 @@ export function LocationScreen({
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cameraAnimRef = useRef<number | null>(null);
@@ -539,11 +549,12 @@ export function LocationScreen({
       const addr = await resolveAddress(lat, lng);
       // Discard stale responses — a newer pin drop may have started (and resolved) since this one began.
       if (gen === geocodeGenRef.current) setSearchText(addr);
+      return addr;
     },
     [animateCameraRoute, resolveAddress]
   );
 
-  const handleGPS = useCallback(async () => {
+  const handleGPS = useCallback(async (opts?: { auto?: boolean }) => {
     setIsDetecting(true);
     setGpsError(null);
 
@@ -578,8 +589,29 @@ export function LocationScreen({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        await applyPin(latitude, longitude);
+        const inZone = isInsideDeliveryZone(latitude, longitude);
+
+        // Checkout / recipient pins are drop-offs. GPS in Chennai must not
+        // become the driver's destination.
+        if (mode === "delivery-pin" && !inZone) {
+          setIsDetecting(false);
+          showTip(
+            `You're outside ${DELIVERY_ZONE.name}. Pin the address the food should go to.`,
+            "info"
+          );
+          return;
+        }
+
+        const addr = await applyPin(latitude, longitude);
         setIsDetecting(false);
+        if (mode === "my-gps" && autoAdvanceOnGps && opts?.auto && addr) {
+          onLocationSet({
+            label: addr,
+            lat: latitude,
+            lng: longitude,
+            inRange: inZone,
+          });
+        }
       },
       (err) => {
         setIsDetecting(false);
@@ -597,7 +629,7 @@ export function LocationScreen({
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
-  }, [applyPin, showTip]);
+  }, [applyPin, showTip, mode, autoAdvanceOnGps, onLocationSet]);
 
   // Arriving here with no address — straight out of the OTP screen — used to
   // mean the map sat over the kitchen until the customer thought to ask for
@@ -620,7 +652,7 @@ export function LocationScreen({
       } catch {
         // No Permissions API (older Safari) — just ask and let it fail quietly.
       }
-      void handleGPS();
+      void handleGPS({ auto: true });
     })();
   }, [initialLocation, handleGPS]);
 
@@ -746,8 +778,8 @@ export function LocationScreen({
       showTip("Hang on, locating that address…", "info");
       return;
     }
-    const dist = getDistanceKm(pinCoords.lat, pinCoords.lng, KITCHEN_CENTER.lat, KITCHEN_CENTER.lng);
-    if (dist > MAX_DISTANCE_KM) {
+    const inRange = isInsideDeliveryZone(pinCoords.lat, pinCoords.lng);
+    if (mode === "delivery-pin" && !inRange) {
       setOutOfRangeModal(true);
       return;
     }
@@ -759,7 +791,7 @@ export function LocationScreen({
     const label = saved
       ? saved.address?.trim() || saved.label || "Saved Location"
       : searchText.trim() || "Current Location";
-    onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange: true });
+    onLocationSet({ label, lat: pinCoords.lat, lng: pinCoords.lng, inRange });
   };
 
   const hasToken = MAPBOX_TOKEN.length > 0;
@@ -1046,8 +1078,13 @@ export function LocationScreen({
                 <SearchIcon />
               </span>
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search area, street, landmark..."
+                placeholder={
+                  mode === "delivery-pin"
+                    ? `Search a ${DELIVERY_ZONE.name} area, street, landmark...`
+                    : "Search area, street, landmark..."
+                }
                 value={searchText}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
@@ -1224,7 +1261,7 @@ export function LocationScreen({
             initial="hidden"
             animate="show"
             whileTap={{ scale: 0.97 }}
-            onClick={handleGPS}
+            onClick={() => void handleGPS()}
             style={{
               width: "100%",
               background: "rgba(0,0,0,0.03)",
@@ -1255,7 +1292,9 @@ export function LocationScreen({
               <p style={LOC.gpsTitle}>
                 {isDetecting ? "Detecting location…" : "Use current location"}
               </p>
-              <p style={LOC.gpsSub}>Detect via GPS</p>
+              <p style={LOC.gpsSub}>
+                {mode === "delivery-pin" ? `Only if you are in ${DELIVERY_ZONE.name}` : "Detect via GPS"}
+              </p>
             </div>
             <span style={{ color: "rgba(0,0,0,0.25)", fontSize: 18 }}>›</span>
           </motion.button>
@@ -1409,13 +1448,15 @@ export function LocationScreen({
               </div>
               <h2 style={LOC.modalTitle}>Outside delivery area</h2>
               <p style={LOC.modalBody}>
-                We currently only deliver within{" "}
+                You can order from anywhere in India. We only{" "}
+                <span style={{ color: "#1A1A1A", fontWeight: 700 }}>deliver</span>{" "}
+                within{" "}
                 <span style={{ color: "#1A1A1A", fontWeight: 700 }}>
                   {DELIVERY_ZONE.name}, Tamil Nadu
                 </span>{" "}
-                — within {MAX_DISTANCE_KM} km of our kitchen.
+                — {MAX_DISTANCE_KM} km of our kitchen. Pin a friend or family address there.
               </p>
-              <p style={LOC.modalSub}>The location you picked is outside our delivery zone.</p>
+              <p style={LOC.modalSub}>This pin is outside that zone — not where you are standing.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -1428,6 +1469,7 @@ export function LocationScreen({
                     setHasPicked(false);
                     setPinCoords(KITCHEN_CENTER);
                     animateCameraTo(KITCHEN_CENTER.lng, KITCHEN_CENTER.lat, 1400);
+                    window.setTimeout(() => searchInputRef.current?.focus(), 400);
                   }}
                   style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, #BD2320 0%, #8B1A18 100%)", border: "none", borderRadius: 14, ...LOC.modalBtnPrimary, cursor: "pointer", boxShadow: "0 4px 16px rgba(189,35,32,0.4)" }}
                 >

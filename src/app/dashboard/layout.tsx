@@ -254,8 +254,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 transition={{ duration: 0.45, ease: "easeInOut" }}
                 style={{
                   display: "flex",
+                  flexWrap: "nowrap",
                   justifyContent: "center",
                   gap: MOBILE.pinGap,
+                  width: "100%",
                   maxWidth: "100%",
                 }}
               >
@@ -275,7 +277,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       style={{
                         width: MOBILE.pinBox,
                         height: MOBILE.pinBox,
-                        flexShrink: 0,
+                        flex: "1 1 0",
+                        minWidth: 0,
+                        maxWidth: MOBILE.pinBox,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",

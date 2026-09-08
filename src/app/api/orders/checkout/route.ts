@@ -13,6 +13,7 @@ import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { markOrderPaidAndNotify, isCodBlocked } from "@/lib/order-transition";
 import { PaymentStatus } from "@/lib/order-status";
 import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
+import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 
 type LineInput = { menuItemId: string; quantity: number };
 
@@ -62,9 +63,27 @@ export async function POST(request: Request) {
     if (!deliveryAddress) {
       return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
     }
+    if (
+      deliveryLat != null &&
+      deliveryLng != null &&
+      !isInsideDeliveryZone(deliveryLat, deliveryLng)
+    ) {
+      return NextResponse.json(
+        {
+          error: `We only deliver in ${DELIVERY_ZONE.name}. Pin a drop-off there, or send this to someone in ${DELIVERY_ZONE.name}.`,
+        },
+        { status: 400 },
+      );
+    }
     if (orderingForSomeoneElse && (!recipientName || recipientPhoneDigits.length < 10)) {
       return NextResponse.json(
         { error: "Enter a valid name and phone number for the recipient." },
+        { status: 400 },
+      );
+    }
+    if (orderingForSomeoneElse && (deliveryLat == null || deliveryLng == null)) {
+      return NextResponse.json(
+        { error: `Pin the recipient's address in ${DELIVERY_ZONE.name} so the driver can navigate there.` },
         { status: 400 },
       );
     }
