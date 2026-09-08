@@ -616,6 +616,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setSendError(null);
     setOtp(Array(OTP_LEN).fill(""));
     pendingOtpRef.current = null;
+    if (otpCatcherRef.current) otpCatcherRef.current.value = "";
     confirmationRef.current = null;
     clearRecaptcha();
     setSendLoading(true);
@@ -642,6 +643,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     if (code.length !== OTP_LEN) {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
+      if (otpCatcherRef.current) otpCatcherRef.current.value = "";
       otpCatcherRef.current?.focus();
       return;
     }
@@ -710,6 +712,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     } catch {
       setOtpError(true);
       setOtp(Array(OTP_LEN).fill(""));
+      if (otpCatcherRef.current) otpCatcherRef.current.value = "";
       otpCatcherRef.current?.focus();
       setVerifyLoading(false);
     }
@@ -735,6 +738,11 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     }, 120);
   };
 
+  // Stable ref so the native DOM listener always calls the latest version
+  // without needing to re-attach on every render.
+  const applyIncomingOtpRef = useRef(applyIncomingOtp);
+  applyIncomingOtpRef.current = applyIncomingOtp;
+
   const flushPendingOtp = () => {
     const queued = pendingOtpRef.current;
     if (!queued || queued.length !== OTP_LEN) return;
@@ -742,31 +750,35 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     void verifyRef.current(queued);
   };
 
-  // Android Chrome: WebOTP permission dialog → code, no typing.
-  // iOS / Android Autofill: write into the single `one-time-code` field.
-  // Listen as soon as this screen opens, before the SMS lands.
+  // Native DOM "input" listener — bypasses React's synthetic event batching.
+  // This is the path Android keyboard OTP suggestion reliably triggers; React's
+  // onChange can miss it when the controlled value gets reconciled before the
+  // state update commits.
+  // NOTE: We intentionally do NOT use navigator.credentials.get (WebOTP API)
+  // here. Firebase SMS messages don't end with "@domain #code", so that API
+  // never resolves — it only shows an intrusive permission popup and then
+  // blocks the keyboard suggestion from working.
   useEffect(() => {
-    if (!showOtp || otpVerifySuccess) return;
-    if (typeof window === "undefined" || !("OTPCredential" in window)) return;
+    const el = otpCatcherRef.current;
+    if (!el || !showOtp || otpVerifySuccess) return;
+    const onNativeInput = (e: Event) => {
+      applyIncomingOtpRef.current((e.target as HTMLInputElement).value);
+    };
+    el.addEventListener("input", onNativeInput);
+    return () => el.removeEventListener("input", onNativeInput);
+  }, [showOtp, otpVerifySuccess]);
 
-    const ac = new AbortController();
-    void navigator.credentials
-      .get({ otp: { transport: ["sms"] }, signal: ac.signal } as CredentialRequestOptions)
-      .then((cred) => {
-        const code = (cred as { code?: string } | null)?.code?.replace(/\D/g, "").slice(0, OTP_LEN);
-        if (!code || code.length !== OTP_LEN) return;
-        applyIncomingOtp(code);
-      })
-      .catch(() => {
-        // Aborted, dismissed, or unsupported — the customer types it instead.
-      });
-
-    return () => ac.abort();
-  }, [showOtp, otpVerifySuccess, resendEpoch, OTP_LEN]);
-
+  // Keep the catcher focused throughout the OTP flow so Android's keyboard
+  // suggestion bar appears and stays linked to the right field.
   useEffect(() => {
     if (!showOtp || otpVerifySuccess || verifyLoading) return;
-    const t = window.setTimeout(() => otpCatcherRef.current?.focus(), 40);
+    const t = window.setTimeout(() => {
+      const el = otpCatcherRef.current;
+      if (!el) return;
+      // Reset the DOM value so previous digits don't linger in an uncontrolled input.
+      el.value = "";
+      el.focus();
+    }, 40);
     return () => window.clearTimeout(t);
   }, [showOtp, sendLoading, otpVerifySuccess, verifyLoading]);
 
@@ -785,6 +797,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
     setWarmEpoch((e) => e + 1);
     setOtp(Array(OTP_LEN).fill(""));
     pendingOtpRef.current = null;
+    if (otpCatcherRef.current) otpCatcherRef.current.value = "";
     setOtpError(false);
     setVerifyLoading(false);
     setOtpVerifySuccess(false);
@@ -1112,6 +1125,10 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                         </div>
                       );
                     })}
+                    {/* Uncontrolled — no `value` prop so React never resets
+                        the DOM value and fights Android autofill/keyboard
+                        suggestion. State is driven by the native "input" event
+                        listener attached in the useEffect above. */}
                     <input
                       ref={otpCatcherRef}
                       id="vk-otp"
@@ -1125,9 +1142,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                       spellCheck={false}
                       enterKeyHint="done"
                       maxLength={OTP_LEN}
-                      value={otp.join("")}
-                      onChange={(e) => applyIncomingOtp(e.target.value)}
-                      onInput={(e) => applyIncomingOtp((e.target as HTMLInputElement).value)}
+                      defaultValue=""
                       autoFocus
                       aria-label="One-time code"
                       style={S.otpCatcher}
