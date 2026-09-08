@@ -1528,8 +1528,8 @@ export function CheckoutScreen({
                     },
                     {
                       id: "cod",
-                      label: "Cash on Delivery",
-                      sub: codBlockedByTotal ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}` : "Pay when it arrives",
+                      label: "Pay at the door",
+                      sub: codBlockedByTotal ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}` : "Cash or UPI",
                       icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
                       disabled: codBlockedByTotal,
                     },

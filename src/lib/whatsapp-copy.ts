@@ -602,7 +602,7 @@ export function buildProposalAskMessage(
     case "payment":
       return pickLang(
         lang,
-        msg({ lines: [`Pay online, or cash at the door? Cash works up to ${COD_CAP}.`] }),
+        msg({ lines: [`Pay online, or pay at the door (cash or UPI)? Door works up to ${COD_CAP}.`] }),
         msg({ lines: [`Online pay illa door-la cash? Cash ${COD_CAP} varaikkum.`] }),
       );
   }
@@ -656,7 +656,7 @@ export function buildPayMethodPrompt(total: number, lang?: WaLang, opts?: { over
     lang,
     msg({
       title: money(total),
-      lines: [`Pay online now, or cash when it arrives. Cash works up to ${COD_CAP}.`],
+      lines: [`Pay online now, or cash / UPI when it arrives. Door pay works up to ${COD_CAP}.`],
     }),
     msg({
       title: money(total),
@@ -1114,7 +1114,7 @@ export function notifyDriverArrived(isCod: boolean, amount: number, lang?: WaLan
       title: "Your driver has arrived",
       lines: [
         "Your driver is at your door with your order.",
-        isCod ? `Please keep ${money(amount)} in cash ready.` : null,
+        isCod ? `Please keep ${money(amount)} ready — cash or UPI. The driver has a QR.` : null,
       ],
       note: "Can't find them? Call the driver from your order page.",
     }),
@@ -1509,7 +1509,7 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
   amount?: number;
 }): string {
   const sender = opts.sender || "A friend";
-  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash when it arrives.` : "";
+  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash or UPI when it arrives.` : "";
   switch (kind) {
     case "placed":
       return msg({
@@ -1518,7 +1518,7 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
           opts.itemsLine,
           opts.slotLine ? `When: ${opts.slotLine}` : null,
           opts.isCod
-            ? `Pay ${money(opts.amount || 0)} cash at the door.`
+            ? `Pay ${money(opts.amount || 0)} cash or UPI at the door.`
             : "Already paid — just receive it.",
         ],
         note: "Tap Track to watch the driver on the map.",
@@ -1556,7 +1556,7 @@ export function giftRecipientSms(kind: GiftNotifyKind, opts: {
   amount?: number;
 }): string {
   const sender = opts.sender || "A friend";
-  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash at the door.` : "";
+  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash or UPI at the door.` : "";
   switch (kind) {
     case "placed":
       return `${sender} sent you Vidya's Kitchen food${opts.itemsLine ? `: ${opts.itemsLine}` : ""}${opts.slotLine ? ` (${opts.slotLine})` : ""}.${opts.isCod ? cash : " Already paid."} Track: ${opts.url}`;

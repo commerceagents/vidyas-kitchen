@@ -15,7 +15,9 @@ import {
   Banknote,
   BellRing,
   Crosshair,
+  QrCode,
 } from "lucide-react";
+import QRCode from "react-qr-code";
 import { haversineMeters } from "@/lib/geo";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS, formatOrderRef } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
@@ -48,6 +50,7 @@ type DriverOrder = {
   total_amount?: number | null;
   users?: UserRef;
   order_items?: ItemRow[] | null;
+  collectUpi?: { vpa: string; link: string | null; amount: number } | null;
 };
 
 const PROXIMITY_UNLOCK_M = 100;
@@ -224,7 +227,7 @@ function DriverOrderDetailInner() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [pickingUp, setPickingUp] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
-  const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [collectVia, setCollectVia] = useState<"cash" | "upi" | null>(null);
   const [arriving, setArriving] = useState(false);
   const [failOpen, setFailOpen] = useState(false);
   const [failing, setFailing] = useState(false);
@@ -308,7 +311,7 @@ function DriverOrderDetailInner() {
   const hasArrived = Boolean(order?.driver_arrived_at);
   const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
-  const canMarkDelivered = withinRange && (!cashOutstanding || cashConfirmed);
+  const canMarkDelivered = withinRange && (!cashOutstanding || collectVia != null);
 
   // GPS tracking while en route
   useEffect(() => {
@@ -586,6 +589,7 @@ function DriverOrderDetailInner() {
           orderId,
           ...(geoLat != null && geoLng != null ? { lat: geoLat, lng: geoLng } : {}),
           codCollected: cashOutstanding ? true : undefined,
+          codVia: cashOutstanding ? collectVia || "cash" : undefined,
         }),
       });
       if (res.status === 401) {
@@ -838,7 +842,7 @@ function DriverOrderDetailInner() {
             >
               <Banknote size={22} strokeWidth={1.9} style={{ color: D.red, flexShrink: 0 }} />
               <div>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: D.red, letterSpacing: "0.08em" }}>COLLECT CASH</p>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: D.red, letterSpacing: "0.08em" }}>COLLECT — CASH OR UPI</p>
                 <p style={{ margin: "1px 0 0", fontSize: 20, fontWeight: 800, color: D.red, letterSpacing: "-0.02em" }}>
                   ₹{amount.toLocaleString("en-IN")}
                 </p>
@@ -849,7 +853,7 @@ function DriverOrderDetailInner() {
           {isCod && !cashOutstanding && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: D.greenFaint }}>
               <Check size={16} strokeWidth={2.6} style={{ color: D.green }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: D.green }}>Cash already collected</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: D.green }}>Payment already collected</span>
             </div>
           )}
 
@@ -1007,42 +1011,65 @@ function DriverOrderDetailInner() {
             )}
 
             {cashOutstanding && amount != null && (
-              <button
-                type="button"
-                onClick={() => setCashConfirmed((v) => !v)}
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 11,
-                  width: "100%",
-                  padding: "13px 14px",
+                  padding: "14px",
                   borderRadius: RADIUS.control,
-                  background: cashConfirmed ? D.greenFaint : D.surface,
-                  border: `1px solid ${cashConfirmed ? "rgba(18,131,63,0.35)" : D.border}`,
-                  cursor: "pointer",
-                  fontFamily: D.font,
-                  textAlign: "left",
+                  background: D.surface,
+                  border: `1px solid ${D.border}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                <span
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 7,
-                    flexShrink: 0,
-                    background: cashConfirmed ? D.green : "transparent",
-                    border: `2px solid ${cashConfirmed ? D.green : D.borderStrong}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {cashConfirmed && <Check size={14} strokeWidth={3.2} style={{ color: "#fff" }} />}
-                </span>
-                <span style={{ fontSize: 14.5, fontWeight: 700, color: cashConfirmed ? D.green : D.text }}>
-                  I collected ₹{amount.toLocaleString("en-IN")} in cash
-                </span>
-              </button>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: D.text, lineHeight: 1.4 }}>
+                  They can pay cash or scan UPI — no change needed if they use the QR.
+                </p>
+                {order?.collectUpi?.link ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ background: "#fff", padding: 12, borderRadius: 16 }}>
+                      <QRCode value={order.collectUpi.link} size={168} fgColor="#1A1A1A" bgColor="#FFFFFF" level="M" />
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: D.muted, textAlign: "center", lineHeight: 1.4 }}>
+                      Amount is already ₹{amount.toLocaleString("en-IN")}. Same UPI as your printed card
+                      {order.collectUpi.vpa ? ` · ${order.collectUpi.vpa}` : ""}.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <QrCode size={18} strokeWidth={2} style={{ color: D.muted, flexShrink: 0, marginTop: 1 }} />
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: D.muted, lineHeight: 1.4 }}>
+                      Show your printed QR. Ask them to pay ₹{amount.toLocaleString("en-IN")} to Vidya&apos;s Kitchen.
+                    </p>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["cash", "upi"] as const).map((via) => {
+                    const on = collectVia === via;
+                    return (
+                      <button
+                        key={via}
+                        type="button"
+                        onClick={() => setCollectVia(via)}
+                        style={{
+                          flex: 1,
+                          padding: "12px 10px",
+                          borderRadius: 12,
+                          border: `1.5px solid ${on ? "rgba(18,131,63,0.45)" : D.border}`,
+                          background: on ? D.greenFaint : D.bg,
+                          color: on ? D.green : D.text,
+                          fontSize: 13.5,
+                          fontWeight: 800,
+                          fontFamily: D.font,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {via === "cash" ? "Got cash" : "Got UPI"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {!withinRange && distanceM != null && (
@@ -1052,7 +1079,7 @@ function DriverOrderDetailInner() {
             )}
 
             <SwipeAction
-              label={cashOutstanding && !cashConfirmed ? "Confirm cash first" : "Swipe to mark delivered"}
+              label={cashOutstanding && !collectVia ? "Choose cash or UPI first" : "Swipe to mark delivered"}
               doneLabel="Delivered"
               disabled={!canMarkDelivered}
               onSwipe={handleComplete}

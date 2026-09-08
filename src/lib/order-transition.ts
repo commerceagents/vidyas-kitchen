@@ -235,10 +235,11 @@ export async function markOrderPaidAndNotify(
   return { ok: true };
 }
 
-/** Driver confirms cash changed hands at the door. */
+/** Driver confirms cash or UPI changed hands at the door. */
 export async function markCodCollected(
   supabase: SupabaseClient,
   orderId: string,
+  via: "cash" | "upi" = "cash",
 ): Promise<TransitionResult> {
   const { data: row, error: fetchErr } = await supabase
     .from("orders")
@@ -252,15 +253,20 @@ export async function markCodCollected(
     return { ok: true };
   }
 
-  const { error: upErr } = await supabase
+  const settled = via === "upi" ? "upi" : "cash";
+  const base = {
+    payment_status: PaymentStatus.PAID,
+    cod_collected_at: new Date().toISOString(),
+    cod_failure_reason: null,
+    updated_at: new Date().toISOString(),
+  };
+  let { error: upErr } = await supabase
     .from("orders")
-    .update({
-      payment_status: PaymentStatus.PAID,
-      cod_collected_at: new Date().toISOString(),
-      cod_failure_reason: null,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...base, cod_settled_via: settled })
     .eq("id", orderId);
+  if (upErr && /cod_settled_via/i.test(upErr.message)) {
+    ({ error: upErr } = await supabase.from("orders").update(base).eq("id", orderId));
+  }
 
   if (upErr) return { ok: false, error: upErr.message };
 

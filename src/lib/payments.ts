@@ -94,18 +94,22 @@ export async function refundPayment(
   }
 }
 
+/** Kitchen VPA for door-step UPI. Empty until KITCHEN_UPI_ID is set. */
+export function kitchenUpiVpa(): string | null {
+  const vpa = (process.env.KITCHEN_UPI_ID || "").trim();
+  if (!vpa.includes("@") || vpa.toLowerCase() === "vidya@upi") return null;
+  return vpa;
+}
+
 /**
- * Generates a standard UPI Deep Link for direct payments (Zero platform fees).
+ * UPI pay link with the exact ticket amount — the driver QR encodes this.
+ * Same VPA as the printed card the driver carries.
  */
-export function generateUPILink(amount: number, orderId: string) {
-  const vpa = process.env.KITCHEN_UPI_ID || "vidya@upi"; // Replace with real VPA
-  const name = "Vidya's Kitchen";
-  const tr = orderId; // Transaction reference
-  const tn = `Order ${orderId} Vidya's Kitchen`; // Transaction note
-
-  // Encode for URI
-  const encodedName = encodeURIComponent(name);
-  const encodedNote = encodeURIComponent(tn);
-
-  return `upi://pay?pa=${vpa}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}&tr=${tr}`;
+export function generateUPILink(amount: number, orderId: string): string | null {
+  const vpa = kitchenUpiVpa();
+  const rupees = Number(amount);
+  if (!vpa || !Number.isFinite(rupees) || rupees <= 0) return null;
+  const name = encodeURIComponent("Vidya's Kitchen");
+  const note = encodeURIComponent(`Vidya's Kitchen ${orderId.slice(0, 8)}`);
+  return `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${name}&am=${rupees.toFixed(2)}&cu=INR&tn=${note}`;
 }

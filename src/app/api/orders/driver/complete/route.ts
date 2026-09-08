@@ -16,13 +16,14 @@ export async function POST(request: Request) {
   const auth = await requireDriverSession();
   if (!auth.ok) return auth.response;
 
-  let body: { orderId?: string; lat?: number; lng?: number; codCollected?: boolean };
+  let body: { orderId?: string; lat?: number; lng?: number; codCollected?: boolean; codVia?: string };
   try {
     body = (await request.json()) as {
       orderId?: string;
       lat?: number;
       lng?: number;
       codCollected?: boolean;
+      codVia?: string;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -56,13 +57,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Order is not out for delivery" }, { status: 400 });
   }
 
-  // A COD order can only be closed once the driver states the cash is in hand —
-  // that's the whole point of the separate payment_status.
+  // Pay-at-door can only close once the driver says cash or UPI landed.
   const isCod = String(row.payment_method || "").toLowerCase() === "cod";
   const alreadySettled = String(row.payment_status || "") === PaymentStatus.PAID;
+  const via = body.codVia === "upi" ? "upi" : "cash";
   if (isCod && !alreadySettled && body.codCollected !== true) {
     return NextResponse.json(
-      { error: "Confirm the cash was collected before completing this delivery." },
+      { error: "Confirm you collected the money — cash or UPI — before completing." },
       { status: 400 },
     );
   }
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
   // Settle the cash first: if the delivery transition then fails we'd rather
   // have the money recorded than lose it.
   if (isCod && !alreadySettled) {
-    const collected = await markCodCollected(supabase, orderId);
+    const collected = await markCodCollected(supabase, orderId, via);
     if (!collected.ok) {
       console.error("[driver/complete] markCodCollected", collected.error);
       return NextResponse.json({ error: collected.error }, { status: 400 });

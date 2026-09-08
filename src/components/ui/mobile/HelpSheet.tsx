@@ -23,8 +23,8 @@ const FAQS: { q: string; a: string }[] = [
     a: "Yes, until the cancellation window closes — the Order tab shows a Cancel button while it's still open. Because everything is cooked fresh to your slot, we can't cancel once the kitchen has started.",
   },
   {
-    q: "How does Cash on Delivery work?",
-    a: `Pick Cash on Delivery at checkout and keep the exact amount ready. The driver confirms the cash in their app when they hand the food over, and your order is marked paid. Cash is available on orders up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.`,
+    q: "How does pay at the door work?",
+    a: `Pick Pay at the door at checkout. When the driver arrives you can give cash or scan their UPI QR (same as the printed card they carry) — no change needed if you pay UPI. Available on orders up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.`,
   },
   {
     q: "Nobody was there to pay or collect. What now?",

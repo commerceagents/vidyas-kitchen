@@ -154,7 +154,7 @@ function DriverHubInner() {
           {cashToCollect > 0 && (
             <>
               <Divider />
-              <Stat value={`₹${cashToCollect.toLocaleString("en-IN")}`} label="Cash to collect" tone={D.red} />
+              <Stat value={`₹${cashToCollect.toLocaleString("en-IN")}`} label="To collect" tone={D.red} />
             </>
           )}
         </div>
@@ -352,7 +352,7 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
 
         {(slotLine || collectCash || hasRecipient) && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-            {collectCash && <Chip tone="red">Collect cash</Chip>}
+            {collectCash && <Chip tone="red">Pay at door</Chip>}
             {hasRecipient && <Chip tone="plain">Recipient</Chip>}
             {slotLine && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
