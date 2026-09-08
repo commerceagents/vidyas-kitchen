@@ -1187,7 +1187,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                     </div>
                   )}
 
-                  {!canResend && (
+                  {!canResend && !sendLoading && (
                     <div style={{ textAlign: "center", marginTop: T.sp1, marginBottom: T.sp3 }}>
                       <p style={{ color: "rgba(0,0,0,0.25)", fontSize: 13, fontFamily: C.mono, fontWeight: 600 }}>
                         Resend in <span style={{ color: "rgba(0,0,0,0.5)" }}>{resendTimer}s</span>
