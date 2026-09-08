@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, WarningCircle } from "@phosphor-icons/react";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { PwaInstallBanner } from "@/components/ui/PwaInstallBanner";
+import { InstallConfirmModal } from "@/components/ui/InstallConfirmModal";
+import { isAlreadyInstalled } from "@/lib/pwa-install";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
@@ -47,6 +49,7 @@ interface MobileShellProps {
   prefilledName?: string;
   cancelOrderId?: string;
   cancelPhone?: string;
+  wantInstall?: boolean;
 }
 
 const LS_NAME = "vk_display_name";
@@ -64,7 +67,11 @@ type PaymentFeedback =
   | { kind: "error" }
   | { kind: "cancelled" };
 
-export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, cancelPhone }: MobileShellProps) {
+export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, cancelPhone, wantInstall }: MobileShellProps) {
+  const [showInstallConfirm, setShowInstallConfirm] = useState(
+    () => !!wantInstall && (typeof window === "undefined" || !isAlreadyInstalled()),
+  );
+
   // ── Sync Initial State from Storage ──────────────────────────────────────
   const [initialData] = useState(() => {
     if (typeof window === "undefined") {
@@ -852,7 +859,19 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         )}
       </AnimatePresence>
 
-      <PwaInstallBanner active={step === "login"} />
+      <PwaInstallBanner active={step === "login" && !showInstallConfirm} />
+      {showInstallConfirm ? (
+        <InstallConfirmModal
+          onDone={() => {
+            setShowInstallConfirm(false);
+            const u = new URL(window.location.href);
+            if (u.searchParams.has("install")) {
+              u.searchParams.delete("install");
+              window.history.replaceState({}, "", u.toString());
+            }
+          }}
+        />
+      ) : null}
 
       <AnimatePresence>
         {paymentFeedback && (

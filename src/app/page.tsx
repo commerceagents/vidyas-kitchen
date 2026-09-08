@@ -3,10 +3,12 @@
 import { useState, useEffect, useLayoutEffect } from "react";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { DesktopLanding } from "@/components/ui/DesktopLanding";
+import { InstallOnPhoneQr } from "@/components/ui/InstallOnPhoneQr";
 import { MobileShell } from "@/components/ui/mobile/MobileShell";
 import { PortraitLock } from "@/components/ui/mobile/PortraitLock";
 import { motion, AnimatePresence } from "framer-motion";
 import { hasSeenSplash, markSplashSeen } from "@/lib/vk-ui-session";
+import { phoneInstallUrl } from "@/lib/site-url";
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(false);
@@ -17,6 +19,8 @@ export default function Home() {
   const [prefilledName, setPrefilledName] = useState<string | undefined>();
   const [cancelOrderId, setCancelOrderId] = useState<string | undefined>();
   const [cancelPhone, setCancelPhone] = useState<string | undefined>();
+  const [wantInstall, setWantInstall] = useState(false);
+  const [installQrUrl, setInstallQrUrl] = useState("");
 
   /** Splash only on first visit; refresh / return skips it. */
   useLayoutEffect(() => {
@@ -46,8 +50,27 @@ export default function Home() {
     if (phoneParam && !cancelOrder) setPrefilledPhone(phoneParam);
     if (nameParam) setPrefilledName(decodeURIComponent(nameParam));
 
+    const installIntent = params.get("install") === "1";
+    const desktopNow = window.innerWidth > 1024;
     const waToken = params.get("wa_token");
-    if (waToken) {
+
+    if (installIntent) {
+      setWantInstall(true);
+      setShowSplash(false);
+      setInstantShellEnter(true);
+      if (desktopNow && waToken) {
+        // Leave the one-time token unused on this laptop — the phone scan spends it.
+        const handoff = new URL(window.location.origin + "/");
+        handoff.searchParams.set("install", "1");
+        handoff.searchParams.set("wa_token", waToken);
+        setInstallQrUrl(handoff.toString());
+      } else {
+        setInstallQrUrl(phoneInstallUrl(window.location.origin, phoneParam || undefined));
+      }
+    }
+
+    const consumeWaToken = Boolean(waToken) && !(installIntent && desktopNow);
+    if (consumeWaToken && waToken) {
       fetch(`/api/auth/wa-login?token=${encodeURIComponent(waToken)}`)
         .then((r) => r.json())
         .then((data) => {
@@ -60,6 +83,8 @@ export default function Home() {
           }
         })
         .catch(() => {});
+    }
+    if (waToken) {
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete("wa_token");
       window.history.replaceState({}, "", cleanUrl.toString());
@@ -107,9 +132,19 @@ export default function Home() {
             className="w-full h-full"
           >
             {isDesktop ? (
-              <DesktopLanding />
+              wantInstall && installQrUrl ? (
+                <InstallOnPhoneQr url={installQrUrl} />
+              ) : (
+                <DesktopLanding />
+              )
             ) : (
-              <MobileShell prefilledPhone={prefilledPhone} prefilledName={prefilledName} cancelOrderId={cancelOrderId} cancelPhone={cancelPhone} />
+              <MobileShell
+                prefilledPhone={prefilledPhone}
+                prefilledName={prefilledName}
+                cancelOrderId={cancelOrderId}
+                cancelPhone={cancelPhone}
+                wantInstall={wantInstall}
+              />
             )}
           </motion.div>
         )}

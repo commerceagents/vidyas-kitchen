@@ -1246,10 +1246,14 @@ async function showWelcome(from: string, profileName: string) {
 
 async function showInstallApp(from: string, profileName: string) {
   const lang = langOf(from);
-  const token = await createAutoLoginToken(from, profileName || "Friend");
-  const autoLoginUrl = `${publicSiteOrigin()}?wa_token=${token}`;
-  // Already installed? Then this is just "open it", not a sales pitch.
-  const installed = await hasAppInstalledSignal(from);
+  const [token, installed] = await Promise.all([
+    createAutoLoginToken(from, profileName || "Friend"),
+    hasAppInstalledSignal(from),
+  ]);
+  // Phone gets a confirm-then-install sheet. Laptop gets a QR to that same page.
+  const autoLoginUrl = installed
+    ? `${publicSiteOrigin()}?wa_token=${token}`
+    : `${publicSiteOrigin()}?wa_token=${token}&install=1`;
   const body = installed ? buildOpenAppBody(lang) : buildPwaPromoBody(lang);
   await sendCtaUrl(from, body, autoLoginUrl, BTN.openApp);
   return ack();
