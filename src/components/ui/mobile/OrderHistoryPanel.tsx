@@ -210,7 +210,7 @@ export function OrderHistoryPanel({
   const { ongoing, past } = splitOngoing(orders);
 
   return (
-    <div style={{ padding: "4px 0 8px", fontFamily: fontUi }}>
+    <div style={{ padding: "0 0 8px", fontFamily: fontUi }}>
       {ongoing.length > 0 ? (
         <section>
           <GroupHeader label="Ongoing" />
@@ -250,8 +250,8 @@ function GroupHeader({ label }: { label: string }) {
         position: "sticky",
         top: 0,
         zIndex: 1,
-        margin: "6px 0 10px",
-        padding: "8px 2px",
+        margin: "0 0 10px",
+        padding: "10px 16px 8px",
         fontSize: 12,
         fontWeight: 800,
         letterSpacing: "0.06em",

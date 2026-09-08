@@ -2373,15 +2373,17 @@ export function MobileHomeScreen({
         style={{
           position: "sticky", top: 0, zIndex: 50,
           paddingTop: "max(16px, env(safe-area-inset-top))",
-          paddingBottom: 12,
+          paddingBottom: activeNav === "orders" ? 0 : 12,
           paddingLeft: sp(2), paddingRight: sp(2),
-          background: `linear-gradient(to bottom, ${C.bg} 72%, transparent)`,
+          background: activeNav === "orders"
+            ? C.bg
+            : `linear-gradient(to bottom, ${C.bg} 72%, transparent)`,
           filter: windowOpen ? "none" : "grayscale(0.9)",
           transition: "filter 0.5s ease",
         }}
       >
         {activeNav === "orders" ? (
-          <div style={{ paddingBottom: 12 }}>
+          <div style={{ paddingBottom: 10 }}>
             <div
               style={{
                 display: "flex",
@@ -2612,10 +2614,10 @@ export function MobileHomeScreen({
           justifyContent: "flex-start",
           gap: sp(3), // Reduced from sp(4)
           padding: `0 ${sp(2)}px`,
-          paddingTop: sp(2),
+          paddingTop: activeNav === "orders" ? 0 : sp(2),
           overflowY: "auto",
-          // Clears the floating warning and the nav pill.
-          paddingBottom: 180,
+          // Clears the floating nav pill so the last row is fully readable.
+          paddingBottom: "max(200px, calc(132px + env(safe-area-inset-bottom)))",
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -2910,9 +2912,10 @@ export function MobileHomeScreen({
             style={{
               margin: `0 -${sp(2)}px`,
               alignSelf: "stretch",
-              // Live order must grow with the bill so the parent can scroll.
-              // All-orders empty state still wants to fill the leftover tab.
-              ...(ordersView === "track" && trackingOrderId && trackSnap
+              // Live bill and the all-orders list must grow so the parent
+              // scrolls. flex:1 + minHeight:0 was clipping the last cards
+              // behind the nav because the list could not overflow.
+              ...(ordersView === "history" || (ordersView === "track" && trackingOrderId && trackSnap)
                 ? {}
                 : {
                     flex: 1,
