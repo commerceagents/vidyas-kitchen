@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { SmoothScroll } from "@/components/effects/SmoothScroll";
+// Load on every customer page so desktop Chrome never offers its own Install app.
+import "@/lib/pwa-install";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

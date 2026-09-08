@@ -5,7 +5,15 @@ const CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
 /** Customer PWA. Served at /manifest.webmanifest via a route, not app/manifest.ts
  *  — that special file always injects a root <link rel="manifest"> and won
  *  over the driver layout, so /driver installed the food app. */
-export function customerManifest(): MetadataRoute.Manifest {
+export function isDesktopBrowserRequest(request: Request): boolean {
+  const chMobile = request.headers.get("sec-ch-ua-mobile");
+  if (chMobile === "?1") return false;
+  if (chMobile === "?0") return true;
+  const ua = request.headers.get("user-agent") || "";
+  return !/Android|iPhone|iPod|iPad|Mobile/i.test(ua);
+}
+
+export function customerManifest(opts?: { desktop?: boolean }): MetadataRoute.Manifest {
   return {
     id: "/",
     name: "Vidya's Kitchen",
@@ -13,7 +21,8 @@ export function customerManifest(): MetadataRoute.Manifest {
     description: `Premium home-style gourmet food, cooked fresh and delivered across ${CITY}`,
     start_url: "/",
     scope: "/",
-    display: "standalone",
+    // Chrome treats display:browser as not installable — laptops must not get a PWA.
+    display: opts?.desktop ? "browser" : "standalone",
     orientation: "portrait",
     background_color: "#F5F5F7",
     theme_color: "#0d0d0d",

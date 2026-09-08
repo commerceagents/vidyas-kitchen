@@ -52,9 +52,29 @@ async function reportInstalled(): Promise<void> {
   }
 }
 
+function isCustomerAppPath(): boolean {
+  const path = window.location.pathname;
+  return !path.startsWith("/driver") && !path.startsWith("/dashboard");
+}
+
+/** Laptops must not be installable: drop the manifest and any leftover SW. */
+function disableDesktopInstall(): void {
+  if (!isCustomerAppPath() || isMobileViewport()) return;
+  document.querySelectorAll('link[rel="manifest"]').forEach((node) => node.remove());
+  deferredPrompt = null;
+  if ("serviceWorker" in navigator) {
+    void navigator.serviceWorker.getRegistrations().then((regs) => {
+      for (const reg of regs) void reg.unregister();
+    });
+  }
+}
+
 if (typeof window !== "undefined") {
+  disableDesktopInstall();
+  window.addEventListener("resize", disableDesktopInstall);
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
+    if (!isMobileViewport()) return;
     deferredPrompt = e as InstallPromptEvent;
     notify();
   });
