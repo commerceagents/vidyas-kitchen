@@ -190,10 +190,21 @@ export function parsePaymentMethod(text: string): ProposalPaymentMethod | null {
 export type BuildProposalInput = {
   menu: MenuItem[];
   draft: ProposalDraft;
+  /** Full user line — size is often here even when the model left `size` empty. */
+  sourceText?: string | null;
   /** Reused when the draft doesn't name one. */
   lastAddress?: string | null;
   lastSlotKind?: DeliverySlotKind | null;
 };
+
+/** Extra words beyond a bare dish name — send the whole line through AI. */
+export function looksLikeCompoundOrder(text: string): boolean {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (parsePackSize(t) || parseDateText(t) || parseHour(t) || parseSlotWord(t)) return true;
+  if (/\b(\d+)\s*(x|qty|packs?|plates?)\b/i.test(t)) return true;
+  return t.split(/\s+/).filter(Boolean).length >= 5;
+}
 
 /**
  * Server-side pricing and rule checks. Prices come from dish-pricing, never
@@ -225,7 +236,10 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
     }
     const item = matches[0];
 
-    const size = parsePackSize(String(raw.size || "")) ?? parsePackSize(String(draft.items?.[0]?.size || ""));
+    const size =
+      parsePackSize(String(raw.size || "")) ??
+      parsePackSize(String(raw.dish || "")) ??
+      parsePackSize(String(input.sourceText || ""));
     if (!size) {
       return { ok: false, kind: "missing", field: "size", dishOptions: [item] };
     }

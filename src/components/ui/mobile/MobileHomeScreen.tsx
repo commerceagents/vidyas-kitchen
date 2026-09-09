@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo, type CSSProperties } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
-import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Minus, BowlFood, ForkKnife, Lightning } from "@phosphor-icons/react";
+import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, BowlFood, ForkKnife, Lightning } from "@phosphor-icons/react";
 
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/menu/best-selling";
 import { useActiveFestival } from "./festival-pricing-context";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import { SizeQtyDrawer, cartLineKey, qtyForDish } from "@/components/ui/mobile/SizeQtyDrawer";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -327,15 +328,6 @@ function sizeServingMeta(weightOrLabel: string): {
   };
 }
 
-/** Browse-menu quick add uses 500gm when available (same as dish detail default). */
-function defaultVariantWeight(item: MenuItem): string {
-  return (
-    item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight ??
-    item.variants?.[0]?.weight ??
-    ""
-  );
-}
-
 function cartTotalPrice(cart: Record<string, number>, allItems: MenuItem[]): number {
   return Object.entries(cart).reduce((acc, [key, q]) => {
     const [id, weight] = key.split(":");
@@ -351,30 +343,6 @@ function dishInCart(itemId: string, cart: Record<string, number>): boolean {
   return Object.entries(cart).some(
     ([key, qty]) => qty > 0 && (key === itemId || key.startsWith(`${itemId}:`)),
   );
-}
-
-function qtyForDish(item: MenuItem, cart: Record<string, number>): number {
-  return Object.entries(cart).reduce((sum, [key, q]) => {
-    if (key === item.id || key.startsWith(`${item.id}:`)) return sum + q;
-    return sum;
-  }, 0);
-}
-
-function decrementDish(
-  item: MenuItem,
-  cart: Record<string, number>,
-  updateQty: (id: string, delta: number) => void,
-) {
-  const defaultW = defaultVariantWeight(item);
-  const preferred = defaultW ? `${item.id}:${defaultW}` : item.id;
-  if ((cart[preferred] || 0) > 0) {
-    updateQty(preferred, -1);
-    return;
-  }
-  const key = Object.keys(cart).find(
-    (k) => (k === item.id || k.startsWith(`${item.id}:`)) && (cart[k] || 0) > 0,
-  );
-  if (key) updateQty(key, -1);
 }
 
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
@@ -858,11 +826,7 @@ function DishDetailView({
     ?? item.variants?.[0]?.weight
     ?? null;
   const [selectedWeight, setSelectedWeight] = useState<string | null>(defaultWeight);
-  /** Collapsed = Add item only; expanded = qty + View cart (shared-space morph). */
-  const [barExpanded, setBarExpanded] = useState(false);
-  const BAR_STEPPER_W = 128;
-  const BAR_GAP = 10;
-  const barSpring = { type: "spring" as const, stiffness: 340, damping: 34, mass: 0.85 };
+  const [sizeDrawerOpen, setSizeDrawerOpen] = useState(false);
   /** Sample reviews are hidden by default — flip to `true` locally to preview the UI before real ratings exist. */
   const [previewSampleReviews, setPreviewSampleReviews] = useState(false);
   const [reviewsSheetOpen, setReviewsSheetOpen] = useState(false);
@@ -937,19 +901,12 @@ function DishDetailView({
       item.variants?.[0]?.weight ??
       null;
     setSelectedWeight(w);
-    setBarExpanded(false);
+    setSizeDrawerOpen(false);
     setPreviewSampleReviews(false);
     setReviewsSheetOpen(false);
   }, [item.id]);
 
-  const qty = selectedWeight ? cart[`${item.id}:${selectedWeight}`] || 0 : 0;
-
-  useEffect(() => {
-    if (qty > 0) setBarExpanded(true);
-    else setBarExpanded(false);
-    // Sync expand when dish/size changes or line is cleared
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeight, item.id, qty === 0]);
+  const dishQty = qtyForDish(item, cart);
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const [heroLoaded, setHeroLoaded] = useState(false);
@@ -961,9 +918,6 @@ function DishDetailView({
     setHeroLoaded(false);
   }, [imgSrc]);
 
-  const selectedVariant = item.variants?.find((v) => v.weight === selectedWeight);
-  const currentPrice = selectedVariant?.price || item.variants?.[0]?.price || 0;
-  const lineSaleTotal = qty < 1 ? currentPrice : currentPrice * qty;
   const detailDiscountChip = discountChipDisplay(item, new Date(), activeFestival);
 
   const suggested = useMemo(() => {
@@ -1274,6 +1228,7 @@ function DishDetailView({
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {item.variants?.map((v) => {
               const active = selectedWeight === v.weight;
+              const sizeQty = cart[cartLineKey(item.id, v.weight)] || 0;
               const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
               const meta = sizeServingMeta(v.weight || v.label);
               const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
@@ -1282,7 +1237,10 @@ function DishDetailView({
                   key={v.weight}
                   type="button"
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedWeight(v.weight)}
+                  onClick={() => {
+                    setSelectedWeight(v.weight);
+                    if (isOrderingWindowOpen()) setSizeDrawerOpen(true);
+                  }}
                   style={{
                     width: "100%",
                     display: "flex",
@@ -1341,6 +1299,11 @@ function DishDetailView({
                     <span style={{ fontSize: 24, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
                       ₹{v.price.toLocaleString("en-IN")}
                     </span>
+                    {sizeQty > 0 && (
+                      <span style={{ marginTop: 4, fontSize: 11, fontWeight: 800, color: C.red }}>
+                        {sizeQty} in cart
+                      </span>
+                    )}
                   </span>
                 </motion.button>
               );
@@ -1628,7 +1591,6 @@ function DishDetailView({
         )}
       </div>
 
-      {/* Floating Add item ↔ qty + View cart — shared-space expand (qty grows, CTA yields) */}
       {isOrderingWindowOpen() && (
         <div
           style={{
@@ -1637,12 +1599,10 @@ function DishDetailView({
             right: 16,
             bottom: "max(16px, env(safe-area-inset-bottom))",
             zIndex: 20,
-            pointerEvents: "none",
           }}
         >
           <div
             style={{
-              pointerEvents: "auto",
               background: "rgba(255,255,255,0.94)",
               backdropFilter: "blur(20px) saturate(180%)",
               WebkitBackdropFilter: "blur(20px) saturate(180%)",
@@ -1650,174 +1610,62 @@ function DishDetailView({
               border: `1px solid ${C.border}`,
               boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
               padding: 10,
-              overflow: "hidden",
+              display: "flex",
+              gap: 10,
             }}
           >
-            <div style={{ position: "relative", height: 52, width: "100%" }}>
-              {/* Qty grows from the left into shared space */}
-              <motion.div
-                initial={false}
-                animate={{ width: barExpanded ? BAR_STEPPER_W : 0 }}
-                transition={barSpring}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSizeDrawerOpen(true)}
+              style={{
+                flex: 1,
+                height: 52,
+                borderRadius: 18,
+                border: dishQty > 0 ? `1.5px solid ${C.red}` : "none",
+                background: dishQty > 0 ? "rgba(189,35,32,0.08)" : C.red,
+                color: dishQty > 0 ? C.red : "#fff",
+                fontFamily: C.mono,
+                fontSize: 16,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: dishQty > 0 ? "none" : `0 8px 24px ${C.redGlow}`,
+              }}
+            >
+              {dishQty > 0 ? `Edit · ${dishQty}` : "Add item"}
+            </motion.button>
+            {dishQty > 0 && (
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onCheckout?.()}
                 style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
+                  flex: 1,
                   height: 52,
-                  overflow: "hidden",
-                  zIndex: 1,
-                  pointerEvents: barExpanded ? "auto" : "none",
+                  borderRadius: 18,
+                  border: "none",
+                  background: C.red,
+                  color: "#fff",
+                  fontFamily: C.mono,
+                  fontSize: 16,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  boxShadow: `0 8px 24px ${C.redGlow}`,
                 }}
               >
-                <motion.div
-                  initial={false}
-                  animate={{
-                    opacity: barExpanded ? 1 : 0.35,
-                    scale: barExpanded ? 1 : 0.92,
-                  }}
-                  transition={barSpring}
-                  style={{
-                    width: BAR_STEPPER_W,
-                    height: 52,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "4px 6px",
-                    borderRadius: 999,
-                    background: C.surfaceDeep,
-                    border: `1px solid ${C.border}`,
-                    boxSizing: "border-box",
-                    transformOrigin: "left center",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedWeight) return;
-                      if (qty <= 1) {
-                        updateQty(`${item.id}:${selectedWeight}`, -1);
-                        setBarExpanded(false);
-                      } else {
-                        updateQty(`${item.id}:${selectedWeight}`, -1);
-                      }
-                    }}
-                    aria-label={qty <= 1 ? "Remove from cart" : "Decrease quantity"}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      border: "none",
-                      background: "rgba(0,0,0,0.08)",
-                      color: C.text,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Minus size={16} weight="bold" />
-                  </button>
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 900,
-                      minWidth: 28,
-                      textAlign: "center",
-                      color: C.text,
-                      fontFamily: C.mono,
-                    }}
-                  >
-                    {String(Math.max(1, qty)).padStart(2, "0")}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => selectedWeight && updateQty(`${item.id}:${selectedWeight}`, 1)}
-                    aria-label="Increase quantity"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      border: "none",
-                      background: C.text,
-                      color: C.white,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Plus size={16} weight="bold" />
-                  </button>
-                </motion.div>
-              </motion.div>
-
-              {/* CTA left edge yields right as qty expands — same spring */}
-              <motion.div
-                initial={false}
-                animate={{ left: barExpanded ? BAR_STEPPER_W + BAR_GAP : 0 }}
-                transition={barSpring}
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                  height: 52,
-                  zIndex: 2,
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={!barExpanded && !selectedWeight}
-                  onClick={() => {
-                    if (barExpanded) {
-                      onCheckout?.();
-                      return;
-                    }
-                    if (!selectedWeight) return;
-                    if (qty <= 0) updateQty(`${item.id}:${selectedWeight}`, 1);
-                    setBarExpanded(true);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: 52,
-                    borderRadius: 18,
-                    border: "none",
-                    background: barExpanded || selectedWeight ? C.red : "rgba(0,0,0,0.06)",
-                    color: barExpanded || selectedWeight ? "#fff" : "rgba(0,0,0,0.3)",
-                    fontFamily: C.mono,
-                    fontSize: 16,
-                    fontWeight: 900,
-                    cursor: barExpanded || selectedWeight ? "pointer" : "not-allowed",
-                    boxShadow: barExpanded || selectedWeight ? `0 8px 24px ${C.redGlow}` : "none",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  <span style={{ position: "relative", display: "inline-grid", placeItems: "center" }}>
-                    <motion.span
-                      initial={false}
-                      animate={{ opacity: barExpanded ? 0 : 1, y: barExpanded ? -6 : 0 }}
-                      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-                      style={{ gridArea: "1 / 1", pointerEvents: "none" }}
-                    >
-                      Add item
-                    </motion.span>
-                    <motion.span
-                      initial={false}
-                      animate={{ opacity: barExpanded ? 1 : 0, y: barExpanded ? 0 : 6 }}
-                      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
-                      style={{ gridArea: "1 / 1", pointerEvents: "none" }}
-                    >
-                      View cart
-                    </motion.span>
-                  </span>
-                </button>
-              </motion.div>
-            </div>
+                View cart
+              </motion.button>
+            )}
           </div>
         </div>
       )}
+
+      <SizeQtyDrawer
+        item={sizeDrawerOpen ? item : null}
+        cart={cart}
+        updateQty={updateQty}
+        onClose={() => setSizeDrawerOpen(false)}
+      />
     </motion.div>
   );
 }
@@ -3526,8 +3374,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
   const [currentIdx, setCurrentIdx] = useState(0);
   const [sizePickItem, setSizePickItem] = useState<MenuItem | null>(null);
   const carouselRef               = useRef<HTMLDivElement>(null);
-  const activeFestival = useActiveFestival();
-  
+
   const filtered = allItems
     .filter(i => (i.category || "").toLowerCase() === activeCat.toLowerCase())
     .sort((a, b) => a.variants[0].price - b.variants[0].price); 
@@ -3736,7 +3583,6 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
                     item={item}
                     qty={qtyForDish(item, cart)}
                     onPickSize={() => setSizePickItem(item)}
-                    onMinus={() => decrementDish(item, cart, updateQty)}
                     onOpenDetail={() => onOpenDishDetail(item)}
                   />
                 );
@@ -3856,121 +3702,12 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {sizePickItem && (
-          <motion.div
-            key="vk-size-sheet"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 240,
-              background: "rgba(12,12,12,0.45)",
-              backdropFilter: "blur(12px) saturate(140%)",
-              WebkitBackdropFilter: "blur(12px) saturate(140%)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-            }}
-            onClick={() => setSizePickItem(null)}
-          >
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 380, damping: 34 }}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="vk-size-sheet-title"
-              style={{
-                background: C.bg,
-                borderRadius: "24px 24px 0 0",
-                padding: "8px 20px max(20px, env(safe-area-inset-bottom))",
-                boxShadow: "0 -12px 40px rgba(0,0,0,0.18)",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "center", paddingTop: 6, paddingBottom: 10 }}>
-                <div style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,0.12)" }} />
-              </div>
-              <h3 id="vk-size-sheet-title" style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: C.text }}>
-                Choose size
-              </h3>
-              <p style={{ margin: "0 0 16px", fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.42)" }}>
-                {parseRecipeTag(sizePickItem.name).cleanName}
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {sizePickItem.variants.map((v) => {
-                  const listPrice = listPriceForVariant(sizePickItem, v.id, v.price, new Date(), activeFestival);
-                  const meta = sizeServingMeta(v.weight || v.label);
-                  const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
-                  const cartKey = v.weight ? `${sizePickItem.id}:${v.weight}` : sizePickItem.id;
-                  return (
-                    <motion.button
-                      key={v.weight || v.label}
-                      type="button"
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        updateQty(cartKey, 1);
-                        setSizePickItem(null);
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 14,
-                        padding: "14px",
-                        borderRadius: 20,
-                        background: C.surface,
-                        border: `1.5px solid ${C.border}`,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <span
-                        aria-hidden
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 16,
-                          background: "rgba(189,35,32,0.1)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Icon size={24} weight="duotone" color={C.red} />
-                      </span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.text }}>
-                          {v.label}
-                        </span>
-                        <span style={{ display: "block", marginTop: 3, fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>
-                          {meta.servings}
-                        </span>
-                      </span>
-                      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-                        {listPrice != null && listPrice > v.price && (
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.4)", textDecoration: "line-through" }}>
-                            ₹{listPrice.toLocaleString("en-IN")}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 20, fontWeight: 900, color: C.red }}>
-                          ₹{v.price.toLocaleString("en-IN")}
-                        </span>
-                      </span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <SizeQtyDrawer
+        item={sizePickItem}
+        cart={cart}
+        updateQty={updateQty}
+        onClose={() => setSizePickItem(null)}
+      />
     </motion.div>
   );
 }
@@ -3979,13 +3716,11 @@ function MenuGridCard({
   item,
   qty,
   onPickSize,
-  onMinus,
   onOpenDetail,
 }: {
   item: MenuItem;
   qty: number;
   onPickSize: () => void;
-  onMinus: () => void;
   onOpenDetail: () => void;
 }) {
   const activeFestival = useActiveFestival();
@@ -3997,8 +3732,6 @@ function MenuGridCard({
   const defaultVar =
     item.variants.find((v) => /500/i.test(v.weight || v.label || "")) ?? item.variants[0];
   const fromPrice = defaultVar?.price ?? Math.min(...item.variants.map((v) => v.price));
-  const showStepper = qty > 0;
-  const actionSpring = { type: "spring" as const, stiffness: 420, damping: 32, mass: 0.75 };
 
   useEffect(() => {
     setLoaded(false);
@@ -4007,10 +3740,6 @@ function MenuGridCard({
   const handleAdd = () => {
     if (!orderingOpen) return;
     onPickSize();
-  };
-
-  const handleMinus = () => {
-    onMinus();
   };
 
   return (
@@ -4181,136 +3910,59 @@ function MenuGridCard({
         </button>
       </div>
 
-      {/* Full-width ADD bar ↔ qty stepper */}
       <div style={{ flexShrink: 0, height: 46 }}>
-        <AnimatePresence mode="wait" initial={false}>
-          {showStepper ? (
-            <motion.div
-              key="stepper"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              transition={actionSpring}
+        <motion.button
+          type="button"
+          whileTap={{ scale: orderingOpen ? 0.985 : 1 }}
+          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
+          onClick={handleAdd}
+          style={{
+            width: "100%",
+            height: 46,
+            border: "none",
+            background: !orderingOpen
+              ? "rgba(0,0,0,0.08)"
+              : qty > 0
+                ? "rgba(189,35,32,0.1)"
+                : C.red,
+            color: !orderingOpen ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            cursor: orderingOpen ? "pointer" : "not-allowed",
+            opacity: orderingOpen ? 1 : 0.5,
+            fontFamily: C.mono,
+          }}
+        >
+          {qty === 0 && (
+            <span
               style={{
-                height: 46,
-                background: C.red,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0 8px",
-              }}
-            >
-              <button
-                type="button"
-                aria-label={qty <= 1 ? "Remove from cart" : "Decrease quantity"}
-                onClick={handleMinus}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "rgba(255,255,255,0.22)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <Minus size={13} weight="bold" />
-              </button>
-              <motion.span
-                key={qty}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{
-                  fontSize: 15,
-                  fontWeight: 900,
-                  color: "#fff",
-                  minWidth: 28,
-                  textAlign: "center",
-                  fontFamily: C.mono,
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {String(qty).padStart(2, "0")}
-              </motion.span>
-              <button
-                type="button"
-                aria-label="Increase quantity"
-                onClick={handleAdd}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "rgba(255,255,255,0.32)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <Plus size={13} weight="bold" />
-              </button>
-            </motion.div>
-          ) : (
-            <motion.button
-              key="add"
-              type="button"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              transition={actionSpring}
-              whileTap={{ scale: orderingOpen ? 0.985 : 1 }}
-              aria-label={`Add ${cleanName} to cart`}
-              onClick={handleAdd}
-              style={{
-                width: "100%",
-                height: 46,
-                border: "none",
-                background: orderingOpen ? C.red : "rgba(0,0,0,0.08)",
-                color: "#fff",
+                width: 23,
+                height: 23,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.95)",
+                color: orderingOpen ? C.red : "rgba(0,0,0,0.35)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 8,
-                cursor: orderingOpen ? "pointer" : "not-allowed",
-                opacity: orderingOpen ? 1 : 0.5,
-                fontFamily: C.mono,
+                flexShrink: 0,
               }}
             >
-              <span
-                style={{
-                  width: 23,
-                  height: 23,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.95)",
-                  color: orderingOpen ? C.red : "rgba(0,0,0,0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Plus size={13} weight="bold" />
-              </span>
-              <span
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: 900,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Add
-              </span>
-            </motion.button>
+              <Plus size={13} weight="bold" />
+            </span>
           )}
-        </AnimatePresence>
+          <span
+            style={{
+              fontSize: 12.5,
+              fontWeight: 900,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            {qty > 0 ? `Edit · ${qty}` : "Add"}
+          </span>
+        </motion.button>
       </div>
     </motion.div>
   );

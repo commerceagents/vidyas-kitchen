@@ -104,8 +104,11 @@ import { unitPriceFor, packPricesFor, packPriceLine, formatInr, type PackSize } 
 import {
   buildProposal,
   isProposalStillValid,
+  looksLikeCompoundOrder,
+  parsePackSize,
   repriceProposal,
   type OrderProposal,
+  type ProposalDraft,
 } from "@/lib/ai/order-proposal";
 import {
   whatsappCatalogId,
@@ -306,6 +309,33 @@ function itemOptions(items: MenuItem[]): { id: string; title: string }[] {
 
 function shortRef(orderId: string, orderNumber?: number | null): string {
   return formatOrderRef(orderNumber ?? null, orderId).replace(/^#/, "");
+}
+
+const VK_DRAFT_PREFIX = "__vk_draft__:";
+
+type SessionTurns = NonNullable<WhatsAppSession["recent_turns"]>;
+
+function turnsForAgent(turns: WhatsAppSession["recent_turns"]): Message[] {
+  return (turns || []).filter((t) => !t.content.startsWith(VK_DRAFT_PREFIX));
+}
+
+function chatTurns(turns: WhatsAppSession["recent_turns"]): SessionTurns {
+  return (turns || []).filter((t) => !t.content.startsWith(VK_DRAFT_PREFIX));
+}
+
+function readStoredDraft(turns: WhatsAppSession["recent_turns"]): ProposalDraft | null {
+  const raw = (turns || []).find((t) => t.content.startsWith(VK_DRAFT_PREFIX))?.content.slice(VK_DRAFT_PREFIX.length);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ProposalDraft;
+  } catch {
+    return null;
+  }
+}
+
+function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalDraft): SessionTurns {
+  const kept = chatTurns(turns);
+  return [...kept, { role: "assistant" as const, content: `${VK_DRAFT_PREFIX}${JSON.stringify(draft)}` }].slice(-8);
 }
 
 export async function POST(req: Request) {
@@ -600,6 +630,9 @@ async function handleResolvedId(
     const qty = parseInt(id.slice(4), 10);
     if (qty >= 1 && qty <= 10) return await addSelectedItemToCart(from, session, qty);
   }
+  if (id.startsWith("order_")) {
+    return await handleMarketingOrderTap(from, id.slice("order_".length));
+  }
 
   switch (id) {
     case "lang_en":
@@ -683,6 +716,16 @@ async function handleResolvedId(
       return ack();
     case "hs_complaint":
       await updateSession(from, { state: "ai_chat" });
+      try {
+        await createServerSupabase()
+          .from("users")
+          .upsert(
+            { phone_number: from, whatsapp_pending_action: "complaint" },
+            { onConflict: "phone_number" },
+          );
+      } catch (e) {
+        console.error("[WA] complaint pending_action failed:", e);
+      }
       await sendText(from, complaintPrompt(langOf(from)));
       return ack();
     case "hs_your_orders":
@@ -708,7 +751,7 @@ async function handleIdle(from: string, text: string, session: { cart: CartItem[
   const menu = await getMenu();
   const matched = findItemByName(menu, text);
 
-  if (matched) {
+  if (matched && !looksLikeCompoundOrder(text)) {
     return await showVariantPicker(from, matched);
   }
 
@@ -917,9 +960,13 @@ async function handleAwaitingPayment(from: string, text: string, session: WhatsA
 async function handleAiChat(from: string, text: string, profileName: string) {
   const session = await getSession(from);
   const history = session.recent_turns || [];
+  const typedSize = parsePackSize(text);
+  if (typedSize && (readStoredDraft(history) || session.selected_item_id)) {
+    return await applyVariant(from, typedSize);
+  }
 
   const agent = new VidyaAgent();
-  const result = await agent.processMessage(text, history as Message[], from, profileName);
+  const result = await agent.processMessage(text, turnsForAgent(history), from, profileName);
 
   const turns: NonNullable<WhatsAppSession["recent_turns"]> = [
     ...history,
@@ -934,8 +981,8 @@ async function handleAiChat(from: string, text: string, profileName: string) {
   // A draft means they were trying to order. Price it here — the model has
   // never seen a price and is not allowed to quote one.
   if (result.proposalDraft) {
-    await updateSession(from, { recent_turns: turns });
-    return await presentProposal(from, result.proposalDraft);
+    await updateSession(from, { recent_turns: turnsWithDraft(turns, result.proposalDraft) });
+    return await presentProposal(from, result.proposalDraft, text);
   }
 
   const buttons = [
@@ -951,16 +998,23 @@ async function handleAiChat(from: string, text: string, profileName: string) {
 }
 
 /** Price and rule-check a draft, then either ask for what's missing or show it. */
-async function presentProposal(from: string, draft: NonNullable<Awaited<ReturnType<VidyaAgent["processMessage"]>>["proposalDraft"]>) {
+async function presentProposal(
+  from: string,
+  draft: ProposalDraft,
+  sourceText?: string | null,
+) {
   const lang = langOf(from);
   const menu = await getMenu();
   const last = await fetchLastAddressAndSlot(from);
+  const session = await getSession(from);
+  const turns = turnsWithDraft(session.recent_turns, draft);
 
   const result = buildProposal({
     menu,
     draft,
-    lastAddress: last.address,
-    lastSlotKind: last.slotKind as DeliverySlotKind | null,
+    sourceText,
+    lastAddress: last.address || session.delivery_address,
+    lastSlotKind: (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null,
   });
 
   if (!result.ok && result.kind === "rejected") {
@@ -970,8 +1024,8 @@ async function presentProposal(from: string, draft: NonNullable<Awaited<ReturnTy
   }
 
   if (!result.ok) {
-    // One question at a time, as taps wherever a tap makes sense.
-    await updateSession(from, { state: "ai_chat", proposal: null });
+    // Keep the draft so a size/date/slot tap can finish this order, not restart checkout.
+    await updateSession(from, { state: "ai_chat", proposal: null, recent_turns: turns });
     const ask = buildProposalAskMessage(result.field, lang);
 
     if (result.field === "size") {
@@ -981,8 +1035,7 @@ async function presentProposal(from: string, draft: NonNullable<Awaited<ReturnTy
       ];
       const only = result.dishOptions?.[0];
       if (only) {
-        await updateSession(from, { selected_item_id: only.id, state: "picking_variant" });
-        return await showVariantPicker(from, only);
+        await updateSession(from, { selected_item_id: only.id, state: "ai_chat", recent_turns: turns });
       }
       await storeOptions(from, buttons);
       await sendButtons(from, ask, buttons);
@@ -1035,7 +1088,11 @@ async function presentProposal(from: string, draft: NonNullable<Awaited<ReturnTy
   }
 
   const proposal = result.proposal;
-  await updateSession(from, { state: "confirming_proposal", proposal });
+  await updateSession(from, {
+    state: "confirming_proposal",
+    proposal,
+    recent_turns: chatTurns(turns).slice(-8),
+  });
 
   const buttons = [
     { id: "confirm_proposal", title: BTN.confirmOrder },
@@ -1371,6 +1428,22 @@ async function showVariantPicker(from: string, item: MenuItem) {
 }
 
 async function applyVariant(from: string, variant: PackSize) {
+  const session = await getSession(from);
+  const stored = readStoredDraft(session.recent_turns);
+  if (stored || (session.state === "ai_chat" && session.selected_item_id)) {
+    const menu = await getMenu();
+    const selected = menu.find((m) => m.id === session.selected_item_id);
+    const items = (stored?.items || []).map((item) => ({
+      ...item,
+      size: parsePackSize(String(item.size || "")) ?? variant,
+    }));
+    if (items.length === 0 && selected) {
+      items.push({ dish: selected.name, size: variant, quantity: 1 });
+    }
+    const draft: ProposalDraft = { ...(stored || {}), items };
+    return await presentProposal(from, draft);
+  }
+
   const buttons = [
     { id: "qty_1", title: "1" },
     { id: "qty_2", title: "2" },
@@ -1380,6 +1453,29 @@ async function applyVariant(from: string, variant: PackSize) {
   await storeOptions(from, buttons);
   await sendButtons(from, buildQtyMessage(variant, langOf(from)), buttons);
   return ack();
+}
+
+async function handleMarketingOrderTap(from: string, retailerOrId: string) {
+  const menu = await getMenu();
+  const key = retailerOrId.trim();
+  const parsed = parseCatalogProductId(key);
+  const retailer = parsed ? retailerIdForCsvPrefix(parsed.prefix) : key;
+  const item = menu.find(
+    (m) =>
+      m.id === key ||
+      m.retailer_id === key ||
+      m.retailer_id === retailer ||
+      guessRetailerId(m) === retailer,
+  );
+  if (!item) {
+    await sendText(from, notUnderstoodReply(langOf(from)));
+    return await showFullMenu(from);
+  }
+  if (parsed) {
+    await updateSession(from, { selected_item_id: item.id, selected_variant: parsed.variant });
+    return await applyVariant(from, parsed.variant);
+  }
+  return await showVariantPicker(from, item);
 }
 
 async function addSelectedItemToCart(from: string, session: WhatsAppSession, qty: number) {

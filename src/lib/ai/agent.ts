@@ -16,6 +16,7 @@ import {
 } from "../whatsapp-copy";
 import { formatInr, unitPriceFor } from "../menu/dish-pricing";
 import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
+import { formatOrderRef } from "../order-status";
 
 /**
  * AI Agent "Brain" for Vidya's Kitchen
@@ -33,7 +34,12 @@ type OrderRow = {
   status: string;
   total_amount: number | null;
   created_at: string;
+  order_number?: number | null;
 };
+
+function orderRef(o: { id: string; order_number?: number | null }): string {
+  return formatOrderRef(o.order_number ?? null, o.id);
+}
 
 export interface MenuItem {
   id: string;
@@ -189,7 +195,7 @@ export class VidyaAgent {
   private async buildActiveOrdersReply(phoneNumber: string) {
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, status, created_at, total_amount, delivery_slot")
+      .select("id, order_number, status, created_at, total_amount, delivery_slot")
       .eq("phone_number", phoneNumber)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -207,7 +213,7 @@ export class VidyaAgent {
     }
     const lines = active.map(
       (o: OrderRow, i: number) =>
-        `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+        `${i + 1}. Order ${orderRef(o)} — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
     );
     return {
       reply: `*Active orders*\n\n${lines.join("\n")}\n\n_We’ll update status as your meal progresses._`,
@@ -221,7 +227,7 @@ export class VidyaAgent {
   private async buildYourOrdersHistoryReply(phoneNumber: string) {
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, status, created_at, total_amount")
+      .select("id, order_number, status, created_at, total_amount")
       .eq("phone_number", phoneNumber)
       .order("created_at", { ascending: false })
       .limit(8);
@@ -237,7 +243,7 @@ export class VidyaAgent {
     }
     const lines = orders.map(
       (o: OrderRow, i: number) =>
-        `${i + 1}. ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+        `${i + 1}. ${orderRef(o)} — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
     );
     return {
       reply: `*Your orders*\n\n${lines.join("\n")}`,
@@ -251,7 +257,7 @@ export class VidyaAgent {
   private async buildPaymentsSummaryReply(phoneNumber: string) {
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, status, total_amount, created_at, payment_link_id")
+      .select("id, order_number, status, total_amount, created_at, payment_link_id")
       .eq("phone_number", phoneNumber)
       .order("created_at", { ascending: false })
       .limit(15);
@@ -272,7 +278,7 @@ export class VidyaAgent {
     const db = createServerSupabase();
 
     for (const o of orders) {
-      const shortId = String(o.id).slice(0, 8);
+      const shortId = orderRef(o);
       const amount = o.total_amount != null ? formatInr(Number(o.total_amount)) : "—";
       const date = new Date(o.created_at).toLocaleDateString("en-IN", {
         timeZone: "Asia/Kolkata",
@@ -281,7 +287,7 @@ export class VidyaAgent {
       });
 
       if (o.status === "paid") {
-        lines.push(`${shortId}… — ${amount} — _paid_ (${date})`);
+        lines.push(`${shortId} — ${amount} — _paid_ (${date})`);
       } else if (o.status === "pending_payment") {
         // Create a fresh Razorpay / UPI link so they can complete payment immediately.
         const { short_url, id: paymentLinkId } = await createPaymentLink(
@@ -296,10 +302,10 @@ export class VidyaAgent {
         if (paymentLinkId) {
           await db.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", o.id);
         }
-        pendingLinks.push(`Order ${shortId}… — ${amount}\n${short_url}`);
-        lines.push(`${shortId}… — ${amount} — _awaiting payment_ (${date})`);
+        pendingLinks.push(`Order ${shortId} — ${amount}\n${short_url}`);
+        lines.push(`${shortId} — ${amount} — _awaiting payment_ (${date})`);
       } else {
-        lines.push(`${shortId}… — ${amount} — _${o.status}_ (${date})`);
+        lines.push(`${shortId} — ${amount} — _${o.status}_ (${date})`);
       }
     }
 
@@ -391,13 +397,14 @@ export class VidyaAgent {
     try {
       const { data } = await supabase
         .from("orders")
-        .select("id, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
+        .select("id, order_number, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
         .eq("phone_number", phoneNumber)
         .order("created_at", { ascending: false })
         .limit(3);
 
       const rows = (data || []) as {
         id: string;
+        order_number?: number | null;
         status: string;
         created_at: string;
         delivery_slot?: string | null;
@@ -417,7 +424,7 @@ export class VidyaAgent {
             live
               .map(
                 (o) =>
-                  `order ${String(o.id).slice(0, 8).toUpperCase()} is ${o.status}` +
+                  `order ${orderRef(o)} is ${o.status}` +
                   (o.delivery_slot
                     ? ` for ${new Date(o.delivery_slot).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
                     : ""),
@@ -438,12 +445,13 @@ export class VidyaAgent {
     try {
       const { data } = await supabase
         .from("orders")
-        .select("id, status, total_amount, delivery_slot, created_at")
+        .select("id, order_number, status, total_amount, delivery_slot, created_at")
         .eq("phone_number", phoneNumber)
         .order("created_at", { ascending: false })
         .limit(5);
       const rows = (data || []) as {
         id: string;
+        order_number?: number | null;
         status: string;
         total_amount?: number | null;
         delivery_slot?: string | null;
@@ -451,7 +459,7 @@ export class VidyaAgent {
       if (rows.length === 0) return "No orders on this number.";
       return JSON.stringify(
         rows.map((o) => ({
-          ref: String(o.id).slice(0, 8).toUpperCase(),
+          ref: orderRef(o),
           status: o.status,
           total: o.total_amount,
           slot: o.delivery_slot,
@@ -466,7 +474,7 @@ export class VidyaAgent {
     try {
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("id, status, created_at, total_amount")
+        .select("id, order_number, status, created_at, total_amount")
         .eq("phone_number", phoneNumber)
         .order("created_at", { ascending: false })
         .limit(5);
@@ -492,7 +500,7 @@ export class VidyaAgent {
 
       const lines = orders.map(
         (o: OrderRow, i: number) =>
-          `${i + 1}. Order ${String(o.id).slice(0, 8)}… — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+          `${i + 1}. Order ${orderRef(o)} — *${o.status}* — ₹${o.total_amount ?? "—"} — ${new Date(o.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
       );
       return {
         reply:
