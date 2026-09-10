@@ -527,9 +527,9 @@ export default function OffersPage() {
                       style={{
                         padding: "6px 12px",
                         borderRadius: 8,
-                        border: `1px solid ${BORDER}`,
+                        border: `1px solid ${o.active ? "#f87171" : `${GREEN}50`}`,
                         background: "transparent",
-                        color: o.active ? "#aaa" : GREEN,
+                        color: o.active ? "#f87171" : GREEN,
                         fontSize: 12,
                         fontWeight: 700,
                         fontFamily: FONT,
