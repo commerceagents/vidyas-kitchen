@@ -32,6 +32,15 @@ import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 import { parseRecipeTag } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
+import { normalizeOfferCode } from "@/lib/offers";
+
+/** Discount the server decided on — mirrors AppliedOffer from lib/offers. */
+type AppliedOfferView = {
+  offerId: string;
+  code: string | null;
+  label: string;
+  amount: number;
+};
 
 const C = {
   bg: "#F5F5F7",
@@ -377,6 +386,14 @@ export function CheckoutScreen({
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [dayTip, setDayTip] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedOffer, setAppliedOffer] = useState<AppliedOfferView | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+  const [activeCode, setActiveCode] = useState<string | null>(null);
+  // Mirrors activeCode. Kept in a ref so re-checking on cart change doesn't
+  // list the code as an effect dependency and re-trigger itself.
+  const appliedCodeRef = useRef<string | null>(null);
   const dayTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -456,12 +473,83 @@ export function CheckoutScreen({
     }
   }, [cartEntries.length, phase]);
 
+  const cartLines = useMemo(
+    () => cartEntries.map((it) => ({ menuItemId: it.variantId, quantity: it.quantity })),
+    [cartEntries],
+  );
+
+  /**
+   * The server owns the discount. We re-ask it whenever the cart changes so the
+   * total on screen is always the total checkout will charge — including auto
+   * festival offers the customer never typed anything for.
+   */
+  const checkOffer = useCallback(
+    async (code: string | null) => {
+      if (cartLines.length === 0) {
+        setAppliedOffer(null);
+        setPromoError(null);
+        return;
+      }
+      setPromoChecking(true);
+      try {
+        const res = await fetch("/api/offers/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: code ?? "", phone, lines: cartLines }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          applied?: AppliedOfferView | null;
+        };
+        setAppliedOffer(data.applied ?? null);
+        if (data.ok === false) {
+          setPromoError(data.error ?? "That code isn't valid.");
+          appliedCodeRef.current = null;
+          setActiveCode(null);
+        } else {
+          setPromoError(null);
+        }
+      } catch {
+        setPromoError("Could not check that code right now.");
+      } finally {
+        setPromoChecking(false);
+      }
+    },
+    [cartLines, phone],
+  );
+
+  useEffect(() => {
+    void checkOffer(appliedCodeRef.current);
+  }, [checkOffer]);
+
+  const applyPromo = useCallback(async () => {
+    const code = normalizeOfferCode(promoInput);
+    if (!code) {
+      setPromoError("Enter a code first.");
+      return;
+    }
+    appliedCodeRef.current = code;
+    setActiveCode(code);
+    await checkOffer(code);
+  }, [promoInput, checkOffer]);
+
+  const removePromo = useCallback(async () => {
+    appliedCodeRef.current = null;
+    setActiveCode(null);
+    setPromoInput("");
+    setPromoError(null);
+    await checkOffer(null);
+  }, [checkOffer]);
+
   const itemTotal = cartEntries.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  const discount = Math.min(appliedOffer?.amount ?? 0, itemTotal);
+  const discountedItems = Math.max(0, itemTotal - discount);
   const packagingFee = 20;
   const deliveryFee = 35;
-  const tax = Math.round(itemTotal * 0.05);
+  const tax = Math.round(discountedItems * 0.05);
   const otherCharges = packagingFee + tax;
-  const grandTotal = itemTotal + packagingFee + deliveryFee + tax;
+  const grandTotal = discountedItems + packagingFee + deliveryFee + tax;
   const codBlockedByTotal = !isCodAllowedForTotal(grandTotal);
   const recipientIncomplete =
     forSomeoneElse &&
@@ -546,6 +634,7 @@ export function CheckoutScreen({
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
           paymentMethod,
+          ...(activeCode ? { promoCode: activeCode } : {}),
           ...(forSomeoneElse
             ? { recipientName: recipientNameTrim, recipientPhone: recipientPhoneDigits }
             : {}),
@@ -939,6 +1028,140 @@ export function CheckoutScreen({
                   </div>
 
                   <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
+                    Offers
+                  </h3>
+                  <div
+                    style={{
+                      background: C.surface,
+                      borderRadius: 22,
+                      padding: 18,
+                      border: `1px solid ${C.border}`,
+                      boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                    }}
+                  >
+                    {appliedOffer && discount > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          padding: "12px 14px",
+                          borderRadius: 14,
+                          background: "rgba(22,140,80,0.08)",
+                          border: "1px solid rgba(22,140,80,0.18)",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 14,
+                              fontWeight: 800,
+                              color: "#12784A",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {appliedOffer.label}
+                          </p>
+                          <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
+                            You save ₹{discount.toLocaleString("en-IN")}
+                          </p>
+                        </div>
+                        {activeCode && (
+                          <button
+                            type="button"
+                            onClick={() => void removePromo()}
+                            style={{
+                              flexShrink: 0,
+                              background: "none",
+                              border: "none",
+                              padding: "6px 2px",
+                              fontFamily: C.mono,
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: C.red,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {activeCode && appliedOffer && !appliedOffer.code && (
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
+                        Your running offer saves more than {activeCode}, so we kept it.
+                      </p>
+                    )}
+
+                    {!activeCode && (
+                      <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+                        <input
+                          value={promoInput}
+                          onChange={(e) => {
+                            setPromoInput(e.target.value.toUpperCase());
+                            if (promoError) setPromoError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void applyPromo();
+                          }}
+                          placeholder="Promo code"
+                          autoCapitalize="characters"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          aria-label="Promo code"
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            height: 46,
+                            padding: "0 14px",
+                            borderRadius: 14,
+                            border: `1px solid ${promoError ? "rgba(189,35,32,0.4)" : C.border}`,
+                            background: "rgba(0,0,0,0.03)",
+                            fontFamily: C.mono,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            letterSpacing: "0.06em",
+                            color: C.text,
+                            outline: "none",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void applyPromo()}
+                          disabled={promoChecking || promoInput.trim().length === 0}
+                          style={{
+                            flexShrink: 0,
+                            height: 46,
+                            padding: "0 20px",
+                            borderRadius: 14,
+                            border: "none",
+                            background: promoInput.trim() ? C.red : "rgba(0,0,0,0.12)",
+                            color: C.white,
+                            fontFamily: C.mono,
+                            fontSize: 13,
+                            fontWeight: 800,
+                            cursor: promoInput.trim() ? "pointer" : "default",
+                          }}
+                        >
+                          {promoChecking ? "…" : "Apply"}
+                        </button>
+                      </div>
+                    )}
+
+                    {promoError && (
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.red }}>{promoError}</p>
+                    )}
+                  </div>
+
+                  <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
                     Order summary
                   </h3>
                   <div
@@ -967,6 +1190,25 @@ export function CheckoutScreen({
                         <span style={{ color: C.muted, fontWeight: 600 }}>Item total</span>
                         <span style={{ fontWeight: 700 }}>₹{itemTotal.toLocaleString("en-IN")}</span>
                       </div>
+                      {discount > 0 && appliedOffer && (
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, gap: 12 }}>
+                          <span
+                            style={{
+                              color: "#12784A",
+                              fontWeight: 700,
+                              minWidth: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {appliedOffer.label}
+                          </span>
+                          <span style={{ fontWeight: 800, color: "#12784A", flexShrink: 0 }}>
+                            −₹{discount.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      )}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
                         <span style={{ color: C.muted, fontWeight: 600 }}>Delivery fee</span>
                         <span style={{ fontWeight: 700 }}>₹{deliveryFee}</span>

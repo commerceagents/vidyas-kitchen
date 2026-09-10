@@ -518,6 +518,7 @@ function BestSellingCard({
   index,
   qty,
   onOpenDetail,
+  onAdd,
   showFavoriteHeart,
   onRemoveFavorite,
   scrollContainerRef,
@@ -526,6 +527,8 @@ function BestSellingCard({
   index: number;
   qty: number;
   onOpenDetail: () => void;
+  /** Opens the size + quantity drawer without leaving the home screen. */
+  onAdd: () => void;
   showFavoriteHeart?: boolean;
   onRemoveFavorite?: () => void;
   /** Horizontal carousel scroller — drives Swiggy-style image parallax. */
@@ -552,6 +555,7 @@ function BestSellingCard({
 
   const minPrice = Math.min(...item.variants.map(v => v.price));
   const chip = discountChipDisplay(item, new Date(), activeFestival);
+  const canOrder = isOrderingWindowOpen();
 
   return (
     <motion.div
@@ -745,19 +749,40 @@ function BestSellingCard({
           {cleanName}
         </h3>
 
-        <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          background: C.red,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          boxShadow: `0 3px 10px ${C.redGlow}`,
-        }}>
-          <ArrowRight size={18} weight="bold" color="#fff" />
-        </div>
+        <motion.button
+          type="button"
+          whileTap={{ scale: canOrder ? 0.96 : 1 }}
+          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
+          onClick={(e) => {
+            // The whole card opens the dish page; this button must not.
+            e.stopPropagation();
+            if (canOrder) onAdd();
+          }}
+          style={{
+            flexShrink: 0,
+            height: 36,
+            minWidth: 36,
+            padding: "0 14px",
+            borderRadius: 18,
+            border: qty > 0 ? `1.5px solid ${C.red}` : "none",
+            background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.1)" : C.red,
+            color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 5,
+            fontFamily: C.mono,
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            cursor: canOrder ? "pointer" : "not-allowed",
+            boxShadow: qty > 0 || !canOrder ? "none" : `0 3px 10px ${C.redGlow}`,
+          }}
+        >
+          {qty === 0 && <Plus size={13} weight="bold" />}
+          {qty > 0 ? `Edit · ${qty}` : "Add"}
+        </motion.button>
       </div>
     </motion.div>
   );
@@ -1790,6 +1815,9 @@ export function MobileHomeScreen({
     };
   });
   const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
+  // Lets a home card add to the cart without pushing the customer into the
+  // dish page first — same drawer Browse uses, so sizes stay consistent.
+  const [homeSizePickItem, setHomeSizePickItem] = useState<MenuItem | null>(null);
   const loading = items.length === 0;
   const [activeNav, setActiveNav] = useState(uiBootstrap.activeNav);
   const [activeScreen, setActiveScreen] = useState<"home" | "menu">(uiBootstrap.activeScreen);
@@ -2628,7 +2656,11 @@ export function MobileHomeScreen({
                             key={item.id}
                             item={item}
                             index={i}
-                            qty={cart[item.id] || 0}
+                            qty={qtyForDish(item, cart)}
+                            onAdd={() => {
+                              setLocationOpen(false);
+                              setHomeSizePickItem(item);
+                            }}
                             scrollContainerRef={kitchenCarouselRef}
                             showFavoriteHeart={homeDishFeedTab === "favorites"}
                             onRemoveFavorite={
@@ -3326,6 +3358,13 @@ export function MobileHomeScreen({
           />
         )}
       </AnimatePresence>
+
+      <SizeQtyDrawer
+        item={homeSizePickItem}
+        cart={cart}
+        updateQty={updateQty}
+        onClose={() => setHomeSizePickItem(null)}
+      />
     </div>
   );
 }
@@ -3501,7 +3540,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
           const active = activeCat === cat.id;
           const count  = allItems
             .filter(i => i.category?.toLowerCase() === cat.id.toLowerCase())
-            .reduce((acc, cur) => acc + (cart[cur.id] || 0), 0);
+            .reduce((acc, cur) => acc + qtyForDish(cur, cart), 0);
 
           return (
             <motion.button

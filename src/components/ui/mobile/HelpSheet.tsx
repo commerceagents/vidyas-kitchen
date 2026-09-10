@@ -5,44 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CaretDown, Phone, X } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { SUPPORT_PHONE_E164, whatsappBotLink } from "@/lib/whatsapp-copy";
-import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
+import { FAQS } from "@/lib/faqs";
 
 const fontUi = C.mono;
-
-/**
- * Answers that match what the app actually does, so support isn't fielding
- * questions the screen could have answered.
- */
-const FAQS: { q: string; a: string }[] = [
-  {
-    q: "Where is my order?",
-    a: "Open the Order tab — it shows the live stage of your order and, once the driver sets off, their position on the map. It refreshes every few seconds on its own.",
-  },
-  {
-    q: "Can I cancel my order?",
-    a: "Yes, until the cancellation window closes — the Order tab shows a Cancel button while it's still open. Because everything is cooked fresh to your slot, we can't cancel once the kitchen has started.",
-  },
-  {
-    q: "How does pay at the door work?",
-    a: `Pick Pay at the door at checkout. When the driver arrives you can give cash or scan their UPI QR (same as the printed card they carry) — no change needed if you pay UPI. Available on orders up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.`,
-  },
-  {
-    q: "Nobody was there to pay or collect. What now?",
-    a: "The driver marks the order as not delivered and the food comes back to the kitchen. We'll call you to sort it out. Cash on Delivery is paused on that number afterwards — you can still order by paying online, and we'll re-enable cash once we've spoken.",
-  },
-  {
-    q: "Something was wrong or missing in my order",
-    a: "Message us on WhatsApp within an hour of delivery with a photo. Approved refunds go back to the original payment method through Razorpay within 5–7 business days.",
-  },
-  {
-    q: "Can I change my delivery address?",
-    a: "You can edit it from the Order tab while the order is still waiting for the kitchen to accept. After that, message us on WhatsApp and we'll try to update it before the driver leaves.",
-  },
-  {
-    q: "Where do you deliver?",
-    a: "We cook and deliver in Sivakasi. You can order from anywhere — just set the delivery pin to a Sivakasi address, which is how you send food to family or friends there.",
-  },
-];
 
 /** Help & support sheet — FAQ first, humans one tap away. */
 export function HelpSheet({ onClose }: { onClose: () => void }) {

@@ -10,6 +10,7 @@ import {
   ChevronsRight,
   LayoutDashboard,
   LogOut,
+  Tag,
   Truck,
   TrendingUp,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/summary", label: "Revenue", icon: TrendingUp, exact: false },
   { href: "/dashboard/pricing-agent", label: "AI Pricing", icon: Bot, exact: false },
+  { href: "/dashboard/offers", label: "Offers", icon: Tag, exact: false },
   { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
 ] as const;
 

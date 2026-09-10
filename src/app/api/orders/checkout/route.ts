@@ -9,17 +9,16 @@ import {
   slotStartIsoFor,
 } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
-import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { markOrderPaidAndNotify, isCodBlocked } from "@/lib/order-transition";
 import { PaymentStatus } from "@/lib/order-status";
 import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
-
-type LineInput = { menuItemId: string; quantity: number };
-
-function isUuid(s: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
-}
+import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
+import {
+  normalizeCartLines,
+  resolveVariantPrices,
+  type CartLineInput as LineInput,
+} from "@/lib/menu/variant-prices";
 
 export async function POST(request: Request) {
   try {
@@ -35,6 +34,7 @@ export async function POST(request: Request) {
       deliveryLng?: number;
       recipientName?: string;
       recipientPhone?: string;
+      promoCode?: string;
     };
 
     const phone = String(body.phone || "").trim();
@@ -107,45 +107,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Cart is empty." }, { status: 400 });
     }
 
-    const qtyById = new Map<string, number>();
-    for (const l of lines) {
-      if (!l.menuItemId || !isUuid(l.menuItemId)) {
-        return NextResponse.json({ error: "Invalid menu item id." }, { status: 400 });
-      }
-      const q = Math.floor(Number(l.quantity));
-      if (!Number.isFinite(q) || q < 1 || q > 99) {
-        return NextResponse.json({ error: "Invalid quantity." }, { status: 400 });
-      }
-      qtyById.set(l.menuItemId, (qtyById.get(l.menuItemId) || 0) + q);
+    const normalized = normalizeCartLines(lines);
+    if (!normalized.ok) {
+      return NextResponse.json({ error: normalized.error }, { status: 400 });
     }
-    const mergedLines = [...qtyById.entries()].map(([menuItemId, quantity]) => ({ menuItemId, quantity }));
+    const mergedLines = normalized.lines;
 
     const supabase = createServerSupabase();
-    const ids = [...qtyById.keys()];
-    
-    // Resolve prices from local static mobileMenuData.ts first
-    const allDishes = Object.values(MENU_BY_CATEGORY).flat();
-    const allVariants = allDishes.flatMap((d) => d.variants || []);
-    const priceById = new Map<string, number>();
-    
-    for (const id of ids) {
-      const variant = allVariants.find((v) => v.id === id);
-      if (variant) {
-        priceById.set(id, variant.price);
-      }
-    }
-
-    // Fallback: If any variant ID was not found locally, query Supabase
-    if (priceById.size !== ids.length) {
-      const { data: menuRows } = await supabase.from("menu_items").select("id, price").in("id", ids);
-      if (menuRows) {
-        for (const r of menuRows) {
-          priceById.set(r.id as string, Number(r.price));
-        }
-      }
-    }
-
-    if (priceById.size !== ids.length) {
+    const priceById = await resolveVariantPrices(
+      supabase,
+      mergedLines.map((l) => l.menuItemId),
+    );
+    if (!priceById) {
       return NextResponse.json({ error: "Could not load menu prices." }, { status: 500 });
     }
 
@@ -161,7 +134,21 @@ export async function POST(request: Request) {
       resolved.push({ menuItemId: l.menuItemId, quantity: qty, unitPrice: p });
     }
 
-    const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal);
+    // Discount is resolved from the subtotal we just recomputed, never from
+    // anything the client sent. A bad code fails the order outright rather than
+    // quietly billing full price after the customer saw a lower total.
+    const { applied: appliedOffer, codeError } = await resolveOfferForCheckout({
+      subtotal: itemTotal,
+      code: body.promoCode,
+      phone,
+      supabase,
+    });
+    if (codeError) {
+      return NextResponse.json({ error: codeError }, { status: 400 });
+    }
+
+    const discount = appliedOffer?.amount ?? 0;
+    const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal - discount);
 
     // Re-check COD eligibility server-side: the client hides the option, but the
     // total is only trustworthy once it's been recomputed from the menu here.
@@ -208,6 +195,15 @@ export async function POST(request: Request) {
         ...(orderingForSomeoneElse
           ? { recipient_name: recipientName, recipient_phone: recipientPhoneDigits }
           : {}),
+        // Only written when something was actually discounted, so an install
+        // that hasn't run migrations-offers.sql still inserts cleanly.
+        ...(appliedOffer
+          ? {
+              discount_amount: discount,
+              offer_code: appliedOffer.code,
+              offer_label: appliedOffer.label,
+            }
+          : {}),
       })
       .select("id")
       .single();
@@ -237,6 +233,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not save line items." }, { status: 500 });
     }
 
+    // Claim the coupon slot. If it lost a race for the last one we still honour
+    // the price the customer was shown — going back on a quoted total is worse
+    // than overshooting a usage limit by one.
+    if (appliedOffer) {
+      await redeemOffer(supabase, appliedOffer, orderId, phone);
+    }
+
     // Cash on delivery — skip Razorpay and push the order straight into the
     // kitchen queue. `markOrderPaidAndNotify` moves the FOOD forward; it leaves
     // `payment_status = pending` for COD, so the cash is only counted once the
@@ -250,6 +253,8 @@ export async function POST(request: Request) {
         orderId,
         paymentMethod: "cod",
         total: grandTotal,
+        discount,
+        offerLabel: appliedOffer?.label ?? null,
       });
     }
 
@@ -272,6 +277,7 @@ export async function POST(request: Request) {
         origin,
       );
     } catch {
+      if (appliedOffer) await releaseOffer(supabase, orderId);
       await supabase.from("order_items").delete().eq("order_id", orderId);
       await supabase.from("orders").delete().eq("id", orderId);
       return NextResponse.json(
@@ -290,6 +296,8 @@ export async function POST(request: Request) {
       orderId,
       paymentUrl: short_url,
       total: grandTotal,
+      discount,
+      offerLabel: appliedOffer?.label ?? null,
     });
   } catch (e) {
     console.error("[checkout]", e);

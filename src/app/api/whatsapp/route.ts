@@ -96,6 +96,8 @@ import {
   nextBookableDateForKind,
 } from "@/lib/whatsapp-last-order";
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
+import { checkSharedPin, checkTypedAddress } from "@/lib/delivery-area";
+import { DELIVERY_ZONE } from "@/lib/delivery-zone";
 import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
 import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
@@ -350,6 +352,8 @@ export async function POST(req: Request) {
     let catalogProductItems: CatalogOrderItem[] | null = null;
     let inboundKind: WaMessageKind = "text";
     let inboundProvider: "meta" | "twilio" = "meta";
+    /** Set when the customer sends a WhatsApp location pin. */
+    let sharedPin: { lat: number; lng: number; label: string } | null = null;
 
     if (contentType.includes("application/json")) {
       const json = await req.json();
@@ -401,6 +405,25 @@ export async function POST(req: Request) {
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
           console.log(`[Meta WA Catalog] From=${from} items=${products.length}`);
+        } else if (message && message.type === "location") {
+          from = fromMetaWebhook(message.from);
+          const loc = message.location as
+            | { latitude?: number; longitude?: number; name?: string; address?: string }
+            | undefined;
+          const lat = Number(loc?.latitude);
+          const lng = Number(loc?.longitude);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            sharedPin = {
+              lat,
+              lng,
+              label: [loc?.name, loc?.address].filter(Boolean).join(", "),
+            };
+          }
+          inboundKind = "location";
+          body = sharedPin?.label || "[location]";
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          console.log(`[Meta WA Location] From=${from} lat=${lat} lng=${lng}`);
         } else if (message) {
           from = fromMetaWebhook(message.from);
           profileName = contact?.profile?.name || "";
@@ -458,6 +481,12 @@ export async function POST(req: Request) {
     const lower = text.toLowerCase();
 
     const session = await getSession(from);
+
+    // A dropped pin is the only address we can actually verify on WhatsApp,
+    // so it takes priority over whatever state the chat was in.
+    if (sharedPin) {
+      return await handleSharedLocation(from, session, sharedPin);
+    }
 
     // Old chats may still have the language picker buttons.
     if (interactiveReplyId === "lang_en" || interactiveReplyId === "lang_tanglish") {
@@ -918,7 +947,41 @@ async function handlePickingAddress(from: string, text: string, session: WhatsAp
     await sendText(from, buildAddressPrompt(langOf(from)));
     return ack();
   }
+  const check = checkTypedAddress(text);
+  if (check.status !== "ok") {
+    await sendText(from, check.message);
+    return ack();
+  }
   return await finishAddress(from, session, text.trim());
+}
+
+/**
+ * A shared pin is checked against the real delivery radius. When the chat was
+ * waiting for an address this completes that step; otherwise we just tell them
+ * whether we reach them, which is the question a pin usually means.
+ */
+async function handleSharedLocation(
+  from: string,
+  session: WhatsAppSession,
+  pin: { lat: number; lng: number; label: string },
+) {
+  const check = checkSharedPin(pin.lat, pin.lng);
+  if (check.status !== "ok") {
+    await sendText(from, check.message);
+    return ack();
+  }
+
+  const address = pin.label.trim() || `Pinned location (${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)})`;
+
+  if (session.state === "picking_address") {
+    return await finishAddress(from, session, address);
+  }
+
+  await sendText(
+    from,
+    `Good news — we deliver there. ${DELIVERY_ZONE.name} and about ${DELIVERY_ZONE.radiusKm} km around it is our area.`,
+  );
+  return ack();
 }
 
 async function handlePickingPayMethod(from: string, text: string, session: WhatsAppSession) {

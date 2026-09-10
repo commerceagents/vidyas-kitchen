@@ -290,7 +290,10 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
 
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
   const giftKind = giftKindForStatus(order.status);
-  if (giftKind) void notifyGiftRecipient(order, giftKind);
+  // Awaited, never fire-and-forget: serverless can freeze the moment the caller
+  // responds, which silently drops the recipient's message. notifyGiftRecipient
+  // swallows its own errors, so this cannot break the buyer's notification.
+  if (giftKind) await notifyGiftRecipient(order, giftKind);
 
   const to = order.phone_number ? toPhone(order.phone_number) : null;
   if (!to) return;
@@ -451,7 +454,7 @@ export async function notifyWhatsAppDriverArrived(
   };
   if (normalizeOrderStatus(String(row.status || "")) !== OrderStatus.OUT_FOR_DELIVERY) return;
 
-  void notifyGiftRecipient(
+  await notifyGiftRecipient(
     {
       id: orderId,
       status: OrderStatus.OUT_FOR_DELIVERY,
