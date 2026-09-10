@@ -424,19 +424,24 @@ export default function OffersPage() {
           {!listError && offers.length === 0 && !draft && (
             <div
               style={{
-                padding: "28px 18px",
+                flex: 1,
+                minHeight: 240,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 24,
                 textAlign: "center",
-                color: "#888",
-                fontSize: 13,
-                fontFamily: FONT,
-                border: `1px dashed ${BORDER}`,
-                borderRadius: 12,
-                lineHeight: 1.6,
+                boxSizing: "border-box",
               }}
             >
-              No offers yet. Tap New offer to run a festival discount or hand out a promo code.
-              <br />
-              These take real money off the bill.
+              <Tag size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+                No offers yet
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+                Tap New offer to run a festival discount or hand out a promo code.
+              </p>
             </div>
           )}
 
