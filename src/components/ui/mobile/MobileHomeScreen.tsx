@@ -25,7 +25,7 @@ import {
 } from "@/lib/menu/best-selling";
 import { useActiveFestival } from "./festival-pricing-context";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
-import { SizeQtyDrawer, cartLineKey, qtyForDish } from "@/components/ui/mobile/SizeQtyDrawer";
+import { SizeQtyDrawer, cartLineKey, qtyForDish, dishCartSizeLabel } from "@/components/ui/mobile/SizeQtyDrawer";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -338,13 +338,6 @@ function cartTotalPrice(cart: Record<string, number>, allItems: MenuItem[]): num
   }, 0);
 }
 
-/** Cart keys are `id` or `id:weight` — either means this dish is already in the badge. */
-function dishInCart(itemId: string, cart: Record<string, number>): boolean {
-  return Object.entries(cart).some(
-    ([key, qty]) => qty > 0 && (key === itemId || key.startsWith(`${itemId}:`)),
-  );
-}
-
 /** Preview-only reviews so you can judge the UI before real ratings exist. */
 const SAMPLE_REVIEWS = [
   {
@@ -517,6 +510,7 @@ function BestSellingCard({
   item,
   index,
   qty,
+  sizeLabel,
   onOpenDetail,
   onAdd,
   showFavoriteHeart,
@@ -526,6 +520,7 @@ function BestSellingCard({
   item: MenuItem;
   index: number;
   qty: number;
+  sizeLabel: string;
   onOpenDetail: () => void;
   /** Opens the size + quantity drawer without leaving the home screen. */
   onAdd: () => void;
@@ -576,8 +571,8 @@ function BestSellingCard({
       style={{
         flex: "0 0 72vw",
         maxWidth: 290,
-        height: "82vw",
-        maxHeight: 328,
+        height: "102vw",
+        maxHeight: 400,
         borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
@@ -716,35 +711,22 @@ function BestSellingCard({
             <Heart size={20} weight="fill" color={C.red} />
           </button>
         )}
-
-        {qty > 0 && (
-          <div style={{
-            position: "absolute", bottom: 10, right: 10, zIndex: 12,
-            minWidth: 26, height: 26, padding: "0 8px", borderRadius: 13,
-            background: C.red, ...HT.qtyBadge,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 4px 12px ${C.redGlow}`,
-          }}>
-            {qty}
-          </div>
-        )}
       </div>
 
-      {/* ── BOTTOM ROW: name + arrow ────────────────────────────── */}
+      {/* Name wraps fully; Add sits centred under it so the row isn't cramped. */}
       <div style={{
         flexShrink: 0,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        paddingLeft: 4,
-        paddingRight: 4,
-        paddingBottom: 6,
+        padding: "0 6px 8px",
         minWidth: 0,
-        gap: 8,
+        gap: 10,
       }}>
         <h3 style={{
-          ...HT.cardNameEllipsis,
-          flex: "1 1 0",
-          minWidth: 0,
+          ...HT.cardNameClamp,
+          width: "100%",
+          textAlign: "center",
         }}>
           {cleanName}
         </h3>
@@ -752,18 +734,18 @@ function BestSellingCard({
         <motion.button
           type="button"
           whileTap={{ scale: canOrder ? 0.96 : 1 }}
-          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
+          aria-label={qty > 0 ? `Edit ${cleanName} in cart, ${sizeLabel}` : `Add ${cleanName} to cart`}
           onClick={(e) => {
             // The whole card opens the dish page; this button must not.
             e.stopPropagation();
             if (canOrder) onAdd();
           }}
           style={{
-            flexShrink: 0,
-            height: 36,
-            minWidth: 36,
-            padding: "0 14px",
-            borderRadius: 18,
+            height: 40,
+            minWidth: 124,
+            maxWidth: "100%",
+            padding: "0 18px",
+            borderRadius: 20,
             border: qty > 0 ? `1.5px solid ${C.red}` : "none",
             background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.1)" : C.red,
             color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
@@ -772,16 +754,16 @@ function BestSellingCard({
             justifyContent: "center",
             gap: 5,
             fontFamily: C.mono,
-            fontSize: 12,
+            fontSize: qty > 0 ? 12.5 : 13,
             fontWeight: 900,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            letterSpacing: qty > 0 ? "0.01em" : "0.08em",
+            textTransform: qty > 0 ? "none" : "uppercase",
             cursor: canOrder ? "pointer" : "not-allowed",
             boxShadow: qty > 0 || !canOrder ? "none" : `0 3px 10px ${C.redGlow}`,
           }}
         >
           {qty === 0 && <Plus size={13} weight="bold" />}
-          {qty > 0 ? `Edit · ${qty}` : "Add"}
+          {qty > 0 ? sizeLabel || `Added · ${qty}` : "Add"}
         </motion.button>
       </div>
     </motion.div>
@@ -800,7 +782,7 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
 function CardSkeleton() {
   return (
     <div style={{
-      width: "72vw", maxWidth: 290, height: "82vw", maxHeight: 328,
+      width: "72vw", maxWidth: 290, height: "96vw", maxHeight: 380,
       borderRadius: 28, flexShrink: 0,
       background: "rgba(255,255,255,0.72)",
       backdropFilter: "blur(16px) saturate(180%)",
@@ -813,11 +795,11 @@ function CardSkeleton() {
     }}>
       <div className="vk-skeleton-shimmer" style={{ flex: "1 1 0", minHeight: 0, borderRadius: 22, marginBottom: 12 }} />
       <div style={{
-        flexShrink: 0, display: "flex", alignItems: "center",
-        paddingLeft: 4, paddingRight: 4, paddingBottom: 6, minWidth: 0, gap: 8,
+        flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center",
+        padding: "0 6px 8px", gap: 10,
       }}>
-        <div className="vk-skeleton-shimmer" style={{ flex: "1 1 0", height: 14, borderRadius: 4 }} />
-        <div className="vk-skeleton-shimmer" style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0 }} />
+        <div className="vk-skeleton-shimmer" style={{ width: "78%", height: 14, borderRadius: 4 }} />
+        <div className="vk-skeleton-shimmer" style={{ width: 118, height: 38, borderRadius: 19, flexShrink: 0 }} />
       </div>
     </div>
   );
@@ -1848,20 +1830,8 @@ export function MobileHomeScreen({
     return ranked.slice(0, 5);
   }, [items, bestSellingIds]);
 
-  // A dish that's already in the basket lives on the cart badge, not the
-  // home carousel — otherwise yesterday's add looks like a second listing.
-  const homeBestSelling = useMemo(() => {
-    const kept = bestFive.filter((d) => !dishInCart(d.id, cart));
-    if (kept.length >= bestFive.length) return kept;
-    const seen = new Set(kept.map((d) => d.id));
-    for (const d of items) {
-      if (kept.length >= 5) break;
-      if (seen.has(d.id) || dishInCart(d.id, cart)) continue;
-      seen.add(d.id);
-      kept.push(d);
-    }
-    return kept;
-  }, [bestFive, cart, items]);
+  // Keep picks on the carousel after add so the card can show 500gm / 1kg.
+  const homeBestSelling = bestFive;
 
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [homeDishFeedTab, setHomeDishFeedTab] = useState<"bestSelling" | "favorites">(
@@ -2508,20 +2478,89 @@ export function MobileHomeScreen({
         {activeNav === "home" && (
           <>
         {/* ── Greeting ───────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0 }}>
-          <p style={HT.greetingSub}>
-            {greeting}
-          </p>
-          <h2 style={{
-            ...HT.homeGreeting,
-            margin: 0, marginTop: 6,
-          }}>
-            Hey, {firstName ? (
-              <span style={{ color: C.red }}>{firstName}.</span>
-            ) : (
-              "Welcome back!"
+        <motion.div {...fadeUp(0.06)} style={{ marginBottom: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={HT.greetingSub}>
+              {greeting}
+            </p>
+            <h2 style={{
+              ...HT.homeGreeting,
+              margin: 0, marginTop: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <span>
+                Hey, {firstName ? (
+                  <span style={{ color: C.red }}>{firstName}.</span>
+                ) : (
+                  "Welcome back!"
+                )}
+              </span>
+            </h2>
+          </div>
+          <AnimatePresence>
+            {cartTotalItems > 0 && (
+              <motion.button
+                key="home-greeting-cart"
+                type="button"
+                initial={{ scale: 0, opacity: 0, rotate: -15 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                exit={{ scale: 0, opacity: 0, rotate: 15 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={goCheckout}
+                aria-label={`${cartTotalItems} item${cartTotalItems === 1 ? "" : "s"} in cart`}
+                style={{
+                  position: "relative",
+                  flexShrink: 0,
+                  width: 48,
+                  height: 48,
+                  marginTop: 2,
+                  borderRadius: 999,
+                  border: `1.5px solid ${C.redBorder}`,
+                  background: "rgba(255,255,255,0.95)",
+                  boxShadow: `0 8px 24px rgba(189,35,32,0.18), 0 2px 8px rgba(0,0,0,0.06)`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <ShoppingBag size={22} weight="fill" color={C.red} aria-hidden />
+                <motion.span
+                  key={cartTotalItems}
+                  initial={{ scale: 0.2, y: -6 }}
+                  animate={{ scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 650, damping: 14 }}
+                  style={{
+                    position: "absolute",
+                    top: -4,
+                    right: -4,
+                    minWidth: 22,
+                    height: 22,
+                    padding: "0 6px",
+                    borderRadius: 999,
+                    background: C.red,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: `2px solid ${C.bg}`,
+                    boxShadow: "0 2px 8px rgba(189,35,32,0.4)",
+                    boxSizing: "border-box",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {cartTotalItems > 9 ? "9+" : cartTotalItems}
+                </motion.span>
+              </motion.button>
             )}
-          </h2>
+          </AnimatePresence>
         </motion.div>
 
 
@@ -2610,9 +2649,7 @@ export function MobileHomeScreen({
 
           {(() => {
             const carouselItems =
-              homeDishFeedTab === "bestSelling"
-                ? homeBestSelling
-                : favoriteItems.filter((d) => !dishInCart(d.id, cart));
+              homeDishFeedTab === "bestSelling" ? homeBestSelling : favoriteItems;
             const showSkeleton = loading && carouselItems.length === 0;
             const isEmpty = !loading && carouselItems.length === 0;
             
@@ -2642,9 +2679,7 @@ export function MobileHomeScreen({
                             icon={<Heart size={32} weight="thin" color={EMPTY_ICON_COLOR} />}
                             text={
                               homeDishFeedTab === "favorites"
-                                ? favoriteItems.length > 0
-                                  ? "Those dishes are in your cart."
-                                  : "No favorites yet. Tap the heart on a dish to save it here."
+                                ? "No favorites yet. Tap the heart on a dish to save it here."
                                 : bestSellingSource === "kitchen_picks"
                                   ? "Kitchen picks will appear here."
                                   : "No best selling dishes available."
@@ -2657,6 +2692,7 @@ export function MobileHomeScreen({
                             item={item}
                             index={i}
                             qty={qtyForDish(item, cart)}
+                            sizeLabel={dishCartSizeLabel(item, cart)}
                             onAdd={() => {
                               setLocationOpen(false);
                               setHomeSizePickItem(item);

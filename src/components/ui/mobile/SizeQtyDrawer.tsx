@@ -18,6 +18,18 @@ export function qtyForDish(item: MenuItem, cart: Record<string, number>): number
   }, 0);
 }
 
+/** Compact sizes already in the cart, e.g. "500gm" or "500gm + 1kg". */
+export function dishCartSizeLabel(item: MenuItem, cart: Record<string, number>): string {
+  const parts: string[] = [];
+  for (const v of item.variants || []) {
+    const q = cart[cartLineKey(item.id, v.weight)] || 0;
+    if (q <= 0) continue;
+    const label = String(v.label || v.weight || "").replace(/\s+/g, "");
+    parts.push(q > 1 ? `${q}×${label}` : label);
+  }
+  return parts.join(" + ");
+}
+
 export function dishLineTotal(item: MenuItem, cart: Record<string, number>): number {
   return (item.variants || []).reduce((sum, v) => {
     const q = cart[cartLineKey(item.id, v.weight)] || 0;

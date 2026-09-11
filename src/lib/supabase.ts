@@ -128,16 +128,11 @@ const mockSupabase: any = {
   removeChannel: () => Promise.resolve()
 };
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL");
-}
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY");
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://dummy-supabase-project.supabase.co";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "dummy-anon-key";
+const isDummyClient = isDummy || !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-export const supabase = isDummy
+export const supabase = isDummyClient
   ? mockSupabase
-  : createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+  : createClient(supabaseUrl, supabaseAnonKey);
+
