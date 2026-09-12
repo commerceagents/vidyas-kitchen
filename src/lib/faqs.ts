@@ -43,6 +43,18 @@ export const FAQS: Faq[] = [
     q: "What sizes can I order?",
     a: "Every dish comes in 500gm and 1kg. For 1.5kg add one 500gm and one 1kg — they show as two lines in the cart and arrive together.",
   },
+  {
+    q: "When can I place an order?",
+    a: "You can order between 6 AM and 6 PM IST, any day. Pick a delivery slot for breakfast, lunch, or dinner — you can schedule up to a few days ahead.",
+  },
+  {
+    q: "What are the charges?",
+    a: "Along with the food price, there's a ₹20 packaging fee, ₹35 delivery fee, and 5% GST on the food total. All charges are shown on the checkout screen before you pay.",
+  },
+  {
+    q: "What payment methods do you accept?",
+    a: `We accept UPI, debit/credit cards, and net banking through Razorpay. You can also choose Pay at the door (cash or UPI on arrival) for orders up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.`,
+  },
 ];
 
 /** Compact form for an LLM prompt. */
