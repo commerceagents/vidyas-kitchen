@@ -268,35 +268,7 @@ export function SizeQtyDrawer({
               })}
             </div>
 
-            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <AnimatePresence mode="wait">
-                  {units > 0 ? (
-                    <motion.p
-                      key="summary"
-                      initial={{ opacity: 0, y: 3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      transition={{ duration: 0.18 }}
-                      style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: C.text, textAlign: "center", fontFamily: C.mono }}
-                    >
-                      {units} pack{units === 1 ? "" : "s"} · ₹{lineTotal.toLocaleString("en-IN")}
-                    </motion.p>
-                  ) : (
-                    <motion.p
-                      key="hint"
-                      initial={{ opacity: 0, y: 3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      transition={{ duration: 0.18 }}
-                      style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.38)", textAlign: "center" }}
-                    >
-                      Choose a portion to add
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-
+            <div style={{ marginTop: 22 }}>
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.98 }}
@@ -316,10 +288,9 @@ export function SizeQtyDrawer({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
                 }}
               >
-                {units > 0 ? `Done · ₹${lineTotal.toLocaleString("en-IN")}` : "Done"}
+                Done
               </motion.button>
             </div>
           </motion.div>
