@@ -192,14 +192,16 @@ export function OrderHistoryPanel({
 
   if (orders.length === 0) {
     const waitingInCart = !error && cartItemCount > 0;
+    const formattedError = error
+      ? `${error.trim().replace(/[.]+$/, "")}. Please tap Retry to try again.`
+      : null;
     return (
       <Empty
         text={
-          error
-            ? `${error} Tap retry in a moment.`
-            : waitingInCart
-              ? "That's still in your cart — it becomes an order after you check out."
-              : "No orders yet. Once you place your first order it'll show up here with its full receipt."
+          formattedError ||
+          (waitingInCart
+            ? "That's still in your cart — it becomes an order after you check out."
+            : "No orders yet. Once you place your first order it'll show up here with its full receipt.")
         }
         onRetry={error ? load : undefined}
         onViewCart={waitingInCart ? onViewCart : undefined}
@@ -424,20 +426,22 @@ function Empty({
             style={{
               display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 8,
-              marginTop: 2,
-              padding: "11px 18px",
+              marginTop: 6,
+              padding: "12px 26px",
               borderRadius: 14,
-              border: `1px solid ${C.border}`,
-              background: C.surfaceDeep,
-              color: C.text,
+              border: "none",
+              background: C.red,
+              color: "#fff",
               fontSize: 14,
-              fontWeight: 800,
+              fontWeight: 900,
               cursor: "pointer",
               fontFamily: fontUi,
+              boxShadow: `0 4px 16px ${C.redGlow}`,
             }}
           >
-            <ArrowClockwise size={16} weight="bold" />
+            <ArrowClockwise size={16} weight="bold" color="#fff" />
             Retry
           </motion.button>
         ) : null

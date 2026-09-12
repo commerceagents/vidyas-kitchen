@@ -34,10 +34,10 @@ export function EmptyState({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: fill ? "24px" : padding,
+        padding: fill ? "32px 24px" : padding,
         width: "100%",
         gap: 16,
-        ...(fill ? { flex: 1, minHeight: 0 } : null),
+        ...(fill ? { flex: 1, minHeight: "50vh" } : null),
         ...style,
       }}
     >
@@ -61,10 +61,10 @@ export function EmptyState({
           margin: 0,
           fontSize: 15,
           fontWeight: 600,
-          color: "rgba(0,0,0,0.35)",
+          color: "rgba(0,0,0,0.45)",
           textAlign: "center",
-          lineHeight: 1.4,
-          maxWidth: 220,
+          lineHeight: 1.45,
+          maxWidth: 290,
         }}
       >
         {text}
@@ -94,7 +94,7 @@ export function CenterSpinner({
         alignItems: "center",
         justifyContent: "center",
         width: "100%",
-        ...(fill ? { flex: 1, minHeight: 0 } : { minHeight }),
+        ...(fill ? { flex: 1, minHeight: "50vh" } : { minHeight }),
       }}
     >
       <div
