@@ -2217,15 +2217,19 @@ export function MobileHomeScreen({
         {activeScreen === "home" && (
           <motion.div
             key="home-screen"
+            ref={bindScrollRef}
             initial={{ opacity: 0, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.35, ease: "easeInOut" }}
             style={{
               position: "absolute", inset: 0,
-              minHeight: 0,
-              overflow: "visible",
-              display: "flex", flexDirection: "column",
+              overflowY: "scroll",
+              overflowX: "hidden",
+              WebkitOverflowScrolling: "touch",
+              touchAction: "pan-y",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
       {/* ── Ambient glow ─────────────────────────────────────────────────── */}
@@ -2475,27 +2479,22 @@ export function MobileHomeScreen({
         )}
       </div>
 
-      <div 
-        ref={bindScrollRef}
+      <div
+        ref={undefined}
         className="vk-scroll-container no-scrollbar"
         style={{
           position: "relative", zIndex: 1,
-          flex: "1 1 0%",
-          minHeight: 0,
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
-          gap: sp(3), // Reduced from sp(4)
+          gap: sp(3),
           padding: `0 ${sp(2)}px`,
           paddingTop: activeNav === "orders" ? 0 : sp(2),
-          overflowY: "scroll",
-          WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y",
-          // Clears the floating nav pill so the last row is fully readable.
+          // Clears the floating nav pill so last row is fully readable.
           paddingBottom: "max(200px, calc(132px + env(safe-area-inset-bottom)))",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
           filter: windowOpen ? "none" : "grayscale(0.9)",
           transition: "filter 0.5s ease",
+          flexShrink: 0,
+          minWidth: 0,
         }}
       >
         {activeNav === "home" && (
@@ -3166,7 +3165,7 @@ export function MobileHomeScreen({
           left: 16, right: 16,
           zIndex: 120,
           display: "flex", justifyContent: "center",
-          pointerEvents: showChrome ? "auto" : "none",
+          pointerEvents: "none",
           // Keep closed-window banner; hide nav on browse menu + dish detail + size picker drawer
           visibility: !windowOpen || (!dishDetailItem && !homeSizePickItem && activeScreen !== "menu") ? "visible" : "hidden",
         }}
