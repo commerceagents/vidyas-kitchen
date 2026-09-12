@@ -253,10 +253,20 @@ function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
-function parseRecipeTag(name: string) {
-  // Convert standard dash to em-dash for better typography as requested
-  const cleanName = name.replace(" - ", " — ");
-  return { cleanName, tag: null };
+
+const RECIPE_TAG_REGEX = /[(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|SISTER\s+IN\s+LAW'S|MOTHER-IN-LAW'S|MOTHER\s+IN\s+LAW'S|GRANDMA'S|GRANDMA|CHEFS?|SIL)\s+RECIPE)[)]?/i;
+
+function parseRecipeTag(name: string): { cleanName: string; tag: string | null } {
+  const match = name.match(RECIPE_TAG_REGEX);
+  if (!match) return { cleanName: name.replace(" - ", " — ").trim(), tag: null };
+
+  const cleanName = name
+    .replace(match[0], "")
+    .replace(/^[\s\-–—]+|[\s\-–—]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return { cleanName, tag: match[1].trim() };
 }
 
 /** Short, plain description from dish name and category. */
@@ -531,7 +541,7 @@ function BestSellingCard({
 }) {
   const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
-  const { cleanName } = parseRecipeTag(item.name);
+  const { cleanName, tag } = parseRecipeTag(item.name);
   const [loaded, setLoaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -709,26 +719,51 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Name and Button — tightly grouped with 8px gap */}
+      {/* Name and Button — tightly grouped with recipe chip */}
       <div style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
+        gap: 5,
         padding: "0 4px 2px",
         width: "100%",
         minWidth: 0,
       }}>
+        {tag ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "2px 8px",
+              borderRadius: 6,
+              background: "rgba(189,35,32,0.08)",
+              border: "1px solid rgba(189,35,32,0.2)",
+              color: C.red,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              fontFamily: C.mono,
+              lineHeight: 1.25,
+            }}
+          >
+            {toTitleCase(tag)}
+          </span>
+        ) : null}
+
         <h3 style={{
           ...HT.cardNameClamp,
           width: "100%",
           textAlign: "center",
-          height: 38,
+          height: tag ? 22 : 36,
           display: "-webkit-box",
-          WebkitLineClamp: 2,
+          WebkitLineClamp: tag ? 1 : 2,
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
+          fontSize: tag ? 15.5 : 15,
+          fontWeight: 800,
+          lineHeight: 1.25,
         }}>
           {cleanName}
         </h3>

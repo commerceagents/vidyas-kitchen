@@ -4,7 +4,7 @@
  * and surface the lineage separately, otherwise every row reads the same for
  * the first twelve characters.
  */
-const RECIPE_TAG = /[(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|GRANDMA'S|GRANDMA|CHEFS)\s+RECIPE)[)]?/i;
+const RECIPE_TAG = /[(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|SISTER\s+IN\s+LAW'S|MOTHER-IN-LAW'S|MOTHER\s+IN\s+LAW'S|GRANDMA'S|GRANDMA|CHEFS?|SIL)\s+RECIPE)[)]?/i;
 
 export function parseRecipeTag(name: string): { cleanName: string; tag: string | null } {
   const match = name.match(RECIPE_TAG);
