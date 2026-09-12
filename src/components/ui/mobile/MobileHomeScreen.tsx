@@ -729,33 +729,37 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Bottom Info Section: Dish name centered, Add button centered below */}
+      {/* Bottom Info Section: Dish name centered (fixed height), Add button always at same Y */}
       <div style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-end",
         gap: 8,
         padding: "0 4px",
         width: "100%",
         minWidth: 0,
       }}>
-        <h3 style={{
-          ...HT.cardNameClamp,
-          width: "100%",
-          textAlign: "center",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-          fontSize: 15,
-          fontWeight: 800,
-          lineHeight: 1.25,
-          color: C.text,
-          letterSpacing: "-0.01em",
-        }}>
-          {displayName}
-        </h3>
+        {/* Fixed-height name box: 2-line clamp keeps button Y consistent */}
+        <div style={{ width: "100%", height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <h3 style={{
+            ...HT.cardNameClamp,
+            width: "100%",
+            textAlign: "center",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            fontSize: 14,
+            fontWeight: 800,
+            lineHeight: 1.3,
+            color: C.text,
+            letterSpacing: "-0.01em",
+            margin: 0,
+          }}>
+            {displayName}
+          </h3>
+        </div>
 
         <motion.button
           type="button"
@@ -2220,7 +2224,7 @@ export function MobileHomeScreen({
             style={{
               position: "absolute", inset: 0,
               minHeight: 0,
-              overflow: "hidden",
+              overflow: "visible",
               display: "flex", flexDirection: "column",
             }}
           >
