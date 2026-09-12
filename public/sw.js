@@ -17,7 +17,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request)),
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      // Fallback response for offline PWA requirement
+      return new Response(
+        "<html><body><h1>You are offline.</h1><p>Please check your connection.</p></body></html>",
+        { headers: { "Content-Type": "text/html" } }
+      );
+    }),
   );
 });
 
