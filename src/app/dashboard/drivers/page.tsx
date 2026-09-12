@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Save, Trash2, Truck } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Save, Trash2, Truck, AlertTriangle } from "lucide-react";
 import {
   createDriver,
   deleteDriver,
@@ -50,6 +51,8 @@ export default function DriversPage() {
   const [pinEditing, setPinEditing] = useState<Record<string, boolean>>({});
   const [pinBusyId, setPinBusyId] = useState<string | null>(null);
   const [pinMsg, setPinMsg] = useState<Record<string, string>>({});
+  const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchDrivers = useCallback(async () => {
     const { ok, drivers: rows, error } = await listDashboardDrivers();
@@ -81,18 +84,27 @@ export default function DriversPage() {
     setDrivers((prev) => prev.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
   };
 
-  const removeDriver = async (id: string) => {
+  const removeDriver = (id: string) => {
     if (id.startsWith("new-")) {
       setDrivers((prev) => prev.filter((d) => d.id !== id));
       return;
     }
-    if (!confirm("Remove this driver?")) return;
-    const r = await deleteDriver(id);
+    const d = drivers.find((x) => x.id === id);
+    if (d) setDriverToDelete(d);
+  };
+
+  const confirmRemoveDriver = async () => {
+    if (!driverToDelete) return;
+    setDeleting(true);
+    const r = await deleteDriver(driverToDelete.id);
+    setDeleting(false);
     if (!r.ok) {
       alert(r.error || "Could not remove driver");
+      setDriverToDelete(null);
       return;
     }
-    setDrivers((prev) => prev.filter((d) => d.id !== id));
+    setDrivers((prev) => prev.filter((d) => d.id !== driverToDelete.id));
+    setDriverToDelete(null);
   };
 
   const savePin = async (id: string) => {
@@ -485,6 +497,118 @@ export default function DriversPage() {
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{content}</div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {driverToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0, 0, 0, 0.6)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+            }}
+            onClick={() => setDriverToDelete(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", damping: 25, stiffness: 400 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#1c1c1c",
+                border: "1px solid #333",
+                borderRadius: 20,
+                padding: "24px",
+                width: "100%",
+                maxWidth: 360,
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+                fontFamily: FONT,
+              }}
+            >
+              <div style={{ display: "flex", gap: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(239, 68, 68, 0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ef4444",
+                    flexShrink: 0,
+                  }}
+                >
+                  <AlertTriangle size={24} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                  <h3 style={{ margin: 0, color: "#fff", fontSize: 17, fontWeight: 700 }}>
+                    Remove Driver
+                  </h3>
+                  <p style={{ margin: 0, color: "#999", fontSize: 13, lineHeight: 1.4 }}>
+                    Are you sure you want to remove <strong>{driverToDelete.name}</strong>? They will no longer be able to log in or receive orders.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setDriverToDelete(null)}
+                  disabled={deleting}
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    border: "1px solid #444",
+                    color: "#ccc",
+                    borderRadius: 10,
+                    padding: "10px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: deleting ? "not-allowed" : "pointer",
+                    fontFamily: FONT,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmRemoveDriver()}
+                  disabled={deleting}
+                  style={{
+                    flex: 1,
+                    background: "#ef4444",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 10,
+                    padding: "10px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: deleting ? "wait" : "pointer",
+                    fontFamily: FONT,
+                    opacity: deleting ? 0.7 : 1,
+                  }}
+                >
+                  {deleting ? "Removing..." : "Remove"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
         @media (max-width: 1023px) {
