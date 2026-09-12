@@ -104,6 +104,7 @@ export default function DriversPage() {
       return;
     }
     setDrivers((prev) => prev.filter((d) => d.id !== driverToDelete.id));
+    setSavedDrivers((prev) => prev.filter((d) => d.id !== driverToDelete.id));
     setDriverToDelete(null);
   };
 
