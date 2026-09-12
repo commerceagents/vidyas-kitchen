@@ -67,14 +67,14 @@ export function SizeQtyDrawer({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 280,
             background: "rgba(12,12,12,0.45)",
-            backdropFilter: "blur(12px) saturate(140%)",
-            WebkitBackdropFilter: "blur(12px) saturate(140%)",
+            backdropFilter: "blur(16px) saturate(160%)",
+            WebkitBackdropFilter: "blur(16px) saturate(160%)",
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
@@ -85,7 +85,7 @@ export function SizeQtyDrawer({
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 380, damping: 34 }}
+            transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.8 }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -121,19 +121,21 @@ export function SizeQtyDrawer({
                 const qty = cart[key] || 0;
                 const inCart = qty > 0;
                 const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
-                const meta = sizeServingMeta(v.weight || v.label);
+                const meta = sizeServingMeta(v.weight || v.label || "");
                 const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
                 return (
                   <div
-                    key={v.weight || v.label}
+                    key={key}
                     style={{
                       padding: "18px 18px 16px",
                       borderRadius: 22,
-                      background: inCart ? "rgba(189,35,32,0.06)" : C.surfaceDeep,
-                      border: `1.5px solid ${inCart ? "rgba(189,35,32,0.28)" : C.border}`,
+                      background: inCart ? "rgba(189,35,32,0.04)" : C.surface,
+                      border: `1.5px solid ${inCart ? C.red : C.border}`,
+                      boxShadow: inCart ? `0 4px 20px ${C.redGlow}` : "0 2px 8px rgba(0,0,0,0.04)",
+                      transition: "all 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                       <span
                         aria-hidden
                         style={{
@@ -145,6 +147,7 @@ export function SizeQtyDrawer({
                           alignItems: "center",
                           justifyContent: "center",
                           flexShrink: 0,
+                          transition: "all 0.3s ease",
                         }}
                       >
                         <Icon size={26} weight={inCart ? "fill" : "duotone"} color={inCart ? C.red : "rgba(0,0,0,0.45)"} />
@@ -197,10 +200,12 @@ export function SizeQtyDrawer({
                           padding: "0 6px",
                           width: 128,
                           flexShrink: 0,
+                          transition: "background 0.3s ease",
                         }}
                       >
-                        <button
+                        <motion.button
                           type="button"
+                          whileTap={{ scale: qty > 0 ? 0.85 : 1 }}
                           aria-label={`Decrease ${v.label}`}
                           disabled={qty <= 0}
                           onClick={() => qty > 0 && updateQty(key, -1)}
@@ -218,8 +223,12 @@ export function SizeQtyDrawer({
                           }}
                         >
                           <Minus size={16} weight="bold" />
-                        </button>
-                        <span
+                        </motion.button>
+                        <motion.span
+                          key={qty}
+                          initial={{ scale: 0.8, opacity: 0.6 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 20 }}
                           style={{
                             flex: 1,
                             textAlign: "center",
@@ -230,9 +239,10 @@ export function SizeQtyDrawer({
                           }}
                         >
                           {String(qty).padStart(2, "0")}
-                        </span>
-                        <button
+                        </motion.span>
+                        <motion.button
                           type="button"
+                          whileTap={{ scale: 0.85 }}
                           aria-label={`Increase ${v.label}`}
                           onClick={() => updateQty(key, 1)}
                           style={{
@@ -249,7 +259,7 @@ export function SizeQtyDrawer({
                           }}
                         >
                           <Plus size={16} weight="bold" />
-                        </button>
+                        </motion.button>
                       </div>
                     </div>
                   </div>

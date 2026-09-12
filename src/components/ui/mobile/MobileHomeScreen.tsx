@@ -571,15 +571,14 @@ function BestSellingCard({
       style={{
         flex: "0 0 72vw",
         maxWidth: 290,
-        height: "102vw",
-        maxHeight: 400,
+        height: 390,
         borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
         position: "relative",
         boxSizing: "border-box",
         boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-        background: "rgba(255,255,255,0.72)",
+        background: "rgba(255,255,255,0.78)",
         backdropFilter: "blur(16px) saturate(180%)",
         WebkitBackdropFilter: "blur(16px) saturate(180%)",
         border: "1px solid rgba(0,0,0,0.06)",
@@ -589,13 +588,13 @@ function BestSellingCard({
         cursor: "pointer",
       }}
     >
-      {/* ── IMAGE SECTION ───────────────────────────────────────── */}
+      {/* ── IMAGE SECTION (Fixed 230px viewport height for equal photo ratio across all cards) ── */}
       <div style={{
         position: "relative",
         width: "100%",
-        flex: "1 1 0",
-        minHeight: 0,
-        marginBottom: 12,
+        height: 220,
+        flexShrink: 0,
+        marginBottom: 10,
       }}>
         {/* Skeleton while photo loads */}
         <AnimatePresence>
@@ -634,9 +633,6 @@ function BestSellingCard({
               x: imgX,
               position: "absolute",
               top: 0,
-              // Overscan must fully cover the pan distance: `imgX` is a % of THIS element's
-              // own (enlarged) width, so 14% of a 144%-wide box ≈ 20.2% of the card — the old
-              // 12%/124% buffer was too small and exposed a gap at the edges while panning.
               left: "-22%",
               width: "144%",
               height: "100%",
@@ -713,57 +709,62 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Name wraps fully; Add sits centred under it so the row isn't cramped. */}
+      {/* Name clamp (fixed 2-line title container so button alignment stays identical) */}
       <div style={{
-        flexShrink: 0,
+        flex: 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "0 6px 8px",
+        justifyContent: "space-between",
+        padding: "0 6px 4px",
         minWidth: 0,
-        gap: 10,
       }}>
         <h3 style={{
           ...HT.cardNameClamp,
           width: "100%",
           textAlign: "center",
+          height: 40,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
         }}>
           {cleanName}
         </h3>
 
         <motion.button
           type="button"
-          whileTap={{ scale: canOrder ? 0.96 : 1 }}
-          aria-label={qty > 0 ? `Edit ${cleanName} in cart, ${sizeLabel}` : `Add ${cleanName} to cart`}
+          whileTap={{ scale: canOrder ? 0.95 : 1 }}
+          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
           onClick={(e) => {
-            // The whole card opens the dish page; this button must not.
             e.stopPropagation();
             if (canOrder) onAdd();
           }}
           style={{
-            height: 40,
-            minWidth: 124,
+            height: 38,
+            minWidth: 120,
             maxWidth: "100%",
-            padding: "0 18px",
-            borderRadius: 20,
+            padding: "0 16px",
+            borderRadius: 19,
             border: qty > 0 ? `1.5px solid ${C.red}` : "none",
-            background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.1)" : C.red,
+            background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.08)" : C.red,
             color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 5,
+            gap: 6,
             fontFamily: C.mono,
             fontSize: qty > 0 ? 12.5 : 13,
             fontWeight: 900,
             letterSpacing: qty > 0 ? "0.01em" : "0.08em",
             textTransform: qty > 0 ? "none" : "uppercase",
             cursor: canOrder ? "pointer" : "not-allowed",
-            boxShadow: qty > 0 || !canOrder ? "none" : `0 3px 10px ${C.redGlow}`,
+            boxShadow: qty > 0 || !canOrder ? "none" : `0 4px 14px ${C.redGlow}`,
+            transition: "all 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
           {qty === 0 && <Plus size={13} weight="bold" />}
-          {qty > 0 ? sizeLabel || `Added · ${qty}` : "Add"}
+          {qty > 0 ? `Added (${qty}) · Edit` : "Add"}
         </motion.button>
       </div>
     </motion.div>
