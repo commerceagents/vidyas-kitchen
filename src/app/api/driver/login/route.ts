@@ -58,6 +58,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Wrong phone or PIN" }, { status: 401 });
     }
 
+    // Mark that they have successfully installed and used the app
+    await supabase.from("drivers").update({ has_installed_app: true }).eq("id", match.id);
+
     const token = await signDriverSession({
       id: match.id,
       name: match.name,

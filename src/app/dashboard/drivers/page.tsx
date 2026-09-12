@@ -26,6 +26,7 @@ type Driver = {
   id: string;
   name: string;
   phone: string;
+  hasInstalledApp: boolean;
 };
 
 export default function DriversPage() {
@@ -65,7 +66,7 @@ export default function DriversPage() {
       return;
     }
     setListError("");
-    const next = rows.map(({ id, name, phone }) => ({ id, name, phone }));
+    const next = rows.map(({ id, name, phone, hasInstalledApp }) => ({ id, name, phone, hasInstalledApp }));
     setDrivers(next);
     setSavedDrivers(next);
     setPinFlags(Object.fromEntries(rows.map((d) => [d.id, d.hasPin])));
@@ -77,7 +78,7 @@ export default function DriversPage() {
   }, [fetchDrivers]);
 
   const addDriver = () => {
-    setDrivers((prev) => [...prev, { id: `new-${Date.now()}`, name: "", phone: "" }]);
+    setDrivers((prev) => [...prev, { id: `new-${Date.now()}`, name: "", phone: "", hasInstalledApp: false }]);
   };
 
   const updateDriverField = (id: string, field: "name" | "phone", value: string) => {
@@ -263,8 +264,15 @@ export default function DriversPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {!unsaved && pinFlags[d.id] && !pinEditing[d.id] ? (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "#86efac", fontFamily: FONT }}>
-                            PIN added
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#86efac", fontFamily: FONT }}>
+                              PIN added
+                            </div>
+                            {d.hasInstalledApp && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4, fontFamily: FONT }}>
+                                App Installed
+                              </div>
+                            )}
                           </div>
                           <button
                             type="button"
@@ -364,6 +372,11 @@ export default function DriversPage() {
                                   ? "Enter a new PIN, then Save new PIN"
                                   : "No PIN yet — driver cannot sign in")}
                           </div>
+                          {!unsaved && !pinFlags[d.id] && d.hasInstalledApp && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4, fontFamily: FONT, alignSelf: "flex-start" }}>
+                              App Installed
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

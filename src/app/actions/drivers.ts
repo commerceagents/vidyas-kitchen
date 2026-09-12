@@ -7,6 +7,7 @@ import {
   hasDashboardSession,
 } from "@/lib/dashboard-auth";
 import { hashDriverPin, isValidDriverPin } from "@/lib/driver-auth";
+import { sendCtaUrl } from "@/lib/whatsapp-send";
 
 /**
  * Every read here goes through the service role because `drivers` holds PIN
@@ -20,6 +21,7 @@ export type DashboardDriver = {
   name: string;
   phone: string;
   hasPin: boolean;
+  hasInstalledApp: boolean;
 };
 
 export type DriverActionResult = { ok: boolean; error?: string };
@@ -38,7 +40,7 @@ export async function listDashboardDrivers(): Promise<{
     const supabase = createServerSupabase();
     const { data, error } = await supabase
       .from("drivers")
-      .select("id, name, phone, pin_hash")
+      .select("id, name, phone, pin_hash, has_installed_app")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -46,7 +48,7 @@ export async function listDashboardDrivers(): Promise<{
       return { ok: false, drivers: [], error: "Could not load drivers" };
     }
 
-    const rows = (data || []) as { id: string; name: string; phone: string; pin_hash?: string | null }[];
+    const rows = (data || []) as { id: string; name: string; phone: string; pin_hash?: string | null; has_installed_app?: boolean }[];
     return {
       ok: true,
       drivers: rows.map((d) => ({
@@ -54,6 +56,7 @@ export async function listDashboardDrivers(): Promise<{
         name: d.name,
         phone: d.phone,
         hasPin: Boolean(d.pin_hash),
+        hasInstalledApp: Boolean(d.has_installed_app),
       })),
     };
   } catch (e) {
@@ -124,6 +127,15 @@ export async function createDriver(
       }
       return { ok: false, error: error.message };
     }
+
+    // Fire-and-forget the WhatsApp notification
+    sendCtaUrl(
+      cleanPhone,
+      `Hello ${cleanName}! You have been added as a delivery partner for Vidya's Kitchen. \n\nPlease install our Driver App to receive your login PIN and delivery orders.`,
+      "https://vidyaskitchenhome.com/driver",
+      "Install App"
+    ).catch(e => console.error("[actions/drivers] whatsapp error", e));
+
     return { ok: true };
   } catch (e) {
     console.error("[actions/drivers] create", e);
