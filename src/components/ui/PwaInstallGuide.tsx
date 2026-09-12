@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { X, Download, Share, SquarePlus, MoveDown, MoveUp } from "lucide-react";
+import { X, Download, Share, SquarePlus, MoveDown, MoveUp, MoreVertical, Check } from "lucide-react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
-import { isIpad } from "@/lib/pwa-install";
+import { isAppleTouchDevice, isIpad } from "@/lib/pwa-install";
 
-/** Guided visual walkthrough for iOS/iPadOS — Safari has no install API, so we point at its native Share button. */
+/** Guided visual walkthrough for PWA install across iOS/Safari and Android/Chrome. */
 export function PwaInstallGuide({
   onClose,
   title = "Install Vidya's Kitchen",
@@ -17,29 +17,48 @@ export function PwaInstallGuide({
   icon?: string;
 }) {
   const [ipad, setIpad] = useState(false);
+  const [apple, setApple] = useState(false);
 
   useEffect(() => {
     setIpad(isIpad());
+    setApple(isAppleTouchDevice());
   }, []);
 
-  const steps = [
-    {
-      icon: <Share size={18} strokeWidth={2.4} />,
-      // Newer iPhone Safari hides Share behind the ⋯ menu instead of showing it
-      // in the toolbar, so naming only the Share icon leaves people hunting.
-      text: ipad
-        ? "Tap the Share icon near the address bar"
-        : "Tap the Share icon in Safari's toolbar — or ⋯ if you don't see it",
-    },
-    {
-      icon: <SquarePlus size={18} strokeWidth={2.4} />,
-      text: "Scroll down and tap \"Add to Home Screen\"",
-    },
-    {
-      icon: <Download size={18} strokeWidth={2.4} />,
-      text: "Tap \"Add\" in the top-right to finish",
-    },
-  ];
+  const steps = apple
+    ? [
+        {
+          icon: <Share size={18} strokeWidth={2.4} />,
+          text: ipad
+            ? "Tap the Share icon near the address bar"
+            : "Tap the Share icon in Safari's toolbar — or ⋯ if you don't see it",
+        },
+        {
+          icon: <SquarePlus size={18} strokeWidth={2.4} />,
+          text: 'Scroll down and tap "Add to Home Screen"',
+        },
+        {
+          icon: <Download size={18} strokeWidth={2.4} />,
+          text: 'Tap "Add" in the top-right to finish',
+        },
+      ]
+    : [
+        {
+          icon: <MoreVertical size={18} strokeWidth={2.4} />,
+          text: "Tap the 3-dots menu (⋮) in the top-right corner of Chrome",
+        },
+        {
+          icon: <SquarePlus size={18} strokeWidth={2.4} />,
+          text: 'Tap "Install app" or "Add to Home screen"',
+        },
+        {
+          icon: <Check size={18} strokeWidth={2.4} />,
+          text: 'Tap "Install" to confirm',
+        },
+      ];
+
+  const subtitle = apple
+    ? "Safari needs a couple of taps to add the app icon to your Home Screen."
+    : "Chrome needs a quick tap to add the app icon to your Home Screen.";
 
   return (
     <motion.div
@@ -60,6 +79,7 @@ export function PwaInstallGuide({
     >
       <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 16px 0" }}>
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close"
           style={{
@@ -98,7 +118,7 @@ export function PwaInstallGuide({
           {title}
         </h2>
         <p style={{ margin: 0, fontSize: 13, color: "rgba(0,0,0,0.5)", textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
-          Safari needs a couple of taps to add the app icon to your Home Screen.
+          {subtitle}
         </p>
 
         <div style={{ width: "100%", maxWidth: 320, marginTop: 28, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -145,28 +165,46 @@ export function PwaInstallGuide({
         </div>
       </div>
 
-      {/* Animated pointer toward Safari's real Share button (top-right on iPad, bottom toolbar on iPhone) */}
-      <motion.div
-        animate={ipad ? { y: [0, -8, 0] } : { y: [0, 8, 0] }}
-        transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          position: "fixed",
-          // Centred by spanning the full width rather than by translateX(-50%):
-          // the bob animation below writes `transform`, which overwrote the
-          // centring offset and left the arrow sitting half a width to the right.
-          ...(ipad
-            ? { top: 10, right: 60 }
-            : { bottom: "max(14px, env(safe-area-inset-bottom))", left: 0, right: 0 }),
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          color: C.red,
-          pointerEvents: "none",
-        }}
-      >
-        {ipad ? <MoveUp size={26} strokeWidth={2.6} /> : <MoveDown size={26} strokeWidth={2.6} />}
-        <span style={{ fontSize: 10, fontWeight: 800, color: C.red, marginTop: 2 }}>Share</span>
-      </motion.div>
+      {/* Animated pointer toward browser's real affordance */}
+      {apple ? (
+        <motion.div
+          animate={ipad ? { y: [0, -8, 0] } : { y: [0, 8, 0] }}
+          transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: "fixed",
+            ...(ipad
+              ? { top: 10, right: 60 }
+              : { bottom: "max(14px, env(safe-area-inset-bottom))", left: 0, right: 0 }),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            color: C.red,
+            pointerEvents: "none",
+          }}
+        >
+          {ipad ? <MoveUp size={26} strokeWidth={2.6} /> : <MoveDown size={26} strokeWidth={2.6} />}
+          <span style={{ fontSize: 10, fontWeight: 800, color: C.red, marginTop: 2 }}>Share</span>
+        </motion.div>
+      ) : (
+        <motion.div
+          animate={{ y: [0, -8, 0] }}
+          transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            position: "fixed",
+            top: 14,
+            right: 18,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            color: C.red,
+            pointerEvents: "none",
+            zIndex: 10002,
+          }}
+        >
+          <MoveUp size={26} strokeWidth={2.6} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: C.red, marginTop: 2 }}>Menu (⋮)</span>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

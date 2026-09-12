@@ -6,6 +6,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Pass-through fetch handler satisfies Chrome's PWA installability requirements
+self.addEventListener("fetch", (event) => {
+  // Let the browser handle the network request normally
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   const title = data.title || "Vidya's Kitchen";
