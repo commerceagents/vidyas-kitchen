@@ -107,7 +107,7 @@ export function SizeQtyDrawer({
               id="vk-size-qty-title"
               style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}
             >
-              Size & quantity
+              Choose Size
             </h3>
             <p style={{ margin: "0 0 22px", fontSize: 14, fontWeight: 600, color: "rgba(0,0,0,0.42)", lineHeight: 1.4 }}>
               {item.name.replace(" - ", " — ")}
