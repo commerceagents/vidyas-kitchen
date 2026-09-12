@@ -17,6 +17,7 @@ import {
   CaretDown,
   BowlFood,
   UserPlus,
+  CircleNotch,
 } from "@phosphor-icons/react";
 
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
@@ -1042,123 +1043,160 @@ export function CheckoutScreen({
                       gap: 14,
                     }}
                   >
-                    {appliedOffer && discount > 0 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          padding: "12px 14px",
-                          borderRadius: 14,
-                          background: "rgba(22,140,80,0.08)",
-                          border: "1px solid rgba(22,140,80,0.18)",
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 14,
-                              fontWeight: 800,
-                              color: "#12784A",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {appliedOffer.label}
-                          </p>
-                          <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
-                            You save ₹{discount.toLocaleString("en-IN")}
-                          </p>
-                        </div>
-                        {activeCode && (
-                          <button
-                            type="button"
-                            onClick={() => void removePromo()}
-                            style={{
-                              flexShrink: 0,
-                              background: "none",
-                              border: "none",
-                              padding: "6px 2px",
-                              fontFamily: C.mono,
-                              fontSize: 12,
-                              fontWeight: 800,
-                              color: C.red,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {activeCode && appliedOffer && !appliedOffer.code && (
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
-                        Your running offer saves more than {activeCode}, so we kept it.
-                      </p>
-                    )}
-
-                    {!activeCode && (
-                      <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
-                        <input
-                          value={promoInput}
-                          onChange={(e) => {
-                            setPromoInput(e.target.value.toUpperCase());
-                            if (promoError) setPromoError(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") void applyPromo();
-                          }}
-                          placeholder="Promo code"
-                          autoCapitalize="characters"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          aria-label="Promo code"
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                            height: 46,
-                            padding: "0 14px",
-                            borderRadius: 14,
-                            border: `1px solid ${promoError ? "rgba(189,35,32,0.4)" : C.border}`,
-                            background: "rgba(0,0,0,0.03)",
-                            fontFamily: C.mono,
-                            fontSize: 14,
-                            fontWeight: 700,
-                            letterSpacing: "0.06em",
-                            color: C.text,
-                            outline: "none",
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void applyPromo()}
-                          disabled={promoChecking || promoInput.trim().length === 0}
-                          style={{
-                            flexShrink: 0,
-                            height: 46,
-                            padding: "0 20px",
-                            borderRadius: 14,
-                            border: "none",
-                            background: promoInput.trim() ? C.red : "rgba(0,0,0,0.12)",
-                            color: C.white,
-                            fontFamily: C.mono,
-                            fontSize: 13,
-                            fontWeight: 800,
-                            cursor: promoInput.trim() ? "pointer" : "default",
-                          }}
+                     <AnimatePresence mode="wait">
+                      {activeCode && appliedOffer ? (
+                        <motion.div
+                          key="applied"
+                          initial={{ opacity: 0, height: 0, y: -10 }}
+                          animate={{ opacity: 1, height: "auto", y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -10 }}
+                          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                          style={{ overflow: "hidden" }}
                         >
-                          {promoChecking ? "…" : "Apply"}
-                        </button>
-                      </div>
-                    )}
-
-                    {promoError && (
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.red }}>{promoError}</p>
-                    )}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              padding: "12px 14px",
+                              borderRadius: 14,
+                              background: "rgba(22,140,80,0.08)",
+                              border: "1px solid rgba(22,140,80,0.18)",
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 14,
+                                  fontWeight: 800,
+                                  color: "#12784A",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {appliedOffer.label}
+                              </p>
+                              <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
+                                You save ₹{discount.toLocaleString("en-IN")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void removePromo()}
+                              style={{
+                                flexShrink: 0,
+                                background: "none",
+                                border: "none",
+                                padding: "6px 2px",
+                                fontFamily: C.mono,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                color: C.red,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          {!appliedOffer.code && (
+                            <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
+                              Your running offer saves more than {activeCode}, so we kept it.
+                            </p>
+                          )}
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="input"
+                          initial={{ opacity: 0, height: 0, y: -10 }}
+                          animate={{ opacity: 1, height: "auto", y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -10 }}
+                          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                          style={{ overflow: "hidden" }}
+                        >
+                          <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+                            <input
+                              value={promoInput}
+                              onChange={(e) => {
+                                setPromoInput(e.target.value.toUpperCase());
+                                if (promoError) setPromoError(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") void applyPromo();
+                              }}
+                              placeholder="Promo code"
+                              autoCapitalize="characters"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              aria-label="Promo code"
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                height: 46,
+                                padding: "0 14px",
+                                borderRadius: 14,
+                                border: `1px solid ${promoError ? "rgba(189,35,32,0.4)" : C.border}`,
+                                background: "rgba(0,0,0,0.03)",
+                                fontFamily: C.mono,
+                                fontSize: 14,
+                                fontWeight: 700,
+                                letterSpacing: "0.06em",
+                                color: C.text,
+                                outline: "none",
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void applyPromo()}
+                              disabled={promoChecking || promoInput.trim().length === 0}
+                              style={{
+                                flexShrink: 0,
+                                height: 46,
+                                minWidth: 84,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: 14,
+                                border: "none",
+                                background: promoInput.trim() ? C.red : "rgba(0,0,0,0.12)",
+                                color: C.white,
+                                fontFamily: C.mono,
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: promoInput.trim() ? (promoChecking ? "wait" : "pointer") : "default",
+                                transition: "background 0.2s",
+                              }}
+                            >
+                              {promoChecking ? (
+                                <motion.div
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                  style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                                >
+                                  <CircleNotch weight="bold" size={18} />
+                                </motion.div>
+                              ) : (
+                                "Apply"
+                              )}
+                            </button>
+                          </div>
+                          <AnimatePresence>
+                            {promoError && (
+                              <motion.p
+                                initial={{ opacity: 0, y: -5, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: "auto" }}
+                                exit={{ opacity: 0, y: -5, height: 0 }}
+                                style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 700, color: C.red }}
+                              >
+                                {promoError}
+                              </motion.p>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
