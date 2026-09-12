@@ -581,7 +581,7 @@ function BestSellingCard({
       style={{
         flex: "0 0 72vw",
         maxWidth: 290,
-        height: 325,
+        height: 280,
         borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
@@ -719,55 +719,68 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Name and Button — tightly grouped with recipe chip */}
+      {/* Bottom Info Bar: Left = Chip + Item Name, Right = Add Button */}
       <div style={{
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        gap: 5,
-        padding: "0 4px 2px",
+        justifyContent: "space-between",
+        gap: 8,
+        padding: "0 2px",
         width: "100%",
         minWidth: 0,
       }}>
-        {tag ? (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "2px 8px",
-              borderRadius: 6,
-              background: "rgba(189,35,32,0.08)",
-              border: "1px solid rgba(189,35,32,0.2)",
-              color: C.red,
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              fontFamily: C.mono,
-              lineHeight: 1.25,
-            }}
-          >
-            {toTitleCase(tag)}
-          </span>
-        ) : null}
-
-        <h3 style={{
-          ...HT.cardNameClamp,
-          width: "100%",
-          textAlign: "center",
-          height: tag ? 22 : 36,
-          display: "-webkit-box",
-          WebkitLineClamp: tag ? 1 : 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-          fontSize: tag ? 15.5 : 15,
-          fontWeight: 800,
-          lineHeight: 1.25,
+        {/* Left column: Recipe chip + Dish name */}
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          gap: 4,
         }}>
-          {cleanName}
-        </h3>
+          {tag ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "2px 7px",
+                borderRadius: 5,
+                background: "rgba(189,35,32,0.08)",
+                border: "1px solid rgba(189,35,32,0.2)",
+                color: C.red,
+                fontSize: 9.5,
+                fontWeight: 800,
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+                fontFamily: C.mono,
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {toTitleCase(tag)}
+            </span>
+          ) : null}
 
+          <h3 style={{
+            ...HT.cardNameClamp,
+            width: "100%",
+            textAlign: "left",
+            display: "-webkit-box",
+            WebkitLineClamp: tag ? 1 : 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            fontSize: 15,
+            fontWeight: 800,
+            lineHeight: 1.25,
+            color: C.text,
+            letterSpacing: "-0.01em",
+          }}>
+            {cleanName}
+          </h3>
+        </div>
+
+        {/* Right column: Add / Added button vertically centered */}
         <motion.button
           type="button"
           whileTap={{ scale: canOrder ? 0.95 : 1 }}
@@ -777,30 +790,29 @@ function BestSellingCard({
             if (canOrder) onAdd();
           }}
           style={{
-            height: 36,
-            minWidth: 120,
-            maxWidth: "100%",
-            padding: "0 16px",
-            borderRadius: 18,
+            flexShrink: 0,
+            height: 34,
+            padding: "0 14px",
+            borderRadius: 17,
             border: qty > 0 ? `1.5px solid ${C.red}` : "none",
             background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.08)" : C.red,
             color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 6,
+            gap: 5,
             fontFamily: C.mono,
-            fontSize: qty > 0 ? 12.5 : 13,
+            fontSize: qty > 0 ? 11.5 : 12.5,
             fontWeight: 900,
-            letterSpacing: qty > 0 ? "0.01em" : "0.08em",
+            letterSpacing: qty > 0 ? "0.01em" : "0.06em",
             textTransform: qty > 0 ? "none" : "uppercase",
             cursor: canOrder ? "pointer" : "not-allowed",
             boxShadow: qty > 0 || !canOrder ? "none" : `0 4px 14px ${C.redGlow}`,
             transition: "all 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          {qty === 0 && <Plus size={13} weight="bold" />}
-          {qty > 0 ? `Added (${qty}) · Edit` : "Add"}
+          {qty === 0 && <Plus size={12} weight="bold" />}
+          {qty > 0 ? `Added (${qty})` : "Add"}
         </motion.button>
       </div>
     </motion.div>
@@ -819,7 +831,7 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
 function CardSkeleton() {
   return (
     <div style={{
-      width: "72vw", maxWidth: 290, height: 325,
+      width: "72vw", maxWidth: 290, height: 280,
       borderRadius: 28, flexShrink: 0,
       background: "rgba(255,255,255,0.72)",
       backdropFilter: "blur(16px) saturate(180%)",
