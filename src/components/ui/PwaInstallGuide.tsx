@@ -7,7 +7,15 @@ import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { isIpad } from "@/lib/pwa-install";
 
 /** Guided visual walkthrough for iOS/iPadOS — Safari has no install API, so we point at its native Share button. */
-export function PwaInstallGuide({ onClose }: { onClose: () => void }) {
+export function PwaInstallGuide({
+  onClose,
+  title = "Install Vidya's Kitchen",
+  icon = "/vk-logo.png",
+}: {
+  onClose: () => void;
+  title?: string;
+  icon?: string;
+}) {
   const [ipad, setIpad] = useState(false);
 
   useEffect(() => {
@@ -82,12 +90,12 @@ export function PwaInstallGuide({ onClose }: { onClose: () => void }) {
         }}
       >
         <img
-          src="/vk-logo.png"
-          alt="Vidya's Kitchen"
+          src={icon}
+          alt={title}
           style={{ width: 64, height: 64, borderRadius: 18, objectFit: "cover", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
         />
         <h2 style={{ margin: "18px 0 4px", fontSize: 20, fontWeight: 800, color: C.text, textAlign: "center" }}>
-          Install Vidya's Kitchen
+          {title}
         </h2>
         <p style={{ margin: 0, fontSize: 13, color: "rgba(0,0,0,0.5)", textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
           Safari needs a couple of taps to add the app icon to your Home Screen.

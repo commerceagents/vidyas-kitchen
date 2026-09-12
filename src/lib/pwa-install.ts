@@ -97,6 +97,24 @@ export function hasNativePrompt(): boolean {
   return deferredPrompt !== null;
 }
 
+/** Wait up to `ms` for the browser's `beforeinstallprompt` event. Resolves true if available. */
+export function waitForNativePrompt(ms = 2500): Promise<boolean> {
+  if (hasNativePrompt()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      unsub();
+      resolve(hasNativePrompt());
+    }, ms);
+    const unsub = subscribePwaInstall(() => {
+      if (hasNativePrompt()) {
+        window.clearTimeout(timer);
+        unsub();
+        resolve(true);
+      }
+    });
+  });
+}
+
 export function getInstalledFlag(): boolean {
   return installed;
 }

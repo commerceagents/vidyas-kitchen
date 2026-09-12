@@ -5,34 +5,12 @@ import { motion } from "framer-motion";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import {
-  hasNativePrompt,
   isAppleTouchDevice,
   isSamsungInternet,
   openInChrome,
-  subscribePwaInstall,
   triggerNativeInstall,
+  waitForNativePrompt,
 } from "@/lib/pwa-install";
-
-/**
- * Phone landed here from WhatsApp "Install app". Confirm first, then the
- * browser's real install (or the iPhone Share steps / Chrome handoff).
- */
-function waitForNativePrompt(ms = 2000): Promise<boolean> {
-  if (hasNativePrompt()) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(() => {
-      unsub();
-      resolve(hasNativePrompt());
-    }, ms);
-    const unsub = subscribePwaInstall(() => {
-      if (hasNativePrompt()) {
-        window.clearTimeout(timer);
-        unsub();
-        resolve(true);
-      }
-    });
-  });
-}
 
 export function InstallConfirmModal({ onDone }: { onDone: () => void }) {
   const [iosGuide, setIosGuide] = useState(false);

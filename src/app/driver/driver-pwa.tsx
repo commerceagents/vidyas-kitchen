@@ -2,32 +2,36 @@
 
 /**
  * Install banner for VK's Driver.
- *
- * Chrome's own prompt only fires when the manifest is valid and a service
- * worker is controlling the page. We always show this card unless the app is
- * already on the home screen — waiting for `beforeinstallprompt` left Android
- * with a blank page when the prompt never came.
+ * Matches the user app's premium bottom-sheet PWA install pattern.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { Download, Share } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
+import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import {
-  hasNativePrompt,
   isAlreadyInstalled,
   isAppleTouchDevice,
+  isMobileViewport,
   isSamsungInternet,
   openInChrome,
   subscribePwaInstall,
   triggerNativeInstall,
+  waitForNativePrompt,
 } from "@/lib/pwa-install";
-import { D, RADIUS } from "./driver-theme";
+import { D } from "./driver-theme";
+
+const REVEAL_DELAY_MS = 500;
 
 export function DriverPwa() {
-  const [showInstall, setShowInstall] = useState(false);
+  const [eligible, setEligible] = useState(false);
   const [isApple, setIsApple] = useState(false);
   const [viaChrome, setViaChrome] = useState(false);
-  const [iosHint, setIosHint] = useState(false);
-  const [canPrompt, setCanPrompt] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [showIosGuide, setShowIosGuide] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -37,113 +41,172 @@ export function DriverPwa() {
 
   useEffect(() => {
     const recompute = () => {
-      if (isAlreadyInstalled()) {
-        setShowInstall(false);
+      if (!isMobileViewport() || isAlreadyInstalled()) {
+        setEligible(false);
         return;
       }
       setIsApple(isAppleTouchDevice());
       setViaChrome(isSamsungInternet());
-      setCanPrompt(hasNativePrompt());
-      setShowInstall(true);
+      setEligible(true);
     };
     recompute();
     return subscribePwaInstall(recompute);
   }, []);
 
-  useEffect(() => {
-    if (!showInstall) return;
-    const prev = document.body.style.paddingBottom;
-    document.body.style.paddingBottom = "120px";
-    return () => {
-      document.body.style.paddingBottom = prev;
-    };
-  }, [showInstall]);
+  const wantsToShow = eligible && !dismissed;
 
-  const install = useCallback(async () => {
+  useEffect(() => {
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    if (wantsToShow) {
+      revealTimer.current = setTimeout(() => setRevealed(true), REVEAL_DELAY_MS);
+    } else {
+      setRevealed(false);
+    }
+    return () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    };
+  }, [wantsToShow]);
+
+  const handleInstall = useCallback(async () => {
     if (isApple) {
-      setIosHint(true);
+      setShowIosGuide(true);
       return;
     }
     if (viaChrome) {
       openInChrome();
       return;
     }
-    if (canPrompt) {
-      await triggerNativeInstall();
-      return;
+    setInstalling(true);
+    try {
+      const ready = await waitForNativePrompt(2500);
+      if (ready) {
+        await triggerNativeInstall();
+      } else {
+        setShowIosGuide(true);
+      }
+    } finally {
+      setInstalling(false);
     }
-    setIosHint(true);
-  }, [isApple, viaChrome, canPrompt]);
+  }, [isApple, viaChrome]);
 
-  if (!showInstall) return null;
-
-  const body = iosHint
-    ? isApple
-      ? "Tap Share, then Add to Home Screen. Open it from the new icon — alerts only work from there."
-      : "Tap the browser menu (⋮), then Install app / Add to Home screen."
-    : viaChrome
-      ? "Open this page in Chrome, then install. Samsung's own install is blocked on new Androids."
-      : "Pin this to your home screen. New orders will buzz, and tapping one opens the delivery.";
+  const handleDismiss = useCallback(() => {
+    setDismissed(true);
+  }, []);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        left: 16,
-        right: 16,
-        bottom: "max(16px, env(safe-area-inset-bottom, 12px))",
-        zIndex: 40,
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 11,
-        padding: "12px 13px",
-        borderRadius: RADIUS.card,
-        background: "#fff",
-        border: `1px solid ${D.border}`,
-        boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
-        fontFamily: D.font,
-      }}
-    >
-      <Download size={16} strokeWidth={2.2} style={{ color: D.red, flexShrink: 0, marginTop: 2 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: D.text, letterSpacing: "-0.01em" }}>
-          Install VK&apos;s Driver
-        </p>
-        <p style={{ margin: "3px 0 0", fontSize: 12.5, color: D.muted, fontWeight: 600, lineHeight: 1.45 }}>
-          {body}
-        </p>
-        <button
-          type="button"
-          onClick={() => void install()}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            height: 38,
-            marginTop: 11,
-            padding: "0 16px",
-            borderRadius: RADIUS.control,
-            border: "none",
-            background: D.red,
-            color: "#fff",
-            fontSize: 13.5,
-            fontWeight: 800,
-            fontFamily: D.font,
-            cursor: "pointer",
-          }}
-        >
-          {(isApple || iosHint) && <Share size={13} strokeWidth={2.4} />}
-          {iosHint
-            ? "Show steps again"
-            : isApple
-              ? "How to install"
-              : viaChrome
-                ? "Open in Chrome"
-                : canPrompt
-                  ? "Install"
-                  : "How to install"}
-        </button>
-      </div>
-    </div>
+    <>
+      <AnimatePresence>
+        {revealed && !showIosGuide && (
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: "fixed",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10000,
+              background: "rgba(255,255,255,0.98)",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
+              borderTop: `1px solid ${D.border}`,
+              boxShadow: "0 -12px 36px rgba(0,0,0,0.14)",
+              padding: "10px 16px calc(14px + env(safe-area-inset-bottom, 12px))",
+              fontFamily: D.font,
+            }}
+          >
+            {/* Top drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+              <span style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,0.14)" }} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img
+                src="/driver-icon-192.png"
+                alt="VK's Driver"
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 13,
+                  objectFit: "cover",
+                  flexShrink: 0,
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}
+              />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: D.text, marginBottom: 2 }}>
+                  Install VK&apos;s Driver
+                </div>
+                <div style={{ fontSize: 11.5, color: D.muted, lineHeight: 1.35, fontWeight: 500 }}>
+                  {viaChrome
+                    ? "Samsung's browser can't install it properly — Chrome can"
+                    : "Faster order alerts, delivery navigation & live dispatch"}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                aria-label="Dismiss"
+                style={{
+                  background: "rgba(0,0,0,0.05)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 26,
+                  height: 26,
+                  color: D.muted,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={installing}
+              onClick={() => void handleInstall()}
+              style={{
+                width: "100%",
+                marginTop: 14,
+                background: D.red,
+                color: "#fff",
+                border: "none",
+                borderRadius: 14,
+                padding: "13px 16px",
+                fontSize: 14,
+                fontWeight: 800,
+                letterSpacing: "0.01em",
+                cursor: installing ? "wait" : "pointer",
+                fontFamily: D.font,
+                boxShadow: "0 6px 18px rgba(189,35,32,0.25)",
+                opacity: installing ? 0.7 : 1,
+              }}
+            >
+              {viaChrome ? "Open in Chrome" : installing ? "Opening…" : "Get App"}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showIosGuide && (
+          <PwaInstallGuide
+            title="Install VK's Driver"
+            icon="/driver-icon-192.png"
+            onClose={() => setShowIosGuide(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
