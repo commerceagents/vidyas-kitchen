@@ -571,7 +571,7 @@ function BestSellingCard({
       style={{
         flex: "0 0 72vw",
         maxWidth: 290,
-        height: 390,
+        height: 325,
         borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
@@ -588,13 +588,13 @@ function BestSellingCard({
         cursor: "pointer",
       }}
     >
-      {/* ── IMAGE SECTION (Fixed 230px viewport height for equal photo ratio across all cards) ── */}
+      {/* ── IMAGE SECTION (Fixed 200px viewport height for equal photo ratio across all cards) ── */}
       <div style={{
         position: "relative",
         width: "100%",
-        height: 220,
+        height: 200,
         flexShrink: 0,
-        marginBottom: 10,
+        marginBottom: 8,
       }}>
         {/* Skeleton while photo loads */}
         <AnimatePresence>
@@ -709,21 +709,22 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Name clamp (fixed 2-line title container so button alignment stays identical) */}
+      {/* Name and Button — tightly grouped with 8px gap */}
       <div style={{
-        flex: 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 6px 4px",
+        justifyContent: "center",
+        gap: 8,
+        padding: "0 4px 2px",
+        width: "100%",
         minWidth: 0,
       }}>
         <h3 style={{
           ...HT.cardNameClamp,
           width: "100%",
           textAlign: "center",
-          height: 40,
+          height: 38,
           display: "-webkit-box",
           WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical",
@@ -741,11 +742,11 @@ function BestSellingCard({
             if (canOrder) onAdd();
           }}
           style={{
-            height: 38,
+            height: 36,
             minWidth: 120,
             maxWidth: "100%",
             padding: "0 16px",
-            borderRadius: 19,
+            borderRadius: 18,
             border: qty > 0 ? `1.5px solid ${C.red}` : "none",
             background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.08)" : C.red,
             color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
@@ -783,7 +784,7 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
 function CardSkeleton() {
   return (
     <div style={{
-      width: "72vw", maxWidth: 290, height: "96vw", maxHeight: 380,
+      width: "72vw", maxWidth: 290, height: 325,
       borderRadius: 28, flexShrink: 0,
       background: "rgba(255,255,255,0.72)",
       backdropFilter: "blur(16px) saturate(180%)",
@@ -3145,8 +3146,8 @@ export function MobileHomeScreen({
           display: "flex", justifyContent: "center",
           paddingBottom: "env(safe-area-inset-bottom)",
           pointerEvents: "none",
-          // Keep closed-window banner; hide nav on browse menu + dish detail
-          visibility: !windowOpen || (!dishDetailItem && activeScreen !== "menu") ? "visible" : "hidden",
+          // Keep closed-window banner; hide nav on browse menu + dish detail + size picker drawer
+          visibility: !windowOpen || (!dishDetailItem && !homeSizePickItem && activeScreen !== "menu") ? "visible" : "hidden",
         }}
       >
         <div
@@ -3307,70 +3308,6 @@ export function MobileHomeScreen({
                   </motion.button>
                 );
               })}
-              {cartTotalItems > 0 ? (
-                <>
-                  <div
-                    aria-hidden
-                    style={{
-                      width: 1,
-                      alignSelf: "stretch",
-                      margin: "10px 2px",
-                      background: "rgba(0,0,0,0.12)",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.94 }}
-                    onClick={goCheckout}
-                    aria-label={`${cartTotalItems} item${cartTotalItems === 1 ? "" : "s"} in cart`}
-                    style={{
-                      width: NAV_CIRCLE,
-                      height: NAV_CIRCLE,
-                      borderRadius: 999,
-                      border: "none",
-                      background: "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      outline: "none",
-                      WebkitTapHighlightColor: "transparent",
-                      WebkitAppearance: "none",
-                      appearance: "none",
-                      position: "relative",
-                      flexShrink: 0,
-                      padding: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        minWidth: 18,
-                        height: 18,
-                        padding: "0 5px",
-                        borderRadius: 999,
-                        background: C.red,
-                        color: "#fff",
-                        fontSize: 10,
-                        fontWeight: 900,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: `2px solid ${C.bg}`,
-                        boxSizing: "border-box",
-                        zIndex: 2,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {cartTotalItems > 9 ? "9+" : cartTotalItems}
-                    </span>
-                    <ShoppingBag size={22} weight="regular" color="rgba(0,0,0,0.35)" aria-hidden />
-                  </motion.button>
-                </>
-              ) : null}
             </div>
           )}
         </div>
