@@ -591,7 +591,7 @@ function BestSellingCard({
       style={{
         flex: "0 0 72vw",
         maxWidth: 290,
-        height: 280,
+        height: 340,
         borderRadius: 28,
         overflow: "hidden",
         flexShrink: 0,
@@ -608,13 +608,13 @@ function BestSellingCard({
         cursor: "pointer",
       }}
     >
-      {/* ── IMAGE SECTION (Fixed 200px viewport height for equal photo ratio across all cards) ── */}
+      {/* ── IMAGE SECTION (Fixed 220px viewport height for equal photo ratio across all cards) ── */}
       <div style={{
         position: "relative",
         width: "100%",
-        height: 200,
+        height: 220,
         flexShrink: 0,
-        marginBottom: 8,
+        marginBottom: 10,
       }}>
         {/* Skeleton while photo loads */}
         <AnimatePresence>
@@ -701,7 +701,7 @@ function BestSellingCard({
         {showFavoriteHeart && onRemoveFavorite && (
           <button
             type="button"
-            aria-label={`Remove ${cleanName} from favorites`}
+            aria-label={`Remove ${displayName} from favorites`}
             onClick={(e) => {
               e.stopPropagation();
               onRemoveFavorite();
@@ -729,45 +729,34 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Bottom Info Bar: Left = Item Name (max 3 words/line), Right = Add Button */}
+      {/* Bottom Info Section: Dish name centered, Add button centered below */}
       <div style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "center",
         gap: 8,
-        padding: "0 2px",
+        padding: "0 4px",
         width: "100%",
         minWidth: 0,
       }}>
-        {/* Left column: Dish name (left-aligned, max 3 words per line) */}
-        <div style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          justifyContent: "center",
+        <h3 style={{
+          ...HT.cardNameClamp,
+          width: "100%",
+          textAlign: "center",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          fontSize: 15,
+          fontWeight: 800,
+          lineHeight: 1.25,
+          color: C.text,
+          letterSpacing: "-0.01em",
         }}>
-          <h3 style={{
-            ...HT.cardNameClamp,
-            width: "100%",
-            textAlign: "left",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            fontSize: 14.5,
-            fontWeight: 800,
-            lineHeight: 1.25,
-            color: C.text,
-            letterSpacing: "-0.01em",
-            whiteSpace: "pre-line",
-          }}>
-            {formattedName}
-          </h3>
-        </div>
+          {displayName}
+        </h3>
 
-        {/* Right column: Add / Added button vertically centered */}
         <motion.button
           type="button"
           whileTap={{ scale: canOrder ? 0.95 : 1 }}
@@ -777,19 +766,19 @@ function BestSellingCard({
             if (canOrder) onAdd();
           }}
           style={{
-            flexShrink: 0,
-            height: 34,
-            padding: "0 14px",
-            borderRadius: 17,
+            height: 38,
+            minWidth: 124,
+            padding: "0 20px",
+            borderRadius: 19,
             border: qty > 0 ? `1.5px solid ${C.red}` : "none",
             background: !canOrder ? "rgba(0,0,0,0.08)" : qty > 0 ? "rgba(189,35,32,0.08)" : C.red,
             color: !canOrder ? "rgba(0,0,0,0.35)" : qty > 0 ? C.red : "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 5,
+            gap: 6,
             fontFamily: C.mono,
-            fontSize: qty > 0 ? 11.5 : 12.5,
+            fontSize: qty > 0 ? 12 : 13,
             fontWeight: 900,
             letterSpacing: qty > 0 ? "0.01em" : "0.06em",
             textTransform: qty > 0 ? "none" : "uppercase",
@@ -798,7 +787,7 @@ function BestSellingCard({
             transition: "all 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          {qty === 0 && <Plus size={12} weight="bold" />}
+          {qty === 0 && <Plus size={13} weight="bold" />}
           {qty > 0 ? `Added (${qty})` : "Add"}
         </motion.button>
       </div>
@@ -818,7 +807,7 @@ function Skeleton({ w, h, r = 18 }: { w: string | number; h: number; r?: number 
 function CardSkeleton() {
   return (
     <div style={{
-      width: "72vw", maxWidth: 290, height: 280,
+      width: "72vw", maxWidth: 290, height: 340,
       borderRadius: 28, flexShrink: 0,
       background: "rgba(255,255,255,0.72)",
       backdropFilter: "blur(16px) saturate(180%)",
@@ -829,13 +818,13 @@ function CardSkeleton() {
       boxSizing: "border-box",
       padding: 10,
     }}>
-      <div className="vk-skeleton-shimmer" style={{ flex: "1 1 0", minHeight: 0, borderRadius: 22, marginBottom: 12 }} />
+      <div className="vk-skeleton-shimmer" style={{ width: "100%", height: 220, borderRadius: 22, marginBottom: 10 }} />
       <div style={{
         flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center",
-        padding: "0 6px 8px", gap: 10,
+        padding: "0 4px", gap: 8,
       }}>
-        <div className="vk-skeleton-shimmer" style={{ width: "78%", height: 14, borderRadius: 4 }} />
-        <div className="vk-skeleton-shimmer" style={{ width: 118, height: 38, borderRadius: 19, flexShrink: 0 }} />
+        <div className="vk-skeleton-shimmer" style={{ width: "75%", height: 16, borderRadius: 4 }} />
+        <div className="vk-skeleton-shimmer" style={{ width: 124, height: 38, borderRadius: 19, flexShrink: 0 }} />
       </div>
     </div>
   );
@@ -2088,8 +2077,6 @@ export function MobileHomeScreen({
     setScrollNode(el);
   }, []);
   const [chromeVisible, setChromeVisible] = useState(true);
-  const chromeIdleTimer = useRef(0);
-  const CHROME_IDLE_MS = 3500;
   const showChrome = windowOpen && chromeVisible && !dishDetailItem && activeScreen !== "menu";
 
   useEffect(() => {
@@ -2101,29 +2088,27 @@ export function MobileHomeScreen({
     if (!el) return;
 
     setChromeVisible(true);
-    const canScroll = () => el.scrollHeight > el.clientHeight + 8;
-    const hide = () => {
-      if (!canScroll()) {
+    let lastScrollY = el.scrollTop;
+
+    const onScroll = () => {
+      const currentScrollY = el.scrollTop;
+      const diff = currentScrollY - lastScrollY;
+
+      if (currentScrollY <= 40) {
         setChromeVisible(true);
-        return;
+      } else if (diff > 8) {
+        // Scrolling down -> hide navbar (move down)
+        setChromeVisible(false);
+      } else if (diff < -8) {
+        // Scrolling up -> show navbar
+        setChromeVisible(true);
       }
-      setChromeVisible(false);
-    };
-    const reveal = () => {
-      setChromeVisible(true);
-      window.clearTimeout(chromeIdleTimer.current);
-      chromeIdleTimer.current = window.setTimeout(hide, CHROME_IDLE_MS);
+      lastScrollY = currentScrollY;
     };
 
-    chromeIdleTimer.current = window.setTimeout(hide, CHROME_IDLE_MS);
-    el.addEventListener("scroll", reveal, { passive: true });
-    el.addEventListener("wheel", reveal, { passive: true });
-    el.addEventListener("touchmove", reveal, { passive: true });
+    el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      window.clearTimeout(chromeIdleTimer.current);
-      el.removeEventListener("scroll", reveal);
-      el.removeEventListener("wheel", reveal);
-      el.removeEventListener("touchmove", reveal);
+      el.removeEventListener("scroll", onScroll);
     };
   }, [windowOpen, dishDetailItem, activeScreen, activeNav, scrollNode]);
 
@@ -2134,8 +2119,6 @@ export function MobileHomeScreen({
     setLocationOpen(false);
     setActiveNav(id);
     setChromeVisible(true);
-    window.clearTimeout(chromeIdleTimer.current);
-    chromeIdleTimer.current = window.setTimeout(() => setChromeVisible(false), CHROME_IDLE_MS);
   }
 
   /** One active in-flight order pill on the Order tab (hide once delivered). */
@@ -2222,7 +2205,6 @@ export function MobileHomeScreen({
         position: "fixed", inset: 0,
         background: C.bg,
         overflow: "hidden", // Let sub-screens handle scrolling
-        overscrollBehavior: "none",
         fontFamily: C.mono,
         color: C.text,
       }}
@@ -2237,10 +2219,9 @@ export function MobileHomeScreen({
             transition={{ duration: 0.35, ease: "easeInOut" }}
             style={{
               position: "absolute", inset: 0,
-              height: "100dvh",
+              minHeight: 0,
               overflow: "hidden",
               display: "flex", flexDirection: "column",
-              paddingBottom: "max(12px, env(safe-area-inset-bottom))",
             }}
           >
       {/* ── Ambient glow ─────────────────────────────────────────────────── */}
@@ -2495,16 +2476,18 @@ export function MobileHomeScreen({
         className="vk-scroll-container no-scrollbar"
         style={{
           position: "relative", zIndex: 1,
-          flex: 1,
+          flex: "1 1 0%",
+          minHeight: 0,
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
           gap: sp(3), // Reduced from sp(4)
           padding: `0 ${sp(2)}px`,
           paddingTop: activeNav === "orders" ? 0 : sp(2),
-          overflowY: "auto",
+          overflowY: "scroll",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
           // Clears the floating nav pill so the last row is fully readable.
           paddingBottom: "max(200px, calc(132px + env(safe-area-inset-bottom)))",
-          WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
           filter: windowOpen ? "none" : "grayscale(0.9)",
@@ -3170,16 +3153,16 @@ export function MobileHomeScreen({
         initial={{ opacity: 0, y: 32 }}
         animate={{
           opacity: !windowOpen || showChrome ? 1 : 0,
-          y: !windowOpen ? 0 : showChrome ? 0 : 88,
+          y: !windowOpen ? 0 : showChrome ? 0 : 140,
         }}
-        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        transition={{ type: "spring", stiffness: 360, damping: 30 }}
         style={{
           position: "fixed",
-          bottom: 32, left: 16, right: 16,
+          bottom: "max(18px, env(safe-area-inset-bottom))",
+          left: 16, right: 16,
           zIndex: 120,
           display: "flex", justifyContent: "center",
-          paddingBottom: "env(safe-area-inset-bottom)",
-          pointerEvents: "none",
+          pointerEvents: showChrome ? "auto" : "none",
           // Keep closed-window banner; hide nav on browse menu + dish detail + size picker drawer
           visibility: !windowOpen || (!dishDetailItem && !homeSizePickItem && activeScreen !== "menu") ? "visible" : "hidden",
         }}
