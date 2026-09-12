@@ -6,11 +6,13 @@
  * is where the kitchen actually is.
  */
 
+// TESTING: Chennai defaults — revert to Sivakasi after testing
+// Original: Sivakasi (9.452, 77.798), 15km
 export const DELIVERY_ZONE = {
-  name: process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi",
-  lat: Number(process.env.NEXT_PUBLIC_KITCHEN_LAT) || 9.452,
-  lng: Number(process.env.NEXT_PUBLIC_KITCHEN_LNG) || 77.798,
-  radiusKm: Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM) || 15,
+  name: process.env.NEXT_PUBLIC_DELIVERY_CITY || "Chennai",
+  lat: Number(process.env.NEXT_PUBLIC_KITCHEN_LAT) || 13.0827,
+  lng: Number(process.env.NEXT_PUBLIC_KITCHEN_LNG) || 80.2707,
+  radiusKm: Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM) || 30,
 } as const;
 
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {

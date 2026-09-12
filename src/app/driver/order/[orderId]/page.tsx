@@ -53,7 +53,8 @@ type DriverOrder = {
   collectUpi?: { vpa: string; link: string | null; amount: number } | null;
 };
 
-const PROXIMITY_UNLOCK_M = 100;
+// TESTING: increased from 100m to 500m — revert after testing
+const PROXIMITY_UNLOCK_M = 500;
 const LOCATION_POST_MS = 12_000;
 /** Re-request the driving line only after the driver has actually moved this far. */
 const ROUTE_REFRESH_M = 150;
