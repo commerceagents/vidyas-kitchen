@@ -516,6 +516,15 @@ const fadeUp = (delay = 0) => ({
   transition: { type: "spring" as const, stiffness: 340, damping: 26, delay },
 });
 
+function formatMaxWordsPerLine(text: string, maxWords = 3): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  for (let i = 0; i < words.length; i += maxWords) {
+    lines.push(words.slice(i, i + maxWords).join(" "));
+  }
+  return lines.join("\n");
+}
+
 function BestSellingCard({
   item,
   index,
@@ -541,7 +550,8 @@ function BestSellingCard({
 }) {
   const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
-  const { cleanName, tag } = parseRecipeTag(item.name);
+  const displayName = item.name.replace(" - ", " — ");
+  const formattedName = formatMaxWordsPerLine(displayName, 3);
   const [loaded, setLoaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -719,7 +729,7 @@ function BestSellingCard({
         )}
       </div>
 
-      {/* Bottom Info Bar: Left = Chip + Item Name, Right = Add Button */}
+      {/* Bottom Info Bar: Left = Item Name (max 3 words/line), Right = Add Button */}
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -729,7 +739,7 @@ function BestSellingCard({
         width: "100%",
         minWidth: 0,
       }}>
-        {/* Left column: Recipe chip + Dish name */}
+        {/* Left column: Dish name (left-aligned, max 3 words per line) */}
         <div style={{
           flex: 1,
           minWidth: 0,
@@ -737,46 +747,23 @@ function BestSellingCard({
           flexDirection: "column",
           alignItems: "flex-start",
           justifyContent: "center",
-          gap: 4,
         }}>
-          {tag ? (
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "2px 7px",
-                borderRadius: 5,
-                background: "rgba(189,35,32,0.08)",
-                border: "1px solid rgba(189,35,32,0.2)",
-                color: C.red,
-                fontSize: 9.5,
-                fontWeight: 800,
-                letterSpacing: "0.03em",
-                textTransform: "uppercase",
-                fontFamily: C.mono,
-                lineHeight: 1.2,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {toTitleCase(tag)}
-            </span>
-          ) : null}
-
           <h3 style={{
             ...HT.cardNameClamp,
             width: "100%",
             textAlign: "left",
             display: "-webkit-box",
-            WebkitLineClamp: tag ? 1 : 2,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            fontSize: 15,
+            fontSize: 14.5,
             fontWeight: 800,
             lineHeight: 1.25,
             color: C.text,
             letterSpacing: "-0.01em",
+            whiteSpace: "pre-line",
           }}>
-            {cleanName}
+            {formattedName}
           </h3>
         </div>
 
@@ -784,7 +771,7 @@ function BestSellingCard({
         <motion.button
           type="button"
           whileTap={{ scale: canOrder ? 0.95 : 1 }}
-          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
+          aria-label={qty > 0 ? `Edit ${displayName} in cart` : `Add ${displayName} to cart`}
           onClick={(e) => {
             e.stopPropagation();
             if (canOrder) onAdd();
