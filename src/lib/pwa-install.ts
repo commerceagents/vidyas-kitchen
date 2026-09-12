@@ -57,8 +57,19 @@ function isCustomerAppPath(): boolean {
   return !path.startsWith("/driver") && !path.startsWith("/dashboard");
 }
 
-/** Laptops must not be installable: drop the manifest and any leftover SW. */
+function isDriverAppPath(): boolean {
+  return window.location.pathname.startsWith("/driver");
+}
+
+/**
+ * On desktop (wide viewport), the customer marketing site should not show
+ * an install prompt. Unregister the SW and strip the manifest link.
+ * Driver app keeps its SW on all viewports — drivers may be on a tablet.
+ */
 function disableDesktopInstall(): void {
+  // Driver app: always keep SW registered regardless of viewport.
+  if (isDriverAppPath()) return;
+  // Customer app: only disable on wide screens.
   if (!isCustomerAppPath() || isMobileViewport()) return;
   document.querySelectorAll('link[rel="manifest"]').forEach((node) => node.remove());
   deferredPrompt = null;
@@ -74,7 +85,8 @@ if (typeof window !== "undefined") {
   window.addEventListener("resize", disableDesktopInstall);
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
-    if (!isMobileViewport()) return;
+    // Allow on mobile, and always allow on the driver app (tablets count too).
+    if (!isMobileViewport() && !isDriverAppPath()) return;
     deferredPrompt = e as InstallPromptEvent;
     notify();
   });

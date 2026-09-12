@@ -6,9 +6,19 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Pass-through fetch handler satisfies Chrome's PWA installability requirements
+// Fetch handler — Chrome requires this to call respondWith() for PWA installability.
+// We use a simple network-first strategy: serve from network and cache for offline.
 self.addEventListener("fetch", (event) => {
-  // Let the browser handle the network request normally
+  // Only handle GET requests; skip cross-origin, chrome-extension, etc.
+  if (
+    event.request.method !== "GET" ||
+    !event.request.url.startsWith(self.location.origin)
+  ) {
+    return;
+  }
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request)),
+  );
 });
 
 self.addEventListener("push", (event) => {
