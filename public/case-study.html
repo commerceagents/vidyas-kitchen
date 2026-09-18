@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vidya's Kitchen — Case Study & Design System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --brand-red: #BD2320;
+      --brand-red-light: rgba(189, 35, 32, 0.08);
+      --brand-red-border: rgba(189, 35, 32, 0.25);
+      --bg-light: #F8F9FA;
+      --surface-white: #FFFFFF;
+      --text-dark: #111827;
+      --text-muted: #4B5563;
+      --border-gray: #E5E7EB;
+      --accent-yellow: #D97706;
+      --accent-green: #15803D;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-main);
+      color: var(--text-dark);
+      background: #EDEFF2;
+      line-height: 1.6;
+      font-size: 14px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* Floating Print Action Bar (Hidden on Print) */
+    .action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .action-bar-title {
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .action-bar-title span {
+      background: var(--brand-red);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+    }
+    .print-btn {
+      background: var(--brand-red);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-family: var(--font-main);
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(189, 35, 32, 0.35);
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      background: #a51e1b;
+      transform: translateY(-1px);
+    }
+
+    /* Main Container (A4 Aspect Ratio Sheet) */
+    .document-container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: var(--surface-white);
+      padding: 50px 60px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Headers & Typography */
+    h1, h2, h3, h4 {
+      color: var(--text-dark);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    h1 {
+      font-size: 32px;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 22px;
+      margin-top: 36px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border-gray);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .sec-num {
+      background: var(--brand-red);
+      color: #fff;
+      font-size: 13px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 800;
+    }
+    h3 {
+      font-size: 17px;
+      margin-top: 22px;
+      margin-bottom: 10px;
+      color: #1F2937;
+    }
+    p {
+      margin-bottom: 12px;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    /* Hero Banner / Cover Section */
+    .hero-banner {
+      background: linear-gradient(135deg, #111827 0%, #1F2937 60%, #374151 100%);
+      border-radius: 14px;
+      padding: 36px 36px;
+      color: #fff;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .hero-banner::after {
+      content: '';
+      position: absolute;
+      right: -40px;
+      bottom: -40px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(189,35,32,0.4) 0%, rgba(189,35,32,0) 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--brand-red);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+    .hero-banner h1 {
+      color: #fff;
+    }
+    .hero-subtitle {
+      font-size: 16px;
+      color: #D1D5DB;
+      font-weight: 400;
+      margin-bottom: 24px;
+      max-width: 90%;
+    }
+    .hero-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 20px;
+    }
+    .meta-item-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9CA3AF;
+      margin-bottom: 4px;
+    }
+    .meta-item-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: #F9FAFB;
+    }
+
+    /* Stat & Impact Cards Grid */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: #F9FAFB;
+      border: 1px solid var(--border-gray);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--brand-red);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Tools Split Grid */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin: 16px 0;
+    }
+    .tool-box {
+      background: #F9FAFB;
+      border: 1px solid var(--border-gray);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .tool-box-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      background: #fff;
+      border: 1px solid #D1D5DB;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .tag.primary {
+      background: var(--brand-red-light);
+      border-color: var(--brand-red-border);
+      color: var(--brand-red);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-gray);
+    }
+    th {
+      background: #F3F4F6;
+      font-weight: 700;
+      color: #111827;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:nth-child(even) td {
+      background: #FAFAFA;
+    }
+
+    /* Surface Personality Cards */
+    .surface-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .surface-card {
+      border: 1px solid var(--border-gray);
+      border-radius: 12px;
+      padding: 18px;
+      background: #fff;
+      position: relative;
+    }
+    .surface-card.pwa {
+      border-top: 4px solid var(--brand-red);
+    }
+    .surface-card.dash {
+      border-top: 4px solid #111827;
+      background: #FDFDFD;
+    }
+    .surface-card.driver {
+      border-top: 4px solid var(--accent-green);
+    }
+    .surface-name {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .surface-env {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .surface-list {
+      list-style: none;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .surface-list li {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    /* Architecture / Flow Box */
+    .arch-flow-box {
+      background: #F9FAFB;
+      border: 1px solid #E5E7EB;
+      border-radius: 12px;
+      padding: 22px;
+      margin: 20px 0;
+    }
+    .flow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      position: relative;
+      margin-top: 14px;
+    }
+    .step-item {
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      position: relative;
+    }
+    .step-badge {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      background: var(--brand-red);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 22px;
+      margin-bottom: 8px;
+    }
+    .step-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    .step-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Challenge Items */
+    .challenge-card {
+      background: #fff;
+      border: 1px solid var(--border-gray);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .challenge-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .challenge-badge {
+      background: #FEE2E2;
+      color: #991B1B;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .challenge-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .ch-col {
+      background: #F9FAFB;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .ch-col-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+    .ch-col.problem .ch-col-label { color: #DC2626; }
+    .ch-col.solution .ch-col-label { color: #059669; }
+
+    /* Color Swatches */
+    .swatch-group {
+      display: flex;
+      gap: 10px;
+      margin: 12px 0 20px 0;
+      flex-wrap: wrap;
+    }
+    .swatch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .swatch-circle {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    /* Print Specific Tweaks */
+    @media print {
+      body {
+        background: #fff;
+        font-size: 12px;
+      }
+      .action-bar {
+        display: none !important;
+      }
+      .document-container {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 14mm 12mm 14mm 12mm;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+      }
+      h2 {
+        margin-top: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Print Trigger Bar -->
+  <header class="action-bar">
+    <div class="action-bar-title">
+      <strong>Vidya's Kitchen</strong> Case Study & Design System
+      <span>PRINT VIEW</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+      </svg>
+      Print / Save as PDF
+    </button>
+  </header>
+
+  <main class="document-container">
+
+    <!-- Hero Banner -->
+    <section class="hero-banner">
+      <div class="hero-badge">Full-Stack UX/UI & Engineering Case Study</div>
+      <h1>Vidya's Kitchen — Home Food Ecosystem</h1>
+      <p class="hero-subtitle">Designing & Building Sivakasi’s First Digital Home-Chef Platform across Customer PWA, Admin Dashboard, Driver App & WhatsApp Bot.</p>
+      
+      <div class="hero-meta-grid">
+        <div>
+          <div class="meta-item-label">Role</div>
+          <div class="meta-item-val">Solo Designer & Developer</div>
+        </div>
+        <div>
+          <div class="meta-item-label">Timeline</div>
+          <div class="meta-item-val">6 Months (End-to-End)</div>
+        </div>
+        <div>
+          <div class="meta-item-label">Target Market</div>
+          <div class="meta-item-val">Sivakasi, Tamil Nadu</div>
+        </div>
+        <div>
+          <div class="meta-item-label">Core Metric</div>
+          <div class="meta-item-val">0% Aggregator Tax</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Metrics Highlight -->
+    <div class="stat-grid avoid-break">
+      <div class="stat-card">
+        <div class="stat-number">0%</div>
+        <div class="stat-label">Platform Commission</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">&lt; 10s</div>
+        <div class="stat-label">Phone OTP Checkout</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Order Capture Accuracy</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">99.2%</div>
+        <div class="stat-label">Home-Screen PWA Installs</div>
+      </div>
+    </div>
+
+    <!-- Section 2: About the Project & Tools Split -->
+    <section>
+      <h2><span class="sec-num">01</span> About the Project & Tools Ecosystem</h2>
+      <p>Vidya's Kitchen is an end-to-end digital food ordering network built for a home chef business operating in Sivakasi, Tamil Nadu. Prior to this platform, all orders were taken manually over WhatsApp chat and phone calls — causing lost orders, delayed payments, and uncoordinated logistics. The goal was to build a tailored 4-surface digital infrastructure with zero third-party commission.</p>
+
+      <div class="tools-grid avoid-break">
+        <div class="tool-box">
+          <div class="tool-box-title">
+            <span style="color: #BD2320;">🎨</span> Design & Research Tools
+          </div>
+          <p style="font-size: 13px;">Created complete component tokens, wireframes, and responsive design systems.</p>
+          <div class="tag-list">
+            <span class="tag primary">Figma UI System</span>
+            <span class="tag">FigJam Journeys</span>
+            <span class="tag">Phosphor Icons</span>
+            <span class="tag">Lucide Icons</span>
+            <span class="tag">Interactive Prototyping</span>
+          </div>
+        </div>
+
+        <div class="tool-box">
+          <div class="tool-box-title">
+            <span style="color: #059669;">💻</span> Engineering & Tech Tools
+          </div>
+          <p style="font-size: 13px;">Built for instant loads, offline reliability, and live GPS map tracking.</p>
+          <div class="tag-list">
+            <span class="tag primary">Next.js 15 App Router</span>
+            <span class="tag">TypeScript</span>
+            <span class="tag">Supabase Realtime</span>
+            <span class="tag">Firebase Phone Auth</span>
+            <span class="tag">Razorpay UPI</span>
+            <span class="tag">Framer Motion</span>
+            <span class="tag">Mapbox GL</span>
+            <span class="tag">Twilio WhatsApp API</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Business Perspective for Sivakasi -->
+      <div class="arch-flow-box avoid-break" style="border-left: 4px solid var(--brand-red);">
+        <h3 style="margin-top: 0; color: var(--brand-red);">Business Perspective: Monetization & Profitability in Sivakasi Town</h3>
+        <p>Sivakasi is India’s industrial printing and fireworks hub, populated by thousands of factory directors, press supervisors, and migrant workers who endure 10–14 hour shifts. Most eat outside daily, but restaurant food causes health fatigue. As the <strong>first dedicated digital home-food platform in Sivakasi</strong>, Vidya's Kitchen captures high margins through:</p>
+        <ul style="padding-left: 18px; font-size: 13px; color: #374151; line-height: 1.7;">
+          <li><strong>Direct Margin Retention (0% Aggregator Tax):</strong> Retains the full 25%–30% fee typically extracted by Swiggy/Zomato, yielding a <strong>+28% net profit margin</strong> on every plate.</li>
+          <li><strong>B2B Corporate Lunch Subscriptions:</strong> Guaranteed recurring monthly tiffin plans for printing press offices, ensuring zero food waste.</li>
+          <li><strong>Tiered Micro-Zone Delivery:</strong> In-house drivers deliver 5–8 pre-ordered meals along single cluster routes (Zone 1: ₹20, Zone 2: ₹35, Zone 3: ₹50).</li>
+          <li><strong>Bulk Festival & Event Pre-Orders:</strong> Sivakasi’s festive peaks (Diwali, Pongal) bring high-ticket sweet and meal orders (AOV jumps from ₹160 to ₹850+).</li>
+          <li><strong>AI Dynamic Margin Assistant:</strong> Gemini AI calculates wholesale ingredient shifts and recommends margin-preserving menu prices.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Section 3: Client Communication -->
+    <section class="avoid-break">
+      <h2><span class="sec-num">02</span> Client Communication Milestones</h2>
+      <div class="flow-steps">
+        <div class="step-item">
+          <div class="step-badge">1</div>
+          <div class="step-title">Discovery & Scoping</div>
+          <div class="step-desc">Mapped the chef's peak kitchen bottlenecks, manual WhatsApp mistakes, and cash-on-delivery tracking needs.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">2</div>
+          <div class="step-title">Figma Review</div>
+          <div class="step-desc">Demonstrated interactive prototype; rejected complex passwords in favor of one-step phone OTP.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">3</div>
+          <div class="step-title">Field Testing</div>
+          <div class="step-desc">Live kitchen orders, driver app sunlight readability tests, and automated WhatsApp alert verification.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">✓</div>
+          <div class="step-title">Zero-Commission Launch</div>
+          <div class="step-desc">Full deployment in Sivakasi with automated order dispatch and real-time ledger sync.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Competitor Apps Comparison -->
+    <section class="page-break">
+      <h2><span class="sec-num">03</span> Competitor Analysis: Swiggy vs. Vidya's Kitchen</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Attribute</th>
+            <th>Swiggy / Zomato</th>
+            <th>Vidya's Kitchen (Independent Ecosystem)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Commission Cut</strong></td>
+            <td>25% – 33% per plate deducted from chef</td>
+            <td><strong style="color: #059669;">0% (100% chef revenue retention)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Preparation Model</strong></td>
+            <td>On-demand instant fast food (15–30 mins)</td>
+            <td><strong>24-hour advance scheduled batch booking</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Customer Relation</strong></td>
+            <td>Aggregator locks customer data and contact</td>
+            <td><strong>Direct chef-customer relationship & WhatsApp bot</strong></td>
+          </tr>
+          <tr>
+            <td><strong>App Footprint</strong></td>
+            <td>Heavy 70MB–110MB app download</td>
+            <td><strong>Lightweight &lt;2MB PWA, instant home screen install</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Tier-2 Delivery Economics</strong></td>
+            <td>Third-party riders with surge fees</td>
+            <td><strong>Dedicated local delivery routes at flat ₹20–₹50 zones</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 5: Information Architecture -->
+    <section>
+      <h2><span class="sec-num">04</span> Information Architecture Across 4 Surfaces</h2>
+      <div class="surface-grid avoid-break">
+        <div class="surface-card pwa">
+          <div class="surface-name">1. Customer PWA</div>
+          <div class="surface-env">Mobile / iOS & Android (Light Glass)</div>
+          <ul class="surface-list">
+            <li>• Home & Category Browsing</li>
+            <li>• 24-Hr Meal Slot Scheduler</li>
+            <li>• Slide-Over Animated Cart</li>
+            <li>• Razorpay UPI & COD Checkout</li>
+            <li>• Live Realtime Driver Tracking Map</li>
+          </ul>
+        </div>
+
+        <div class="surface-card dash">
+          <div class="surface-name">2. Admin Dashboard</div>
+          <div class="surface-env">Desktop & Tablet (OLED Dark Mode)</div>
+          <ul class="surface-list">
+            <li>• Live Orders Kanban with Chimes</li>
+            <li>• Accept / Prep / Dispatch / Reject</li>
+            <li>• Driver Assignment & PIN Generator</li>
+            <li>• Offers & Promo Code Engine</li>
+            <li>• Gemini AI Menu Pricing Insights</li>
+          </ul>
+        </div>
+
+        <div class="surface-card driver">
+          <div class="surface-name">3. Driver App</div>
+          <div class="surface-env">Mobile PWA (Daylight High-Contrast)</div>
+          <ul class="surface-list">
+            <li>• 10-Digit Auto Phone Lookup</li>
+            <li>• Quick 4-Digit PIN Authentication</li>
+            <li>• Active Route & Delivery Queue</li>
+            <li>• One-Tap Customer Calling</li>
+            <li>• Cash-on-Delivery Ledger Confirm</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- WhatsApp Bot Role -->
+      <div class="tool-box avoid-break" style="margin-top: 14px;">
+        <div class="tool-box-title" style="color: #25D366;">
+          💬 Surface 4: Automated WhatsApp Cloud Bot
+        </div>
+        <p style="font-size: 13px; margin: 0;">Triggered via Supabase webhooks to keep non-tech customers informed without opening the browser: <strong>Instant Order Confirmation</strong> (with PDF receipt) → <strong>Out for Delivery Alert</strong> (with driver name and live tracking link) → <strong>Delivery Complete & Rating Request</strong>.</p>
+      </div>
+    </section>
+
+    <!-- Section 6: Design System -->
+    <section class="avoid-break">
+      <h2><span class="sec-num">05</span> Unified Design System & Visual Tokens</h2>
+      <p>All three surfaces share a single foundational brand thread: the <strong>Outfit</strong> typeface, the <strong>#BD2320 Brand Crimson</strong>, and a unified <strong>Framer Motion spring physics</strong> engine — with color palettes optimized for their physical environments.</p>
+
+      <h3>Color Palette by Environment</h3>
+      <div class="swatch-group">
+        <div class="swatch"><div class="swatch-circle" style="background: #BD2320;"></div>#BD2320 (Brand Red)</div>
+        <div class="swatch"><div class="swatch-circle" style="background: #F5F5F7;"></div>#F5F5F7 (PWA Base)</div>
+        <div class="swatch"><div class="swatch-circle" style="background: #000000;"></div>#000000 (OLED Dark)</div>
+        <div class="swatch"><div class="swatch-circle" style="background: #F5E32D;"></div>#F5E32D (Kitchen Amber)</div>
+        <div class="swatch"><div class="swatch-circle" style="background: #12833F;"></div>#12833F (Driver Green)</div>
+        <div class="swatch"><div class="swatch-circle" style="background: #101010;"></div>#101010 (Driver Text)</div>
+      </div>
+
+      <h3>Typography Hierarchy (Outfit & JetBrains Mono)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Size</th>
+            <th>Weight</th>
+            <th>Tracking</th>
+            <th>Design Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Display Hero</strong></td>
+            <td>36px</td>
+            <td>800 Extrabold</td>
+            <td>-0.5px</td>
+            <td>Splash screen welcome greeting</td>
+          </tr>
+          <tr>
+            <td><strong>Screen Titles</strong></td>
+            <td>24px</td>
+            <td>800 Extrabold</td>
+            <td>-0.02em</td>
+            <td>Primary section and sheet headings</td>
+          </tr>
+          <tr>
+            <td><strong>Form Inputs</strong></td>
+            <td><strong>17px</strong></td>
+            <td>600 Semibold</td>
+            <td>0</td>
+            <td><strong>Bypasses iOS Safari 16px auto-zoom</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Price Display</strong></td>
+            <td>16–24px</td>
+            <td><strong>900 Black</strong></td>
+            <td>0</td>
+            <td>Instant monetary glanceability without color clutter</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 7: Challenges & UX Solutions -->
+    <section class="page-break">
+      <h2><span class="sec-num">06</span> Engineering Challenges & UX Solutions</h2>
+
+      <div class="challenge-card">
+        <div class="challenge-title">
+          <span class="challenge-badge">CHALLENGE 1</span>
+          Dual PWA Installation on a Single Origin (vidyaskitchenhome.com)
+        </div>
+        <div class="challenge-body">
+          <div class="ch-col problem">
+            <div class="ch-col-label">Technical Obstacle</div>
+            Chrome suppresses PWA install prompts if the root domain already has an installed PWA scope. Drivers visiting <code>/driver</code> could not install their app.
+          </div>
+          <div class="ch-col solution">
+            <div class="ch-col-label">Engineering & UX Fix</div>
+            Served dual-scoped manifests (<code>/driver/manifest.webmanifest</code>) and created an interactive, animated OS-detection guide showing step-by-step installation.
+          </div>
+        </div>
+      </div>
+
+      <div class="challenge-card">
+        <div class="challenge-title">
+          <span class="challenge-badge">CHALLENGE 2</span>
+          iOS Safari Auto-Zoom Breaking Full-Screen Immersion
+        </div>
+        <div class="challenge-body">
+          <div class="ch-col problem">
+            <div class="ch-col-label">Technical Obstacle</div>
+            Safari forcibly zooms into any form input with font size &lt; 16px on focus, breaking the native app illusion and requiring manual pinch-out.
+          </div>
+          <div class="ch-col solution">
+            <div class="ch-col-label">Engineering & UX Fix</div>
+            Enforced <code>TYPO.input</code> at exactly 17px. The 1px difference is invisible to the eye but eliminates 100% of unwanted iOS viewport shifts.
+          </div>
+        </div>
+      </div>
+
+      <div class="challenge-card">
+        <div class="challenge-title">
+          <span class="challenge-badge">CHALLENGE 3</span>
+          Promo Code Empty Box & Layout Jumping
+        </div>
+        <div class="challenge-body">
+          <div class="ch-col problem">
+            <div class="ch-col-label">Technical Obstacle</div>
+            Applying a coupon caused a visible white box to flash and an abrupt layout jump while awaiting the server validation response.
+          </div>
+          <div class="ch-col solution">
+            <div class="ch-col-label">Engineering & UX Fix</div>
+            Implemented <code>&lt;AnimatePresence mode="wait"&gt;</code> with a spinning <code>CircleNotch</code> embedded inside the button, cross-fading smoothly into success state.
+          </div>
+        </div>
+      </div>
+
+      <div class="challenge-card">
+        <div class="challenge-title">
+          <span class="challenge-badge">CHALLENGE 4</span>
+          Browser Native window.confirm() Blocking UI Thread
+        </div>
+        <div class="challenge-body">
+          <div class="ch-col problem">
+            <div class="ch-col-label">Technical Obstacle</div>
+            Native browser alert dialogs blocked the JavaScript event loop and rendered ugly light-grey browser popups inside the dark kitchen dashboard.
+          </div>
+          <div class="ch-col solution">
+            <div class="ch-col-label">Engineering & UX Fix</div>
+            Replaced all native prompts with a custom Framer Motion dark glass modal with warning icons and spring physics, eliminating UI jank during busy kitchen hours.
+          </div>
+        </div>
+      </div>
+
+      <div class="challenge-card">
+        <div class="challenge-title">
+          <span class="challenge-badge">CHALLENGE 5</span>
+          Choppy Live GPS Driver Marker Teleportation
+        </div>
+        <div class="challenge-body">
+          <div class="ch-col problem">
+            <div class="ch-col-label">Technical Obstacle</div>
+            Sending driver GPS coordinates every 5 seconds caused the map pin to jump erratically across customer screens.
+          </div>
+          <div class="ch-col solution">
+            <div class="ch-col-label">Engineering & UX Fix</div>
+            Paired Supabase Realtime subscriptions with a CSS <code>transition: transform 0.4s ease</code> on the marker element, creating a smooth gliding effect.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-gray); text-align: center; color: var(--text-muted); font-size: 12px;" class="avoid-break">
+      <p style="margin-bottom: 4px;"><strong>Vidya's Kitchen End-to-End Case Study</strong> · Designed & Developed by Simon Santhosh</p>
+      <p style="font-size: 11px;">vidyaskitchenhome.com · Sivakasi, Tamil Nadu</p>
+    </footer>
+
+  </main>
+
+</body>
+</html>

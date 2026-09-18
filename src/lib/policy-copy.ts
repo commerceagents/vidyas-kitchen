@@ -26,44 +26,50 @@ export const REFUND_POLICY: Policy = {
   title: "Refunds & Cancellations",
   lastUpdated: "March 23, 2026",
   intro:
-    "We cook fresh to order, so our cancellation window is tighter than a supermarket's. Here is exactly how it works.",
+    "We cook fresh to order, so our cancellation window is tailored to our kitchen preparation schedule. Here is exactly how our cancellation and refund process works across our website, app, and WhatsApp bot.",
   sections: [
     {
       id: "cancellation",
-      heading: "Cancelling an order",
+      heading: "1. Cancelling an Order",
       blocks: [
         {
-          text: "You can cancel up to 12 hours before your delivery slot, yourself, from the Orders tab. After that we have already bought the ingredients for your slot, so we can no longer accept a cancellation.",
+          text: "You can cancel your order yourself directly from the Orders tab in the app or website up to 12 hours before your chosen delivery slot starts. Because every meal is prepared from scratch using fresh daily ingredients, we cannot accept cancellations once the 12-hour window has passed and preparation has commenced.",
         },
       ],
     },
     {
       id: "eligibility",
-      heading: "When you get a refund",
+      heading: "2. When You Get a Full Refund",
       blocks: [
-        { text: "We refund an order if:" },
+        { text: "A 100% refund is automatically issued if:" },
         {
           bullets: [
-            "You cancelled inside the 12-hour window.",
-            "The kitchen could not accept your order.",
-            "The food arrived spoiled or the wrong items were delivered.",
-            "The order never reached you because of a mistake on our side.",
+            "You cancelled your order within the eligible 12-hour advance cancellation window.",
+            "The kitchen was unable to accept or fulfill your order due to slot capacity or ingredient availability.",
+            "The delivered food arrived damaged, spoiled, or incorrect dishes were delivered (verified with photos).",
+            "The order was not delivered due to an operational failure or mistake on our side.",
           ],
         },
       ],
     },
     {
       id: "process",
-      heading: "How the money comes back",
+      heading: "3. Refund Process & Timelines",
       blocks: [
         {
-          text: "Refunds are raised automatically — you do not have to ask. The whole ticket comes back: food, packaging, delivery and GST, to the same UPI, card or net-banking account you paid with. UPI is often instant; cards usually take 5–7 business days.",
+          text: "Approved refunds are raised automatically — you do not have to chase us. The entire ticket amount is refunded in full: food total, packaging fee (₹20), delivery fee (₹35), and GST. The refund returns directly to the original payment source through Razorpay.",
         },
         {
-          text: "For a problem with the food, message us on WhatsApp with photos within an hour of delivery. Once we approve it, the refund follows the same route.",
+          bullets: [
+            "UPI payments: Typically instant or credited within 24–48 hours.",
+            "Debit / Credit cards & Net Banking: Usually credited within 5–7 business days depending on your bank.",
+          ],
         },
         {
-          text: "Cash on delivery orders are only paid for at the door, so a cancelled one has nothing to refund.",
+          text: "For damaged, spoiled, or missing items: please message our team on WhatsApp (+91 75500 28179) with photos within 1 hour of delivery. Once verified, your refund is processed immediately.",
+        },
+        {
+          text: "Cash on Delivery (COD) orders: Because payment is only handed to the driver at the door, any pre-delivery cancellation has no monetary charge to refund.",
         },
       ],
     },
@@ -74,89 +80,132 @@ export const TERMS_POLICY: Policy = {
   title: "Terms of Service",
   lastUpdated: "March 23, 2026",
   intro:
-    "By ordering from Vidya's Kitchen — through this app, the website or our WhatsApp bot — you agree to the following.",
+    "By accessing or ordering from Vidya's Kitchen — via our Progressive Web App (PWA), website (vidyaskitchenhome.com), or WhatsApp Bot — you agree to comply with and be bound by the following Terms of Service.",
   sections: [
     {
       id: "description",
-      heading: "What we provide",
+      heading: "1. What We Provide",
       blocks: [
         {
-          text: "Vidya's Kitchen cooks home-style meals to order and delivers them. Every order depends on availability and on the kitchen accepting it.",
+          text: "Vidya's Kitchen provides authentic, hygienic home-cooked meal preparation and local delivery services in Sivakasi, Tamil Nadu. Because meals are cooked fresh against order, bookings require a minimum 24-hour advance notice across designated slots (Breakfast: 7–9 AM, Lunch: 12–2 PM, Dinner: 7–9 PM). All orders are subject to slot availability and kitchen acceptance.",
         },
       ],
     },
     {
       id: "obligations",
-      heading: "Your side of it",
+      heading: "2. Customer Obligations",
       blocks: [
         {
-          text: "Give us an accurate delivery address and a number we can reach you on. Placing fraudulent orders, through the app or the bot, is not allowed.",
+          text: "You must provide an accurate delivery address, landmark, and a valid phone number reachable for OTP verification and delivery coordination. Placing fraudulent orders or misusing the platform is strictly prohibited.",
+        },
+        {
+          text: "For Cash on Delivery (COD) orders: You must be present at the delivery location or arrange payment upon driver arrival. Repeated failed or rejected COD deliveries will result in cash-on-delivery privileges being permanently revoked for that phone number.",
         },
       ],
     },
     {
       id: "pricing",
-      heading: "Prices and payment",
+      heading: "3. Pricing, Fees & Payment Terms",
       blocks: [
         {
-          text: "All prices are in Indian Rupees. Online payments are handled by Razorpay; cash on delivery is collected by the driver at the door. Cooking begins once the order is confirmed.",
+          text: "All prices are listed in Indian Rupees (INR). In addition to menu dish prices, transparent checkout charges include a ₹20 packaging fee, a ₹35 flat delivery fee within our Sivakasi delivery zone (~15 km), and 5% GST on the food total.",
+        },
+        {
+          bullets: [
+            "Online Payments: Securely processed via Razorpay (UPI, Google Pay, PhonePe, Cards, Netbanking). Orders are confirmed upon payment success.",
+            "Pay at the Door (COD): Available for orders up to ₹2,000. Orders exceeding ₹2,000 must be prepaid online. Payment can be completed via cash or by scanning the driver's UPI QR code.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "delivery",
+      heading: "4. Delivery & Live Tracking",
+      blocks: [
+        {
+          text: "Deliveries are conducted by dedicated kitchen delivery personnel within Sivakasi. While orders are out for delivery, live GPS location updates are provided in real-time on your tracking screen. Delivery windows may experience slight delays during extreme weather or heavy traffic.",
         },
       ],
     },
     {
       id: "liability",
-      heading: "Our liability",
+      heading: "5. Limitation of Liability",
       blocks: [
         {
-          text: "If something goes wrong, our responsibility is limited to the value of your order.",
+          text: "Vidya's Kitchen is dedicated to delivering the highest quality home dining. In the event of any service disruption or dissatisfaction, our maximum aggregate liability to you is strictly limited to the total value of your order paid.",
         },
       ],
     },
     {
       id: "law",
-      heading: "Governing law",
-      blocks: [{ text: "These terms are governed by the laws of India." }],
+      heading: "6. Governing Law & Jurisdiction",
+      blocks: [
+        {
+          text: "These terms are governed by the laws of India. Any disputes arising in connection with our services shall be subject to the exclusive jurisdiction of the competent courts in Sivakasi, Tamil Nadu.",
+        },
+      ],
     },
   ],
 };
 
 export const PRIVACY_POLICY: Policy = {
-  title: "Privacy",
+  title: "Privacy Policy",
   lastUpdated: "March 23, 2026",
-  intro: "What we keep, why we keep it, and who else sees it.",
+  intro:
+    "At Vidya's Kitchen, we respect your privacy. This policy outlines what personal information we collect, why we need it, and how your data is protected across our app, website, and WhatsApp bot.",
   sections: [
     {
       id: "collection",
-      heading: "What we collect",
+      heading: "1. Information We Collect",
       blocks: [
         {
           bullets: [
-            "Your name and phone number, so we can reach you about your order.",
-            "Your delivery address and any saved addresses you add.",
-            "What you ordered, and when you want it.",
-            "A profile photo, only if you add one.",
+            "Contact Details: Your name and phone number (verified via secure OTP) for order status and customer service.",
+            "Delivery Information: Your delivery address, landmark, and GPS pin coordinates to ensure accurate food drop-off.",
+            "Order History: Items ordered, quantities, scheduled time slots, and special chef notes.",
+            "Profile Data: Optional saved addresses and profile photo if you choose to set one.",
           ],
         },
         {
-          text: "Card and UPI details never touch our servers — Razorpay handles payments and keeps that information.",
+          text: "Payment Security: Sensitive payment credentials (credit/debit card numbers, CVVs, UPI MPINs, bank passwords) are handled directly by Razorpay under RBI-compliant security. These details NEVER touch or reside on our servers.",
         },
       ],
     },
     {
       id: "usage",
-      heading: "What we use it for",
+      heading: "2. How We Use Your Information",
       blocks: [
         {
-          text: "Cooking and delivering your order, sending you updates about it on WhatsApp, and answering you when you get in touch. Nothing else.",
+          bullets: [
+            "Preparing, scheduling, and delivering your ordered meals.",
+            "Sending real-time order status updates, digital invoices, and delivery alerts via WhatsApp.",
+            "Providing live customer support and resolving delivery queries.",
+            "Improving menu recommendations and ensuring kitchen operational efficiency.",
+          ],
         },
       ],
     },
     {
       id: "sharing",
-      heading: "Who else sees it",
+      heading: "3. Data Sharing & Confidentiality",
       blocks: [
         {
-          text: "We do not sell or rent your details. Razorpay sees what it needs to take payment, and the driver delivering your order sees your address and phone number.",
+          text: "We strictly DO NOT sell, rent, monetize, or trade your personal data to advertisers or third parties. Information is shared strictly on a need-to-know basis:",
+        },
+        {
+          bullets: [
+            "Payment Gateway: Razorpay receives necessary order totals to process transactions securely.",
+            "Assigned Delivery Driver: The driver assigned to your order is provided only your delivery address, name, and phone number for drop-off navigation and calling upon arrival.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "retention",
+      heading: "4. Security & Your Rights",
+      blocks: [
+        {
+          text: "Your account and order data is protected through encrypted database connections and role-based access controls. You may review, edit, or remove your saved addresses at any time directly inside the Account tab of our app.",
         },
       ],
     },

@@ -6,6 +6,7 @@ import { ArrowLeft } from "@phosphor-icons/react";
 
 import Link from "next/link";
 import Image from "next/image";
+import { REFUND_POLICY, TERMS_POLICY, PRIVACY_POLICY, type Policy } from "@/lib/policy-copy";
 
 type Tab = "terms" | "privacy" | "refund";
 
@@ -13,128 +14,110 @@ interface LegalHubProps {
   initialTab?: Tab;
 }
 
+function renderPolicyBody(policy: Policy, activeSection: string) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "64px" }}>
+      <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "18px", lineHeight: "1.8" }}>
+        {policy.intro}
+      </p>
+
+      {policy.sections.map((sec) => {
+        const isCurrent = activeSection === sec.id;
+        return (
+          <section key={sec.id} id={sec.id} style={{ scrollMarginTop: "120px" }}>
+            <h2
+              style={{
+                fontSize: "26px",
+                fontWeight: "900",
+                color: isCurrent ? "#FFFFFF" : "rgba(255,255,255,0.82)",
+                marginBottom: "20px",
+                letterSpacing: "0.02em",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                transition: "all 0.3s ease",
+              }}
+            >
+              <span
+                style={{
+                  width: "4px",
+                  height: isCurrent ? "24px" : "0px",
+                  backgroundColor: "#BD2320",
+                  borderRadius: "2px",
+                  transition: "all 0.3s ease",
+                  flexShrink: 0,
+                  opacity: isCurrent ? 1 : 0,
+                }}
+              />
+              <span>{sec.heading}</span>
+            </h2>
+            {sec.blocks.map((block, idx) =>
+              "bullets" in block ? (
+                <ul
+                  key={idx}
+                  style={{
+                    listStyle: "disc",
+                    marginLeft: "24px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "14px",
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: "17px",
+                    lineHeight: "1.8",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {block.bullets.map((b, bIdx) => (
+                    <li key={bIdx}>{b}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p
+                  key={idx}
+                  style={{
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: "17px",
+                    lineHeight: "1.8",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {block.text}
+                </p>
+              ),
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 const content = {
   terms: {
-    title: "Terms of Service",
-    lastUpdated: "March 23, 2026",
-    toc: [
-      { id: "acceptance", label: "1. Acceptance of Terms" },
-      { id: "description", label: "2. Service Description" },
-      { id: "obligations", label: "3. User Obligations" },
-      { id: "pricing", label: "4. Pricing and Payment" },
-      { id: "liability", label: "5. Limitation of Liability" },
-      { id: "law", label: "6. Governing Law" },
-    ],
-    body: (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Please read these Terms of Service (&ldquo;Terms&rdquo;) carefully as they contain important information about your legal rights, remedies and obligations. By accessing or using the Vidya&apos;s Kitchen Platform, you agree to comply with and be bound by these Terms.</p>
-        
-        <section id="acceptance" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Acceptance of Terms</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>By accessing Vidya&apos;s Kitchen services via our website or WhatsApp bot, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
-        </section>
-
-        <section id="description" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. Service Description</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen provides home-cooked meal catering and delivery services. All orders are subject to availability and acceptance by us.</p>
-        </section>
-
-        <section id="obligations" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. User Obligations</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Users must provide accurate information for order delivery and payment. Any misuse of the WhatsApp bot or website to place fraudulent orders is strictly prohibited.</p>
-        </section>
-
-        <section id="pricing" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>4. Pricing and Payment</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>All prices are listed in Indian Rupees (INR). Payments must be made via the secure Razorpay links provided after order confirmation. Orders will only be processed once payment is confirmed.</p>
-        </section>
-
-        <section id="liability" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>5. Limitation of Liability</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Vidya&apos;s Kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services or the consumption of our products beyond the order value.</p>
-        </section>
-
-        <section id="law" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>6. Governing Law</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>These terms are governed by the laws of India, and any disputes will be subject to the exclusive jurisdiction of the courts in Sivakasi, Tamil Nadu.</p>
-        </section>
-      </div>
-    )
+    title: TERMS_POLICY.title,
+    lastUpdated: TERMS_POLICY.lastUpdated,
+    toc: TERMS_POLICY.sections.map((s) => ({ id: s.id, label: s.heading })),
+    policy: TERMS_POLICY,
   },
   privacy: {
-    title: "Privacy Policy",
-    lastUpdated: "March 23, 2026",
-    toc: [
-      { id: "collection", label: "1. Information We Collect" },
-      { id: "usage", label: "2. How We Use Information" },
-      { id: "sharing", label: "3. Data Sharing" },
-    ],
-    body: (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>At Vidya&apos;s Kitchen, we value your privacy. This policy explains how we collect and use your data when you interact with our platform.</p>
-        
-        <section id="collection" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Information We Collect</h2>
-          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>
-            <li><strong>WhatsApp Details:</strong> Name and phone number provided when interacting with our bot.</li>
-            <li><strong>Order Content:</strong> Items ordered, delivery preferences, and special instructions.</li>
-            <li><strong>Payment Info:</strong> We use Razorpay for payment processing and do not store your credit card details.</li>
-          </ul>
-        </section>
-
-        <section id="usage" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. How We Use Information</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Your data is used solely to provide and improve our services, including processing orders, sending payment links, and responding to your queries on WhatsApp.</p>
-        </section>
-
-        <section id="sharing" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Data Sharing</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>We do not sell or rent your personal information. Data is shared only with Razorpay to facilitate payments.</p>
-        </section>
-      </div>
-    )
+    title: PRIVACY_POLICY.title,
+    lastUpdated: PRIVACY_POLICY.lastUpdated,
+    toc: PRIVACY_POLICY.sections.map((s) => ({ id: s.id, label: s.heading })),
+    policy: PRIVACY_POLICY,
   },
   refund: {
-    title: "Refund Policy",
-    lastUpdated: "March 23, 2026",
-    toc: [
-      { id: "cancellation", label: "1. Order Cancellation" },
-      { id: "eligibility", label: "2. Refund Eligibility" },
-      { id: "process", label: "3. Refund Process" },
-    ],
-    body: (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
-        <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>As we prepare fresh home-cooked meals, our refund and cancellation policies are strict to ensure quality and minimize waste.</p>
-        
-        <section id="cancellation" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>1. Order Cancellation</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Cancellations are permitted up to 12 hours before your scheduled delivery slot. You can cancel yourself from the Order tab while that window is open. Once it closes we have already bought ingredients for your slot, so we cannot accept cancellations.</p>
-        </section>
-
-        <section id="eligibility" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>2. Refund Eligibility</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>Refunds are issued if:</p>
-          <ul style={{ listStyle: 'disc', marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '16px', color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>
-            <li>The delivered food is spoiled.</li>
-            <li>Wrong items were delivered.</li>
-            <li>Order was not delivered due to our error.</li>
-          </ul>
-        </section>
-
-        <section id="process" style={{ scrollMarginTop: '100px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', marginBottom: '24px', letterSpacing: '0.02em' }}>3. Refund Process</h2>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8' }}>If you cancel within the window above, or we are unable to accept your order, the refund is raised automatically — you do not need to ask for it. The whole ticket comes back (food, packaging, delivery and GST) to the same UPI, card or net-banking account through Razorpay. UPI is often instant; cards typically take 5-7 business days.</p>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>For a quality issue, message us on WhatsApp with photos within 1 hour of delivery. Once approved, the refund follows the same route and timeline.</p>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '18px', lineHeight: '1.8', marginTop: '24px' }}>Cash on Delivery orders are only paid for at the door, so a cancelled order has nothing to refund.</p>
-        </section>
-      </div>
-    )
-  }
+    title: REFUND_POLICY.title,
+    lastUpdated: REFUND_POLICY.lastUpdated,
+    toc: REFUND_POLICY.sections.map((s) => ({ id: s.id, label: s.heading })),
+    policy: REFUND_POLICY,
+  },
 };
 
 export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-  const [activeSection, setActiveSection] = useState<string>("");
+  const [activeSection, setActiveSection] = useState<string>(
+    () => content[initialTab]?.toc[0]?.id || ""
+  );
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
@@ -151,34 +134,67 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
     document.documentElement.style.overflow = "";
   }, []);
 
+  // Robust Scroll Spy Implementation
   useEffect(() => {
-    const skipSplash = () => localStorage.setItem('skip_splash', 'true');
-    const backBtn = document.getElementById('back-to-home');
-    if (backBtn) backBtn.addEventListener('click', skipSplash);
+    const skipSplash = () => localStorage.setItem("skip_splash", "true");
+    const backBtn = document.getElementById("back-to-home");
+    if (backBtn) backBtn.addEventListener("click", skipSplash);
 
-    // Scroll Spy Implementation
-    const observerOptions = {
-      root: null,
-      rootMargin: '-20% 0px -60% 0px',
-      threshold: 0
+    // Default to first section when tab changes
+    const currentToc = content[activeTab]?.toc || [];
+    if (currentToc.length > 0) {
+      setActiveSection(currentToc[0].id);
+    }
+
+    const updateActiveSection = () => {
+      const sections = Array.from(document.querySelectorAll<HTMLElement>("main section[id]"));
+      if (sections.length === 0) return;
+
+      const scrollPos = window.scrollY || window.pageYOffset;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+
+      // If at top, highlight first section
+      if (scrollPos < 120) {
+        setActiveSection(sections[0].id);
+        return;
+      }
+
+      // If at bottom, highlight last section
+      if (scrollPos + windowHeight >= docHeight - 50) {
+        setActiveSection(sections[sections.length - 1].id);
+        return;
+      }
+
+      // Find section whose top is near or above header offset
+      const offsetThreshold = narrow ? 130 : 180;
+      let activeId = sections[0].id;
+      for (const section of sections) {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= offsetThreshold) {
+          activeId = section.id;
+        } else {
+          break;
+        }
+      }
+      setActiveSection(activeId);
     };
 
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setActiveSection(entry.target.id);
-        }
-      });
-    }, observerOptions);
+    // Run after DOM has updated from tab change
+    const rafId = requestAnimationFrame(() => {
+      updateActiveSection();
+    });
 
-    const sections = document.querySelectorAll('section[id]');
-    sections.forEach((section) => observer.observe(section));
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("resize", updateActiveSection, { passive: true });
 
     return () => {
-      backBtn?.removeEventListener('click', skipSplash);
-      observer.disconnect();
+      cancelAnimationFrame(rafId);
+      backBtn?.removeEventListener("click", skipSplash);
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("resize", updateActiveSection);
     };
-  }, [activeTab]);
+  }, [activeTab, narrow]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "terms", label: "Terms of Service" },
@@ -189,7 +205,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
   const scrollToSectionId = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const offset = narrow ? 96 : 120;
+    setActiveSection(id);
+    const offset = narrow ? 96 : 140;
     const top = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset) - offset;
     window.scrollTo({ top, behavior: "smooth" });
   };
@@ -199,7 +216,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
       minHeight: '100vh',
       backgroundColor: '#000000',
       color: '#FFFFFF',
-      fontFamily: 'var(--font-jetbrains-mono), monospace',
+      fontFamily: 'var(--font-outfit), system-ui, sans-serif',
     }}>
       <style>{`
         ::selection { background: #FFFFFF; color: #000000; }
@@ -209,6 +226,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         .back-link:hover svg { color: #FFFFFF !important; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .toc-link:hover { color: #FFFFFF !important; }
       `}</style>
 
       {/* FIXED Top Header */}
@@ -238,7 +256,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              color: 'rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.4)',
               textDecoration: 'none',
               textTransform: 'uppercase',
               fontSize: '11px',
@@ -257,7 +275,7 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
           fontSize: narrow ? '9px' : '10px', 
           fontWeight: '900', 
           letterSpacing: narrow ? '0.2em' : '0.4em', 
-          color: 'rgba(255,255,255,0.2)', 
+          color: 'rgba(255,255,255,0.3)', 
           textTransform: 'uppercase',
           textAlign: 'right',
           maxWidth: narrow ? '45%' : 'none',
@@ -339,16 +357,18 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
                     padding: 0,
                     cursor: 'pointer',
                     textAlign: 'left',
-                    fontSize: '12px',
+                    fontSize: '14px',
                     fontWeight: '900',
                     letterSpacing: '0.06em',
-                    transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
-                    transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)'
+                    transition: 'all 0.3s ease',
+                    color: activeTab === tab.id ? '#FFFFFF' : 'rgba(255,255,255,0.35)',
+                    transform: activeTab === tab.id ? 'translateX(8px)' : 'translateX(0)',
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                   className="hover:text-white"
                 >
-                  {activeTab === tab.id && <span style={{ marginRight: '8px', color: '#FFFFFF' }}>—</span>}
+                  {activeTab === tab.id && <span style={{ marginRight: '8px', color: '#BD2320', fontWeight: 900 }}>—</span>}
                   {tab.label}
                 </button>
               </li>
@@ -357,11 +377,11 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         </nav>
       </aside>
 
-      {/* FIXED Right Sidebar */}
+      {/* FIXED Right Sidebar - On This Page */}
       <aside style={{
         width: '320px',
         borderLeft: '1px solid rgba(255,255,255,0.05)',
-        padding: '0 48px',
+        padding: '0 40px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -372,40 +392,58 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
         zIndex: 100
       }}>
         <div style={{
-          fontSize: '10px',
+          fontSize: '12px',
           fontWeight: '900',
-          letterSpacing: '0.3em',
-          color: 'rgba(255,255,255,0.2)',
+          letterSpacing: '0.25em',
+          color: 'rgba(255,255,255,0.4)',
           textTransform: 'uppercase',
-          marginBottom: '40px'
+          marginBottom: '32px'
         }}>
           On this page
         </div>
         <nav className="hide-scrollbar" style={{ overflowY: 'auto' }}>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {content[activeTab].toc.map((item) => (
-              <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    scrollToSectionId(item.id);
-                  }}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    textDecoration: 'none',
-                    color: activeSection === item.id ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
-                    transition: 'all 0.3s ease',
-                    letterSpacing: '0.02em',
-                    display: 'block'
-                  }}
-                  className="hover:text-white"
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {content[activeTab].toc.map((item) => {
+              const isCurrent = activeSection === item.id;
+              return (
+                <li key={item.id}>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToSectionId(item.id);
+                    }}
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: isCurrent ? '800' : '500',
+                      lineHeight: '1.5',
+                      textDecoration: 'none',
+                      color: isCurrent ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+                      transition: 'all 0.25s ease',
+                      letterSpacing: '0.01em',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      transform: isCurrent ? 'translateX(4px)' : 'translateX(0)',
+                    }}
+                    className="toc-link"
+                  >
+                    <span
+                      style={{
+                        width: '3px',
+                        height: isCurrent ? '18px' : '0px',
+                        backgroundColor: '#BD2320',
+                        borderRadius: '2px',
+                        marginTop: '2px',
+                        transition: 'height 0.25s ease',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{item.label}</span>
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </aside>
@@ -517,8 +555,8 @@ export function LegalHub({ initialTab = "terms" }: LegalHubProps) {
             </details>
           )}
 
-          <div style={{ color: 'rgba(255,255,255,0.55)', lineHeight: '2.2', fontSize: narrow ? '16px' : '18px', width: '100%' }}>
-            {content[activeTab].body}
+          <div style={{ color: 'rgba(255,255,255,0.7)', lineHeight: '2.2', fontSize: narrow ? '16px' : '18px', width: '100%' }}>
+            {renderPolicyBody(content[activeTab].policy, activeSection)}
           </div>
 
           <footer style={{

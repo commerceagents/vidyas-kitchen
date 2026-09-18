@@ -46,7 +46,7 @@ export function LocationMarkedScreen({ label, onDone }: LocationMarkedScreenProp
         alignItems: "center",
         justifyContent: "center",
         padding: "max(24px, env(safe-area-inset-top, 0px)) 24px max(32px, env(safe-area-inset-bottom, 0px))",
-        fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+        fontFamily: "var(--font-outfit), system-ui, sans-serif",
       }}
     >
       <motion.div

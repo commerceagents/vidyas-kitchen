@@ -118,7 +118,7 @@ export function DesktopLanding() {
       touchAction: 'none',
       overscrollBehavior: 'none',
       color: 'white',
-      fontFamily: 'var(--font-jetbrains-mono), monospace'
+      fontFamily: 'var(--font-outfit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       {/* Glowing Blobs Background */}
       <GlowingBlobsBackground />
@@ -372,6 +372,7 @@ export function DesktopLanding() {
         style={{
           position: 'relative',
           zIndex: 60,
+          fontFamily: 'var(--font-outfit), sans-serif',
           width: 'clamp(440px, 35vw, 480px)',
           padding: 'clamp(22px, 3vh, 24px) clamp(36px, 3vw, 40px)',
           background: 'linear-gradient(145deg, rgba(15, 15, 15, 0.95) 0%, rgba(5, 5, 5, 0.98) 100%)',
@@ -519,17 +520,19 @@ export function DesktopLanding() {
             fontSize: 'clamp(26px, 2.5vw, 28px)',
             fontWeight: '900',
             color: '#FFFFFF',
-            letterSpacing: '-0.04em',
-            lineHeight: '1.4',
-            textTransform: 'uppercase'
+            letterSpacing: '-0.02em',
+            lineHeight: '1.25',
+            textTransform: 'uppercase',
+            fontFamily: 'var(--font-outfit), sans-serif'
           }}>
             <span style={{ 
-              fontSize: 'clamp(13px, 1vw, 14px)', 
-              letterSpacing: '2px',
-              opacity: 0.4, 
+              fontSize: 'clamp(12px, 0.95vw, 13px)', 
+              letterSpacing: '2.5px',
+              opacity: 0.45, 
               color: '#FFFFFF', 
               display: 'block', 
-              marginBottom: '2px'
+              marginBottom: '3px',
+              fontWeight: '600'
             }}>Welcome to</span>
             <span style={{ color: '#BD2320' }}>Vidya&apos;s Kitchen</span>
           </h2>
@@ -601,21 +604,22 @@ export function DesktopLanding() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.8, duration: 1 }}
           style={{
-            fontSize: 'clamp(13px, 1.1vw, 14px)',
-            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: 'clamp(13px, 1.05vw, 14px)',
+            color: 'rgba(255, 255, 255, 0.72)',
             textAlign: 'center',
-            maxWidth: '420px',
-            lineHeight: '1.4',
-            marginTop: '8px',
+            maxWidth: '380px',
+            lineHeight: '1.45',
+            marginTop: '6px',
             marginBottom: '12px',
             zIndex: 10,
             textTransform: 'none',
             letterSpacing: '0.01em',
-            fontWeight: '400',
-            whiteSpace: 'pre-line'
+            fontWeight: '500',
+            whiteSpace: 'pre-line',
+            fontFamily: 'var(--font-outfit), sans-serif'
           }}
         >
-          {"Hungry? Scan to explore our gourmet menu\nand order your favorites in seconds!"}
+          {"Scan with your phone to open our app instantly\nand order your favorite meals with ease"}
         </motion.p>
 
         {/* Action Button Row */}

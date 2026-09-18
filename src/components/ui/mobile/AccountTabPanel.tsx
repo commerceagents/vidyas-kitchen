@@ -33,7 +33,7 @@ import {
   sendTestPush,
   type PushState,
 } from "@/lib/push-subscribe";
-import { REFUND_POLICY, TERMS_POLICY } from "@/lib/policy-copy";
+import { REFUND_POLICY, TERMS_POLICY, PRIVACY_POLICY } from "@/lib/policy-copy";
 import {
   isAppleTouchDevice,
   isAlreadyInstalled,
@@ -191,7 +191,7 @@ export function AccountTabPanel({
   const [installViaChrome, setInstallViaChrome] = useState(false);
   const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [policy, setPolicy] = useState<"refund" | "terms" | null>(null);
+  const [policy, setPolicy] = useState<"refund" | "terms" | "privacy" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   useEffect(() => {
@@ -467,9 +467,19 @@ export function AccountTabPanel({
               <IconShield />
             </AccountRowIcon>
           }
-          subtitle="How we use your data"
-          title="Terms & Privacy"
+          subtitle="Ordering, slots, and payment rules"
+          title="Terms of Service"
           onClick={() => setPolicy("terms")}
+        />
+        <PressRow
+          icon={
+            <AccountRowIcon>
+              <ShieldCheck size={20} weight="duotone" color={ICON_STROKE} />
+            </AccountRowIcon>
+          }
+          subtitle="How your personal data is protected"
+          title="Privacy Policy"
+          onClick={() => setPolicy("privacy")}
         />
       </Section>
 
@@ -581,8 +591,20 @@ export function AccountTabPanel({
           {policy ? (
             <PolicySheet
               key={`vk-account-policy-${policy}`}
-              policy={policy === "refund" ? REFUND_POLICY : TERMS_POLICY}
-              fullPageHref={policy === "refund" ? "/refund-policy" : "/terms"}
+              policy={
+                policy === "refund"
+                  ? REFUND_POLICY
+                  : policy === "privacy"
+                  ? PRIVACY_POLICY
+                  : TERMS_POLICY
+              }
+              fullPageHref={
+                policy === "refund"
+                  ? "/refund-policy"
+                  : policy === "privacy"
+                  ? "/privacy"
+                  : "/terms"
+              }
               onClose={() => setPolicy(null)}
             />
           ) : null}

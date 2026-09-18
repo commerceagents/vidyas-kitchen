@@ -1560,7 +1560,7 @@ export function LocationScreen({
                 border: "1px solid rgba(189,35,32,0.2)",
                 padding: "28px 24px 24px",
                 boxShadow: "0 24px 60px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
-                fontFamily: "var(--font-jetbrains-mono), monospace",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
               }}
             >
               <div style={{ width: 52, height: 52, borderRadius: 16, background: "rgba(189,35,32,0.12)", border: "1px solid rgba(189,35,32,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>

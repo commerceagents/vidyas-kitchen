@@ -49,35 +49,13 @@ const C = {
   mono: "var(--font-outfit), system-ui, -apple-system, sans-serif",
 };
 
+import { REFUND_POLICY, TERMS_POLICY, PRIVACY_POLICY, type Policy } from "@/lib/policy-copy";
+
 // ─── Legal content ────────────────────────────────────────────────
-const legalContent: Record<LegalTab, { title: string; sections: { heading: string; text: string }[] }> = {
-  terms: {
-    title: "Terms of Service",
-    sections: [
-      { heading: "1. Acceptance of Terms", text: "By accessing Vidya's Kitchen services via our website or WhatsApp bot, you agree to be bound by these Terms of Service. If you do not agree, please do not use our services." },
-      { heading: "2. Service Description", text: "Vidya's Kitchen provides home-cooked meal catering and delivery services. All orders are subject to availability and acceptance by us." },
-      { heading: "3. User Obligations", text: "Users must provide accurate information for order delivery and payment. Any misuse of the WhatsApp bot or website to place fraudulent orders is strictly prohibited." },
-      { heading: "4. Pricing and Payment", text: "All prices are listed in Indian Rupees (INR). Payments must be made via secure Razorpay links provided after order confirmation. Orders will only be processed once payment is confirmed." },
-      { heading: "5. Limitation of Liability", text: "Vidya's Kitchen is not liable for indirect, incidental, or consequential damages arising from the use of our services beyond the order value." },
-      { heading: "6. Governing Law", text: "These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts in Sivakasi, Tamil Nadu." },
-    ],
-  },
-  privacy: {
-    title: "Privacy Policy",
-    sections: [
-      { heading: "1. Information We Collect", text: "We collect your WhatsApp name, phone number, items ordered, delivery preferences, and special instructions. We use Razorpay for payments and do not store card details." },
-      { heading: "2. How We Use Information", text: "Your data is used solely to provide and improve our services, including processing orders, sending payment links, and responding to queries on WhatsApp." },
-      { heading: "3. Data Sharing", text: "We do not sell or rent your personal information. Data is shared only with Razorpay to facilitate payments." },
-    ],
-  },
-  refund: {
-    title: "Refund Policy",
-    sections: [
-      { heading: "1. Order Cancellation", text: "Cancellations are permitted up to 12 hours before your scheduled delivery slot. Once food preparation has started, we cannot accept cancellations." },
-      { heading: "2. Refund Eligibility", text: "Refunds are issued if the delivered food is spoiled, wrong items were delivered, or the order was not delivered due to our error." },
-      { heading: "3. Refund Process", text: "To request a refund, please contact us on WhatsApp with photos of the issue within 1 hour of delivery. Approved refunds will be processed via Razorpay within 5-7 business days." },
-    ],
-  },
+const legalPolicies: Record<LegalTab, Policy> = {
+  terms: TERMS_POLICY,
+  privacy: PRIVACY_POLICY,
+  refund: REFUND_POLICY,
 };
 
 // ─── Formatting ───────────────────────────────────────────────────
@@ -1064,21 +1042,45 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}>
                 <h1 style={{ ...TYPO.legalTitle, marginBottom: T.sp3 }}>
-                  {legalContent[legalTab].title}
+                  {legalPolicies[legalTab].title}
                 </h1>
-                <p style={{ ...TYPO.legalMeta, marginBottom: T.sp6 }}>
-                  Last updated: March 23, 2026
+                <p style={{ ...TYPO.legalMeta, marginBottom: T.sp3 }}>
+                  Last updated: {legalPolicies[legalTab].lastUpdated}
+                </p>
+                <p style={{ ...TYPO.legalBody, marginBottom: T.sp5, color: "rgba(0,0,0,0.68)", lineHeight: 1.6 }}>
+                  {legalPolicies[legalTab].intro}
                 </p>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: T.sp6 }}>
-                  {legalContent[legalTab].sections.map((sec, i) => (
-                    <section key={i}>
+                <div style={{ display: "flex", flexDirection: "column", gap: T.sp5 }}>
+                  {legalPolicies[legalTab].sections.map((sec) => (
+                    <section key={sec.id}>
                       <h2 style={{ ...TYPO.legalSection, marginBottom: T.sp2 }}>
                         {sec.heading}
                       </h2>
-                      <p style={TYPO.legalBody}>
-                        {sec.text}
-                      </p>
+                      {sec.blocks.map((block, bIdx) =>
+                        "bullets" in block ? (
+                          <ul
+                            key={bIdx}
+                            style={{
+                              margin: "0 0 8px",
+                              paddingLeft: 18,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                            }}
+                          >
+                            {block.bullets.map((bullet, bulletIdx) => (
+                              <li key={bulletIdx} style={{ ...TYPO.legalBody, lineHeight: 1.6 }}>
+                                {bullet}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p key={bIdx} style={{ ...TYPO.legalBody, marginBottom: 8, lineHeight: 1.6 }}>
+                            {block.text}
+                          </p>
+                        ),
+                      )}
                     </section>
                   ))}
                 </div>
