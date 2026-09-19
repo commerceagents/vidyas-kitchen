@@ -160,6 +160,10 @@ type AccountTabPanelProps = {
   onProfileSaved: (profile: { name: string; avatarUrl: string | null }) => void;
   /** Hands off to the full-screen map to place the pin for one saved address. */
   onEditSavedPlace: (place: SavedPlace) => void;
+  /** Select a saved place directly as active delivery location. */
+  onSelectSavedPlace?: (place: SavedPlace) => void;
+  /** Current active delivery location to show status badge. */
+  activeLocation?: { label?: string; lat?: number; lng?: number } | null;
   /** True when returning from the map, so the drawer picks up where it left off. */
   openSavedAddresses?: boolean;
   onOpenOrders: () => void;
@@ -175,6 +179,8 @@ export function AccountTabPanel({
   customerPhone,
   onProfileSaved,
   onEditSavedPlace,
+  onSelectSavedPlace,
+  activeLocation,
   openSavedAddresses = false,
   onOpenOrders,
   favoritesCount,
@@ -556,6 +562,11 @@ export function AccountTabPanel({
           {showAddresses ? (
             <SavedAddressesSheet
               key="vk-account-addresses"
+              activeLocation={activeLocation}
+              onSelectPlace={(place) => {
+                setShowAddresses(false);
+                onSelectSavedPlace?.(place);
+              }}
               onEditPlace={(place) => {
                 setShowAddresses(false);
                 onEditSavedPlace(place);

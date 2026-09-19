@@ -21,6 +21,10 @@ import {
   applyServerSavedPlaces,
   loadSavedPlaces,
   savePlaces,
+  isGenericLocationLabel,
+  resolveBestSavedPlace,
+  normalisePlaces,
+  isPlaceSet,
   type SavedPlace,
 } from "@/lib/vk-saved-places";
 import { isInsideDeliveryZone } from "@/lib/delivery-zone";
@@ -98,6 +102,23 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       if (savedLocation) {
         try {
           loc = JSON.parse(savedLocation);
+          if (!loc || isGenericLocationLabel(loc.label)) {
+            const best = resolveBestSavedPlace(loadSavedPlaces());
+            if (best) {
+              loc = {
+                label: best.address,
+                lat: best.lat,
+                lng: best.lng,
+                inRange: isInsideDeliveryZone(best.lat, best.lng),
+                placeLabel: best.label,
+              };
+              try {
+                localStorage.setItem("vk_location", JSON.stringify(loc));
+              } catch {
+                /* ignore */
+              }
+            }
+          }
           const restored = ui?.step;
           if (restored === "checkout" || restored === "home" || restored === "location") {
             step = restored;
@@ -110,7 +131,24 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           step = "location";
         }
       } else {
-        step = "location";
+        const best = resolveBestSavedPlace(loadSavedPlaces());
+        if (best) {
+          loc = {
+            label: best.address,
+            lat: best.lat,
+            lng: best.lng,
+            inRange: isInsideDeliveryZone(best.lat, best.lng),
+            placeLabel: best.label,
+          };
+          try {
+            localStorage.setItem("vk_location", JSON.stringify(loc));
+          } catch {
+            /* ignore */
+          }
+          step = "home";
+        } else {
+          step = "location";
+        }
       }
     } else if (prefilledPhone) {
       step = "location";
@@ -380,7 +418,20 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       setPhone(savedPhone);
       if (savedLocation) {
         try {
-          const loc = JSON.parse(savedLocation) as LocationData;
+          let loc = JSON.parse(savedLocation) as LocationData;
+          if (!loc || isGenericLocationLabel(loc.label)) {
+            const best = resolveBestSavedPlace(loadSavedPlaces());
+            if (best) {
+              loc = {
+                label: best.address,
+                lat: best.lat,
+                lng: best.lng,
+                inRange: isInsideDeliveryZone(best.lat, best.lng),
+                placeLabel: best.label,
+              };
+              localStorage.setItem("vk_location", JSON.stringify(loc));
+            }
+          }
           setLocation(loc);
           // Coming back from a successful payment we must NOT restore the saved
           // "checkout" route — the cart has just been emptied, so the customer
@@ -400,7 +451,21 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           setStep("location");
         }
       } else {
-        setStep("location");
+        const best = resolveBestSavedPlace(loadSavedPlaces());
+        if (best) {
+          const loc: LocationData = {
+            label: best.address,
+            lat: best.lat,
+            lng: best.lng,
+            inRange: isInsideDeliveryZone(best.lat, best.lng),
+            placeLabel: best.label,
+          };
+          setLocation(loc);
+          localStorage.setItem("vk_location", JSON.stringify(loc));
+          setStep("home");
+        } else {
+          setStep("location");
+        }
       }
     } else if (prefilledPhone) {
       setPhone(prefilledPhone);
@@ -505,10 +570,53 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
           name?: string | null;
           avatarUrl?: string | null;
           savedPlaces?: unknown;
+          lastDeliveryAddress?: { address: string; lat?: number | null; lng?: number | null } | null;
         };
         if (cancelled) return;
 
         applyServerSavedPlaces(data.savedPlaces);
+
+        // If current location is missing or generic (e.g. "Current Location"),
+        // resolve it immediately to the customer's best saved place or their
+        // previous order delivery address.
+        setLocation((currentLoc) => {
+          if (!currentLoc || isGenericLocationLabel(currentLoc.label)) {
+            const norm = normalisePlaces(data.savedPlaces);
+            const best = resolveBestSavedPlace(norm);
+            if (best) {
+              const loc: LocationData = {
+                label: best.address,
+                lat: best.lat,
+                lng: best.lng,
+                inRange: isInsideDeliveryZone(best.lat, best.lng),
+                placeLabel: best.label,
+              };
+              try {
+                localStorage.setItem("vk_location", JSON.stringify(loc));
+              } catch {
+                /* ignore */
+              }
+              return loc;
+            }
+            if (data.lastDeliveryAddress?.address && !isGenericLocationLabel(data.lastDeliveryAddress.address)) {
+              const lat = Number(data.lastDeliveryAddress.lat) || 9.4533;
+              const lng = Number(data.lastDeliveryAddress.lng) || 77.7947;
+              const loc: LocationData = {
+                label: data.lastDeliveryAddress.address,
+                lat,
+                lng,
+                inRange: isInsideDeliveryZone(lat, lng),
+              };
+              try {
+                localStorage.setItem("vk_location", JSON.stringify(loc));
+              } catch {
+                /* ignore */
+              }
+              return loc;
+            }
+          }
+          return currentLoc;
+        });
 
         if (data.avatarUrl) {
           setAvatarUrl(data.avatarUrl);
@@ -544,6 +652,19 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     sessionStorage.removeItem(SS_GIFT_TRACK);
     setGiftTrackToken("");
     setTrackingOrderId(orderId);
+  };
+
+  const handleSelectSavedPlace = (place: SavedPlace) => {
+    if (!isPlaceSet(place)) return;
+    const newLoc: LocationData = {
+      label: place.address,
+      lat: place.lat,
+      lng: place.lng,
+      inRange: isInsideDeliveryZone(place.lat, place.lng),
+      placeLabel: place.label,
+    };
+    setLocation(newLoc);
+    localStorage.setItem("vk_location", JSON.stringify(newLoc));
   };
 
   const handleSignOut = () => {
@@ -607,8 +728,17 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
             : p,
         ),
       );
-      // Filing an address for later is not the same as saying "deliver here
-      // now", so the current location is deliberately left alone.
+      // Update active delivery location so setting or editing an address
+      // reflects immediately in the app rather than showing "Current Location".
+      const activeLoc: LocationData = {
+        label: loc.label,
+        lat: loc.lat,
+        lng: loc.lng,
+        inRange: loc.inRange,
+        placeLabel: slot.id === "other" ? (loc.placeLabel || slot.label || "Other") : slot.label,
+      };
+      setLocation(activeLoc);
+      localStorage.setItem("vk_location", JSON.stringify(activeLoc));
       setReopenSavedAddresses(true);
       setStep("home");
       return;
@@ -765,6 +895,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
             <MobileHomeScreen
               displayName={name}
               location={location}
+              onSelectSavedPlace={handleSelectSavedPlace}
               onChangeLocation={() => {
                 setLocationBackStep("home");
                 setStep("location");

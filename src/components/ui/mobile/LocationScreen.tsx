@@ -14,6 +14,8 @@ import {
   DEFAULT_SAVED_PLACES,
   MAX_PLACE_LABEL,
   emptyAddressFor,
+  isGenericLocationLabel,
+  isPlaceSet,
 } from "@/lib/vk-saved-places";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
@@ -825,9 +827,16 @@ export function LocationScreen({
     // ("Home") is meaningless to them, so send the street address it stands for
     // and only fall back to the nickname if we never resolved one.
     const saved = selectedSaved ? savedPlaces.find((p) => p.id === selectedSaved) : undefined;
-    const street = saved
-      ? saved.address?.trim() || saved.label || "Saved Location"
-      : searchText.trim() || "Current Location";
+    const nearbySaved = savedPlaces.find(
+      (p) => isPlaceSet(p) && Math.hypot(p.lat - pinCoords.lat, p.lng - pinCoords.lng) < 0.002
+    );
+    const resolvedSaved = saved || nearbySaved;
+    let street = resolvedSaved
+      ? resolvedSaved.address?.trim() || resolvedSaved.label
+      : searchText.trim();
+    if (!street || isGenericLocationLabel(street)) {
+      street = "Sivakasi, Tamil Nadu";
+    }
     const label = composeDeliveryLabel(street, houseNo, building, landmark) || street;
     const namingOther = addingPlace?.id === "other" || savedSlotId === "other";
     onLocationSet({
@@ -837,7 +846,7 @@ export function LocationScreen({
       inRange,
       placeLabel: namingOther
         ? otherName.trim().slice(0, MAX_PLACE_LABEL) || undefined
-        : undefined,
+        : resolvedSaved?.label || undefined,
     });
   };
 

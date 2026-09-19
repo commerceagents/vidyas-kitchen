@@ -30,10 +30,16 @@ function PlaceIcon({ id, active }: { id: SavedPlaceId; active: boolean }) {
  */
 export function SavedAddressesSheet({
   onEditPlace,
+  onSelectPlace,
+  activeLocation,
   onClose,
 }: {
   /** Opens the map for this slot; the sheet closes while it is up. */
   onEditPlace: (place: SavedPlace) => void;
+  /** Select this place as active delivery location. */
+  onSelectPlace?: (place: SavedPlace) => void;
+  /** Current active delivery location. */
+  activeLocation?: { label?: string; lat?: number; lng?: number } | null;
   onClose: () => void;
 }) {
   const [places, setPlaces] = useState<SavedPlace[]>(loadSavedPlaces);
@@ -288,7 +294,57 @@ export function SavedAddressesSheet({
                 </div>
 
                 {isRenaming ? null : (
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, paddingLeft: 52 }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, paddingLeft: 52, flexWrap: "wrap", alignItems: "center" }}>
+                    {set ? (
+                      (() => {
+                        const isActive =
+                          activeLocation &&
+                          (activeLocation.label === place.address ||
+                            (Math.abs((activeLocation.lat || 0) - place.lat) < 0.001 &&
+                              Math.abs((activeLocation.lng || 0) - place.lng) < 0.001));
+                        return isActive ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              padding: "8px 12px",
+                              borderRadius: 11,
+                              background: "rgba(34, 197, 94, 0.12)",
+                              border: "1px solid rgba(34, 197, 94, 0.3)",
+                              color: "#15803d",
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                            }}
+                          >
+                            <Check size={14} weight="bold" />
+                            Delivering here
+                          </span>
+                        ) : (
+                          <motion.button
+                            type="button"
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => onSelectPlace?.(place)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "8px 13px",
+                              borderRadius: 11,
+                              border: `1px solid ${C.red}`,
+                              background: C.red,
+                              color: "#fff",
+                              fontSize: 13,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              fontFamily: fontUi,
+                            }}
+                          >
+                            Deliver here
+                          </motion.button>
+                        );
+                      })()
+                    ) : null}
                     <motion.button
                       type="button"
                       whileTap={{ scale: 0.97 }}
@@ -297,12 +353,12 @@ export function SavedAddressesSheet({
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 6,
-                        padding: "9px 14px",
+                        padding: "8px 13px",
                         borderRadius: 11,
                         border: `1px solid ${C.border}`,
                         background: C.white,
                         color: C.text,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: 800,
                         cursor: "pointer",
                         fontFamily: fontUi,
@@ -320,12 +376,12 @@ export function SavedAddressesSheet({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 6,
-                          padding: "9px 14px",
+                          padding: "8px 10px",
                           borderRadius: 11,
                           border: "none",
                           background: "transparent",
                           color: C.red,
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: 800,
                           cursor: "pointer",
                           fontFamily: fontUi,

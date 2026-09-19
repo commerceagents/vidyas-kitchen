@@ -54,10 +54,39 @@ export async function GET(request: Request) {
     const row = data as
       | { full_name?: string | null; avatar_url?: string | null; saved_places?: unknown }
       | null;
+
+    // Fetch the customer's most recent order delivery address to help restore
+    // their real address if saved_places is not yet set.
+    let lastDeliveryAddress: { address: string; lat: number; lng: number } | null = null;
+    try {
+      const localPhone = localPhoneDigits(phone);
+      if (localPhone.length >= 10) {
+        const { data: latestOrder } = await supabase
+          .from("orders")
+          .select("delivery_address, delivery_lat, delivery_lng")
+          .like("phone_number", `%${localPhone}`)
+          .not("delivery_address", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestOrder?.delivery_address) {
+          lastDeliveryAddress = {
+            address: String(latestOrder.delivery_address).trim(),
+            lat: Number(latestOrder.delivery_lat) || 0,
+            lng: Number(latestOrder.delivery_lng) || 0,
+          };
+        }
+      }
+    } catch {
+      // Non-critical: continue without last delivery address
+    }
+
     return NextResponse.json({
       name: row?.full_name ?? null,
       avatarUrl: row?.avatar_url ?? null,
       savedPlaces: Array.isArray(row?.saved_places) ? row.saved_places : null,
+      lastDeliveryAddress,
     });
   } catch (e) {
     console.error("[profile GET]", e);

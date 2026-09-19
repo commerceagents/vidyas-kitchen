@@ -13,7 +13,13 @@ import { OrderHistoryPanel } from "@/components/ui/mobile/OrderHistoryPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
-import type { SavedPlace } from "@/lib/vk-saved-places";
+import {
+  loadSavedPlaces,
+  resolveBestSavedPlace,
+  isGenericLocationLabel,
+  isPlaceSet,
+  type SavedPlace,
+} from "@/lib/vk-saved-places";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { FavoritesSheet, type FavoriteRow } from "@/components/ui/mobile/FavoritesSheet";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
@@ -139,6 +145,7 @@ interface LocationLite {
   lat: number;
   lng: number;
   inRange: boolean;
+  placeLabel?: string;
 }
 
 
@@ -147,6 +154,7 @@ interface MobileHomeScreenProps {
   displayName: string;
   location: LocationLite | null;
   onChangeLocation?: () => void;
+  onSelectSavedPlace?: (place: SavedPlace) => void;
   /** Pass dish id when opening checkout from Dish Details so back can reopen it. */
   onCheckout?: (resumeDishId?: string | null) => void;
   /** After checkout back — open this dish's detail once (nonce changes each time). */
@@ -1794,6 +1802,7 @@ export function MobileHomeScreen({
   displayName,
   location,
   onChangeLocation,
+  onSelectSavedPlace,
   onCheckout,
   resumeDishDetail,
   onResumeDishDetailConsumed,
@@ -2137,7 +2146,36 @@ export function MobileHomeScreen({
   }, [trackingOrderId, trackSnap?.status]);
 
   const locationRef = useRef<HTMLDivElement>(null);
-  const label     = location?.label?.trim() || "Set delivery location";
+  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(loadSavedPlaces);
+  useEffect(() => {
+    const refresh = () => setSavedPlaces(loadSavedPlaces());
+    window.addEventListener("vk_saved_places_updated", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("vk_saved_places_updated", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  const bestSaved = useMemo(() => resolveBestSavedPlace(savedPlaces), [savedPlaces]);
+
+  const activePlaceLabel = location?.placeLabel || (
+    location?.label && !isGenericLocationLabel(location.label)
+      ? savedPlaces.find((p) => isPlaceSet(p) && p.address.trim().toLowerCase() === location.label.trim().toLowerCase())?.label
+      : bestSaved?.label
+  );
+
+  const displayLabel = useMemo(() => {
+    if (location?.label && !isGenericLocationLabel(location.label)) {
+      return location.label;
+    }
+    if (bestSaved) {
+      return bestSaved.address;
+    }
+    return "Set delivery location";
+  }, [location?.label, bestSaved]);
+
+  const displaySubtitle = activePlaceLabel ? `${activePlaceLabel}` : null;
+  const label     = displayLabel;
   const inRange   = location?.inRange ?? true;
   const greeting  = useMemo(() => getGreeting(), []);
   const firstName = formatFirstName(displayName);
@@ -2380,7 +2418,7 @@ export function MobileHomeScreen({
               </div>
               <div style={{ flex: 1, minWidth: 0, textAlign: "left", paddingLeft: 8 }}>
                 <p style={DELIVERING_TO_STYLE}>
-                  Delivering to
+                  Delivering to {displaySubtitle ? `• ${displaySubtitle}` : ""}
                 </p>
                 <p style={{
                   margin: 0, fontSize: 15, color: C.text,
@@ -2429,7 +2467,25 @@ export function MobileHomeScreen({
                   <p style={DELIVERING_TO_STYLE}>
                     Delivering to
                   </p>
-                  <p style={{ ...HT.tileTitle, margin: "8px 0 0" }}>
+                  {displaySubtitle && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        background: "rgba(189,35,32,0.1)",
+                        color: C.red,
+                        borderRadius: 999,
+                        padding: "3px 10px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: "0.02em",
+                      }}>
+                        {displaySubtitle === "Home" ? "🏠" : displaySubtitle === "Work" ? "💼" : "📍"} {displaySubtitle}
+                      </span>
+                    </div>
+                  )}
+                  <p style={{ ...HT.tileTitle, margin: "8px 0 0", fontSize: 15, lineHeight: 1.4 }}>
                     {label}
                   </p>
                   <div style={{
@@ -2446,6 +2502,48 @@ export function MobileHomeScreen({
                       {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
                     </span>
                   </div>
+
+                  {savedPlaces.some(isPlaceSet) && (
+                    <div style={{ marginTop: 14, textAlign: "left" }}>
+                      <p style={{ margin: "0 0 8px", fontSize: 11.5, fontWeight: 800, color: "rgba(0,0,0,0.45)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Saved Addresses
+                      </p>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {savedPlaces.filter(isPlaceSet).map((place) => {
+                          const isCurrent = displayLabel === place.address;
+                          return (
+                            <motion.button
+                              key={place.id}
+                              type="button"
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => {
+                                onSelectSavedPlace?.(place);
+                                setLocationOpen(false);
+                              }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "7px 12px",
+                                borderRadius: 12,
+                                border: `1px solid ${isCurrent ? C.red : C.borderFaint}`,
+                                background: isCurrent ? "rgba(189,35,32,0.08)" : C.white,
+                                color: isCurrent ? C.red : C.text,
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span>{place.id === "home" ? "🏠" : place.id === "work" ? "💼" : "📍"}</span>
+                              <span>{place.label}</span>
+                              {isCurrent && <span style={{ fontSize: 11, color: C.red, fontWeight: 900 }}>✓</span>}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {onChangeLocation && (
                     <motion.button
                       whileTap={{ scale: 0.97 }}
@@ -2471,7 +2569,7 @@ export function MobileHomeScreen({
                           background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
                         }}
                       />
-                      Change Address
+                      Change Address on Map
                     </motion.button>
                   )}
                 </motion.div>
@@ -2921,6 +3019,8 @@ export function MobileHomeScreen({
               customerPhone={customerPhone}
               onProfileSaved={(profile) => onProfileSaved?.(profile)}
               onEditSavedPlace={(place) => onEditSavedPlace?.(place)}
+              onSelectSavedPlace={onSelectSavedPlace}
+              activeLocation={location}
               openSavedAddresses={openSavedAddresses}
               onOpenOrders={() => {
                 setOrdersView("history");

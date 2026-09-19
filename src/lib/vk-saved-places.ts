@@ -22,8 +22,33 @@ export const DEFAULT_SAVED_PLACES: SavedPlace[] = [
 export const MAX_PLACE_LABEL = 24;
 
 /** A slot only counts as saved once it has real coordinates behind it. */
-export function isPlaceSet(place: SavedPlace): boolean {
+export function isPlaceSet(place?: SavedPlace | null): boolean {
+  if (!place) return false;
   return Number.isFinite(place.lat) && Number.isFinite(place.lng) && place.lat !== 0 && place.lng !== 0;
+}
+
+/** Check if a location label is an unhelpful generic placeholder. */
+export function isGenericLocationLabel(label?: string | null): boolean {
+  if (!label) return true;
+  const lower = label.trim().toLowerCase();
+  return (
+    lower === "current location" ||
+    lower === "pinned location" ||
+    lower === "set delivery location" ||
+    lower === "set your location" ||
+    lower === "saved location" ||
+    lower === "locating address..." ||
+    lower === ""
+  );
+}
+
+/** Resolves the highest-priority saved place (Home > Work > Other). */
+export function resolveBestSavedPlace(places: SavedPlace[]): SavedPlace | null {
+  const home = places.find((p) => p.id === "home" && isPlaceSet(p));
+  if (home) return home;
+  const work = places.find((p) => p.id === "work" && isPlaceSet(p));
+  if (work) return work;
+  return places.find(isPlaceSet) ?? null;
 }
 
 export function emptyAddressFor(id: SavedPlaceId): string {
