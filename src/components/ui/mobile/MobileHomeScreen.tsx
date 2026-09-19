@@ -26,6 +26,7 @@ import {
 import { useActiveFestival } from "./festival-pricing-context";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { SizeQtyDrawer, cartLineKey, qtyForDish, dishCartSizeLabel } from "@/components/ui/mobile/SizeQtyDrawer";
+import { formatFullDishName } from "@/lib/dish-name";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -947,6 +948,7 @@ function DishDetailView({
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const { cleanName, tag } = parseRecipeTag(item.name);
+  const fullDishName = formatFullDishName(item.name);
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
 
@@ -1148,7 +1150,7 @@ function DishDetailView({
                   fontWeight: 900,
                 }}
               >
-                {cleanName}
+                {fullDishName}
               </h1>
               {social.highlyReordered && (
                 <span
@@ -1550,7 +1552,7 @@ function DishDetailView({
             <h3 style={sectionTitle}>Suggested Dishes</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {suggested.map((d) => {
-                const { cleanName: sn } = parseRecipeTag(d.name);
+                const sn = formatFullDishName(d.name);
                 const fromPrice = Math.min(...d.variants.map((v) => v.price));
                 const thumb = getItemImage(d.name, d.image || d.image_url);
                 return (
@@ -2046,7 +2048,7 @@ export function MobileHomeScreen({
         const variant = item.variants.find((v) => v.price === min) ?? item.variants[0];
         return {
           id: item.id,
-          name: parseRecipeTag(item.name).cleanName,
+          name: formatFullDishName(item.name),
           price: min,
           listPrice: listPriceForVariant(item, variant.id, min, new Date(), activeFestival),
         };
@@ -2726,7 +2728,7 @@ export function MobileHomeScreen({
                                 ? () =>
                                     requestRemoveFavorite(
                                       item.id,
-                                      parseRecipeTag(item.name).cleanName
+                                      formatFullDishName(item.name)
                                     )
                                 : undefined
                             }
@@ -2985,7 +2987,7 @@ export function MobileHomeScreen({
             onToggleFavorite={() => {
               const id = dishDetailItem.id;
               if (favoriteIdSet.has(id)) {
-                requestRemoveFavorite(id, parseRecipeTag(dishDetailItem.name).cleanName);
+                requestRemoveFavorite(id, formatFullDishName(dishDetailItem.name));
                 return;
               }
               toggleFavorite(id);
@@ -3758,7 +3760,7 @@ function MenuGridCard({
 }) {
   const activeFestival = useActiveFestival();
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
-  const { cleanName, tag } = parseRecipeTag(item.name);
+  const fullDishName = formatFullDishName(item.name);
   const [loaded, setLoaded] = useState(false);
   const orderingOpen = isOrderingWindowOpen();
   const gridChip = discountChipDisplay(item, new Date(), activeFestival);
@@ -3799,7 +3801,7 @@ function MenuGridCard({
         type="button"
         whileTap={{ scale: 0.98 }}
         onClick={onOpenDetail}
-        aria-label={`View details for ${cleanName}`}
+        aria-label={`View details for ${fullDishName}`}
         style={{
           position: "relative",
           width: "100%",
@@ -3896,34 +3898,19 @@ function MenuGridCard({
           <h4
             style={{
               margin: 0,
-              fontSize: 14.5,
+              fontSize: 13.5,
               fontWeight: 800,
-              lineHeight: 1.28,
+              lineHeight: 1.25,
               color: C.text,
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
+              textAlign: "center",
             }}
           >
-            {cleanName}
+            {fullDishName}
           </h4>
-          {tag && (
-            <span
-              style={{
-                display: "inline-block",
-                marginTop: 4,
-                fontSize: 9.5,
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                color: C.red,
-                opacity: 0.85,
-              }}
-            >
-              {tag}
-            </span>
-          )}
         </motion.button>
 
         <button
@@ -3947,7 +3934,7 @@ function MenuGridCard({
         <motion.button
           type="button"
           whileTap={{ scale: orderingOpen ? 0.985 : 1 }}
-          aria-label={qty > 0 ? `Edit ${cleanName} in cart` : `Add ${cleanName} to cart`}
+          aria-label={qty > 0 ? `Edit ${fullDishName} in cart` : `Add ${fullDishName} to cart`}
           onClick={handleAdd}
           style={{
             width: "100%",

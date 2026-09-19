@@ -23,7 +23,7 @@ import { toE164Phone } from "@/lib/test-numbers";
 import { updateSession } from "@/lib/whatsapp-session";
 import { loadWaLang } from "@/lib/whatsapp-lang";
 import { formatInr } from "@/lib/menu/dish-pricing";
-import { parseRecipeTag } from "@/lib/dish-name";
+import { formatFullDishName } from "@/lib/dish-name";
 import { publicDishImageUrl } from "@/lib/whatsapp-catalog";
 import {
   computeOrderBreakdownFromItemSubtotal,
@@ -119,7 +119,7 @@ async function loadOrderBill(order: NotifyOrderRow): Promise<WaOrderBill> {
       const unit = Number(row.unit_price) || 0;
       const rawName = String(row.menu_items?.name || "Item");
       return {
-        name: parseRecipeTag(rawName).cleanName || rawName,
+        name: formatFullDishName(rawName) || rawName,
         quantity: qty,
         lineTotal: unit * qty,
         imageUrl: publicDishImageUrl(

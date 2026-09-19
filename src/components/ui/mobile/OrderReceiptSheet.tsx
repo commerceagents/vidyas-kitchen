@@ -7,7 +7,7 @@ import { CookingPot, MapPin, X } from "@phosphor-icons/react";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { CenterSpinner } from "@/components/ui/mobile/EmptyState";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
-import { parseRecipeTag } from "@/lib/dish-name";
+import { formatFullDishName } from "@/lib/dish-name";
 import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
@@ -283,7 +283,7 @@ export function OrderReceiptSheet({
                     )}
                   </span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text }}>
-                    {parseRecipeTag(line.name).cleanName}
+                    {formatFullDishName(line.name)}
                     {line.quantity > 1 ? (
                       <span style={{ color: C_TEXT_MUTED, fontWeight: 700 }}> ×{line.quantity}</span>
                     ) : null}

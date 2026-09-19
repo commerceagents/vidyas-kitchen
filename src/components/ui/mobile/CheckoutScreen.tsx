@@ -31,7 +31,7 @@ import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
-import { parseRecipeTag } from "@/lib/dish-name";
+import { formatFullDishName } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { normalizeOfferCode } from "@/lib/offers";
 
@@ -909,7 +909,7 @@ export function CheckoutScreen({
                 <>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {cartEntries.map((item, idx) => {
-                      const { cleanName, tag } = parseRecipeTag(item.name);
+                      const fullDishName = formatFullDishName(item.name);
                       const line = item.price * item.quantity;
                       return (
                         <motion.div
@@ -941,7 +941,7 @@ export function CheckoutScreen({
                           >
                             <Image
                               src={item.image}
-                              alt={cleanName}
+                              alt={fullDishName}
                               fill
                               sizes="72px"
                               style={{ objectFit: "cover" }}
@@ -959,11 +959,10 @@ export function CheckoutScreen({
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {toTitleCase(cleanName)}
+                              {fullDishName}
                             </p>
                             <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 700, color: C.muted }}>
                               {item.weightLabel}
-                              {tag ? ` · ${toTitleCase(tag)}` : ""}
                             </p>
                             <p style={{ margin: "6px 0 0", fontSize: 16, fontWeight: 900, color: C.red }}>
                               ₹{line.toLocaleString("en-IN")}
