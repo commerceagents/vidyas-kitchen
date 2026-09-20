@@ -18,6 +18,8 @@ import {
   BowlFood,
   UserPlus,
   Gift,
+  House,
+  Briefcase,
   CircleNotch,
 } from "@phosphor-icons/react";
 
@@ -1492,44 +1494,81 @@ export function CheckoutScreen({
                   }}
                   className="no-scrollbar"
                 >
-                  {savedPlaces.map((place) => (
-                    <button
-                      key={place.id}
-                      type="button"
-                      onClick={() => {
-                        const loc = {
-                          label: place.address,
-                          lat: place.lat,
-                          lng: place.lng,
-                          inRange: isInsideDeliveryZone(place.lat, place.lng),
-                        };
-                        if (forSomeoneElse) {
-                          if (!loc.inRange) {
-                            setCheckoutError(`That saved place is outside ${DELIVERY_ZONE.name}.`);
+                  {savedPlaces.map((place) => {
+                    const isSelected = forSomeoneElse
+                      ? Boolean(
+                          recipientDrop &&
+                          (
+                            (typeof recipientDrop.lat === "number" && place.lat !== 0 && Math.abs(recipientDrop.lat - place.lat) < 0.0003 && Math.abs(recipientDrop.lng - place.lng) < 0.0003) ||
+                            (recipientDrop.label && place.address && (
+                              recipientDrop.label.trim().toLowerCase() === place.address.trim().toLowerCase() ||
+                              recipientDrop.label.trim().toLowerCase().startsWith(place.address.trim().toLowerCase().slice(0, 16)) ||
+                              place.address.trim().toLowerCase().startsWith(recipientDrop.label.trim().toLowerCase().slice(0, 16))
+                            )) ||
+                            (recipientDrop.label && place.label && recipientDrop.label.trim().toLowerCase() === place.label.trim().toLowerCase())
+                          )
+                        )
+                      : Boolean(
+                          (typeof deliveryLat === "number" && typeof deliveryLng === "number" && place.lat !== 0 && Math.abs(deliveryLat - place.lat) < 0.0003 && Math.abs(deliveryLng - place.lng) < 0.0003) ||
+                          (locationLabel && place.address && (
+                            locationLabel.trim().toLowerCase() === place.address.trim().toLowerCase() ||
+                            locationLabel.trim().toLowerCase().startsWith(place.address.trim().toLowerCase().slice(0, 16)) ||
+                            place.address.trim().toLowerCase().startsWith(locationLabel.trim().toLowerCase().slice(0, 16))
+                          )) ||
+                          (locationLabel && place.label && locationLabel.trim().toLowerCase() === place.label.trim().toLowerCase())
+                        );
+
+                    return (
+                      <button
+                        key={place.id}
+                        type="button"
+                        onClick={() => {
+                          const loc = {
+                            label: place.address,
+                            lat: place.lat,
+                            lng: place.lng,
+                            inRange: isInsideDeliveryZone(place.lat, place.lng),
+                          };
+                          if (forSomeoneElse) {
+                            if (!loc.inRange) {
+                              setCheckoutError(`That saved place is outside ${DELIVERY_ZONE.name}.`);
+                              return;
+                            }
+                            onSetRecipientDrop?.(loc);
+                            setCheckoutError(null);
                             return;
                           }
-                          onSetRecipientDrop?.(loc);
-                          setCheckoutError(null);
-                          return;
-                        }
-                        onSelectSavedLocation(place);
-                      }}
-                      style={{
-                        flex: "0 0 auto",
-                        padding: "8px 14px",
-                        borderRadius: 999,
-                        border: `1px solid ${C.border}`,
-                        background: C.surface,
-                        color: C.text,
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        fontFamily: C.mono,
-                      }}
-                    >
-                      {place.label}
-                    </button>
-                  ))}
+                          onSelectSavedLocation(place);
+                        }}
+                        style={{
+                          flex: "0 0 auto",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 14px",
+                          borderRadius: 999,
+                          border: `1.5px solid ${isSelected ? C.red : C.border}`,
+                          background: isSelected ? C.redFaint : C.surface,
+                          color: isSelected ? C.red : C.text,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          fontFamily: C.mono,
+                          boxShadow: isSelected ? "0 2px 8px rgba(189,35,32,0.12)" : "none",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {place.id === "home" ? (
+                          <House size={14} weight={isSelected ? "fill" : "bold"} color={isSelected ? C.red : C.muted} />
+                        ) : place.id === "work" ? (
+                          <Briefcase size={14} weight={isSelected ? "fill" : "bold"} color={isSelected ? C.red : C.muted} />
+                        ) : (
+                          <MapPin size={14} weight={isSelected ? "fill" : "bold"} color={isSelected ? C.red : C.muted} />
+                        )}
+                        <span>{place.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
