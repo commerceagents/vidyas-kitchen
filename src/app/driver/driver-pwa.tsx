@@ -108,20 +108,20 @@ export function DriverPwa() {
               left: 0,
               right: 0,
               zIndex: 10000,
-              background: "rgba(255,255,255,0.98)",
-              backdropFilter: "blur(20px) saturate(180%)",
-              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              background: "rgba(18, 18, 20, 0.96)",
+              backdropFilter: "blur(24px) saturate(180%)",
+              WebkitBackdropFilter: "blur(24px) saturate(180%)",
               borderTopLeftRadius: 22,
               borderTopRightRadius: 22,
-              borderTop: `1px solid ${D.border}`,
-              boxShadow: "0 -12px 36px rgba(0,0,0,0.14)",
+              borderTop: `1px solid ${D.borderStrong}`,
+              boxShadow: "0 -16px 40px rgba(0,0,0,0.6)",
               padding: "10px 16px calc(14px + env(safe-area-inset-bottom, 12px))",
               fontFamily: D.font,
             }}
           >
             {/* Top drag handle */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-              <span style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(0,0,0,0.14)" }} />
+              <span style={{ width: 36, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.2)" }} />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -134,7 +134,7 @@ export function DriverPwa() {
                   borderRadius: 13,
                   objectFit: "cover",
                   flexShrink: 0,
-                  border: "1px solid rgba(0,0,0,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
                 }}
               />
 
@@ -142,7 +142,7 @@ export function DriverPwa() {
                 <div style={{ fontSize: 14, fontWeight: 800, color: D.text, marginBottom: 2 }}>
                   Install VK&apos;s Driver
                 </div>
-                <div style={{ fontSize: 11.5, color: D.muted, lineHeight: 1.35, fontWeight: 500 }}>
+                <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.35, fontWeight: 500 }}>
                   {viaChrome
                     ? "Samsung's browser can't install it properly — Chrome can"
                     : "Faster order alerts, delivery navigation & live dispatch"}
@@ -154,12 +154,12 @@ export function DriverPwa() {
                 onClick={handleDismiss}
                 aria-label="Dismiss"
                 style={{
-                  background: "rgba(0,0,0,0.05)",
+                  background: "rgba(255,255,255,0.08)",
                   border: "none",
                   borderRadius: "50%",
                   width: 26,
                   height: 26,
-                  color: D.muted,
+                  color: "rgba(255,255,255,0.7)",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
