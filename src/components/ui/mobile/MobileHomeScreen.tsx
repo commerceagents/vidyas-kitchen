@@ -492,29 +492,74 @@ function ReviewListItem({ rev, compact }: { rev: ReviewRow; compact?: boolean })
   );
 }
 
-/** One-line pairing / how to serve (from name + category). */
+/** South Indian pairing quotes tailored for each dish (no emojis, authentic food combinations). */
 function pairingSuggestion(cleanName: string, category: string): string {
   const n = cleanName.toLowerCase();
   const cat = (category || "dish").toLowerCase();
-  if (/idli/i.test(n)) {
-    return "Spot-on with fresh idli, dosa, or appam — mop up every drop.";
+
+  // Specific chicken dishes
+  if (/idli.*chicken|idli.*gravy/i.test(n)) {
+    return "Drown two piping-hot, fluffy mallipoo idlis in this gravy until they surrender — pure bliss in every bite!";
   }
-  if (/gravy|curry|chalna|stew/i.test(n)) {
-    return "Best with steamed rice, ghee rice, or soft parotta to soak up the gravy.";
+  if (/mom.*recipe/i.test(n)) {
+    return "Tastes like Sunday at home — best with steaming Ponni rice, a dollop of fresh ghee, and crispy appalam.";
   }
-  if (/dry|fry|chukka|wings|pepper/i.test(n)) {
-    return "Works as a starter or alongside rice and a light rasam or dal.";
+  if (/sister.*recipe/i.test(n)) {
+    return "Made to be wiped clean with hot, flaky layered parotta or kal dosa.";
   }
-  if (/egg/i.test(n)) {
-    return "Lovely with rice, chapati, or a simple vegetable poriyal on the side.";
+  if (/sister-in-law|sil.*recipe/i.test(n)) {
+    return "The undisputed sidekick to a bowl of steaming hot rasam rice or chilled curd rice.";
   }
-  if (/mutton|mut|keema/i.test(n)) {
-    return "Pairs beautifully with rice, mild biryani, or flaky Kerala parotta.";
+  if (/black pepper.*gravy|pepper chicken gravy/i.test(n)) {
+    return "Pour generously over hot steamed rice on a rainy evening, or scoop with warm phulkas.";
   }
-  if (/chicken|wings|chk/i.test(n)) {
-    return "Great with rice, roti, or as part of a fuller thali spread.";
+  if (/chilly chicken gravy|chilli chicken gravy/i.test(n)) {
+    return "Slurps wonderfully with egg fried rice or hot parotta for that spicy midnight craving!";
   }
-  return `A hearty ${cat} — add rice or bread and you’ve got a full plate.`;
+  if (/chilly chicken.*dry|chilli chicken.*dry/i.test(n)) {
+    return "The king of starters — delicious with fried rice, or enjoyed straight from the bowl before dinner starts!";
+  }
+  if (/wings/i.test(n)) {
+    return "Crunch into them hot straight from the box, or pair alongside a comforting dal and rice spread.";
+  }
+
+  // Egg dishes
+  if (/chalna/i.test(n)) {
+    return "Crush two hot, flaky parottas and drench them in this chalna — instant street-style salna heaven!";
+  }
+  if (/egg curry/i.test(n)) {
+    return "The classic lunchbox hero — pairs like a charm with jeera rice, chapatis, or crispy ghee podi dosa.";
+  }
+
+  // Mutton dishes
+  if (/chukka/i.test(n)) {
+    return "A match made in heaven with piping-hot rasam rice, curd rice, or flaky Malabar parotta.";
+  }
+  if (/fresh cream/i.test(n)) {
+    return "Best enjoyed with aromatic ghee rice, buttery naan, or fragrant coconut milk pulao.";
+  }
+  if (/stew/i.test(n)) {
+    return "Soak up every drop with lacy hot appams, idiyappam, or warm buttered bread.";
+  }
+  if (/keema/i.test(n)) {
+    return "Scoop it up with idiyappam, flaky bun parotta, or spread over a hot dosa for an instant feast!";
+  }
+  if (/spicy mutton|mutton curry/i.test(n)) {
+    return "Sunday dreams are made of this — ladle it high over hot rice with a side of crunchy onion raita.";
+  }
+
+  // Fallbacks by category
+  if (cat === "chicken") {
+    return "Best paired with hot steaming rice and ghee, or layered parotta to soak up the flavour.";
+  }
+  if (cat === "mutton") {
+    return "Pairs wonderfully with hot steamed rice, jeera rice, or flaky parotta.";
+  }
+  if (cat === "egg") {
+    return "Enjoy with hot rice, warm chapatis, or a crispy dosa.";
+  }
+
+  return "Serve hot alongside steaming rice or layered parotta for a satisfying meal.";
 }
 
 /** Best Selling / Favorites segment control — spring slide on the pill. */
@@ -1230,14 +1275,36 @@ function DishDetailView({
           <div
             style={{
               marginTop: 14,
-              padding: "12px 14px",
-              borderRadius: 14,
-              background: "rgba(0,0,0,0.03)",
-              border: `1px solid ${C.borderFaint}`,
+              padding: "13px 15px",
+              borderRadius: 16,
+              background: "rgba(189,35,32,0.04)",
+              border: `1px solid rgba(189,35,32,0.14)`,
             }}
           >
-            <p style={{ ...sectionTitle, margin: 0, fontSize: 13, color: "rgba(0,0,0,0.42)" }}>Serve with</p>
-            <p style={{ margin: "8px 0 0", ...HT.subtitle, color: "rgba(0,0,0,0.7)", fontWeight: 600 }}>{pairing}</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 11.5,
+                fontWeight: 900,
+                color: C.red,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Best Paired With
+            </p>
+            <p
+              style={{
+                margin: "7px 0 0",
+                fontSize: 13.5,
+                lineHeight: 1.55,
+                color: C.text,
+                fontWeight: 600,
+                fontStyle: "italic",
+              }}
+            >
+              “{pairing}”
+            </p>
           </div>
         </div>
 
