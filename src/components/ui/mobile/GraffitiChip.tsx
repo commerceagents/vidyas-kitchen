@@ -84,29 +84,25 @@ export function GraffitiSpotlight({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: 0.15 }}
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 400,
+            zIndex: 9999,
             pointerEvents: "none",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(12,12,12,0.42)",
-              backdropFilter: "blur(14px) saturate(140%)",
-              WebkitBackdropFilter: "blur(14px) saturate(140%)",
-            }}
-          />
           <motion.div
             role="status"
-            initial={{ opacity: 0, y: 20, scale: 0.88 }}
+            initial={{ opacity: 0, y: 90, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.75, y: 10 }}
-            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            exit={{
+              opacity: 0,
+              y: 110,
+              scale: 0.92,
+              transition: { duration: 0.18, ease: "easeIn" },
+            }}
+            transition={{ type: "spring", stiffness: 440, damping: 26 }}
             style={{
               position: "absolute",
               bottom: 108,
@@ -114,14 +110,12 @@ export function GraffitiSpotlight({
               right: 0,
               margin: "0 auto",
               width: "fit-content",
-              maxWidth: "80vw",
-              padding: "10px 20px",
+              maxWidth: "84vw",
+              padding: "11px 22px",
               borderRadius: 24,
-              background: "rgba(255,255,255,0.96)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
+              background: "rgba(255,255,255,0.98)",
               border: `1px solid ${border}`,
-              boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
+              boxShadow: "0 12px 36px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)",
               fontSize: 13.5,
               fontWeight: 800,
               color: C.text,

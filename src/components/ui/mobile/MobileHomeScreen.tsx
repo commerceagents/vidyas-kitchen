@@ -2452,14 +2452,12 @@ export function MobileHomeScreen({
                     position: "absolute",
                     top: "100%",
                     left: sp(2), right: sp(2),
-                    marginTop: 0,
-                    background: C.surfaceDeep,
-                    backdropFilter: "blur(40px)",
-                    WebkitBackdropFilter: "blur(40px)",
+                    marginTop: 6,
+                    background: "#FFFFFF",
                     borderRadius: 20,
-                    border: `1px solid ${C.borderFaint}`,
+                    border: `1px solid ${C.border}`,
                     padding: "20px 18px",
-                    boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
+                    boxShadow: "0 12px 36px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
                     zIndex: 100,
                     textAlign: "center",
                   }}
@@ -3436,24 +3434,6 @@ export function MobileHomeScreen({
       </motion.div>
 
 
-      {/* Backdrop for location dropdown */}
-      <AnimatePresence>
-        {locationOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setLocationOpen(false)}
-            style={{
-              position: "fixed", inset: 0,
-              background: "rgba(0,0,0,0.65)",
-              backdropFilter: "blur(4px)",
-              WebkitBackdropFilter: "blur(4px)",
-              zIndex: 40,
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       <SizeQtyDrawer
         item={homeSizePickItem}
