@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
-import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, BowlFood, ForkKnife, Lightning } from "@phosphor-icons/react";
+import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, BowlFood, ForkKnife, Lightning, Briefcase, Check } from "@phosphor-icons/react";
 
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
@@ -1837,8 +1838,8 @@ export function MobileHomeScreen({
     };
   });
   const [dishDetailItem, setDishDetailItem] = useState<MenuItem | null>(null);
-  // Lets a home card add to the cart without pushing the customer into the
-  // dish page first — same drawer Browse uses, so sizes stay consistent.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [homeSizePickItem, setHomeSizePickItem] = useState<MenuItem | null>(null);
   const loading = items.length === 0;
   const [activeNav, setActiveNav] = useState(uiBootstrap.activeNav);
@@ -2215,17 +2216,6 @@ export function MobileHomeScreen({
     if (activeNav === "orders" || activeNav === "account") setLocationOpen(false);
   }, [activeNav]);
 
-  // Close location panel on outside click
-  useEffect(() => {
-    if (!locationOpen) return;
-    const fn = (e: PointerEvent) => {
-      if (locationRef.current && !locationRef.current.contains(e.target as Node))
-        setLocationOpen(false);
-    };
-    window.addEventListener("pointerdown", fn, true);
-    return () => window.removeEventListener("pointerdown", fn, true);
-  }, [locationOpen]);
-
   useEffect(() => {
     if (!resumeDishDetail?.id || !items.length) return;
     const it = items.find((i) => i.id === resumeDishDetail.id);
@@ -2440,139 +2430,7 @@ export function MobileHomeScreen({
               </motion.svg>
             </motion.button>
 
-            {/* Location dropdown — now absolute to avoid content push */}
-            <AnimatePresence>
-              {locationOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: sp(2), right: sp(2),
-                    marginTop: 6,
-                    background: "#FFFFFF",
-                    borderRadius: 20,
-                    border: `1px solid ${C.border}`,
-                    padding: "20px 18px",
-                    boxShadow: "0 12px 36px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
-                    zIndex: 100,
-                    textAlign: "center",
-                  }}
-                >
-                  <p style={DELIVERING_TO_STYLE}>
-                    Delivering to
-                  </p>
-                  {displaySubtitle && (
-                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-                      <span style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        background: "rgba(189,35,32,0.1)",
-                        color: C.red,
-                        borderRadius: 999,
-                        padding: "3px 10px",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        letterSpacing: "0.02em",
-                      }}>
-                        {displaySubtitle === "Home" ? "🏠" : displaySubtitle === "Work" ? "💼" : "📍"} {displaySubtitle}
-                      </span>
-                    </div>
-                  )}
-                  <p style={{ ...HT.tileTitle, margin: "8px 0 0", fontSize: 15, lineHeight: 1.4 }}>
-                    {label}
-                  </p>
-                  <div style={{
-                    marginTop: sp(2), display: "flex", alignItems: "center", gap: 8,
-                    background: C.glass, border: `1px solid ${C.borderFaint}`,
-                    borderRadius: 12, padding: "10px 12px",
-                  }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      background: inRange ? "#4ade80" : "#f59e0b",
-                      boxShadow: inRange ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(245,158,11,0.4)",
-                    }} />
-                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", fontWeight: 600 }}>
-                      {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
-                    </span>
-                  </div>
 
-                  {savedPlaces.some(isPlaceSet) && (
-                    <div style={{ marginTop: 14, textAlign: "left" }}>
-                      <p style={{ margin: "0 0 8px", fontSize: 11.5, fontWeight: 800, color: "rgba(0,0,0,0.45)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                        Saved Addresses
-                      </p>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {savedPlaces.filter(isPlaceSet).map((place) => {
-                          const isCurrent = displayLabel === place.address;
-                          return (
-                            <motion.button
-                              key={place.id}
-                              type="button"
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => {
-                                onSelectSavedPlace?.(place);
-                                setLocationOpen(false);
-                              }}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                                padding: "7px 12px",
-                                borderRadius: 12,
-                                border: `1px solid ${isCurrent ? C.red : C.borderFaint}`,
-                                background: isCurrent ? "rgba(189,35,32,0.08)" : C.white,
-                                color: isCurrent ? C.red : C.text,
-                                fontSize: 12.5,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              <span>{place.id === "home" ? "🏠" : place.id === "work" ? "💼" : "📍"}</span>
-                              <span>{place.label}</span>
-                              {isCurrent && <span style={{ fontSize: 11, color: C.red, fontWeight: 900 }}>✓</span>}
-                            </motion.button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {onChangeLocation && (
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => { setLocationOpen(false); onChangeLocation(); }}
-                      style={{
-                        marginTop: sp(2), width: "100%",
-                        background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
-                        border: "none", borderRadius: 16, padding: "16px",
-                        color: "#fff", fontSize: 14, fontWeight: 800,
-                        letterSpacing: "0.02em",
-                        cursor: "pointer",
-                        boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
-                        fontFamily: C.mono, position: "relative" as const, overflow: "hidden",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
-                      <motion.div
-                        initial={{ x: "-100%" }}
-                        animate={{ x: "100%" }}
-                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
-                        style={{
-                          position: "absolute", inset: 0,
-                          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
-                        }}
-                      />
-                      Change Address on Map
-                    </motion.button>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </>
         )}
       </div>
@@ -3434,6 +3292,241 @@ export function MobileHomeScreen({
       </motion.div>
 
 
+
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {locationOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setLocationOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 10000,
+                  background: "rgba(0, 0, 0, 0.42)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  padding: "max(18px, env(safe-area-inset-top, 0px)) 16px 16px",
+                  paddingTop: "clamp(64px, 9vh, 86px)",
+                }}
+              >
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Delivery location"
+                  initial={{ opacity: 0, scale: 0.95, y: -12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -12 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "100%",
+                    maxWidth: 420,
+                    background: "#FFFFFF",
+                    borderRadius: 22,
+                    border: `1px solid ${C.border}`,
+                    padding: "20px 18px",
+                    boxShadow: "0 20px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.06)",
+                    textAlign: "center",
+                    position: "relative",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                    <p style={{ ...DELIVERING_TO_STYLE, margin: 0, fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.45)" }}>
+                      Delivering to
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setLocationOpen(false)}
+                      aria-label="Close"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: "rgba(0,0,0,0.05)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <X size={15} weight="bold" color="rgba(0,0,0,0.5)" />
+                    </button>
+                  </div>
+
+                  {displaySubtitle && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "rgba(189,35,32,0.1)",
+                          color: C.red,
+                          borderRadius: 999,
+                          padding: "4px 12px",
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {displaySubtitle === "Home" ? (
+                          <House size={13} weight="bold" />
+                        ) : displaySubtitle === "Work" ? (
+                          <Briefcase size={13} weight="bold" />
+                        ) : (
+                          <MapPin size={13} weight="bold" />
+                        )}
+                        {displaySubtitle}
+                      </span>
+                    </div>
+                  )}
+
+                  <p style={{ ...HT.tileTitle, margin: "8px 0 0", fontSize: 15.5, lineHeight: 1.45, fontWeight: 800 }}>
+                    {label}
+                  </p>
+
+                  <div
+                    style={{
+                      marginTop: 14,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "rgba(0,0,0,0.03)",
+                      border: `1px solid ${C.borderFaint}`,
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        background: inRange ? "#4ade80" : "#f59e0b",
+                        boxShadow: inRange ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(245,158,11,0.4)",
+                      }}
+                    />
+                    <span style={{ fontSize: 12.5, color: "rgba(0,0,0,0.5)", fontWeight: 600 }}>
+                      {inRange ? "Inside delivery zone" : "Outside usual zone — confirm on order"}
+                    </span>
+                  </div>
+
+                  {savedPlaces.some(isPlaceSet) && (
+                    <div style={{ marginTop: 16, textAlign: "left" }}>
+                      <p
+                        style={{
+                          margin: "0 0 8px",
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          color: "rgba(0,0,0,0.45)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Saved Addresses
+                      </p>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {savedPlaces.filter(isPlaceSet).map((place) => {
+                          const isCurrent = displayLabel === place.address;
+                          return (
+                            <motion.button
+                              key={place.id}
+                              type="button"
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => {
+                                onSelectSavedPlace?.(place);
+                                setLocationOpen(false);
+                              }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "8px 13px",
+                                borderRadius: 12,
+                                border: `1px solid ${isCurrent ? C.red : C.border}`,
+                                background: isCurrent ? "rgba(189,35,32,0.08)" : "#FFFFFF",
+                                color: isCurrent ? C.red : C.text,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                boxShadow: isCurrent ? "0 2px 8px rgba(189,35,32,0.12)" : "0 1px 3px rgba(0,0,0,0.04)",
+                              }}
+                            >
+                              <span style={{ display: "flex", alignItems: "center", color: isCurrent ? C.red : "rgba(0,0,0,0.5)" }}>
+                                {place.id === "home" ? (
+                                  <House size={14} weight="bold" />
+                                ) : place.id === "work" ? (
+                                  <Briefcase size={14} weight="bold" />
+                                ) : (
+                                  <MapPin size={14} weight="bold" />
+                                )}
+                              </span>
+                              <span>{place.label}</span>
+                              {isCurrent && <Check size={13} weight="bold" color={C.red} />}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {onChangeLocation && (
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => {
+                        setLocationOpen(false);
+                        onChangeLocation();
+                      }}
+                      style={{
+                        marginTop: 16,
+                        width: "100%",
+                        background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+                        border: "none",
+                        borderRadius: 16,
+                        padding: "16px",
+                        color: "#fff",
+                        fontSize: 14.5,
+                        fontWeight: 800,
+                        letterSpacing: "0.02em",
+                        cursor: "pointer",
+                        boxShadow: `0 4px 20px ${C.redGlow}, 0 1px 0 rgba(255,255,255,0.1) inset`,
+                        fontFamily: C.mono,
+                        position: "relative" as const,
+                        overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <motion.div
+                        initial={{ x: "-100%" }}
+                        animate={{ x: "100%" }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 2 }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+                        }}
+                      />
+                      Change Address on Map
+                    </motion.button>
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
 
       <SizeQtyDrawer
         item={homeSizePickItem}
