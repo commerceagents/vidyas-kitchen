@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, u
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
-import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, BowlFood, ForkKnife, Lightning, Briefcase, Check } from "@phosphor-icons/react";
+import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Lightning, Briefcase, Check } from "@phosphor-icons/react";
 
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
@@ -868,10 +868,6 @@ function DishDetailView({
   onOpenRelated: (next: MenuItem) => void;
 }) {
   const activeFestival = useActiveFestival();
-  const defaultWeight = item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight
-    ?? item.variants?.[0]?.weight
-    ?? null;
-  const [selectedWeight, setSelectedWeight] = useState<string | null>(defaultWeight);
   const [sizeDrawerOpen, setSizeDrawerOpen] = useState(false);
   /** Sample reviews are hidden by default — flip to `true` locally to preview the UI before real ratings exist. */
   const [previewSampleReviews, setPreviewSampleReviews] = useState(false);
@@ -940,13 +936,7 @@ function DishDetailView({
     };
   }, [item.id]);
 
-  // Prefer 500gm when opening / switching dish
   useEffect(() => {
-    const w =
-      item.variants?.find((v) => /500/i.test(v.weight || v.label || ""))?.weight ??
-      item.variants?.[0]?.weight ??
-      null;
-    setSelectedWeight(w);
     setSizeDrawerOpen(false);
     setPreviewSampleReviews(false);
     setReviewsSheetOpen(false);
@@ -960,6 +950,7 @@ function DishDetailView({
   const fullDishName = formatFullDishName(item.name);
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
+  const minPrice = Math.min(...(item.variants?.map((v) => v.price) || [0]));
 
   useEffect(() => {
     setHeroLoaded(false);
@@ -1211,6 +1202,12 @@ function DishDetailView({
               />
             </motion.button>
           </div>
+          <div style={{ marginTop: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.45)" }}>Starting from</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
+              ₹{minPrice.toLocaleString("en-IN")}
+            </span>
+          </div>
         </div>
 
         <div
@@ -1269,94 +1266,6 @@ function DishDetailView({
           </div>
         </div>
 
-        {/* Choose Size — icons + servings */}
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={sectionTitle}>Choose Size</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {item.variants?.map((v) => {
-              const active = selectedWeight === v.weight;
-              const sizeQty = cart[cartLineKey(item.id, v.weight)] || 0;
-              const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
-              const meta = sizeServingMeta(v.weight || v.label);
-              const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
-              return (
-                <motion.button
-                  key={v.weight}
-                  type="button"
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setSelectedWeight(v.weight);
-                    if (isOrderingWindowOpen()) setSizeDrawerOpen(true);
-                  }}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    padding: "14px 14px",
-                    borderRadius: 20,
-                    background: active ? "rgba(189,35,32,0.08)" : C.surface,
-                    border: `1.5px solid ${active ? C.red : C.border}`,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 16,
-                      background: active ? "rgba(189,35,32,0.14)" : "rgba(0,0,0,0.04)",
-                      border: `1px solid ${active ? "rgba(189,35,32,0.28)" : "rgba(0,0,0,0.06)"}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Icon size={24} weight={active ? "fill" : "duotone"} color={active ? C.red : "rgba(0,0,0,0.45)"} />
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 16, fontWeight: 900, color: C.text }}>
-                      {v.label}
-                    </span>
-                    <span style={{ display: "block", marginTop: 3, fontSize: 14, fontWeight: 700, color: C.red }}>
-                      {meta.servings}
-                    </span>
-                    <span style={{ display: "block", marginTop: 3, fontSize: 13, fontWeight: 600, color: "rgba(0,0,0,0.45)", lineHeight: 1.35 }}>
-                      {meta.hint}
-                    </span>
-                  </span>
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                    {listPrice != null && listPrice > v.price && (
-                      <span
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "rgba(0,0,0,0.5)",
-                          textDecoration: "line-through",
-                          letterSpacing: "-0.01em",
-                        }}
-                      >
-                        ₹{listPrice.toLocaleString("en-IN")}
-                      </span>
-                    )}
-                    <span style={{ fontSize: 24, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
-                      ₹{v.price.toLocaleString("en-IN")}
-                    </span>
-                    {sizeQty > 0 && (
-                      <span style={{ marginTop: 4, fontSize: 11, fontWeight: 800, color: C.red }}>
-                        {sizeQty} in cart
-                      </span>
-                    )}
-                  </span>
-                </motion.button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Reviews — show 2 on page; rest in “See all” sheet (no endless swipe) */}
         {(() => {
@@ -1679,7 +1588,7 @@ function DishDetailView({
                 boxShadow: dishQty > 0 ? "none" : `0 8px 24px ${C.redGlow}`,
               }}
             >
-              {dishQty > 0 ? `Edit · ${dishQty}` : "Add item"}
+              {dishQty > 0 ? "Edit Item" : "Add item"}
             </motion.button>
             {dishQty > 0 && (
               <motion.button
