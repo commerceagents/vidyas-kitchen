@@ -946,7 +946,7 @@ function DishDetailView({
 
   const imgSrc = getItemImage(item.name, item.image || item.image_url);
   const [heroLoaded, setHeroLoaded] = useState(false);
-  const { cleanName, tag } = parseRecipeTag(item.name);
+  const { cleanName } = parseRecipeTag(item.name);
   const fullDishName = formatFullDishName(item.name);
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
@@ -1089,32 +1089,7 @@ function DishDetailView({
               {detailDiscountChip.text}
             </div>
           )}
-          {tag && (
-            <div
-              style={{
-                position: "absolute",
-                top: 12,
-                ...(detailDiscountChip.text ? { right: 12, left: "auto" as const } : { left: 12 }),
-                background: "rgba(12,12,12,0.55)",
-                backdropFilter: "blur(10px)",
-                borderRadius: 10,
-                padding: "6px 12px",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 900,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.92)",
-                }}
-              >
-                {tag}
-              </span>
-            </div>
-          )}
+
         </div>
 
         <div style={{ marginBottom: 14 }}>
