@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -140,7 +141,12 @@ export function DashboardConfirmDialog({
                   outline: "none",
                 }}
               >
-                {busy ? "…" : confirmLabel}
+                {busy ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Working…</span>
+                  </span>
+                ) : confirmLabel}
               </button>
             </div>
           </motion.div>

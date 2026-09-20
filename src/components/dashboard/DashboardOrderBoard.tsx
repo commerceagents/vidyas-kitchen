@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
-import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy } from "lucide-react";
+import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy, Loader2, CookingPot } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import { listActiveDrivers } from "@/app/actions/drivers";
 import { normalizeOrderStatus, OrderStatus, codFailureLabel } from "@/lib/order-status";
@@ -468,18 +468,28 @@ function OrderBottomSheet({
           <div style={{ flexShrink: 0, padding: "12px 20px 0", borderTop: "1px solid #2a2a2a", display: "flex", gap: "10px" }}>
             {isPaid && (
               <>
-                <button type="button" disabled={busy} onClick={onReject} className="vk-order-btn vk-order-btn-reject" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "1.5px solid rgba(239,68,68,0.3)", background: "transparent", color: "#EF4444", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT }}>{busy ? "..." : "Reject"}</button>
-                <button type="button" disabled={busy} onClick={onAccept} className="vk-order-btn vk-order-btn-accept" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>{busy ? "Accepting..." : "Accept"}</button>
+                <button type="button" disabled={busy} onClick={onReject} className="vk-order-btn vk-order-btn-reject" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "1.5px solid rgba(239,68,68,0.3)", background: "transparent", color: "#EF4444", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT }}>
+                  {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Rejecting…</span></span> : "Reject"}
+                </button>
+                <button type="button" disabled={busy} onClick={onAccept} className="vk-order-btn vk-order-btn-accept" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
+                  {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Accepting…</span></span> : "Accept"}
+                </button>
               </>
             )}
             {isPreparing && (
-              <button type="button" disabled={busy} onClick={onFoodReady} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>{busy ? "Working..." : "Food Ready"}</button>
+              <button type="button" disabled={busy} onClick={onFoodReady} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
+                {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Updating…</span></span> : "Food Ready"}
+              </button>
             )}
             {isAwaiting && (
-              <button type="button" disabled={busy} onClick={onCollected} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>{busy ? "Working..." : "Dispatch"}</button>
+              <button type="button" disabled={busy} onClick={onCollected} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
+                {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Dispatching…</span></span> : "Dispatch"}
+              </button>
             )}
             {isDispatched && (
-              <button type="button" disabled={busy} onClick={onDelivered} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>{busy ? "Working..." : "Mark Delivered"}</button>
+              <button type="button" disabled={busy} onClick={onDelivered} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
+                {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Updating…</span></span> : "Mark Delivered"}
+              </button>
             )}
           </div>
         )}
@@ -1392,7 +1402,12 @@ function OrderCard({
               boxSizing: "border-box",
             }}
           >
-            {busy ? "…" : "Reject"}
+            {busy ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Rejecting…</span>
+              </span>
+            ) : "Reject"}
           </button>
           <button
             type="button"
@@ -1414,18 +1429,47 @@ function OrderCard({
               boxSizing: "border-box",
             }}
           >
-            {busy ? "…" : "Accept"}
+            {busy ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Accepting…</span>
+              </span>
+            ) : "Accept"}
           </button>
         </div>
       );
     }
 
     const singleAction = isPreparing
-      ? { label: busy ? "…" : "Food Ready", onClick: onFoodReady }
+      ? {
+          label: busy ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Loader2 size={14} className="animate-spin" />
+              <span>Updating…</span>
+            </span>
+          ) : "Food Ready",
+          onClick: onFoodReady,
+        }
       : isAwaiting
-        ? { label: busy ? "…" : "Dispatch", onClick: onCollected }
+        ? {
+            label: busy ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Dispatching…</span>
+              </span>
+            ) : "Dispatch",
+            onClick: onCollected,
+          }
         : isDispatched
-          ? { label: busy ? "…" : "Delivered", onClick: onDelivered }
+          ? {
+              label: busy ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Updating…</span>
+                </span>
+              ) : "Delivered",
+              onClick: onDelivered,
+            }
           : null;
 
     if (!singleAction) return null;
@@ -1677,7 +1721,7 @@ function CodBlockRow({ order }: { order: DashboardOrder }) {
           opacity: busy ? 0.6 : 1,
         }}
       >
-        {busy ? "…" : "Allow again"}
+        {busy ? <Loader2 size={14} className="animate-spin" /> : "Allow again"}
       </button>
     </div>
   );
@@ -1767,13 +1811,18 @@ function squircleRadius(size: number) {
 function DishThumb({ src, size = 42, squircle = true }: { src?: string | null; size?: number; squircle?: boolean }) {
   const [broken, setBroken] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setBroken(false);
-    setImgLoaded(false);
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+      setImgLoaded(true);
+    } else {
+      setImgLoaded(false);
+    }
   }, [src]);
 
-  const show = src && !broken;
+  const show = Boolean(src) && !broken;
   const radius = squircle ? squircleRadius(size) : "10px";
 
   return (
@@ -1783,17 +1832,23 @@ function DishThumb({ src, size = 42, squircle = true }: { src?: string | null; s
       borderRadius: radius,
       overflow: "hidden",
       flexShrink: 0,
-      background: "#222",
-      border: "1px solid #2a2a2a",
+      background: "#242424",
+      border: "1px solid #2e2e2e",
       position: "relative",
     }}>
-      {show && !imgLoaded && (
-        <div className="vk-dash-skeleton" style={{ position: "absolute", inset: 0, borderRadius: radius }} />
+      {/* Warm food icon fallback when loading or broken */}
+      {!imgLoaded && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#222" }}>
+          <CookingPot size={Math.round(size * 0.44)} style={{ color: "#555" }} />
+        </div>
       )}
       {show ? (
         <img
-          src={src}
+          ref={imgRef}
+          src={src!}
           alt=""
+          loading="eager"
+          decoding="async"
           onLoad={() => setImgLoaded(true)}
           onError={() => setBroken(true)}
           style={{
@@ -1801,8 +1856,10 @@ function DishThumb({ src, size = 42, squircle = true }: { src?: string | null; s
             height: "100%",
             objectFit: "cover",
             display: "block",
+            position: "relative",
+            zIndex: 1,
             opacity: imgLoaded ? 1 : 0,
-            transition: "opacity 0.2s ease",
+            transition: "opacity 0.15s ease",
           }}
         />
       ) : (

@@ -1713,6 +1713,7 @@ type TrackSnapshot = {
     computedTotal: number;
     adjustment: number;
   } | null;
+  updatedAt?: string | null;
 };
 
 /** Normalises a raw status payload into the snapshot the panel renders. */
@@ -1746,6 +1747,7 @@ function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
       raw.breakdown && typeof raw.breakdown === "object"
         ? (raw.breakdown as TrackSnapshot["breakdown"])
         : undefined,
+    updatedAt: str(raw.updatedAt),
   };
 }
 
@@ -2839,24 +2841,6 @@ export function MobileHomeScreen({
             />
         )}
       </div>
-
-      {(activeNav === "orders" || activeNav === "account") && !dishDetailItem ? (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "clamp(108px, 24dvh, 188px)",
-            pointerEvents: "none",
-            zIndex: 42,
-            opacity: showChrome ? 1 : 0,
-            transition: "opacity 0.35s ease",
-            background: `linear-gradient(to top, ${C.bg} 0%, ${C.bg} 18%, rgba(245,245,247,0.92) 38%, rgba(245,245,247,0.55) 62%, rgba(245,245,247,0.12) 82%, transparent 100%)`,
-          }}
-        />
-      ) : null}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3043,14 +3027,14 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette (home tabs only — not browse menu / dish detail) ─ */}
-      {!dishDetailItem && activeScreen !== "menu" && (
+      {/* ── Bottom Vignette (home tab only — never on orders or account) ─ */}
+      {!dishDetailItem && activeScreen !== "menu" && activeNav === "home" && (
         <div
           style={{
             position: "fixed",
             bottom: 0, left: 0, right: 0,
-            height: 220,
-            background: `linear-gradient(to top, ${C.bg} 40%, transparent 100%)`,
+            height: 90,
+            background: `linear-gradient(to top, ${C.bg} 30%, transparent 100%)`,
             pointerEvents: "none",
             zIndex: 115,
             opacity: !windowOpen || showChrome ? 1 : 0,

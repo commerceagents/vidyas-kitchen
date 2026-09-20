@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package } from "@phosphor-icons/react";
+import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood } from "@phosphor-icons/react";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
@@ -79,6 +79,7 @@ export type OrderTrackSnap = {
     computedTotal: number;
     adjustment: number;
   } | null;
+  updatedAt?: string | null;
 };
 
 type Loc = { label: string; lat: number; lng: number } | null;
@@ -166,8 +167,8 @@ function tryNotifyOrderCancelled(orderRef: string) {
   }
 }
 
-/** Four stages the customer actually cares about. */
-const TRACK_STAGES = ["Order", "Preparing", "On the way", "Delivered"] as const;
+/** Five stages the customer cares about. */
+const TRACK_STAGES = ["Order", "Preparing", "Food Ready", "On the way", "Delivered"] as const;
 
 /** Index into TRACK_STAGES; -1 when the order is cancelled or not yet placed. */
 function trackStage(status: string): number {
@@ -176,12 +177,13 @@ function trackStage(status: string): number {
     case "confirmed":
       return 0;
     case "preparing":
-    case "ready":
       return 1;
-    case "out_for_delivery":
+    case "ready":
       return 2;
-    case "delivered":
+    case "out_for_delivery":
       return 3;
+    case "delivered":
+      return 4;
     default:
       return -1;
   }
@@ -199,6 +201,19 @@ function isFreshDriverFix(at: string | null | undefined): boolean {
   return Number.isFinite(t) && Date.now() - t < DRIVER_FIX_MAX_AGE_MS;
 }
 
+/** Formats the pickup timestamp for "Driver picked up at 3:15 PM" */
+function formatPickupTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString("en-IN", {
+    timeZone: DELIVERY_SLOT_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 /** Headline + supporting line for the hero card. */
 function heroCopy(status: string): { headline: string; sub: string } {
   switch (normalizeTrackStatus(status)) {
@@ -211,7 +226,7 @@ function heroCopy(status: string): { headline: string; sub: string } {
     case "preparing":
       return { headline: "Preparing your food", sub: "Cooked fresh, right now" };
     case "ready":
-      return { headline: "Packed and ready", sub: "Waiting for your driver to collect it" };
+      return { headline: "Food Ready", sub: "Freshly cooked & waiting for driver pickup" };
     case "out_for_delivery":
       return { headline: "On the way", sub: "Your driver is heading to you" };
     case "delivered":
@@ -246,8 +261,6 @@ function etaParts(slotIso: string | null | undefined): { date: string; time: str
     }),
   };
 }
-
-const PANEL_DARK = "#151515";
 
 /**
  * Status mascot in the dark card. The icon matches the stage and keeps moving
@@ -313,6 +326,19 @@ function StatusMascot({ stage }: { stage: number }) {
     return (
       <span style={wrap} aria-hidden>
         <motion.span
+          animate={{ scale: [1, 1.15, 1] }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          style={{ display: "flex" }}
+        >
+          <BowlFood size={24} weight="fill" color={C.red} />
+        </motion.span>
+      </span>
+    );
+  }
+  if (stage === 3) {
+    return (
+      <span style={wrap} aria-hidden>
+        <motion.span
           animate={{ x: [-7, 7, -7], y: [1, -2, 1], rotate: [-8, 6, -8] }}
           transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut" }}
           style={{ display: "flex" }}
@@ -335,7 +361,7 @@ function StatusMascot({ stage }: { stage: number }) {
   );
 }
 
-const STAGE_BURST_LABEL = ["", "Preparing", "On the way", "Delivered"] as const;
+const STAGE_BURST_LABEL = ["", "Preparing", "Food Ready", "On the way", "Delivered"] as const;
 
 /** Graffiti chip on the time card — once, when the kitchen moves the stage on. */
 function StageChangeBurst({ orderId, stage }: { orderId: string; stage: number }) {
@@ -418,7 +444,7 @@ function WarmWash() {
   );
 }
 
-/** Horizontal 4-dot progress rail on the dark status panel. */
+/** Horizontal 5-dot progress rail on the status panel. */
 function StageRail({ stage }: { stage: number }) {
   const filled = Math.max(0, stage);
   const pct = TRACK_STAGES.length > 1 ? (filled / (TRACK_STAGES.length - 1)) * 100 : 0;
@@ -426,7 +452,7 @@ function StageRail({ stage }: { stage: number }) {
   return (
     <div style={{ marginTop: 22 }}>
       <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
-        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.14)", zIndex: 0 }} />
+        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(0,0,0,0.07)", zIndex: 0 }} />
         <motion.div
           initial={false}
           animate={{ width: `calc(${pct}% - ${(pct / 100) * 18}px)` }}
@@ -444,9 +470,8 @@ function StageRail({ stage }: { stage: number }) {
                   width: 18,
                   height: 18,
                   borderRadius: "50%",
-                  // Opaque fill — the rail sits behind and must not show through.
-                  background: done ? C.red : "#3d3d3d",
-                  border: `2px solid ${done ? C.red : "#3d3d3d"}`,
+                  background: done ? C.red : "#E5E7EB",
+                  border: `2px solid ${done ? C.red : "#D1D5DB"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -460,7 +485,7 @@ function StageRail({ stage }: { stage: number }) {
                       height: 7,
                       borderRadius: "50%",
                       background: "#fff",
-                      opacity: current ? 1 : 0.75,
+                      opacity: current ? 1 : 0.85,
                     }}
                   />
                 )}
@@ -476,11 +501,12 @@ function StageRail({ stage }: { stage: number }) {
             key={label}
             style={{
               flex: 1,
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: 700,
               fontFamily: fontUi,
+              letterSpacing: "-0.01em",
               textAlign: i === 0 ? "left" : i === TRACK_STAGES.length - 1 ? "right" : "center",
-              color: i === stage ? C.red : "rgba(255,255,255,0.42)",
+              color: i === stage ? C.red : i < stage ? C.text : "rgba(0,0,0,0.38)",
             }}
           >
             {label}
@@ -832,6 +858,27 @@ export function OrderTrackingPanel({
                         <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 700, color: C_TEXT_MUTED, fontFamily: fontUi }}>
                           {delivered ? "Delivered" : "Estimated arrival"}
                         </p>
+                        {stage >= 3 && trackSnap?.updatedAt && (
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              marginTop: 10,
+                              padding: "5px 12px",
+                              borderRadius: 999,
+                              background: "rgba(18,131,63,0.08)",
+                              border: "1px solid rgba(18,131,63,0.22)",
+                              color: ARRIVED_GREEN,
+                              fontSize: 12,
+                              fontWeight: 800,
+                              fontFamily: fontUi,
+                            }}
+                          >
+                            <Motorcycle size={15} weight="fill" color={ARRIVED_GREEN} />
+                            <span>Driver picked up at {formatPickupTime(trackSnap.updatedAt)}</span>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.5 }}>
@@ -887,22 +934,24 @@ export function OrderTrackingPanel({
                 </div>
               ) : null}
 
-              {/* Delivery status — dark panel */}
+              {/* Delivery status — clean warm card matching app design */}
               {!cancelled && (
                 <div
                   style={{
-                    background: PANEL_DARK,
+                    background: "#ffffff",
                     borderRadius: 22,
                     padding: "18px 18px 16px",
                     marginBottom: 14,
+                    border: "1px solid rgba(0,0,0,0.06)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: "#fff", fontFamily: fontUi, letterSpacing: "-0.01em" }}>
+                      <p style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.01em" }}>
                         Delivery status
                       </p>
-                      <p style={{ margin: "4px 0 0", fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.45)", fontFamily: fontUi, lineHeight: 1.45 }}>
+                      <p style={{ margin: "4px 0 0", fontSize: 12.5, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.45 }}>
                         {hero.sub}
                       </p>
                     </div>
@@ -915,10 +964,11 @@ export function OrderTrackingPanel({
                         marginTop: 18,
                         padding: "14px 16px",
                         borderRadius: 14,
-                        background: "rgba(189,35,32,0.16)",
+                        background: "rgba(189,35,32,0.10)",
+                        border: "1px solid rgba(189,35,32,0.22)",
                         fontSize: 13.5,
                         fontWeight: 700,
-                        color: "rgba(255,255,255,0.9)",
+                        color: C.red,
                         fontFamily: fontUi,
                         lineHeight: 1.5,
                       }}
@@ -937,14 +987,15 @@ export function OrderTrackingPanel({
                         marginTop: 18,
                         padding: "12px 14px",
                         borderRadius: 14,
-                        background: "rgba(255,255,255,0.06)",
+                        background: "rgba(245,166,35,0.08)",
+                        border: "1px solid rgba(245,166,35,0.25)",
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
                       }}
                     >
-                      <Money size={20} weight="regular" color="rgba(255,255,255,0.7)" />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: fontUi, lineHeight: 1.45 }}>
+                      <Money size={20} weight="regular" color="#B45309" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#78350F", fontFamily: fontUi, lineHeight: 1.45 }}>
                         {delivered
                           ? `₹${total.toLocaleString("en-IN")} cash is still outstanding`
                           : `Keep ₹${total.toLocaleString("en-IN")} in cash ready for the driver`}
@@ -957,20 +1008,25 @@ export function OrderTrackingPanel({
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      display: "block",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
                       marginTop: 18,
                       padding: "13px 16px",
                       borderRadius: 14,
-                      border: "1px solid rgba(255,255,255,0.18)",
+                      border: "1.5px solid rgba(0,0,0,0.08)",
+                      background: "#F8F8FA",
                       textAlign: "center",
                       textDecoration: "none",
                       fontSize: 14,
                       fontWeight: 800,
                       fontFamily: fontUi,
-                      color: "#fff",
+                      color: C.text,
                     }}
                   >
-                    Need help? Chat with us
+                    <WhatsAppBrandIcon size={18} />
+                    <span>Need help? Chat with us</span>
                   </a>
                 </div>
               )}
