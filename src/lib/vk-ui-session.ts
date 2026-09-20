@@ -11,6 +11,14 @@ export type VkUiSession = {
   activeScreen?: "home" | "menu";
   dishDetailId?: string | null;
   homeDishFeedTab?: "bestSelling" | "favorites";
+  /** Persisted promo/offer applied at checkout — survives LocationScreen navigation */
+  checkoutAppliedOffer?: {
+    offerId: string;
+    code: string | null;
+    label: string;
+    amount: number;
+  } | null;
+  checkoutActiveCode?: string | null;
 };
 
 export function readUiSession(): VkUiSession | null {

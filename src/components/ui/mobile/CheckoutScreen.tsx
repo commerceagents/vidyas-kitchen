@@ -390,14 +390,30 @@ export function CheckoutScreen({
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [dayTip, setDayTip] = useState<string | null>(null);
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedOffer, setAppliedOffer] = useState<AppliedOfferView | null>(null);
+  const [promoInput, setPromoInput] = useState(() => {
+    const s = readUiSession();
+    return s?.checkoutActiveCode ?? "";
+  });
+  const [appliedOffer, setAppliedOffer] = useState<AppliedOfferView | null>(() => {
+    const s = readUiSession();
+    return s?.checkoutAppliedOffer ?? null;
+  });
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
-  const [activeCode, setActiveCode] = useState<string | null>(null);
+  const [activeCode, setActiveCode] = useState<string | null>(() => {
+    const s = readUiSession();
+    return s?.checkoutActiveCode ?? null;
+  });
   // Mirrors activeCode. Kept in a ref so re-checking on cart change doesn't
   // list the code as an effect dependency and re-trigger itself.
-  const appliedCodeRef = useRef<string | null>(null);
+  const appliedCodeRef = useRef<string | null>(
+    typeof window !== "undefined" ? (readUiSession()?.checkoutActiveCode ?? null) : null,
+  );
+
+  // Persist promo state so it survives LocationScreen navigation
+  useEffect(() => {
+    writeUiSession({ checkoutAppliedOffer: appliedOffer ?? null, checkoutActiveCode: activeCode });
+  }, [appliedOffer, activeCode]);
   const dayTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -543,6 +559,8 @@ export function CheckoutScreen({
     setActiveCode(null);
     setPromoInput("");
     setPromoError(null);
+    // Also clear persisted promo from session
+    writeUiSession({ checkoutAppliedOffer: null, checkoutActiveCode: null });
     await checkOffer(null);
   }, [checkOffer]);
 
@@ -662,7 +680,7 @@ export function CheckoutScreen({
         orderId?: string;
       };
       if (!res.ok) throw new Error(data.error || `Checkout failed (${res.status})`);
-      writeUiSession({ checkoutPhase: "cart" });
+      writeUiSession({ checkoutPhase: "cart", checkoutAppliedOffer: null, checkoutActiveCode: null });
       if (paymentMethod === "cod") {
         // No online payment to redirect to — the order is already placed, cash is
         // collected at delivery. Reuse the same success route as the paid flow so

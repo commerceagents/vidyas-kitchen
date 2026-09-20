@@ -19,6 +19,7 @@ import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { DiscountPctPicker } from "@/components/dashboard/DiscountPctPicker";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
+import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -210,7 +211,7 @@ export default function PricingAgentPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
           {/* Mobile: agent chip + toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>AI Pricing</h2>
@@ -219,6 +220,7 @@ export default function PricingAgentPage() {
           <PricingMetricTabs cards={metricCards} />
           {content}
         </div>
+        <DashboardMobileSubNav />
       </div>
 
       {/* ── Desktop Layout ── */}

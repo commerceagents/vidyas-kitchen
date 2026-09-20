@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Clock, ChefHat, CheckCircle2, Truck, CheckSquare } from "lucide-react";
 import type { DashboardTab } from "@/lib/dashboard/orders";
+import { DashboardPwa } from "./DashboardPwa";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -42,6 +43,7 @@ export function DashboardMobileNav({ activeTab, onTabChange, counts }: Props) {
   return (
     <>
       <div className="vk-dash-bottom-vignette" aria-hidden />
+      <DashboardPwa />
       <nav
       className="vk-dash-bottom-nav"
       style={{

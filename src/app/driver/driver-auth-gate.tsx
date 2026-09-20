@@ -167,7 +167,7 @@ export function DriverLoginScreen({
       style={{
         position: "fixed",
         inset: 0,
-        background: "#F5F5F7",
+        background: D.bg,
         fontFamily: D.font,
         color: D.text,
         display: "flex",
@@ -372,11 +372,11 @@ export function DriverLoginScreen({
               borderRadius: 16,
               border: phoneFocused
                 ? `1.5px solid ${D.red}`
-                : "1.5px solid rgba(0,0,0,0.08)",
-              background: "#fff",
+                : `1.5px solid ${D.border}`,
+              background: D.surface,
               boxShadow: phoneFocused
-                ? "0 4px 20px rgba(189,35,32,0.12)"
-                : "0 2px 10px rgba(0,0,0,0.03)",
+                ? `0 4px 20px rgba(232,64,64,0.15)`
+                : "0 2px 10px rgba(0,0,0,0.3)",
               display: "flex",
               alignItems: "center",
               padding: "0 14px",
@@ -399,7 +399,7 @@ export function DriverLoginScreen({
                 style={{
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#333",
+                  color: D.muted,
                   letterSpacing: "0.02em",
                 }}
               >
@@ -535,11 +535,11 @@ export function DriverLoginScreen({
                       borderRadius: 16,
                       border: pinFocused
                         ? `1.5px solid ${D.red}`
-                        : "1.5px solid rgba(0,0,0,0.08)",
-                      background: "#fff",
+                        : `1.5px solid ${D.border}`,
+                      background: D.surface,
                       boxShadow: pinFocused
-                        ? "0 4px 20px rgba(189,35,32,0.12)"
-                        : "0 2px 10px rgba(0,0,0,0.03)",
+                        ? `0 4px 20px rgba(232,64,64,0.15)`
+                        : "0 2px 10px rgba(0,0,0,0.3)",
                       display: "flex",
                       alignItems: "center",
                       padding: "0 14px",
@@ -551,7 +551,7 @@ export function DriverLoginScreen({
                     <Lock
                       size={18}
                       style={{
-                        color: pinFocused ? D.red : "rgba(0,0,0,0.35)",
+                        color: pinFocused ? D.red : D.faint,
                         flexShrink: 0,
                         transition: "color 0.2s ease",
                       }}
