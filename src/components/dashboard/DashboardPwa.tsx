@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Download } from "lucide-react";
+import { X, Download, Loader2 } from "lucide-react";
 import { PwaInstallGuide } from "@/components/ui/PwaInstallGuide";
 import {
   isAlreadyInstalled,
@@ -185,7 +185,7 @@ export function DashboardPwa() {
               }}
             >
               <Download size={12} strokeWidth={2.5} />
-              {installing ? "…" : viaChrome ? "Open" : "Get"}
+              {installing ? <Loader2 size={12} className="animate-spin" /> : viaChrome ? "Open" : "Get"}
             </button>
 
             {/* Dismiss */}

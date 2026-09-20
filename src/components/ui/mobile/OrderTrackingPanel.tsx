@@ -446,72 +446,115 @@ function WarmWash() {
 
 /** Horizontal 5-dot progress rail on the status panel. */
 function StageRail({ stage }: { stage: number }) {
-  const filled = Math.max(0, stage);
-  const pct = TRACK_STAGES.length > 1 ? (filled / (TRACK_STAGES.length - 1)) * 100 : 0;
+  const filled = Math.max(0, Math.min(stage, TRACK_STAGES.length - 1));
+  // 5 stages: column centers are at 10%, 30%, 50%, 70%, 90%
+  // Distance from 10% to 90% is 80% (20% step per stage transition)
+  const activePct = (filled / (TRACK_STAGES.length - 1)) * 80;
 
   return (
-    <div style={{ marginTop: 22 }}>
-      <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
-        <div style={{ position: "absolute", left: 9, right: 9, height: 6, borderRadius: 3, background: "rgba(0,0,0,0.07)", zIndex: 0 }} />
-        <motion.div
-          initial={false}
-          animate={{ width: `calc(${pct}% - ${(pct / 100) * 18}px)` }}
-          transition={{ type: "spring", stiffness: 140, damping: 22 }}
-          style={{ position: "absolute", left: 9, height: 6, borderRadius: 3, background: C.red, zIndex: 1 }}
-        />
-        <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", width: "100%" }}>
-          {TRACK_STAGES.map((label, i) => {
-            const done = i <= stage && stage >= 0;
-            const current = i === stage;
-            return (
-              <span
-                key={label}
+    <div style={{ marginTop: 22, position: "relative" }}>
+      {/* Background track connecting center of 1st column to 5th column */}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          left: "10%",
+          right: "10%",
+          height: 4,
+          borderRadius: 2,
+          background: "rgba(255,255,255,0.12)",
+          zIndex: 0,
+        }}
+      />
+      {/* Active red fill along the track */}
+      <motion.div
+        initial={false}
+        animate={{ width: `${activePct}%` }}
+        transition={{ type: "spring", stiffness: 140, damping: 22 }}
+        style={{
+          position: "absolute",
+          top: 8,
+          left: "10%",
+          height: 4,
+          borderRadius: 2,
+          background: C.red,
+          boxShadow: `0 0 10px ${C.red}99`,
+          zIndex: 1,
+        }}
+      />
+
+      {/* 5 Equal Columns — each dot & label perfectly center aligned */}
+      <div style={{ display: "flex", width: "100%", position: "relative", zIndex: 2 }}>
+        {TRACK_STAGES.map((label, i) => {
+          const done = i <= stage && stage >= 0;
+          const current = i === stage;
+          return (
+            <div
+              key={label}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+                minWidth: 0,
+              }}
+            >
+              {/* Dot */}
+              <div
                 style={{
-                  width: 18,
-                  height: 18,
+                  width: 20,
+                  height: 20,
                   borderRadius: "50%",
-                  background: done ? C.red : "#E5E7EB",
-                  border: `2px solid ${done ? C.red : "#D1D5DB"}`,
+                  background: done ? C.red : "#1e1e1e",
+                  border: `2px solid ${done ? C.red : "rgba(255,255,255,0.18)"}`,
+                  boxShadow: current ? `0 0 12px ${C.red}bb` : undefined,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   boxSizing: "border-box",
+                  flexShrink: 0,
+                  transition: "background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
                 }}
               >
                 {done && (
                   <span
                     style={{
-                      width: 7,
-                      height: 7,
+                      width: 6,
+                      height: 6,
                       borderRadius: "50%",
                       background: "#fff",
                       opacity: current ? 1 : 0.85,
                     }}
                   />
                 )}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+              </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-        {TRACK_STAGES.map((label, i) => (
-          <span
-            key={label}
-            style={{
-              flex: 1,
-              fontSize: 10.5,
-              fontWeight: 700,
-              fontFamily: fontUi,
-              letterSpacing: "-0.01em",
-              textAlign: i === 0 ? "left" : i === TRACK_STAGES.length - 1 ? "right" : "center",
-              color: i === stage ? C.red : i < stage ? C.text : "rgba(0,0,0,0.38)",
-            }}
-          >
-            {label}
-          </span>
-        ))}
+              {/* Label */}
+              <span
+                style={{
+                  marginTop: 8,
+                  fontSize: 10.5,
+                  fontWeight: current ? 800 : done ? 700 : 500,
+                  fontFamily: fontUi,
+                  lineHeight: 1.25,
+                  letterSpacing: "-0.01em",
+                  color: current
+                    ? "#ffffff"
+                    : done
+                    ? "rgba(255,255,255,0.85)"
+                    : "rgba(255,255,255,0.38)",
+                  textAlign: "center",
+                  display: "block",
+                  padding: "0 2px",
+                  wordBreak: "break-word",
+                }}
+              >
+                {label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -934,24 +977,24 @@ export function OrderTrackingPanel({
                 </div>
               ) : null}
 
-              {/* Delivery status — clean warm card matching app design */}
+              {/* Delivery status — sleek dark card */}
               {!cancelled && (
                 <div
                   style={{
-                    background: "#ffffff",
+                    background: "#141414",
                     borderRadius: 22,
                     padding: "18px 18px 16px",
                     marginBottom: 14,
-                    border: "1px solid rgba(0,0,0,0.06)",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.22)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.01em" }}>
+                      <p style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: "#ffffff", fontFamily: fontUi, letterSpacing: "-0.01em" }}>
                         Delivery status
                       </p>
-                      <p style={{ margin: "4px 0 0", fontSize: 12.5, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.45 }}>
+                      <p style={{ margin: "4px 0 0", fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: fontUi, lineHeight: 1.45 }}>
                         {hero.sub}
                       </p>
                     </div>
@@ -964,11 +1007,11 @@ export function OrderTrackingPanel({
                         marginTop: 18,
                         padding: "14px 16px",
                         borderRadius: 14,
-                        background: "rgba(189,35,32,0.10)",
-                        border: "1px solid rgba(189,35,32,0.22)",
+                        background: "rgba(189,35,32,0.18)",
+                        border: "1px solid rgba(189,35,32,0.35)",
                         fontSize: 13.5,
                         fontWeight: 700,
-                        color: C.red,
+                        color: "#FCA5A5",
                         fontFamily: fontUi,
                         lineHeight: 1.5,
                       }}
@@ -987,15 +1030,15 @@ export function OrderTrackingPanel({
                         marginTop: 18,
                         padding: "12px 14px",
                         borderRadius: 14,
-                        background: "rgba(245,166,35,0.08)",
-                        border: "1px solid rgba(245,166,35,0.25)",
+                        background: "rgba(245,166,35,0.12)",
+                        border: "1px solid rgba(245,166,35,0.28)",
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
                       }}
                     >
-                      <Money size={20} weight="regular" color="#B45309" />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#78350F", fontFamily: fontUi, lineHeight: 1.45 }}>
+                      <Money size={20} weight="regular" color="#FBBF24" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#FDE68A", fontFamily: fontUi, lineHeight: 1.45 }}>
                         {delivered
                           ? `₹${total.toLocaleString("en-IN")} cash is still outstanding`
                           : `Keep ₹${total.toLocaleString("en-IN")} in cash ready for the driver`}
@@ -1015,14 +1058,14 @@ export function OrderTrackingPanel({
                       marginTop: 18,
                       padding: "13px 16px",
                       borderRadius: 14,
-                      border: "1.5px solid rgba(0,0,0,0.08)",
-                      background: "#F8F8FA",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(255,255,255,0.06)",
                       textAlign: "center",
                       textDecoration: "none",
                       fontSize: 14,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       fontFamily: fontUi,
-                      color: C.text,
+                      color: "#ffffff",
                     }}
                   >
                     <WhatsAppBrandIcon size={18} />

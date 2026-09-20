@@ -3027,14 +3027,14 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* ── Bottom Vignette (home tab only — never on orders or account) ─ */}
-      {!dishDetailItem && activeScreen !== "menu" && activeNav === "home" && (
+      {/* ── Bottom Vignette (smooth gradient behind floating navbar so it is clearly visible without blocking content) ─ */}
+      {!dishDetailItem && activeScreen !== "menu" && (activeNav === "home" || activeNav === "orders") && (
         <div
           style={{
             position: "fixed",
             bottom: 0, left: 0, right: 0,
             height: 90,
-            background: `linear-gradient(to top, ${C.bg} 30%, transparent 100%)`,
+            background: `linear-gradient(to top, ${C.bg} 25%, transparent 100%)`,
             pointerEvents: "none",
             zIndex: 115,
             opacity: !windowOpen || showChrome ? 1 : 0,
