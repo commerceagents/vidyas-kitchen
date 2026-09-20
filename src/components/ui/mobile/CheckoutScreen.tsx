@@ -17,6 +17,7 @@ import {
   CaretDown,
   BowlFood,
   UserPlus,
+  Gift,
   CircleNotch,
 } from "@phosphor-icons/react";
 
@@ -1532,127 +1533,160 @@ export function CheckoutScreen({
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setForSomeoneElse((v) => !v)}
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  background: "none",
-                  border: "none",
-                  padding: "16px 2px 0",
-                  cursor: "pointer",
-                  fontFamily: C.mono,
-                  width: "100%",
+                  marginTop: 14,
+                  borderRadius: 18,
+                  border: forSomeoneElse ? `1.5px solid ${C.red}` : `1px solid rgba(0,0,0,0.08)`,
+                  background: forSomeoneElse ? "rgba(189,35,32,0.025)" : "rgba(255,255,255,0.72)",
+                  boxShadow: forSomeoneElse
+                    ? "0 4px 18px rgba(189,35,32,0.08)"
+                    : "0 2px 10px rgba(0,0,0,0.02)",
+                  padding: "14px 16px",
+                  transition: "all 0.25s ease",
                 }}
               >
-                <span
-                  aria-hidden
+                <button
+                  type="button"
+                  onClick={() => setForSomeoneElse((v) => !v)}
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 10,
-                    background: forSomeoneElse ? C.redFaint : "rgba(0,0,0,0.04)",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    gap: 12,
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontFamily: C.mono,
+                    width: "100%",
                   }}
                 >
-                  <UserPlus size={16} weight="bold" color={forSomeoneElse ? C.red : C.muted} />
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.text, flex: 1, textAlign: "left" }}>
-                  Ordering for someone else?
-                </span>
-                <span
-                  aria-hidden
-                  style={{
-                    display: "inline-block",
-                    width: 38,
-                    height: 22,
-                    borderRadius: 999,
-                    background: forSomeoneElse ? C.red : "rgba(0,0,0,0.12)",
-                    position: "relative",
-                    transition: "background 0.2s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  <motion.span
-                    initial={false}
-                    animate={{ x: forSomeoneElse ? 16 : 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                  <div
                     style={{
-                      position: "absolute",
-                      top: 1,
-                      left: 1,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "#fff",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      background: forSomeoneElse ? C.red : C.redFaint,
+                      color: forSomeoneElse ? "#fff" : C.red,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      transition: "all 0.2s ease",
                     }}
-                  />
-                </span>
-              </button>
-
-              <AnimatePresence initial={false}>
-                {forSomeoneElse && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    style={{ overflow: "hidden" }}
                   >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-                      <input
-                        type="text"
-                        inputMode="text"
-                        placeholder="Recipient's name"
-                        value={recipientName}
-                        onChange={(e) => setRecipientName(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "13px 14px",
-                          borderRadius: 14,
-                          border: `1px solid ${C.border}`,
-                          background: C.surface,
-                          color: C.text,
-                          fontFamily: C.mono,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          outline: "none",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        placeholder="Recipient's phone number"
-                        value={recipientPhone}
-                        onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
-                        style={{
-                          width: "100%",
-                          padding: "13px 14px",
-                          borderRadius: 14,
-                          border: `1px solid ${C.border}`,
-                          background: C.surface,
-                          color: C.text,
-                          fontFamily: C.mono,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          outline: "none",
-                          boxSizing: "border-box",
-                        }}
-                      />
+                    <Gift size={22} weight={forSomeoneElse ? "fill" : "bold"} />
+                  </div>
+
+                  <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+                        Sending food to someone else?
+                      </span>
                     </div>
-                    <p style={{ margin: "8px 2px 0", fontSize: 11, color: C.muted, fontWeight: 600, lineHeight: 1.45 }}>
-                      Pin their {DELIVERY_ZONE.name} address above. The driver navigates to that pin and calls them — not where you are.
+                    <p style={{ margin: "2px 0 0", fontSize: 11.5, color: C.muted, fontWeight: 600, lineHeight: 1.35 }}>
+                      Order for family or friends — we will deliver to their door
                     </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+
+                  <span
+                    aria-hidden
+                    style={{
+                      display: "inline-block",
+                      width: 42,
+                      height: 24,
+                      borderRadius: 999,
+                      background: forSomeoneElse ? C.red : "rgba(0,0,0,0.14)",
+                      position: "relative",
+                      transition: "background 0.2s ease",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <motion.span
+                      initial={false}
+                      animate={{ x: forSomeoneElse ? 18 : 2 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        left: 0,
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        background: "#fff",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                      }}
+                    />
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {forSomeoneElse && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div style={{ paddingTop: 14, marginTop: 12, borderTop: "1px solid rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: C.red, background: C.redFaint, padding: "3px 8px", borderRadius: 6 }}>
+                            Recipient Details
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>
+                            Updated via WhatsApp & SMS
+                          </span>
+                        </div>
+
+                        <input
+                          type="text"
+                          inputMode="text"
+                          placeholder="Recipient's name"
+                          value={recipientName}
+                          onChange={(e) => setRecipientName(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "13px 14px",
+                            borderRadius: 12,
+                            border: `1px solid ${C.border}`,
+                            background: "#fff",
+                            color: C.text,
+                            fontFamily: C.mono,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          placeholder="Recipient's phone number"
+                          value={recipientPhone}
+                          onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
+                          style={{
+                            width: "100%",
+                            padding: "13px 14px",
+                            borderRadius: 12,
+                            border: `1px solid ${C.border}`,
+                            background: "#fff",
+                            color: C.text,
+                            fontFamily: C.mono,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        <p style={{ margin: "2px 0 0", fontSize: 11.5, color: C.muted, fontWeight: 600, lineHeight: 1.45 }}>
+                          Pin their {DELIVERY_ZONE.name} address in the location card above. The driver navigates to that pin and calls them — not where you are.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
                 Delivery day
