@@ -36,6 +36,7 @@ export async function GET(request: Request) {
       .select(
         `
         id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
+        discount_amount, offer_label,
         payment_method, payment_status, cod_failure_reason, payment_link_id,
         delivery_lat, delivery_lng, cancellation_deadline, recipient_phone,
         driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
@@ -88,7 +89,9 @@ export async function GET(request: Request) {
     }
 
     const itemsSubtotal = lines.reduce((a, l) => a + l.quantity * l.unitPrice, 0);
-    const breakdown = computeOrderBreakdownFromItemSubtotal(itemsSubtotal);
+    const discount = Math.max(0, Math.round(Number((row as { discount_amount?: unknown }).discount_amount) || 0));
+    const offerLabel = String((row as { offer_label?: string | null }).offer_label || "").trim() || null;
+    const breakdown = computeOrderBreakdownFromItemSubtotal(Math.max(0, itemsSubtotal - discount));
     const storedTotal = Number((row as { total_amount?: unknown }).total_amount);
     const totalAmount = Number.isFinite(storedTotal) ? storedTotal : breakdown.computedTotal;
     const adjustment = Math.round((totalAmount - breakdown.computedTotal) * 100) / 100;
@@ -119,7 +122,9 @@ export async function GET(request: Request) {
       paymentLinkId: (row as { payment_link_id?: string | null }).payment_link_id ?? null,
       lines,
       breakdown: {
-        itemsSubtotal: breakdown.itemsSubtotal,
+        itemsSubtotal,
+        discount,
+        offerLabel,
         packaging: breakdown.packaging,
         delivery: breakdown.delivery,
         gst: breakdown.gst,

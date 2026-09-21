@@ -25,18 +25,15 @@ function pad2(n: number) {
 
 /** Check if the ordering window is open (6 AM – 6 PM IST). */
 export function isOrderingWindowOpen(nowMs: number = Date.now()): boolean {
-  // DEV OVERRIDE: Temporarily returning true so UI can be tested after 6 PM IST
-  return true;
-  /*
   const hour = parseInt(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: DELIVERY_SLOT_TIMEZONE,
       hour: "numeric",
-      hour12: false,
-    }).format(new Date(nowMs))
+      hourCycle: "h23",
+    }).format(new Date(nowMs)),
+    10,
   );
   return hour >= 6 && hour < 18;
-  */
 }
 
 /** IST calendar date YYYY-MM-DD for `d` (Wall time in Kolkata). */

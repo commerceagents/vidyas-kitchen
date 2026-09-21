@@ -13,6 +13,7 @@ import { markOrderPaidAndNotify, isCodBlocked } from "@/lib/order-transition";
 import { PaymentStatus } from "@/lib/order-status";
 import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
+import { authorizePhone } from "@/lib/firebase-verify";
 import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
 import {
   normalizeCartLines,
@@ -60,17 +61,17 @@ export async function POST(request: Request) {
     if (!phone) {
       return NextResponse.json({ error: "Phone is required." }, { status: 400 });
     }
+    const auth = await authorizePhone(request, phone);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
     if (!deliveryAddress) {
       return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
     }
-    if (
-      deliveryLat != null &&
-      deliveryLng != null &&
-      !isInsideDeliveryZone(deliveryLat, deliveryLng)
-    ) {
+    if (deliveryLat == null || deliveryLng == null || !isInsideDeliveryZone(deliveryLat, deliveryLng)) {
       return NextResponse.json(
         {
-          error: `We only deliver in ${DELIVERY_ZONE.name}. Pin a drop-off there, or send this to someone in ${DELIVERY_ZONE.name}.`,
+          error: `Pin a drop-off in ${DELIVERY_ZONE.name}. We only deliver there.`,
         },
         { status: 400 },
       );
@@ -78,12 +79,6 @@ export async function POST(request: Request) {
     if (orderingForSomeoneElse && (!recipientName || recipientPhoneDigits.length < 10)) {
       return NextResponse.json(
         { error: "Enter a valid name and phone number for the recipient." },
-        { status: 400 },
-      );
-    }
-    if (orderingForSomeoneElse && (deliveryLat == null || deliveryLng == null)) {
-      return NextResponse.json(
-        { error: `Pin the recipient's address in ${DELIVERY_ZONE.name} so the driver can navigate there.` },
         { status: 400 },
       );
     }
@@ -248,6 +243,13 @@ export async function POST(request: Request) {
       const marked = await markOrderPaidAndNotify(supabase, orderId, null);
       if (!marked.ok) {
         console.error("[checkout] cod markOrderPaidAndNotify", marked.error);
+        if (appliedOffer) await releaseOffer(supabase, orderId);
+        await supabase.from("order_items").delete().eq("order_id", orderId);
+        await supabase.from("orders").delete().eq("id", orderId);
+        return NextResponse.json(
+          { error: "We couldn't send this order to the kitchen. Please try again." },
+          { status: 500 },
+        );
       }
       return NextResponse.json({
         orderId,

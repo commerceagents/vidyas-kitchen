@@ -37,6 +37,7 @@ import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 import { formatFullDishName } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { normalizeOfferCode } from "@/lib/offers";
+import { getVkToken } from "@/lib/vk-session";
 
 /** Discount the server decided on — mirrors AppliedOffer from lib/offers. */
 type AppliedOfferView = {
@@ -606,6 +607,7 @@ export function CheckoutScreen({
   };
 
   const handlePlaceOrder = async () => {
+    if (placing) return;
     if (!phone.trim()) {
       setCheckoutError("Missing phone. Please sign in again.");
       return;
@@ -646,9 +648,13 @@ export function CheckoutScreen({
     setPlacing(true);
     await waitForPaint();
     try {
+      const token = await getVkToken();
       const res = await fetch("/api/orders/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           phone: phone.trim(),
           customerName: customerName.trim() || "Customer",
@@ -1064,7 +1070,7 @@ export function CheckoutScreen({
                     }}
                   >
                      <AnimatePresence mode="wait">
-                      {activeCode && appliedOffer ? (
+                      {appliedOffer && discount > 0 ? (
                         <motion.div
                           key="applied"
                           initial={{ opacity: 0, height: 0, y: -10 }}
@@ -1103,23 +1109,25 @@ export function CheckoutScreen({
                                 You save ₹{discount.toLocaleString("en-IN")}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void removePromo()}
-                              style={{
-                                flexShrink: 0,
-                                background: "none",
-                                border: "none",
-                                padding: "6px 2px",
-                                fontFamily: C.mono,
-                                fontSize: 12,
-                                fontWeight: 800,
-                                color: C.red,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Remove
-                            </button>
+                            {activeCode ? (
+                              <button
+                                type="button"
+                                onClick={() => void removePromo()}
+                                style={{
+                                  flexShrink: 0,
+                                  background: "none",
+                                  border: "none",
+                                  padding: "6px 2px",
+                                  fontFamily: C.mono,
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  color: C.red,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove
+                              </button>
+                            ) : null}
                           </div>
                           {!appliedOffer.code && (
                             <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>

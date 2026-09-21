@@ -12,6 +12,7 @@ import {
   slotStartIsoFor,
   isSlotBookable,
   isValidSlotKind,
+  isOrderingWindowOpen,
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
@@ -31,7 +32,7 @@ import {
   resetSession,
   type WhatsAppSession,
 } from "@/lib/whatsapp-session";
-import { cartGrandTotal, type CartItem } from "@/lib/whatsapp-cart";
+import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
 import {
   BTN,
   buildWelcomeMessage,
@@ -99,6 +100,9 @@ import {
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
 import { checkSharedPin, checkTypedAddress } from "@/lib/delivery-area";
 import { DELIVERY_ZONE } from "@/lib/delivery-zone";
+import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
+import type { AppliedOffer } from "@/lib/offers";
 import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
 import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
@@ -440,6 +444,10 @@ export async function POST(req: Request) {
             provider: "meta",
             waMessageId: messageId || null,
           });
+          await sendText(
+            from,
+            "I can only read text and location pins. Type what you'd like, or send hi to start an order.",
+          );
           return ack();
         } else {
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
@@ -973,9 +981,19 @@ async function handleSharedLocation(
   }
 
   const address = pin.label.trim() || `Pinned location (${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)})`;
+  await updateSession(from, { delivery_address: address });
+  const fresh = await getSession(from);
+  const draft = readStoredDraft(fresh.recent_turns);
 
-  if (session.state === "picking_address") {
-    return await finishAddress(from, session, address);
+  if (draft && (session.state === "ai_chat" || session.state === "confirming_proposal")) {
+    return await presentProposal(from, { ...draft, address }, address);
+  }
+
+  if (
+    session.state === "picking_address" ||
+    (fresh.cart.length > 0 && fresh.delivery_date && fresh.delivery_slot_kind)
+  ) {
+    return await finishAddress(from, fresh, address, { pinVerified: true });
   }
 
   await sendText(
@@ -1166,6 +1184,7 @@ async function presentProposal(
     { id: "cancel_proposal", title: BTN.startOver },
   ];
   await storeOptions(from, buttons);
+  const quoted = await quoteCart(proposal.cart, from);
   await sendButtons(
     from,
     buildProposalMessage(
@@ -1175,6 +1194,7 @@ async function presentProposal(
       proposal.address,
       proposal.paymentMethod === "cod" ? "Cash on delivery" : "Pay online",
       lang,
+      quoted.offer,
     ),
     buttons,
   );
@@ -1709,6 +1729,7 @@ async function finishAddress(
   from: string,
   session: WhatsAppSession | { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null },
   address: string,
+  opts?: { pinVerified?: boolean },
 ) {
   if (!address || address.length < 5) {
     await updateSession(from, { state: "picking_address" });
@@ -1716,7 +1737,18 @@ async function finishAddress(
     return ack();
   }
 
+  const pinLabel = /^Pinned location \(/.test(address);
+  if (!opts?.pinVerified && !pinLabel) {
+    const check = checkTypedAddress(address);
+    if (check.status !== "ok") {
+      await updateSession(from, { state: "picking_address" });
+      await sendText(from, check.message);
+      return ack();
+    }
+  }
+
   await updateSession(from, { delivery_address: address, state: "awaiting_payment" });
+  const quoted = await quoteCart(session.cart, from);
   const dateStr = session.delivery_date ? dateLabel(session.delivery_date) : "To be confirmed";
   const summary = buildOrderSummaryMessage(
     session.cart,
@@ -1724,12 +1756,13 @@ async function finishAddress(
     session.delivery_slot_kind || "lunch",
     address,
     langOf(from),
+    quoted.offer,
   );
-  return await showSummaryButtons(from, session.cart, summary);
+  return await showSummaryButtons(from, session.cart, summary, quoted.total);
 }
 
-async function showSummaryButtons(from: string, cart: CartItem[], summary: string) {
-  const total = cartGrandTotal(cart);
+async function showSummaryButtons(from: string, cart: CartItem[], summary: string, quotedTotal?: number) {
+  const total = quotedTotal ?? cartGrandTotal(cart);
   const overLimit = !isCodAllowedForTotal(total);
   const body = overLimit ? `${summary}\n\n${buildCodOverLimitMention(langOf(from))}` : summary;
   const buttons = overLimit
@@ -1748,7 +1781,7 @@ async function showSummaryButtons(from: string, cart: CartItem[], summary: strin
 }
 
 async function offerPayOrConfirm(from: string, session: WhatsAppSession) {
-  const total = cartGrandTotal(session.cart);
+  const { total } = await quoteCart(session.cart, from);
   const overLimit = !isCodAllowedForTotal(total);
   await updateSession(from, { state: "picking_pay_method" });
   const buttons = overLimit
@@ -1767,7 +1800,7 @@ async function offerPayOrConfirm(from: string, session: WhatsAppSession) {
 }
 
 async function handlePayCodTap(from: string, session: WhatsAppSession) {
-  const total = cartGrandTotal(session.cart);
+  const { total } = await quoteCart(session.cart, from);
   const serverDb = createServerSupabase();
   const blocked = await isCodBlocked(serverDb, from).catch(() => false);
   if (blocked || !isCodAllowedForTotal(total)) {
@@ -1998,6 +2031,23 @@ async function showQuickReorder(from: string) {
   return ack();
 }
 
+async function quoteCart(
+  cart: CartItem[],
+  phone: string,
+): Promise<{ total: number; offer: { label: string; amount: number } | null; applied: AppliedOffer | null }> {
+  const subtotal = cartItemsSubtotal(cart);
+  const { applied } = await resolveOfferForCheckout({ subtotal, phone });
+  const discount = applied && applied.amount > 0 ? Math.min(subtotal, applied.amount) : 0;
+  const total = Math.round(
+    computeOrderBreakdownFromItemSubtotal(Math.max(0, subtotal - discount)).computedTotal,
+  );
+  return {
+    total,
+    offer: discount > 0 && applied ? { label: applied.label, amount: discount } : null,
+    applied: discount > 0 && applied ? applied : null,
+  };
+}
+
 async function processConfirmOrder(
   from: string,
   session: { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null; delivery_address: string | null },
@@ -2010,10 +2060,25 @@ async function processConfirmOrder(
     return ack();
   }
 
-  // Packaging + delivery + GST included, so the row, the Razorpay link, and the
-  // quote the customer already accepted are all the same number.
-  const total = cartGrandTotal(session.cart);
   const serverDb = createServerSupabase();
+  const slotKind = session.delivery_slot_kind;
+  if (!session.delivery_date || !slotKind || !isValidSlotKind(slotKind)) {
+    await sendText(from, ORDER_CUTOFF_REMINDER);
+    return await showDatePicker(from);
+  }
+  const deliverySlotIso = slotStartIsoFor(session.delivery_date, slotKind);
+  if (!isOrderingWindowOpen()) {
+    await sendText(from, "Ordering is open 6 AM – 6 PM. Come back when we're open.");
+    return ack();
+  }
+  if (!isSlotBookable(deliverySlotIso)) {
+    await sendText(from, ORDER_CUTOFF_REMINDER);
+    return await showDatePicker(from);
+  }
+
+  const quoted = await quoteCart(session.cart, from);
+  const total = quoted.total;
+  const applied = quoted.applied;
 
   if (paymentMethod === "cod") {
     const blocked = await isCodBlocked(serverDb, from).catch(() => false);
@@ -2022,11 +2087,6 @@ async function processConfirmOrder(
       return await processConfirmOrder(from, session, "online");
     }
   }
-
-  const slotKind = (session.delivery_slot_kind || "lunch") as DeliverySlotKind;
-  const deliverySlotIso = session.delivery_date
-    ? slotStartIsoFor(session.delivery_date, slotKind)
-    : new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString();
 
   const { data: order, error: orderError } = await serverDb
     .from("orders")
@@ -2039,6 +2099,13 @@ async function processConfirmOrder(
       delivery_address: session.delivery_address,
       payment_method: paymentMethod,
       payment_status: PaymentStatus.PENDING,
+      ...(applied
+        ? {
+            discount_amount: applied.amount,
+            offer_code: applied.code,
+            offer_label: applied.label,
+          }
+        : {}),
     })
     .select()
     .single();
@@ -2058,9 +2125,14 @@ async function processConfirmOrder(
   const { error: itemsError } = await serverDb.from("order_items").insert(orderItems);
   if (itemsError) {
     console.error("[WA] Order items insert error:", itemsError.message);
+    await serverDb.from("orders").delete().eq("id", order.id);
+    await sendText(from, "That order didn't save. Reply with it again and we'll try once more.");
+    return ack();
   }
 
-  await resetSession(from);
+  if (applied) {
+    await redeemOffer(serverDb, applied, order.id, from);
+  }
 
   const ref = shortRef(order.id, order.order_number);
 
@@ -2068,19 +2140,37 @@ async function processConfirmOrder(
     const marked = await markOrderPaidAndNotify(serverDb, order.id, null);
     if (!marked.ok) {
       console.error("[WA] COD mark paid failed:", marked.error);
-      await sendText(from, buildCodPlacedMessage(ref, formatInr(total), lang));
+      await releaseOffer(serverDb, order.id);
+      await serverDb.from("order_items").delete().eq("order_id", order.id);
+      await serverDb.from("orders").delete().eq("id", order.id);
+      await sendText(
+        from,
+        "The kitchen didn't get this order, so nothing was placed. Reply with the same order and we'll try again.",
+      );
+      return ack();
     }
+    await resetSession(from);
+    await sendText(from, buildCodPlacedMessage(ref, formatInr(total), lang));
     return ack();
   }
 
-  const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", from);
-  if (paymentLinkId) {
-    await serverDb.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
+  try {
+    const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", from);
+    if (paymentLinkId) {
+      await serverDb.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
+    }
+    await sendCtaUrl(from, buildPaymentMessage(total, short_url, lang), short_url, BTN.payNow);
+    await sendText(from, buildOrderIdPendingPaymentMessage(ref, lang));
+  } catch (e) {
+    console.error("[WA] payment link failed:", e);
+    await releaseOffer(serverDb, order.id);
+    await serverDb.from("order_items").delete().eq("order_id", order.id);
+    await serverDb.from("orders").delete().eq("id", order.id);
+    await sendText(from, "The payment link didn't go out, so this order wasn't placed. Reply with it again.");
+    return ack();
   }
 
-  await sendCtaUrl(from, buildPaymentMessage(total, short_url, lang), short_url, BTN.payNow);
-  await sendText(from, buildOrderIdPendingPaymentMessage(ref, lang));
-
+  await resetSession(from);
   return ack();
 }
 

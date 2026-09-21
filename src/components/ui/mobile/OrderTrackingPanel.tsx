@@ -73,6 +73,8 @@ export type OrderTrackSnap = {
   lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
   breakdown?: {
     itemsSubtotal: number;
+    discount?: number;
+    offerLabel?: string | null;
     packaging: number;
     delivery: number;
     gst: number;
@@ -746,6 +748,8 @@ export function OrderTrackingPanel({
   const fee = apiBreakdown
     ? {
         itemsSubtotal: apiBreakdown.itemsSubtotal,
+        discount: apiBreakdown.discount || 0,
+        offerLabel: apiBreakdown.offerLabel || null,
         packaging: apiBreakdown.packaging,
         delivery: apiBreakdown.delivery,
         gst: apiBreakdown.gst,
@@ -755,6 +759,8 @@ export function OrderTrackingPanel({
     : computedFees
       ? {
           ...computedFees,
+          discount: 0,
+          offerLabel: null as string | null,
           adjustment:
             total != null && Number.isFinite(total)
               ? Math.round((total - computedFees.computedTotal) * 100) / 100
@@ -1306,6 +1312,23 @@ export function OrderTrackingPanel({
                         <span>Subtotal</span>
                         <span style={{ color: C_TEXT_SEC, fontFamily: fontUi }}>₹{Math.round(fee.itemsSubtotal)}</span>
                       </div>
+                      {fee.discount > 0 ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            paddingTop: 10,
+                            fontSize: 14,
+                            color: C_TEXT_MUTED,
+                            fontWeight: 600,
+                            fontFamily: fontUi,
+                          }}
+                        >
+                          <span>{fee.offerLabel || "Offer"}</span>
+                          <span style={{ color: C_TEXT_SEC, fontFamily: fontUi }}>−₹{Math.round(fee.discount)}</span>
+                        </div>
+                      ) : null}
                       <div
                         style={{
                           display: "flex",

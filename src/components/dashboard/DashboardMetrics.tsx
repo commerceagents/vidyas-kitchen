@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, ChefHat, CheckCircle2, Truck, CheckSquare, XCircle } from "lucide-react";
+import { Clock, ChefHat, CheckCircle2, Truck, Ban, CheckSquare, XCircle } from "lucide-react";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { type DashboardOrder, tabForOrder } from "@/lib/dashboard/orders";
 
@@ -19,6 +19,7 @@ export function DashboardMetrics({ orders, loading = false, activeTab, onTabSele
   const awaitingCount = orders.filter((o) => tabForOrder(o.status) === "awaiting").length;
   const dispatchedCount = orders.filter((o) => tabForOrder(o.status) === "dispatched").length;
   const completedCount = orders.filter((o) => tabForOrder(o.status) === "completed").length;
+  const failedCount = orders.filter((o) => tabForOrder(o.status) === "failed").length;
   const cancelledCount = orders.filter((o) => tabForOrder(o.status) === "cancelled").length;
 
   const allCards = [
@@ -26,6 +27,7 @@ export function DashboardMetrics({ orders, loading = false, activeTab, onTabSele
     { id: "preparing", label: "Preparing Food", count: preparingCount, icon: ChefHat, color: "#A78BFA", bg: "rgba(167, 139, 250, 0.08)" },
     { id: "awaiting", label: "Ready", count: awaitingCount, icon: CheckCircle2, color: "#34D399", bg: "rgba(52, 211, 153, 0.08)" },
     { id: "dispatched", label: "Dispatch", count: dispatchedCount, icon: Truck, color: "#FB923C", bg: "rgba(251, 146, 60, 0.08)" },
+    { id: "failed", label: "Not Delivered", count: failedCount, icon: Ban, color: "#F87171", bg: "rgba(248, 113, 113, 0.08)" },
     { id: "completed", label: "Complete", count: completedCount, icon: CheckSquare, color: "#38BDF8", bg: "rgba(56, 189, 248, 0.08)" },
     { id: "cancelled", label: "Cancelled", count: cancelledCount, icon: XCircle, color: "#F87171", bg: "rgba(248, 113, 113, 0.08)" },
   ];

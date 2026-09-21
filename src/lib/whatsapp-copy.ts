@@ -17,6 +17,7 @@
  */
 
 import { publicSiteOrigin } from "./site-url";
+import { computeOrderBreakdownFromItemSubtotal } from "./order-pricing";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 import { formatInr, packPriceLine } from "./menu/dish-pricing";
@@ -124,16 +125,23 @@ function cartLine(item: CartItem): string {
  * raised for the grand total and the app charges the same stack. Quoting the
  * bare item sum here would surprise the customer at the payment screen.
  */
-function totalLines(cart: CartItem[], lang?: WaLang): string[] {
+function totalLines(cart: CartItem[], lang?: WaLang, offer?: { label: string; amount: number } | null): string[] {
   const b = cartBreakdown(cart);
+  const discount = offer ? Math.min(b.itemsSubtotal, Math.max(0, Math.round(offer.amount))) : 0;
+  const priced = discount > 0 ? computeOrderBreakdownFromItemSubtotal(b.itemsSubtotal - discount) : null;
+  const packaging = priced ? priced.packaging : b.packaging;
+  const delivery = priced ? priced.delivery : b.delivery;
+  const gst = priced ? priced.gst : b.gst;
+  const total = priced ? Math.round(priced.computedTotal) : cartGrandTotal(cart);
   return [
     "",
     `Items ${money(b.itemsSubtotal)}`,
-    pickLang(lang, `Packaging ${money(b.packaging)}`, `Packing ${money(b.packaging)}`),
-    `Delivery ${money(b.delivery)}`,
-    `GST ${money(b.gst)}`,
+    ...(discount > 0 ? [`Offer -${money(discount)}`] : []),
+    pickLang(lang, `Packaging ${money(packaging)}`, `Packing ${money(packaging)}`),
+    `Delivery ${money(delivery)}`,
+    `GST ${money(gst)}`,
     "",
-    `*Total ${money(cartGrandTotal(cart))}*`,
+    `*Total ${money(total)}*`,
   ];
 }
 
@@ -522,12 +530,13 @@ export function buildOrderSummaryMessage(
   slotKind: string,
   address: string,
   lang?: WaLang,
+  offer?: { label: string; amount: number } | null,
 ): string {
   return msg({
     title: pickLang(lang, "Does this look right?", "Idhu sari-ya iruka?"),
     lines: [
       ...cart.map(cartLine),
-      ...totalLines(cart, lang),
+      ...totalLines(cart, lang, offer),
       "",
       `${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}`,
       address,
@@ -549,12 +558,13 @@ export function buildProposalMessage(
   address: string,
   paymentLabel: string,
   lang?: WaLang,
+  offer?: { label: string; amount: number } | null,
 ): string {
   return msg({
     title: pickLang(lang, "Here's what I've got", "Naan puinjukittadhu idhu"),
     lines: [
       ...cart.map(cartLine),
-      ...totalLines(cart, lang),
+      ...totalLines(cart, lang, offer),
       "",
       `${dateStr} · ${slotLabel}`,
       address,

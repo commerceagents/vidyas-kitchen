@@ -81,7 +81,7 @@ export default function DashboardHome() {
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 hideTabs={true}
-                allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+                allowedTabs={["new", "preparing", "awaiting", "dispatched", "failed", "completed"]}
               />
             </div>
           </>
@@ -143,7 +143,7 @@ export default function DashboardHome() {
                 loading={false}
                 activeTab={activeTab}
                 onTabSelect={setActiveTab}
-                allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+                allowedTabs={["new", "preparing", "awaiting", "dispatched", "failed", "completed"]}
               />
             </div>
 
@@ -157,7 +157,7 @@ export default function DashboardHome() {
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
                   hideTabs={true}
-                  allowedTabs={["new", "preparing", "awaiting", "dispatched", "completed"]}
+                  allowedTabs={["new", "preparing", "awaiting", "dispatched", "failed", "completed"]}
                 />
               </div>
             </div>

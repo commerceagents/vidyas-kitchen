@@ -567,8 +567,13 @@ export function DashboardOrderBoard({
       setBusyId(null);
       return;
     }
-    await transitionOrderStatus(orderId, OrderStatus.PREPARING);
+    const r2 = await transitionOrderStatus(orderId, OrderStatus.PREPARING);
     setBusyId(null);
+    if (!r2.ok) {
+      alert(r2.error);
+      onActionDone();
+      return;
+    }
     setTab("preparing");
     onActionDone();
   };
@@ -600,13 +605,22 @@ export function DashboardOrderBoard({
     setBusyId(orderId);
     setDispatchOrderId(null);
     try {
-      await fetch("/api/orders/assign-driver", {
+      const res = await fetch("/api/orders/assign-driver", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, driverPhone }),
       });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(data.error || "Couldn't notify the driver. The order is still ready.");
+        setBusyId(null);
+        return;
+      }
     } catch (e) {
       console.error("[dispatch] WhatsApp send failed", e);
+      alert("Couldn't notify the driver. The order is still ready.");
+      setBusyId(null);
+      return;
     }
     const r = await transitionOrderStatus(orderId, OrderStatus.OUT_FOR_DELIVERY);
     if (!r.ok) alert(r.error);

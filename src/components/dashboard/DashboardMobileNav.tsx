@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Clock, ChefHat, CheckCircle2, Truck, CheckSquare } from "lucide-react";
+import { Clock, ChefHat, CheckCircle2, Truck, Ban, CheckSquare } from "lucide-react";
 import type { DashboardTab } from "@/lib/dashboard/orders";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -11,6 +11,7 @@ const STATUS_TABS: { id: DashboardTab; label: string; icon: typeof Clock }[] = [
   { id: "preparing", label: "Preparing", icon: ChefHat },
   { id: "awaiting", label: "Ready", icon: CheckCircle2 },
   { id: "dispatched", label: "Dispatch", icon: Truck },
+  { id: "failed", label: "Failed", icon: Ban },
   { id: "completed", label: "Done", icon: CheckSquare },
 ];
 

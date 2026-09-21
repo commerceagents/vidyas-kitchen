@@ -47,7 +47,14 @@ export type AddressCheck =
  */
 export function checkTypedAddress(address: string): AddressCheck {
   const pin = extractPincode(address);
-  if (!pin) return { status: "ok" };
+  if (!pin) {
+    return {
+      status: "needs_pin",
+      message:
+        `Add the 6-digit pincode, or tap the paperclip, then Location, and send your current location ` +
+        `so we can check it is inside ${DELIVERY_ZONE.name}.`,
+    };
+  }
   if (isServicePincode(pin)) return { status: "ok" };
   return {
     status: "needs_pin",
