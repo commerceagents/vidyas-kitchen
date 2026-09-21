@@ -32,9 +32,28 @@ function useDashboardViewport() {
   useEffect(() => {
     document.documentElement.classList.add("vk-dashboard-viewport");
     document.body.classList.add("vk-dashboard-viewport");
+
+    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    const prevManifestHref = manifestLink?.href;
+    if (manifestLink) {
+      manifestLink.href = "/dashboard/manifest.webmanifest";
+    }
+
+    const appleLink = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement | null;
+    const prevAppleHref = appleLink?.href;
+    if (appleLink) {
+      appleLink.href = "/dashboard-apple-touch.png";
+    }
+
     return () => {
       document.documentElement.classList.remove("vk-dashboard-viewport");
       document.body.classList.remove("vk-dashboard-viewport");
+      if (manifestLink && prevManifestHref) {
+        manifestLink.href = prevManifestHref;
+      }
+      if (appleLink && prevAppleHref) {
+        appleLink.href = prevAppleHref;
+      }
     };
   }, []);
 }

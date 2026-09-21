@@ -126,8 +126,8 @@ export function DashboardPwa() {
               }}
             >
               <img
-                src="/vk_logo_full.png"
-                alt="Vidya's Kitchen"
+                src="/dashboard-icon-192.png"
+                alt="Vidya's Kitchen Dashboard"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             </div>
@@ -217,7 +217,7 @@ export function DashboardPwa() {
         {showIosGuide && (
           <PwaInstallGuide
             title="Install Dashboard"
-            icon="/vk_logo_full.png"
+            icon="/dashboard-icon-192.png"
             onClose={() => setShowIosGuide(false)}
           />
         )}
