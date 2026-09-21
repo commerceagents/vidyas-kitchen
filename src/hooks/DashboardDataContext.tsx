@@ -343,6 +343,12 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   useEffect(() => {
+    if (typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }, [allOrders]);
+
+  useEffect(() => {
     if (!notifHydratedRef.current) {
       notifHydratedRef.current = true;
       return;

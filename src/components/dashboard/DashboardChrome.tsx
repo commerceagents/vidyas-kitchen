@@ -19,7 +19,15 @@ import {
   Bot,
   Tag,
   Truck,
+  Smartphone,
 } from "lucide-react";
+import {
+  currentPushState,
+  ensureSubscription,
+  keyToBase64,
+  requestPushPermission,
+  type PushState,
+} from "@/lib/push-client";
 import {
   currentMonthKey,
   monthLabel,
@@ -720,6 +728,7 @@ export function DashboardNotificationPanel({
             </button>
           </div>
         </div>
+        <DashboardPushAlertsBanner />
         {notifications.length === 0 ? (
           <p style={{ padding: "32px 16px", margin: 0, textAlign: "center", color: "#666", fontSize: "14px" }}>
             No new alerts
@@ -832,6 +841,167 @@ export function DashboardNotificationPanel({
         }}
       />
     </>
+  );
+}
+
+function DashboardPushAlertsBanner() {
+  const [pushState, setPushState] = useState<PushState | "loading">("loading");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; kind: "success" | "error" | "info" } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    currentPushState()
+      .then((st) => {
+        if (alive) setPushState(st);
+      })
+      .catch(() => {
+        if (alive) setPushState("unsupported");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleEnable = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const perm = await requestPushPermission();
+      if (!perm.ok) {
+        setPushState(perm.state);
+        setMsg({ text: perm.error || "Notification permission was not granted.", kind: "error" });
+        setBusy(false);
+        return;
+      }
+      const sub = await ensureSubscription();
+      const res = await fetch("/api/dashboard/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: sub.endpoint,
+          p256dh: keyToBase64(sub, "p256dh"),
+          auth: keyToBase64(sub, "auth"),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.error || "Failed to save push subscription.", kind: "error" });
+      } else {
+        setPushState("on");
+        setMsg({ text: "Lock-Screen alerts active! You can test now.", kind: "success" });
+      }
+    } catch (e) {
+      console.error(e);
+      setMsg({ text: "Failed to enable notifications.", kind: "error" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSendTest = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/dashboard/push/test", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMsg({ text: data.error || "Could not send test alert.", kind: "error" });
+      } else {
+        setMsg({ text: "Test alert dispatched! Lock your screen now to check.", kind: "success" });
+      }
+    } catch {
+      setMsg({ text: "Failed to dispatch test alert.", kind: "error" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (pushState === "loading") {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        padding: "12px 16px",
+        background: pushState === "on" ? "rgba(52,211,153,0.06)" : "rgba(245,227,45,0.04)",
+        borderBottom: "1px solid #222",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Smartphone size={16} color={pushState === "on" ? "#34d399" : "#f5e32d"} />
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>
+            {pushState === "on" ? "Lock-Screen Push Active" : "Lock-Screen Push Alerts"}
+          </span>
+        </div>
+        {pushState === "on" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleSendTest}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "8px",
+              border: "1px solid #34d399",
+              background: "rgba(52,211,153,0.12)",
+              color: "#34d399",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: busy ? "wait" : "pointer",
+              fontFamily: FONT,
+            }}
+          >
+            {busy ? "Sending..." : "Send Test Alert"}
+          </button>
+        ) : pushState === "off" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleEnable}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "8px",
+              border: "none",
+              background: "#f5e32d",
+              color: "#000",
+              fontSize: "12px",
+              fontWeight: 800,
+              cursor: busy ? "wait" : "pointer",
+              fontFamily: FONT,
+            }}
+          >
+            {busy ? "Enabling..." : "Enable Push Alerts"}
+          </button>
+        ) : null}
+      </div>
+
+      <p style={{ margin: 0, fontSize: "12px", color: "#888", lineHeight: 1.4 }}>
+        {pushState === "on"
+          ? "Your device will vibrate and display lock-screen alerts with app icon badge when screen is off."
+          : pushState === "blocked"
+            ? "Notifications blocked in browser settings. Please allow them for lock-screen alerts."
+            : pushState === "unsupported"
+              ? "For iOS lock-screen alerts and app badging, install Dashboard via Share → Add to Home Screen."
+              : "Receive lock-screen alerts, sound, and app icon badges even when phone screen is turned off."}
+      </p>
+
+      {msg ? (
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: msg.kind === "success" ? "#34d399" : msg.kind === "error" ? "#ef4444" : "#f5e32d",
+          }}
+        >
+          {msg.text}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

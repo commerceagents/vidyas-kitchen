@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   canTransitionOrderStatus,
+  formatOrderRef,
   normalizeOrderStatus,
   OrderStatus,
   PaymentStatus,
@@ -13,6 +14,7 @@ import {
 import { refundPayment } from "@/lib/payments";
 import { sendOrderPushNotifications } from "@/lib/push-order-notify";
 import { notifyDriversOrderReady } from "@/lib/push-driver-notify";
+import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
@@ -231,6 +233,19 @@ export async function markOrderPaidAndNotify(
     (row as { order_number?: number | null }).order_number ?? null,
     isCod ? "cod" : "online",
   ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e));
+
+  const orderNum = (row as { order_number?: number | null }).order_number;
+  const orderRef = formatOrderRef(orderNum, row.id as string).replace(/^#/, "");
+  const totalAmt = (row as { total_amount?: number | null }).total_amount;
+  const amtFormatted = totalAmt != null ? `₹${Math.round(totalAmt)}` : "";
+
+  void sendDashboardPushNotifications(supabase, {
+    title: `New Order #${orderRef}`,
+    body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
+    tag: `vk-dash-${row.id}`,
+    url: "/dashboard",
+    urgent: true,
+  }).catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e));
 
   return { ok: true };
 }

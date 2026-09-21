@@ -1,9 +1,10 @@
 import { NextResponse, after } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDriverSession } from "@/lib/driver-auth";
-import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
+import { normalizeOrderStatus, OrderStatus, formatOrderRef } from "@/lib/order-status";
 import { sendDriverArrivedPush } from "@/lib/push-order-notify";
 import { notifyWhatsAppDriverArrived } from "@/lib/whatsapp-order-notify";
+import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
   }
 
   after(async () => {
+    const orderRef = formatOrderRef(row.order_number as number | null, orderId).replace(/^#/, "");
     await Promise.allSettled([
       sendDriverArrivedPush(
         supabase,
@@ -82,6 +84,13 @@ export async function POST(request: Request) {
         (row.payment_method as string | null) ?? null,
       ),
       notifyWhatsAppDriverArrived(supabase, orderId),
+      sendDashboardPushNotifications(supabase, {
+        title: "Driver Reached Customer",
+        body: `Order #${orderRef} — driver is at the customer location`,
+        tag: `vk-dash-arrived-${orderId}`,
+        url: "/dashboard",
+        urgent: false,
+      }),
     ]);
   });
 

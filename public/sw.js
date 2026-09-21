@@ -31,40 +31,55 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "Vidya's Kitchen";
+  const isDashboard = (data.url || "").includes("/dashboard") || (data.tag || "").startsWith("vk-dash");
+  const title = data.title || (isDashboard ? "Vidya's Kitchen Dashboard" : "Vidya's Kitchen");
+  const defaultIcon = isDashboard ? "/dashboard-icon-192.png" : "/icon-192.png";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/icon-192.png",
-    badge: data.badge || data.icon || "/icon-192.png",
-    tag: data.tag || "vk-order",
-    data: { url: data.url || "/" },
+    icon: data.icon || defaultIcon,
+    badge: data.badge || defaultIcon,
+    tag: data.tag || (isDashboard ? "vk-dashboard-order" : "vk-order"),
+    data: { url: data.url || (isDashboard ? "/dashboard" : "/") },
   };
   if (Array.isArray(data.actions) && data.actions.length > 0) {
     options.actions = data.actions;
   }
-  // A driver on the road has the phone in a pocket, so those alerts ask to
-  // buzz and to stay on screen until acted on. Customer updates stay quiet.
+  // High-priority alerts (drivers and kitchen dashboard orders) buzz and stay on screen
   if (data.urgent) {
     options.requireInteraction = true;
     options.renotify = true;
     options.vibrate = [220, 90, 220, 90, 220];
   }
+
+  // App Badging API (set badge dot / counter on PWA home screen icon)
+  if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+    navigator.setAppBadge(data.badgeCount != null ? data.badgeCount : 1).catch(() => {});
+  }
+
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+
+  // Clear app badge when notification is tapped
+  if (typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
+
   const raw = event.notification.data?.url || "/";
   const target = new URL(raw, self.location.origin).href;
   const isDriver = /\/driver(\/|$|\?)/.test(target);
+  const isDashboard = /\/dashboard(\/|$|\?)/.test(target);
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      // The food app and the driver app share this worker. Focusing "any
-      // window on this origin" would open a delivery inside the customer PWA.
+      // Correctly isolate: Customer app, Driver app, and Dashboard app
       const match = clients.find((client) => {
         const path = new URL(client.url).pathname;
-        return isDriver ? path.startsWith("/driver") : !path.startsWith("/driver") && !path.startsWith("/dashboard");
+        if (isDriver) return path.startsWith("/driver");
+        if (isDashboard) return path.startsWith("/dashboard");
+        return !path.startsWith("/driver") && !path.startsWith("/dashboard");
       });
       if (match && "focus" in match) {
         if ("navigate" in match) match.navigate(target);
