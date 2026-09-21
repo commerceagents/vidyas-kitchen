@@ -656,7 +656,7 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
           ))}
           <motion.div style={S.logoWrap}>
             <Image
-              src="/VK_Logo.webp"
+              src="/dashboard-logo-circle.png"
               alt="Vidya's Kitchen"
               width={96}
               height={96}

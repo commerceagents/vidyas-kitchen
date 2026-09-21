@@ -208,14 +208,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   width: MOBILE.logo,
                   overflow: "hidden",
                   borderRadius: "9999px",
-                  border: "1px solid #222",
-                  background: "#161616",
-                  boxShadow: "0 0 40px rgba(245,227,45,0.12)",
+                  border: "1px solid rgba(245,197,24,0.25)",
+                  background: "#0a0b0f",
+                  boxShadow: "0 0 40px rgba(245,197,24,0.18)",
                   flexShrink: 0,
                 }}
               >
                 <Image
-                  src="/vk_logo_full.png"
+                  src="/dashboard-logo-circle.png"
                   alt="Vidya's Kitchen"
                   width={96}
                   height={96}
@@ -223,7 +223,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   style={{
                     height: "100%",
                     width: "100%",
-                    objectFit: "cover",
+                    objectFit: "contain",
                     borderRadius: "9999px",
                   }}
                 />

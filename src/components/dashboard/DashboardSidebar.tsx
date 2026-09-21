@@ -103,11 +103,11 @@ function SidebarCard({
             }}
           >
             <Image
-              src="/vk_logo_full.png"
+              src="/dashboard-logo-circle.png"
               alt="Vidya's Kitchen"
               width={40}
               height={40}
-              style={{ height: "100%", width: "100%", objectFit: "cover" }}
+              style={{ height: "100%", width: "100%", objectFit: "contain" }}
             />
           </div>
           {!collapsed && (

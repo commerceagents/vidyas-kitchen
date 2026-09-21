@@ -168,12 +168,12 @@ export function SplashScreen({ onComplete }: { onComplete?: () => void }) {
                 }}
               >
                 <Image
-                  src="/VK_Logo.webp"
+                  src="/dashboard-logo-circle.png"
                   alt="Vidya's Kitchen"
                   fill
                   sizes="300px"
                   className="vk-logo-circle"
-                  style={{ objectFit: 'cover', borderRadius: '50%' }}
+                  style={{ objectFit: 'contain', borderRadius: '50%' }}
                   priority
                   onLoad={() => setImageLoaded(true)}
                 />

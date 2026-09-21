@@ -220,8 +220,8 @@ export function DashboardMobileHeader({
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "50%", overflow: "hidden", border: "1px solid #222", background: "#161616", flexShrink: 0 }}>
-              <img src="/vk_logo_full.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ width: "36px", height: "36px", borderRadius: "50%", overflow: "hidden", border: "1px solid rgba(245,197,24,0.25)", background: "#0a0b0f", flexShrink: 0 }}>
+              <img src="/dashboard-logo-circle.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
             </div>
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>Admin</h1>
           </div>
@@ -343,8 +343,8 @@ export function DashboardMobileHeader({
               {/* Drawer Header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", border: "1px solid #333", background: "#111" }}>
-                    <img src="/vk_logo_full.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", border: "1px solid rgba(245,197,24,0.25)", background: "#0a0b0f" }}>
+                    <img src="/dashboard-logo-circle.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>Vidya's Kitchen</h3>

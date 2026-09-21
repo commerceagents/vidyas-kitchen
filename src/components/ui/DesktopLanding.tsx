@@ -504,7 +504,7 @@ export function DesktopLanding() {
           }}
         >
           <Image 
-            src="/VK_Logo.webp" 
+            src="/dashboard-logo-circle.png" 
             alt="Vidya's Kitchen" 
             width={85} // Larger image 
             height={85} 
