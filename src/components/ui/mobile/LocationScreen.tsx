@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
-import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, CaretLeft } from "@phosphor-icons/react";
+import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, CaretLeft, Gift } from "@phosphor-icons/react";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -1580,6 +1580,27 @@ export function LocationScreen({
               Save as {addingPlace.id === "other" ? (otherName.trim() || "Other") : addingPlace.label}
             </motion.button>
           ) : (
+            <>
+            {mode !== "delivery-pin" && hasPicked && !isInsideDeliveryZone(pinCoords.lat, pinCoords.lng) && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  padding: "11px 13px",
+                  marginBottom: 12,
+                  borderRadius: 14,
+                  background: "rgba(245,158,11,0.10)",
+                  border: "1px solid rgba(245,158,11,0.35)",
+                }}
+              >
+                <Gift size={18} weight="fill" color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.45, color: "#7C4A03" }}>
+                  We only cook and deliver in {DELIVERY_ZONE.name}. You can still order from here — at
+                  checkout we&apos;ll ask who in {DELIVERY_ZONE.name} the food should go to.
+                </p>
+              </div>
+            )}
             <motion.button
               whileTap={confirmDisabled ? undefined : { scale: 0.97 }}
               onClick={handleConfirm}
@@ -1620,6 +1641,7 @@ export function LocationScreen({
                   ? confirmLabel ?? "Confirm Location"
                   : "Pick a location to continue"}
             </motion.button>
+            </>
           )}
         </motion.div>
       </motion.div>
