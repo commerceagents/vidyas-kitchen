@@ -61,17 +61,18 @@ function TrendBadge({ pct }: { pct: number | null }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 4,
-        padding: "4px 8px",
+        gap: 3,
+        padding: "3px 6px",
         borderRadius: 999,
-        fontSize: 11,
+        fontSize: 10.5,
         fontWeight: 700,
-        background: up ? "rgba(40, 199, 111, 0.12)" : "rgba(239, 68, 68, 0.12)",
+        background: up ? "rgba(40, 199, 111, 0.14)" : "rgba(239, 68, 68, 0.14)",
         color: up ? "#28C76F" : "#EF4444",
         whiteSpace: "nowrap",
+        width: "fit-content",
       }}
     >
-      {up ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}% vs last month
+      {up ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
     </span>
   );
 }

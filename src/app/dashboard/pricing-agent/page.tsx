@@ -211,7 +211,7 @@ export default function PricingAgentPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingBottom: "calc(140px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
           {/* Mobile: agent chip + toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>AI Pricing</h2>
@@ -335,39 +335,15 @@ function PricingMetricTabs({
   }[];
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        flexWrap: "nowrap",
-        gap: "clamp(10px, 1.2vw, 16px)",
-        width: "100%",
-        fontFamily: "var(--font-outfit), system-ui, sans-serif",
-        flexShrink: 0,
-      }}
-    >
+    <div className="vk-pricing-metric-grid">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <div
-            key={card.id}
-            style={{
-              flex: "1 1 0px",
-              background: "#1a1a1a",
-              borderRadius: "clamp(12px, 1.2vw, 16px)",
-              padding: "clamp(12px, 1.5vh, 18px) clamp(12px, 1.2vw, 18px)",
-              display: "flex",
-              alignItems: "center",
-              gap: "clamp(8px, 0.8vw, 12px)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              border: "1px solid #2a2a2a",
-              minWidth: 0,
-            }}
-          >
+          <div key={card.id} className="vk-pricing-metric-card">
             <div
               style={{
-                width: 40,
-                height: 40,
+                width: 38,
+                height: 38,
                 borderRadius: 10,
                 background: card.bg,
                 display: "flex",
@@ -377,16 +353,16 @@ function PricingMetricTabs({
                 flexShrink: 0,
               }}
             >
-              <Icon size={20} />
+              <Icon size={19} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <h3
                 style={{
                   margin: 0,
-                  fontSize: card.id === "lastrun" ? "clamp(13px, 1.2vw, 16px)" : "clamp(16px, 1.5vw, 20px)",
+                  fontSize: card.id === "lastrun" ? "clamp(13px, 1.2vw, 15px)" : "clamp(16px, 1.5vw, 19px)",
                   fontWeight: 800,
                   color: "#ffffff",
-                  lineHeight: 1.1,
+                  lineHeight: 1.15,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: card.id === "lastrun" ? "normal" : "nowrap",
@@ -396,10 +372,10 @@ function PricingMetricTabs({
               </h3>
               <p
                 style={{
-                  margin: "1px 0 0",
-                  fontSize: 11,
+                  margin: "3px 0 0",
+                  fontSize: 11.5,
                   fontWeight: 600,
-                  color: "#666666",
+                  color: "#888888",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -444,7 +420,7 @@ function PricingDecisionsPanel({
   }, []);
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div className="vk-pricing-decisions-panel">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexShrink: 0 }}>
         <ListTabSwitch
           value={listTab}
@@ -461,7 +437,7 @@ function PricingDecisionsPanel({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
+      <div className="vk-pricing-decisions-viewport">
         {(["upcoming", "past"] as const).map((tab) => {
           const active = listTab === tab;
           const items = tab === "upcoming" ? pending : recent;
@@ -469,6 +445,7 @@ function PricingDecisionsPanel({
             <div
               key={tab}
               aria-hidden={!active}
+              className="vk-pricing-decisions-tab-pane"
               style={{
                 position: "absolute",
                 inset: 0,
@@ -480,17 +457,17 @@ function PricingDecisionsPanel({
               }}
             >
               {items.length === 0 ? (
-                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
-                  <Bot size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+                <div style={{ minHeight: 200, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
+                  <Bot size={52} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 14 }} />
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#999", fontFamily: FONT }}>
                     {tab === "upcoming" ? "Nothing upcoming" : "No past decisions"}
                   </p>
-                  <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+                  <p style={{ margin: "6px 0 0", fontSize: 13, color: "#666", fontFamily: FONT }}>
                     {tab === "upcoming" ? "New festival and dish offers will show up here." : "Approved and applied offers will land here."}
                   </p>
                 </div>
               ) : (
-                <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0, height: "100%", overflowY: "auto" }}>
+                <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
                   {items.map((d) => (
                     <DecisionCard
                       key={d.id}

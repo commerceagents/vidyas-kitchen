@@ -262,15 +262,14 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 160px;
+    height: 140px;
     pointer-events: none;
     z-index: 44;
     background: linear-gradient(
       to top,
       #0d0d0d 0%,
-      rgba(13, 13, 13, 0.88) 22%,
-      rgba(13, 13, 13, 0.45) 52%,
-      rgba(13, 13, 13, 0.12) 78%,
+      rgba(13, 13, 13, 0.95) 35%,
+      rgba(13, 13, 13, 0.6) 70%,
       transparent 100%
     );
   }
@@ -280,6 +279,28 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   .vk-dash-bottom-vignette {
     display: none;
   }
+}
+
+/* PWA Native smooth scrolling without desktop scrollbars */
+.vk-dashboard-viewport,
+.vk-dash-home-mobile,
+.vk-dash-home-mobile *,
+.vk-revenue-dashboard,
+.vk-revenue-panel,
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.vk-dashboard-viewport::-webkit-scrollbar,
+.vk-dash-home-mobile::-webkit-scrollbar,
+.vk-dash-home-mobile *::-webkit-scrollbar,
+.vk-revenue-dashboard::-webkit-scrollbar,
+.vk-revenue-panel::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .vk-order-card {
@@ -573,7 +594,130 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
 
 @media (max-width: 640px) {
   .vk-revenue-kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .vk-revenue-metric-card {
+    padding: 14px 14px !important;
+    min-height: 96px !important;
+    gap: 8px !important;
+    border-radius: 14px !important;
+  }
+  .vk-revenue-metric-card--featured {
+    background: linear-gradient(135deg, rgba(245, 227, 45, 0.14) 0%, #161616 100%) !important;
+    border: 1px solid rgba(245, 227, 45, 0.45) !important;
+    box-shadow: 0 4px 18px rgba(245, 227, 45, 0.1) !important;
+  }
+  .vk-revenue-metric-card--featured span:first-of-type {
+    color: #f5e32d !important;
+    font-weight: 700 !important;
+  }
+  .vk-revenue-metric-card--featured span:nth-of-type(2) {
+    color: #ffffff !important;
+  }
+  .vk-revenue-metric-card span:nth-of-type(2) {
+    font-size: clamp(20px, 4.8vw, 24px) !important;
+  }
+}
+
+/* ── Pricing Agent Mobile & Desktop layout classes ── */
+.vk-pricing-metric-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: clamp(10px, 1.2vw, 16px);
+  width: 100%;
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  flex-shrink: 0;
+}
+
+.vk-pricing-metric-card {
+  flex: 1 1 0px;
+  background: #1a1a1a;
+  border-radius: clamp(12px, 1.2vw, 16px);
+  padding: clamp(12px, 1.5vh, 18px) clamp(12px, 1.2vw, 18px);
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid #2a2a2a;
+  min-width: 0;
+}
+
+.vk-pricing-decisions-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vk-pricing-decisions-viewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.vk-pricing-decisions-tab-pane {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1023px) {
+  .vk-order-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .vk-pricing-metric-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .vk-pricing-metric-card {
+    flex: none !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    background: #141414 !important;
+    border: 1px solid #242424 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .vk-pricing-decisions-panel {
+    flex: none !important;
+    min-height: auto !important;
+  }
+
+  .vk-pricing-decisions-viewport {
+    flex: none !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  .vk-pricing-decisions-tab-pane {
+    position: relative !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+
+  .vk-pricing-decisions-tab-pane[aria-hidden="true"] {
+    display: none !important;
+  }
+
+  .vk-pricing-decisions-grid {
+    overflow-y: visible !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
   }
 }
 

@@ -177,7 +177,7 @@ export default function DriversPage() {
         <DashboardSpinner minHeight="100%" />
       ) : (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1, minHeight: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {listError ? (
               <div style={{ color: "#f87171", fontSize: 13, fontFamily: FONT, padding: "8px 2px" }}>{listError}</div>
             ) : null}
@@ -190,7 +190,7 @@ export default function DriversPage() {
                   fontSize: 13,
                   fontFamily: FONT,
                   border: `1px dashed ${BORDER}`,
-                  borderRadius: 12,
+                  borderRadius: 14,
                 }}
               >
                 No drivers yet. Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
@@ -198,55 +198,88 @@ export default function DriversPage() {
             ) : null}
             {drivers.map((d) => {
               const unsaved = d.id.startsWith("new-");
+              const isEditingPin = (!unsaved && pinEditing[d.id]) || unsaved;
               return (
                 <div
                   key={d.id}
                   style={{
-                    display: "flex",
-                    gap: 12,
-                    alignItems: "center",
                     background: CARD_BG,
-                    borderRadius: 12,
-                    padding: "12px 14px",
+                    borderRadius: 16,
+                    padding: "16px",
                     border: `1px solid ${BORDER}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
                   }}
                 >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      background: "#333",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Truck size={18} style={{ color: "#888" }} />
-                  </div>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-                    <input
-                      type="text"
-                      placeholder="Driver name"
-                      value={d.name}
-                      onChange={(e) => updateDriverField(d.id, "name", e.target.value)}
+                  {/* Top row: Avatar + Name Input + Delete */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
                       style={{
-                        background: "#222",
-                        border: `1px solid ${BORDER}`,
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        color: "#fff",
-                        fontSize: 14,
-                        fontFamily: FONT,
-                        outline: "none",
-                        width: "100%",
-                        boxSizing: "border-box",
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        background: "rgba(245, 227, 45, 0.1)",
+                        border: "1px solid rgba(245, 227, 45, 0.2)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: YELLOW,
+                        flexShrink: 0,
                       }}
-                    />
+                    >
+                      <Truck size={18} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <input
+                        type="text"
+                        placeholder="Driver Name"
+                        value={d.name}
+                        onChange={(e) => updateDriverField(d.id, "name", e.target.value)}
+                        style={{
+                          background: "#222",
+                          border: `1px solid ${BORDER}`,
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          color: "#fff",
+                          fontSize: 15,
+                          fontWeight: 700,
+                          fontFamily: FONT,
+                          outline: "none",
+                          width: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void removeDriver(d.id)}
+                      aria-label="Remove driver"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: "rgba(239, 68, 68, 0.1)",
+                        border: "1px solid rgba(239, 68, 68, 0.2)",
+                        color: "#ef4444",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        padding: 0,
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  {/* Middle row: Phone input */}
+                  <div>
                     <input
                       type="tel"
-                      placeholder="Phone number"
+                      placeholder="Phone Number (10 digits)"
                       value={d.phone}
                       onChange={(e) => updateDriverField(d.id, "phone", e.target.value)}
                       style={{
@@ -254,142 +287,163 @@ export default function DriversPage() {
                         border: `1px solid ${BORDER}`,
                         borderRadius: 8,
                         padding: "8px 12px",
-                        color: "#fff",
+                        color: "#ccc",
                         fontSize: 14,
+                        fontWeight: 600,
                         fontFamily: FONT,
                         outline: "none",
                         width: "100%",
                         boxSizing: "border-box",
                       }}
                     />
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {!unsaved && pinFlags[d.id] && !pinEditing[d.id] ? (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#86efac", fontFamily: FONT }}>
-                              PIN added
-                            </div>
-                            {d.hasInstalledApp && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4, fontFamily: FONT }}>
-                                App Installed
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPinEditing((prev) => ({ ...prev, [d.id]: true }));
-                              setPinMsg((prev) => ({ ...prev, [d.id]: "" }));
-                            }}
-                            style={{
-                              background: "transparent",
-                              border: `1px solid ${YELLOW}50`,
-                              borderRadius: 8,
-                              padding: "6px 10px",
-                              color: YELLOW,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              fontFamily: FONT,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Change PIN
-                          </button>
-                        </div>
+                  </div>
+
+                  {/* Bottom row: Status badges & PIN Action */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {!unsaved && pinFlags[d.id] ? (
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#86efac", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", padding: "4px 8px", borderRadius: 8, fontFamily: FONT }}>
+                          PIN Active
+                        </span>
+                      ) : !unsaved ? (
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", padding: "4px 8px", borderRadius: 8, fontFamily: FONT }}>
+                          No PIN
+                        </span>
                       ) : (
-                        <>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <input
-                              type="password"
-                              inputMode="numeric"
-                              autoComplete="off"
-                              maxLength={6}
-                              placeholder={
-                                unsaved
-                                  ? "PIN (4–6 digits)"
-                                  : pinFlags[d.id]
-                                    ? "New PIN (4–6)"
-                                    : "Set PIN (4–6)"
-                              }
-                              value={pinDraft[d.id] || ""}
-                              onChange={(e) =>
-                                setPinDraft((prev) => ({
-                                  ...prev,
-                                  [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
-                                }))
-                              }
-                              style={{
-                                flex: 1,
-                                background: "#222",
-                                border: `1px solid ${BORDER}`,
-                                borderRadius: 8,
-                                padding: "8px 12px",
-                                color: "#fff",
-                                fontSize: 13,
-                                fontFamily: FONT,
-                                outline: "none",
-                                minWidth: 0,
-                                boxSizing: "border-box",
-                              }}
-                            />
-                            {!unsaved ? (
-                              <button
-                                type="button"
-                                disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
-                                onClick={() => void savePin(d.id)}
-                                style={{
-                                  flexShrink: 0,
-                                  background: YELLOW,
-                                  color: "#111",
-                                  border: "none",
-                                  borderRadius: 8,
-                                  padding: "8px 12px",
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  fontFamily: FONT,
-                                  cursor: pinBusyId === d.id ? "wait" : "pointer",
-                                  opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
-                                }}
-                              >
-                                {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Save new PIN" : "Set PIN"}
-                              </button>
-                            ) : null}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              fontFamily: FONT,
-                              color: pinMsg[d.id]?.includes("added") || pinMsg[d.id]?.includes("saved")
-                                ? "#86efac"
-                                : pinMsg[d.id]
-                                  ? "#f87171"
-                                  : "#888",
-                            }}
-                          >
-                            {pinMsg[d.id]
-                              || (unsaved
-                                ? "PIN is saved with the driver"
-                                : pinFlags[d.id]
-                                  ? "Enter a new PIN, then Save new PIN"
-                                  : "No PIN yet — driver cannot sign in")}
-                          </div>
-                          {!unsaved && !pinFlags[d.id] && d.hasInstalledApp && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4, fontFamily: FONT, alignSelf: "flex-start" }}>
-                              App Installed
-                            </div>
-                          )}
-                        </>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#f5e32d", background: "rgba(245,227,45,0.12)", border: "1px solid rgba(245,227,45,0.25)", padding: "4px 8px", borderRadius: 8, fontFamily: FONT }}>
+                          New Driver
+                        </span>
+                      )}
+                      {d.hasInstalledApp && (
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.25)", padding: "4px 8px", borderRadius: 8, fontFamily: FONT }}>
+                          App Installed
+                        </span>
                       )}
                     </div>
+
+                    {!unsaved && !pinEditing[d.id] && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPinEditing((prev) => ({ ...prev, [d.id]: true }));
+                          setPinMsg((prev) => ({ ...prev, [d.id]: "" }));
+                        }}
+                        style={{
+                          background: "rgba(245, 227, 45, 0.08)",
+                          border: `1px solid rgba(245, 227, 45, 0.35)`,
+                          borderRadius: 8,
+                          padding: "6px 12px",
+                          color: YELLOW,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          fontFamily: FONT,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {pinFlags[d.id] ? "Change PIN" : "Set PIN"}
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void removeDriver(d.id)}
-                    aria-label="Remove driver"
-                    style={{ background: "transparent", border: "none", color: "#EF4444", cursor: "pointer", padding: 8, flexShrink: 0 }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
+
+                  {/* Expandable PIN Section */}
+                  {isEditingPin && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#202020", borderRadius: 10, padding: 10, border: "1px solid #303030" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          maxLength={6}
+                          placeholder={
+                            unsaved
+                              ? "PIN (4–6 digits)"
+                              : pinFlags[d.id]
+                                ? "New PIN (4–6 digits)"
+                                : "Set PIN (4–6 digits)"
+                          }
+                          value={pinDraft[d.id] || ""}
+                          onChange={(e) =>
+                            setPinDraft((prev) => ({
+                              ...prev,
+                              [d.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                            }))
+                          }
+                          style={{
+                            flex: 1,
+                            background: "#161616",
+                            border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
+                            padding: "8px 12px",
+                            color: "#fff",
+                            fontSize: 13,
+                            fontFamily: FONT,
+                            outline: "none",
+                            minWidth: 0,
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        {!unsaved && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={pinBusyId === d.id || (pinDraft[d.id] || "").length < 4}
+                              onClick={() => void savePin(d.id)}
+                              style={{
+                                flexShrink: 0,
+                                background: YELLOW,
+                                color: "#111",
+                                border: "none",
+                                borderRadius: 8,
+                                padding: "8px 12px",
+                                fontSize: 12,
+                                fontWeight: 800,
+                                fontFamily: FONT,
+                                cursor: pinBusyId === d.id ? "wait" : "pointer",
+                                opacity: pinBusyId === d.id || (pinDraft[d.id] || "").length < 4 ? 0.5 : 1,
+                              }}
+                            >
+                              {pinBusyId === d.id ? "Saving" : pinFlags[d.id] ? "Save PIN" : "Set PIN"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPinEditing((prev) => ({ ...prev, [d.id]: false }))}
+                              style={{
+                                background: "transparent",
+                                color: "#888",
+                                border: `1px solid ${BORDER}`,
+                                borderRadius: 8,
+                                padding: "8px 10px",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                fontFamily: FONT,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontFamily: FONT,
+                          color: pinMsg[d.id]?.includes("added") || pinMsg[d.id]?.includes("saved")
+                            ? "#86efac"
+                            : pinMsg[d.id]
+                              ? "#f87171"
+                              : "#888",
+                        }}
+                      >
+                        {pinMsg[d.id]
+                          || (unsaved
+                            ? "PIN is saved with the driver"
+                            : pinFlags[d.id]
+                              ? "Enter a new PIN, then tap Save PIN"
+                              : "No PIN yet — driver cannot sign in")}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -440,7 +494,7 @@ export default function DriversPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", paddingBottom: "calc(140px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
           {content}
         </div>

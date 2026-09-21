@@ -57,7 +57,7 @@ export default function DaySummaryPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: "16px", overflowY: "auto", flex: 1, paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>{content}</div>
+        <div style={{ padding: "16px", overflowY: "auto", flex: 1, paddingBottom: "calc(130px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>{content}</div>
         <DashboardMobileSubNav />
       </div>
 
