@@ -44,10 +44,12 @@ function clampMonthToYear(month: MonthKey, year: number): MonthKey {
 
 function formatInr(amount: number, compact = false): string {
   if (compact && amount >= 100000) {
-    return `₹${(amount / 100000).toFixed(1)}L`;
+    const val = amount / 100000;
+    return `₹${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}L`;
   }
   if (compact && amount >= 1000) {
-    return `₹${Math.round(amount / 1000)}K`;
+    const val = amount / 1000;
+    return `₹${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}K`;
   }
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
@@ -319,62 +321,179 @@ function MonthYearPicker({
   );
 }
 
-function SalesBarChart({ bars }: { bars: RevenueBarPoint[] }) {
-  const max = Math.max(...bars.map((b) => b.value), 1);
-  const tickFractions = [0, 0.25, 0.5, 0.75, 1] as const;
-  const ticks = tickFractions.map((t) => Math.round(max * t));
+function SalesBarChart({
+  bars,
+  chartYear,
+}: {
+  bars: RevenueBarPoint[];
+  chartYear: number;
+}) {
+  const [activeMonthIdx, setActiveMonthIdx] = useState<number | null>(null);
+
+  const peakBar = useMemo(() => {
+    return bars.reduce((maxB, b) => (b.value > (maxB?.value ?? 0) ? b : maxB), bars[0]);
+  }, [bars]);
+
+  const currentMonthIdx = useMemo(() => {
+    const now = new Date();
+    if (chartYear === now.getFullYear()) return now.getMonth();
+    return null;
+  }, [chartYear]);
+
+  const focusedIdx =
+    activeMonthIdx !== null
+      ? activeMonthIdx
+      : peakBar && peakBar.value > 0
+        ? bars.indexOf(peakBar)
+        : currentMonthIdx !== null
+          ? currentMonthIdx
+          : 0;
+
+  const focusedBar = bars[focusedIdx] || bars[0];
+
+  const rawMax = Math.max(...bars.map((b) => b.value), 0);
+  const max = useMemo(() => {
+    if (rawMax <= 0) return 1000;
+    if (rawMax <= 500) return 500;
+    if (rawMax <= 1000) return 1000;
+    if (rawMax <= 2000) return 2000;
+    if (rawMax <= 5000) return Math.ceil(rawMax / 1000) * 1000;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawMax)));
+    return Math.ceil(rawMax / mag) * mag;
+  }, [rawMax]);
+
+  const ticks = [max, Math.round(max / 2), 0];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%", minHeight: 0, gap: 12 }}>
-      <div style={{ display: "flex", flex: 1, gap: 12, minHeight: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%", minHeight: 0, gap: 10 }}>
+      {/* Dynamic Month Inspector Callout */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "6px 12px",
+          background: "rgba(255, 255, 255, 0.03)",
+          borderRadius: 10,
+          border: "1px solid rgba(255, 255, 255, 0.06)",
+          marginBottom: 4,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "#ffffff", fontFamily: FONT }}>
+            {focusedBar.label} {chartYear}
+          </span>
+          {peakBar && focusedBar.value === peakBar.value && peakBar.value > 0 && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: "#f5e32d",
+                background: "rgba(245, 227, 45, 0.14)",
+                border: "1px solid rgba(245, 227, 45, 0.3)",
+                padding: "2px 6px",
+                borderRadius: 4,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                fontFamily: FONT,
+              }}
+            >
+              Peak
+            </span>
+          )}
+          {currentMonthIdx === focusedIdx && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#60a5fa",
+                background: "rgba(96, 165, 250, 0.12)",
+                border: "1px solid rgba(96, 165, 250, 0.3)",
+                padding: "2px 6px",
+                borderRadius: 4,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                fontFamily: FONT,
+              }}
+            >
+              This Month
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: focusedBar.value > 0 ? "#f5e32d" : "#777", fontFamily: FONT }}>
+          {formatInr(focusedBar.value)}
+        </div>
+      </div>
+
+      {/* Main Chart Area */}
+      <div style={{ display: "flex", flex: 1, gap: 10, minHeight: 0, position: "relative" }}>
+        {/* Y-axis Ticks */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            fontSize: 11,
+            fontSize: 10.5,
             fontWeight: 600,
-            color: "#555",
-            paddingBottom: 28,
+            color: "#666",
+            paddingBottom: 26,
             flexShrink: 0,
-            width: 44,
+            width: 36,
             textAlign: "right",
+            fontFamily: FONT,
           }}
         >
-          {[...ticks].reverse().map((t, i) => (
+          {ticks.map((t, i) => (
             <span key={`tick-label-${i}`}>{formatInr(t, true)}</span>
           ))}
         </div>
+
+        {/* Chart Viewport */}
         <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+          {/* Subtle Gridlines */}
           <div
             style={{
               position: "absolute",
-              inset: "0 0 28px 0",
+              inset: "0 0 26px 0",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               pointerEvents: "none",
             }}
           >
-            {tickFractions.map((_, i) => (
-              <div key={`tick-line-${i}`} style={{ borderTop: "1px dashed #2a2a2a", width: "100%" }} />
+            {ticks.map((_, i) => (
+              <div
+                key={`tick-line-${i}`}
+                style={{
+                  borderTop: i === ticks.length - 1 ? "1px solid rgba(255, 255, 255, 0.12)" : "1px dashed rgba(255, 255, 255, 0.06)",
+                  width: "100%",
+                }}
+              />
             ))}
           </div>
+
+          {/* 12 Bars */}
           <div
             style={{
               position: "absolute",
-              inset: "0 0 28px 0",
+              inset: "0 0 26px 0",
               display: "flex",
               alignItems: "flex-end",
               justifyContent: "space-between",
-              gap: 6,
+              gap: 4,
             }}
           >
-            {bars.map((bar) => {
+            {bars.map((bar, i) => {
               const h = max > 0 ? (bar.value / max) * 100 : 0;
+              const isFocused = focusedIdx === i;
+              const hasSales = bar.value > 0;
+
               return (
                 <div
                   key={`${bar.key.year}-${bar.key.month}`}
+                  onClick={() => setActiveMonthIdx(i)}
+                  onMouseEnter={() => setActiveMonthIdx(i)}
                   style={{
                     flex: 1,
                     display: "flex",
@@ -383,66 +502,97 @@ function SalesBarChart({ bars }: { bars: RevenueBarPoint[] }) {
                     justifyContent: "flex-end",
                     height: "100%",
                     minWidth: 0,
+                    cursor: "pointer",
+                    position: "relative",
+                    padding: "0 1px",
                   }}
                 >
+                  {/* Subtle Slim Track (replaces heavy gray prison bar) */}
                   <div
                     style={{
-                      position: "relative",
-                      width: "100%",
-                      maxWidth: 42,
+                      position: "absolute",
+                      bottom: 0,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      width: 4,
                       height: "100%",
-                      display: "flex",
-                      alignItems: "flex-end",
+                      borderRadius: 999,
+                      background: isFocused ? "rgba(245, 227, 45, 0.18)" : "rgba(255, 255, 255, 0.04)",
+                      transition: "background 0.15s ease",
                     }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "72%",
-                        height: "100%",
-                        borderRadius: "8px 8px 4px 4px",
-                        background: "#2a2a2a",
-                      }}
-                    />
+                  />
+
+                  {/* Active Value Bar */}
+                  {hasSales ? (
                     <div
                       style={{
                         position: "relative",
-                        width: "72%",
-                        margin: "0 auto",
-                        height: `${Math.max(h, bar.value > 0 ? 4 : 0)}%`,
-                        borderRadius: "8px 8px 4px 4px",
-                        background: "linear-gradient(180deg, #F5A623 0%, #f5e32d 100%)",
-                        boxShadow: bar.value > 0 ? "0 4px 12px rgba(245, 166, 35, 0.25)" : "none",
+                        width: "100%",
+                        maxWidth: 22,
+                        minWidth: 6,
+                        height: `${Math.max(h, 8)}%`,
+                        borderRadius: "5px 5px 2px 2px",
+                        background: isFocused
+                          ? "linear-gradient(180deg, #FFF066 0%, #f5e32d 40%, #EAB308 100%)"
+                          : "linear-gradient(180deg, #f5e32d 0%, #CA8A04 100%)",
+                        boxShadow: isFocused
+                          ? "0 0 16px rgba(245, 227, 45, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4)"
+                          : "0 2px 8px rgba(245, 227, 45, 0.2)",
+                        transition: "all 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+                        transform: isFocused ? "scaleX(1.15)" : "scaleX(1)",
+                        zIndex: 2,
                       }}
                       title={`${bar.label}: ${formatInr(bar.value)}`}
                     />
-                  </div>
+                  ) : (
+                    /* Minimal dot for zero-value months */
+                    <div
+                      style={{
+                        position: "relative",
+                        width: 4,
+                        height: 4,
+                        borderRadius: "50%",
+                        background: isFocused ? "rgba(245, 227, 45, 0.6)" : "rgba(255, 255, 255, 0.12)",
+                        marginBottom: 1,
+                        zIndex: 2,
+                        transition: "background 0.15s ease",
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 12, paddingLeft: 56 }}>
-        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", gap: 6 }}>
-          {bars.map((bar) => (
-            <span
-              key={`lbl-${bar.key.year}-${bar.key.month}`}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#666",
-                minWidth: 0,
-              }}
-            >
-              {bar.label}
-            </span>
-          ))}
+
+      {/* X-Axis Month Labels */}
+      <div style={{ display: "flex", gap: 10, paddingLeft: 46 }}>
+        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", gap: 4 }}>
+          {bars.map((bar, i) => {
+            const isFocused = focusedIdx === i;
+            return (
+              <span
+                key={`lbl-${bar.key.year}-${bar.key.month}`}
+                onClick={() => setActiveMonthIdx(i)}
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  fontSize: "clamp(9px, 2.2vw, 11px)",
+                  fontWeight: isFocused ? 800 : 600,
+                  color: isFocused ? "#f5e32d" : bar.value > 0 ? "#ffffff" : "#666666",
+                  letterSpacing: "-0.02em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  transition: "color 0.15s ease",
+                  fontFamily: FONT,
+                  minWidth: 0,
+                }}
+              >
+                {bar.label}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -943,15 +1093,16 @@ export function RevenueDashboard({ stats, orders, month, onMonthChange }: Props)
         <div
           className="vk-revenue-chart-card"
           style={{
-            background: CARD,
-            border: `1px solid ${BORDER}`,
-            borderRadius: 16,
-            padding: "clamp(16px, 1.5vh, 20px) clamp(18px, 1.5vw, 22px)",
+            background: "linear-gradient(180deg, #161616 0%, #111111 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: 18,
+            padding: "clamp(16px, 1.5vh, 20px) clamp(16px, 1.5vw, 22px)",
             flex: 1,
             minHeight: 0,
             display: "flex",
             flexDirection: "column",
             boxSizing: "border-box",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.25)",
           }}
         >
           <div
@@ -960,27 +1111,23 @@ export function RevenueDashboard({ stats, orders, month, onMonthChange }: Props)
               justifyContent: "space-between",
               alignItems: "center",
               gap: 12,
-              marginBottom: 20,
+              marginBottom: 14,
               flexWrap: "wrap",
               flexShrink: 0,
             }}
           >
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fff" }}>Monthly Sales</h3>
-              {selectedDayKey ? (
-                <p style={{ margin: "4px 0 0", fontSize: 11, fontWeight: 500, color: "#666" }}>
-                  All months in {chartYear} · KPIs show {formatDayKeyLabel(selectedDayKey)}
-                </p>
-              ) : (
-                <p style={{ margin: "4px 0 0", fontSize: 11, fontWeight: 500, color: "#666" }}>
-                  Jan–Dec {chartYear}
-                </p>
-              )}
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#ffffff", fontFamily: FONT }}>
+                Monthly Sales
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 500, color: "#888888", fontFamily: FONT }}>
+                Year {chartYear} Overview · Total {formatInr(yearlyBars.reduce((s, b) => s + b.value, 0))}
+              </p>
             </div>
             <YearPicker year={chartYear} onYearChange={setChartYear} />
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-            <SalesBarChart bars={yearlyBars} />
+            <SalesBarChart bars={yearlyBars} chartYear={chartYear} />
           </div>
         </div>
       </div>

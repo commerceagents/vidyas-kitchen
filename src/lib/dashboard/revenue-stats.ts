@@ -58,8 +58,10 @@ function pctChange(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
+const MONTH_SHORT_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
 function monthShortLabel(key: MonthKey): string {
-  return new Date(key.year, key.month, 1).toLocaleDateString("en-IN", { month: "short" });
+  return MONTH_SHORT_NAMES[key.month] || new Date(key.year, key.month, 1).toLocaleDateString("en-US", { month: "short" });
 }
 
 function orderDayKey(order: DashboardOrder): string | null {

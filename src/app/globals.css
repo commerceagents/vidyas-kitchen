@@ -587,8 +587,9 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     min-height: 340px;
   }
   .vk-revenue-chart-card {
-    min-height: 280px;
+    min-height: 270px;
     flex: none !important;
+    padding: 14px 14px !important;
   }
 }
 
