@@ -1,7 +1,11 @@
 import { publicSiteOrigin } from "@/lib/site-url";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { OrderStatus, codFailureLabel, formatOrderRef, normalizeOrderStatus } from "@/lib/order-status";
-import { sendText, sendCtaUrl, sendCarousel } from "@/lib/whatsapp-send";
+import { sendText, sendCtaUrl, sendCarousel, type WaSendOutcome } from "@/lib/whatsapp-send";
+import {
+  sendGiftOrderTemplate,
+  sendOrderUpdateTemplate,
+} from "@/lib/whatsapp-order-templates";
 import {
   buildOrderStatusWhatsApp,
   notifyCodCollected,
@@ -175,7 +179,7 @@ async function sendOrderCard(
   body: string,
   bill: WaOrderBill,
   trackUrl: string,
-): Promise<void> {
+): Promise<WaSendOutcome> {
   // Never use the brand logo as a status header — that is why every update
   // used to open with the same red chef card.
   const photos = bill.items.filter((it) => it.imageUrl && !it.imageUrl.includes("vk_logo_full"));
@@ -192,12 +196,30 @@ async function sendOrderCard(
         url: trackUrl,
       })),
     );
-    if (sent) return;
+    if (sent) return { ok: true };
   }
-  await sendCtaUrl(to, body, trackUrl, BTN.track, {
+  return sendCtaUrl(to, body, trackUrl, BTN.track, {
     headerImageUrl: photos[0]?.imageUrl,
   });
 }
+
+/**
+ * One line per stage for the template, which has no room for the full card.
+ * Deliberately plain: Meta reviews utility templates for transactional tone.
+ */
+const TEMPLATE_STATUS_LINE: Record<WaOrderStage, string> = {
+  placed_cod: "We have received your order. Pay cash or UPI when it arrives.",
+  placed_paid: "We have received your order and payment.",
+  accepted: "The kitchen has accepted your order.",
+  preparing: "The kitchen has started cooking your food.",
+  packed: "Your food is packed and waiting for the driver.",
+  dispatched: "Your driver has picked up the order and is on the way.",
+  delivered: "Your order has been delivered. Thank you.",
+  cancelled: "Your order has been cancelled.",
+  rejected: "Sorry, the kitchen could not accept your order.",
+  cod_collected: "We have received your payment. Thank you.",
+  undelivered: "We could not hand over your order at the door.",
+};
 
 function giftKindForStatus(status: string): GiftNotifyKind | null {
   switch (status) {
@@ -215,7 +237,10 @@ function giftKindForStatus(status: string): GiftNotifyKind | null {
   }
 }
 
-async function senderDisplayName(phoneRaw: string | null | undefined): Promise<string> {
+async function displayNameForPhone(
+  phoneRaw: string | null | undefined,
+  fallback: string,
+): Promise<string> {
   const e164 = phoneRaw ? toE164Phone(phoneRaw) : "";
   const digits = phoneRaw ? phoneRaw.replace(/\D/g, "").slice(-10) : "";
   const candidates = [e164, phoneRaw || "", digits].filter((v, i, a) => v && a.indexOf(v) === i);
@@ -229,8 +254,16 @@ async function senderDisplayName(phoneRaw: string | null | undefined): Promise<s
   } catch {
     /* fall through */
   }
-  return "A friend";
+  return fallback;
 }
+
+/** Template wording for the updates that follow the first gift message. */
+const GIFT_TEMPLATE_LINE: Record<Exclude<GiftNotifyKind, "placed">, string> = {
+  dispatched: "The driver has left the kitchen with your food.",
+  arrived: "The driver is at your door with your food.",
+  delivered: "Your food has been delivered. Enjoy.",
+  cancelled: "Sorry, this order has been cancelled.",
+};
 
 async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind): Promise<void> {
   try {
@@ -247,7 +280,10 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
     if (recPhone.length < 10) return;
     if (buyerPhone.slice(-10) === recPhone.slice(-10)) return;
 
-    const sender = await senderDisplayName(order.phone_number);
+    const recipientName =
+      String((data as { recipient_name?: string | null } | null)?.recipient_name || "").trim().split(/\s+/)[0] ||
+      "there";
+    const sender = await displayNameForPhone(order.phone_number, "A friend");
     const bill = await loadOrderBill(order);
     const itemsLine =
       bill.items.length === 0
@@ -273,16 +309,49 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
       amount: bill.amount,
     });
 
+    /**
+     * A recipient has almost never messaged the kitchen, so free-form is
+     * rejected and the template is the real delivery path — the card is only
+     * tried first for the rare friend who is already chatting with the bot.
+     * SMS is last, and only when WhatsApp gave us nothing, so a working
+     * WhatsApp does not also cost an SMS.
+     */
     const waTo = toPhone(recPhone);
+    let delivered = false;
     if (waTo) {
       try {
-        if (kind === "placed") await sendOrderCard(waTo, waBody, bill, url);
-        else await sendCtaUrl(waTo, waBody, url, BTN.track);
+        const outcome =
+          kind === "placed"
+            ? await sendOrderCard(waTo, waBody, bill, url)
+            : await sendCtaUrl(waTo, waBody, url, BTN.track);
+        delivered = outcome.ok;
       } catch (e) {
         console.error("[whatsapp-order-notify] gift WhatsApp", e);
       }
+      if (!delivered) {
+        delivered =
+          kind === "placed"
+            ? await sendGiftOrderTemplate(waTo, {
+                name: recipientName,
+                sender,
+                ref: bill.ref,
+                itemsLine,
+                slot: bill.slotLine || "See the tracking link",
+                payLine: isCod
+                  ? `Please keep ${formatInr(bill.amount)} ready to pay at the door.`
+                  : "Already paid - just receive it at the door.",
+                url,
+              })
+            : await sendOrderUpdateTemplate(waTo, {
+                name: recipientName,
+                ref: bill.ref,
+                line: GIFT_TEMPLATE_LINE[kind],
+                slot: bill.slotLine || "See the tracking link",
+                url,
+              });
+      }
     }
-    await sendSms(recPhone, smsBody);
+    if (!delivered) await sendSms(recPhone, smsBody);
   } catch (e) {
     console.error("[whatsapp-order-notify] gift recipient", e);
   }
@@ -307,16 +376,38 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const lang = (await loadWaLang(to)) ?? undefined;
   const bill = await loadOrderBill(order);
 
+  /**
+   * Rich card first, approved template if WhatsApp refuses it. The refusal is
+   * routine, not exceptional: outside the 24-hour service window every
+   * free-form message is rejected, which is why app-only customers used to see
+   * their order move through the dashboard without a single WhatsApp arriving.
+   */
+  const fallbackToTemplate = async (stage: WaOrderStage, outcome: WaSendOutcome) => {
+    if (outcome.ok) return;
+    const sent = await sendOrderUpdateTemplate(to, {
+      name: await displayNameForPhone(order.phone_number, "there"),
+      ref: short,
+      line: TEMPLATE_STATUS_LINE[stage],
+      slot: bill.slotLine || "See the app for your slot",
+      url: trackUrl,
+    });
+    if (!sent) {
+      console.error(
+        `[whatsapp-order-notify] order ${short} ${stage}: free-form and template both failed`,
+      );
+    }
+  };
+
   const card = async (stage: WaOrderStage) => {
     const body = buildOrderStatusWhatsApp(stage, bill, lang);
     // Photo + receipt only on the first confirmation. Later updates stay
     // short — repeating the same header (or the brand logo) made the thread
     // look like a stack of identical posters.
-    if (stage === "placed_cod" || stage === "placed_paid") {
-      await sendOrderCard(to, body, bill, trackUrl);
-      return;
-    }
-    await sendCtaUrl(to, body, trackUrl, BTN.track);
+    const outcome =
+      stage === "placed_cod" || stage === "placed_paid"
+        ? await sendOrderCard(to, body, bill, trackUrl)
+        : await sendCtaUrl(to, body, trackUrl, BTN.track);
+    await fallbackToTemplate(stage, outcome);
   };
 
   switch (order.status) {
@@ -324,10 +415,19 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       await card(isCod ? "placed_cod" : "placed_paid");
       break;
     case OrderNotifyEvent.COD_COLLECTED:
-      await sendText(to, notifyCodCollected(short, amtStr, lang));
+      await fallbackToTemplate(
+        "cod_collected",
+        await sendText(to, notifyCodCollected(short, amtStr, lang)),
+      );
       break;
     case OrderStatus.UNDELIVERED:
-      await sendText(to, notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase(), lang));
+      await fallbackToTemplate(
+        "undelivered",
+        await sendText(
+          to,
+          notifyOrderUndelivered(short, codFailureLabel(order.cod_failure_reason).toLowerCase(), lang),
+        ),
+      );
       break;
     case OrderStatus.CONFIRMED:
       await card("accepted");
@@ -347,25 +447,34 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       } catch (e) {
         console.error("[WA] store delivered rating options", e);
       }
-      await sendOrderCard(to, buildOrderStatusWhatsApp("delivered", bill, lang), bill, trackUrl);
+      await fallbackToTemplate(
+        "delivered",
+        await sendOrderCard(to, buildOrderStatusWhatsApp("delivered", bill, lang), bill, trackUrl),
+      );
       break;
     }
     case OrderStatus.CANCELLED:
-      await sendCtaUrl(
-        to,
-        notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null),
-        trackUrl,
-        BTN.track,
-        { headerImageUrl: cancelledOrderImageUrl(bill, "cancelled") },
+      await fallbackToTemplate(
+        "cancelled",
+        await sendCtaUrl(
+          to,
+          notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null),
+          trackUrl,
+          BTN.track,
+          { headerImageUrl: cancelledOrderImageUrl(bill, "cancelled") },
+        ),
       );
       break;
     case OrderStatus.REJECTED:
-      await sendCtaUrl(
-        to,
-        notifyOrderRejected(short, amtStr, wasPaid, lang),
-        trackUrl,
-        BTN.track,
-        { headerImageUrl: cancelledOrderImageUrl(bill, "rejected") },
+      await fallbackToTemplate(
+        "rejected",
+        await sendCtaUrl(
+          to,
+          notifyOrderRejected(short, amtStr, wasPaid, lang),
+          trackUrl,
+          BTN.track,
+          { headerImageUrl: cancelledOrderImageUrl(bill, "rejected") },
+        ),
       );
       break;
     default:
@@ -482,66 +591,3 @@ export async function notifyWhatsAppDriverArrived(
   );
 }
 
-type OrderItemRow = {
-  quantity?: number | null;
-  menu_items?: { name?: string | null } | null;
-};
-
-export async function notifyWhatsAppDriverNewDeliveryReady(
-  supabase: SupabaseClient,
-  orderId: string,
-  driverPhone?: string,
-): Promise<void> {
-  const driverRaw = driverPhone || process.env.DRIVER_WHATSAPP_PHONE;
-  if (!driverRaw?.trim()) {
-    console.warn("[whatsapp-order-notify] Skipped driver notify: no driver phone");
-    return;
-  }
-  const to = toPhone(driverRaw);
-  if (!to) {
-    console.warn("[whatsapp-order-notify] Invalid driver phone");
-    return;
-  }
-
-  const { data: row, error } = await supabase
-    .from("orders")
-    .select(`
-      id,
-      delivery_address,
-      users:customer_id ( full_name ),
-      order_items ( quantity, menu_items ( name ) )
-    `)
-    .eq("id", orderId)
-    .single();
-
-  if (error || !row) {
-    console.error("[whatsapp-order-notify] driver fetch", error?.message);
-    return;
-  }
-
-  const r = row as {
-    id: string;
-    delivery_address?: string | null;
-    users?: { full_name?: string | null } | null;
-    order_items?: OrderItemRow[] | null;
-  };
-
-  const customerName = r.users?.full_name?.trim() || "Customer";
-  const items = Array.isArray(r.order_items) ? r.order_items : [];
-  const first = items[0];
-  let itemLine = "See kitchen list";
-  if (first) {
-    const nm = String(first.menu_items?.name || "Item");
-    const q = Math.max(1, Math.floor(Number(first.quantity) || 1));
-    itemLine = items.length === 1 ? `${nm} × ${q}` : `${nm} × ${q} +${items.length - 1} more`;
-  }
-
-  const body =
-    `*New delivery ready*\n\n` +
-    `Customer: ${customerName}\n` +
-    `Item: ${itemLine}\n` +
-    `Address: ${r.delivery_address || "—"}`;
-
-  const url = `${publicSiteOrigin()}/driver/order/${encodeURIComponent(orderId)}`;
-  await sendCtaUrl(to, body, url, "View and pick up");
-}

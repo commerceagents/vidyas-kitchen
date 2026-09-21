@@ -8,12 +8,10 @@ import {
 } from "@/lib/order-status";
 import {
   notifyWhatsAppOrderEvent,
-  notifyWhatsAppDriverNewDeliveryReady,
   OrderNotifyEvent,
 } from "@/lib/whatsapp-order-notify";
 import { refundPayment } from "@/lib/payments";
 import { sendOrderPushNotifications } from "@/lib/push-order-notify";
-import { notifyDriversOrderReady } from "@/lib/push-driver-notify";
 import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
@@ -74,15 +72,10 @@ export async function transitionOrderStatusInDb(
 
   if (upErr) return { ok: false, error: upErr.message };
 
-  if (next === OrderStatus.READY) {
-    void notifyWhatsAppDriverNewDeliveryReady(supabase, orderId).catch((e) =>
-      console.error("[order-transition] driver WhatsApp", e),
-    );
-    // The driver queue is shared, so every driver with alerts on hears about it.
-    void notifyDriversOrderReady(supabase, orderId).catch((e) =>
-      console.error("[order-transition] driver push", e),
-    );
-  }
+  // No driver is told anything at `ready`. The kitchen picks the driver at
+  // Dispatch, so a broadcast here reaches people who will never get the run and
+  // then contradicts itself minutes later. /api/orders/assign-driver alerts the
+  // one driver who is actually taking it.
 
   if (next === OrderStatus.REJECTED || next === OrderStatus.CANCELLED) {
     const paymentId = (row as { payment_id?: string | null }).payment_id;

@@ -60,60 +60,12 @@ async function subsForDriver(supabase: SupabaseClient, driverId: string): Promis
   return (await loadDriverSubs(supabase, driverId)).subs;
 }
 
-/**
- * Every driver's devices, bucketed by driver so a broadcast can still greet
- * each one by name instead of going out anonymous.
- */
-async function subsByDriver(
-  supabase: SupabaseClient,
-): Promise<{ driverId: string; name: string; subs: SubRow[] }[]> {
-  const { data, error } = await supabase
-    .from("driver_push_subscriptions")
-    .select("endpoint, p256dh, auth, driver_id, drivers ( name )");
-  if (error) {
-    console.error("[push-driver] load all subs", error.message);
-    return [];
-  }
-
-  const rows = (data ?? []) as (SubRow & {
-    driver_id: string;
-    drivers?: { name?: string | null } | null;
-  })[];
-
-  const byDriver = new Map<string, { driverId: string; name: string; subs: SubRow[] }>();
-  for (const row of rows) {
-    const existing = byDriver.get(row.driver_id);
-    const sub = { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth };
-    if (existing) existing.subs.push(sub);
-    else {
-      byDriver.set(row.driver_id, {
-        driverId: row.driver_id,
-        name: row.drivers?.name?.trim() || "",
-        subs: [sub],
-      });
-    }
-  }
-  return [...byDriver.values()];
-}
-
 export async function sendDriverPushTo(
   supabase: SupabaseClient,
   driverId: string,
   payload: PushPayload,
 ): Promise<number> {
   return deliver(supabase, await subsForDriver(supabase, driverId), payload);
-}
-
-/** Same order, one card per driver, each addressed to them. */
-export async function sendDriverPushToAll(
-  supabase: SupabaseClient,
-  buildPayload: (driverName: string) => PushPayload,
-): Promise<number> {
-  const groups = await subsByDriver(supabase);
-  const counts = await Promise.all(
-    groups.map((group) => deliver(supabase, group.subs, buildPayload(group.name))),
-  );
-  return counts.reduce((total, n) => total + n, 0);
 }
 
 type OrderSummary = {
@@ -255,32 +207,6 @@ export function driverOrderAlertPayload(input: {
     urgent: true,
     actions: [{ action: "open", title: "Open order" }],
   };
-}
-
-/**
- * The kitchen has packed an order. Every driver sees the same queue, so this
- * goes to all of them — first one to the counter takes it.
- */
-export async function notifyDriversOrderReady(
-  supabase: SupabaseClient,
-  orderId: string,
-): Promise<void> {
-  const s = await loadOrderSummary(supabase, orderId);
-  if (!s) return;
-
-  await sendDriverPushToAll(supabase, (driverName) =>
-    driverOrderAlertPayload({
-      driverName,
-      ref: s.ref,
-      address: s.address,
-      itemLine: s.itemLine,
-      collectCash: s.collectCash,
-      amount: s.amount,
-      // Keyed per order so a re-send replaces the old card instead of stacking.
-      tag: `vk-driver-${orderId}-ready`,
-      url: orderUrl(orderId),
-    }),
-  );
 }
 
 /** The kitchen picked this driver for this order. */

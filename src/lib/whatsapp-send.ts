@@ -32,16 +32,30 @@ function isMetaApiConfigured(): boolean {
   return Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 }
 
-export async function sendText(to: string, text: string): Promise<void> {
+/**
+ * Whether the message actually left. Order notifications need this: a customer
+ * who has not messaged us in 24 hours has every free-form send rejected, and
+ * the caller has to know so it can fall back to an approved template.
+ */
+export type WaSendOutcome = { ok: boolean; error?: string };
+
+export async function sendText(to: string, text: string): Promise<WaSendOutcome> {
   if (isMetaApiConfigured()) {
     const r = await metaSendText(to, text);
-    if (!r.success) console.error("[whatsapp-send] Meta text failed:", r.error);
-    else logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "meta", waMessageId: r.messageId });
-    return;
+    if (!r.success) {
+      console.error("[whatsapp-send] Meta text failed:", r.error);
+      return { ok: false, error: r.error };
+    }
+    logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "meta", waMessageId: r.messageId });
+    return { ok: true };
   }
   const r = await twilioSendText(to, text);
-  if (r.error) console.error("[whatsapp-send] Twilio text failed:", r.error);
-  else logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "twilio" });
+  if (r.error) {
+    console.error("[whatsapp-send] Twilio text failed:", r.error);
+    return { ok: false, error: r.error };
+  }
+  logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "twilio" });
+  return { ok: true };
 }
 
 export type { SendButtonsOptions };
@@ -97,7 +111,7 @@ export async function sendCtaUrl(
   url: string,
   buttonText: string,
   options?: { headerImageUrl?: string; footer?: string },
-): Promise<void> {
+): Promise<WaSendOutcome> {
   if (isMetaApiConfigured()) {
     let r = await metaSendCtaUrl(to, bodyText, buttonText, url, options);
     if (!r.success && options?.headerImageUrl) {
@@ -114,24 +128,25 @@ export async function sendCtaUrl(
         provider: "meta",
         waMessageId: r.messageId,
       });
-      return;
+      return { ok: true };
     }
     console.error("[whatsapp-send] CTA failed, sending link as text:", r.error);
-    await sendText(to, `${bodyText}\n\n${url}`);
-    return;
+    return sendText(to, `${bodyText}\n\n${url}`);
   }
   const r = await twilioSendCtaUrl(to, bodyText, url, buttonText);
-  if (r.error) console.error("[whatsapp-send] Twilio CTA failed:", r.error);
-  else {
-    logWhatsAppMessageSoon({
-      phone: to,
-      direction: "out",
-      kind: "cta",
-      body: bodyText,
-      payload: { url, buttonText },
-      provider: "twilio",
-    });
+  if (r.error) {
+    console.error("[whatsapp-send] Twilio CTA failed:", r.error);
+    return { ok: false, error: r.error };
   }
+  logWhatsAppMessageSoon({
+    phone: to,
+    direction: "out",
+    kind: "cta",
+    body: bodyText,
+    payload: { url, buttonText },
+    provider: "twilio",
+  });
+  return { ok: true };
 }
 
 export type { ListSection, CarouselCard, ProductSection };
