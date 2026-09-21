@@ -30,12 +30,20 @@ export async function GET(request: Request) {
     fetchTemplateStatus(GIFT_ORDER_TEMPLATE_NAME),
   ]);
 
+  // A WABA id with a stray letter in it fails as an unhelpful "object does not
+  // exist" from Meta, so check the shape here where it can actually be read.
+  const waba = (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim();
+
   return NextResponse.json({
     configured: Boolean(
-      process.env.WHATSAPP_ACCESS_TOKEN &&
-        process.env.WHATSAPP_PHONE_NUMBER_ID &&
-        process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
+      process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && waba,
     ),
+    businessAccountId: {
+      // Masked: enough to recognise the right number, not enough to be a leak.
+      value: waba ? `${waba.slice(0, 4)}…${waba.slice(-4)}` : null,
+      digitsOnly: /^\d+$/.test(waba),
+      length: waba.length,
+    },
     templates: [
       { name: ORDER_UPDATE_TEMPLATE_NAME, status: orderUpdate },
       { name: GIFT_ORDER_TEMPLATE_NAME, status: gift },
