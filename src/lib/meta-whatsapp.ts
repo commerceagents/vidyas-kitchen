@@ -472,7 +472,7 @@ function wabaId(): string | null {
   return (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim() || null;
 }
 
-async function graphGet(path: string): Promise<{ ok: boolean; data: unknown; error?: string }> {
+export async function graphGet(path: string): Promise<{ ok: boolean; data: unknown; error?: string }> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   if (!accessToken) return { ok: false, data: null, error: "Missing WHATSAPP_ACCESS_TOKEN" };
   try {
