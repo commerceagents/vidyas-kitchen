@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -14,6 +14,7 @@ import {
   Truck,
   TrendingUp,
 } from "lucide-react";
+import { DashboardConfirmDialog } from "./DashboardConfirmDialog";
 
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
 
@@ -26,7 +27,7 @@ const NAV = [
 ] as const;
 
 const FOOTER = [
-  { label: "Log out", icon: LogOut, href: "#", action: "logout" as const },
+  { label: "Log Out", icon: LogOut, href: "#", action: "logout" as const },
 ] as const;
 
 type SidebarProps = {
@@ -51,11 +52,8 @@ function SidebarCard({
   showCollapseToggle: boolean;
 }) {
   const pathname = usePathname();
-
-  const handleLogout = async () => {
-    await fetch("/api/dashboard/logout", { method: "POST" }).catch(() => {});
-    window.location.reload();
-  };
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
 
   return (
     <aside
@@ -247,7 +245,7 @@ function SidebarCard({
                   type="button"
                   onClick={() => {
                     onNavigate?.();
-                    void handleLogout();
+                    setLogoutConfirmOpen(true);
                   }}
                   title={collapsed ? label : undefined}
                   style={{
@@ -310,6 +308,24 @@ function SidebarCard({
           ))}
         </ul>
       </div>
+
+      <DashboardConfirmDialog
+        open={logoutConfirmOpen}
+        title="Log Out of Admin?"
+        body="You will be signed out of the dashboard and will need your PIN to enter again."
+        confirmLabel="Log Out"
+        confirmBusyLabel="Logging Out"
+        cancelLabel="Cancel"
+        busy={logoutBusy}
+        onConfirm={async () => {
+          setLogoutBusy(true);
+          await fetch("/api/dashboard/logout", { method: "POST" }).catch(() => {});
+          window.location.reload();
+        }}
+        onCancel={() => {
+          if (!logoutBusy) setLogoutConfirmOpen(false);
+        }}
+      />
     </aside>
   );
 }

@@ -304,6 +304,17 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   box-sizing: border-box;
 }
 
+@media (max-width: 1023px) {
+  .vk-order-card-footer {
+    align-items: center;
+  }
+  .vk-order-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
 /* Desktop order card footer — layout follows card width, not sidebar */
 @media (min-width: 1024px) {
   .vk-order-card-actions .vk-order-btn {

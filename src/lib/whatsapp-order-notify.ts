@@ -187,7 +187,7 @@ async function sendOrderCard(
         id: `dish-${i}`,
         title: it.name.slice(0, 60),
         body: `× ${it.quantity} · ${formatInr(it.lineTotal)}`.slice(0, 160),
-        imageUrl: it.imageUrl,
+        imageUrl: it.imageUrl!,
         buttonTitle: BTN.track,
         url: trackUrl,
       })),

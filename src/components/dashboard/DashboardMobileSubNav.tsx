@@ -15,7 +15,6 @@ import {
   Truck,
   Bot,
 } from "lucide-react";
-import { DashboardPwa } from "./DashboardPwa";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -37,7 +36,6 @@ export function DashboardMobileSubNav() {
 
   return (
     <>
-      <DashboardPwa />
       <nav
         className="vk-dash-subnav-mobile"
         style={{

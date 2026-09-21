@@ -1354,7 +1354,7 @@ function OrderCard({
     if (isDelivered) {
       return (
         <StatusActionButton
-          label="DELIVERED"
+          label="Delivered"
           color="#34D399"
           icon={<Check size={14} strokeWidth={3} />}
         />
@@ -1363,7 +1363,7 @@ function OrderCard({
     if (isUndelivered) {
       return (
         <StatusActionButton
-          label={codFailureLabel(order.cod_failure_reason).toUpperCase()}
+          label={toTitleCase(codFailureLabel(order.cod_failure_reason))}
           color="#FBBF24"
           icon={<X size={14} strokeWidth={3} />}
         />
@@ -1372,7 +1372,7 @@ function OrderCard({
     if (isCancelled) {
       return (
         <StatusActionButton
-          label="REJECTED"
+          label="Rejected"
           color="#F87171"
           icon={<X size={14} strokeWidth={3} />}
         />
@@ -1390,16 +1390,20 @@ function OrderCard({
             className="vk-order-btn vk-order-btn-reject"
             style={{
               height: "44px",
-              borderRadius: "10px",
+              padding: mobile ? "0 18px" : "0 14px",
+              borderRadius: "12px",
               border: "1.5px solid rgba(239,68,68,0.35)",
               background: "rgba(239,68,68,0.08)",
               color: "#EF4444",
               fontSize: "14px",
-              fontWeight: 500,
+              fontWeight: 700,
               cursor: busy ? "wait" : "pointer",
               fontFamily: FONT,
               opacity: busy ? 0.6 : 1,
               boxSizing: "border-box",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             {busy ? (
@@ -1416,17 +1420,21 @@ function OrderCard({
             className="vk-order-btn vk-order-btn-accept"
             style={{
               height: "44px",
-              borderRadius: "10px",
+              padding: mobile ? "0 22px" : "0 18px",
+              borderRadius: "12px",
               border: "none",
               background: YELLOW,
               color: "#111",
               fontSize: "14px",
-              fontWeight: 500,
+              fontWeight: 800,
               cursor: busy ? "wait" : "pointer",
               fontFamily: FONT,
-              boxShadow: `0 4px 14px ${YELLOW}25`,
+              boxShadow: `0 4px 14px ${YELLOW}35`,
               opacity: busy ? 0.6 : 1,
               boxSizing: "border-box",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             {busy ? (
@@ -1483,17 +1491,20 @@ function OrderCard({
           className="vk-order-btn vk-order-btn-yellow"
           style={{
             height: "44px",
-            padding: "0 14px",
-            borderRadius: "10px",
+            padding: mobile ? "0 22px" : "0 16px",
+            borderRadius: "12px",
             border: "none",
             background: YELLOW,
             color: "#111",
             fontSize: "14px",
-            fontWeight: 500,
+            fontWeight: 800,
             cursor: busy ? "wait" : "pointer",
             fontFamily: FONT,
-            boxShadow: `0 4px 14px ${YELLOW}25`,
+            boxShadow: `0 4px 14px ${YELLOW}35`,
             opacity: busy ? 0.6 : 1,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           {singleAction.label}
@@ -1600,7 +1611,7 @@ function OrderCard({
                   width: "100%",
                 }}
               >
-                + {hiddenItemCount} more
+                + {hiddenItemCount} More
               </button>
             ) : !mobile ? (
               <div style={{ height: DESKTOP_MORE_ROW_H, marginTop: 8, flexShrink: 0 }} aria-hidden />
@@ -1612,19 +1623,23 @@ function OrderCard({
       {isDispatched && (order.driver_arrived_at || driverFixForOrder(order)) ? <DriverTrackRow order={order} /> : null}
       {isUndelivered ? <CodBlockRow order={order} /> : null}
 
-      {/* Footer — totals left, actions right (compact when cards are narrow) */}
+      {/* Footer — totals left, actions right */}
       <div
         className="vk-order-card-footer"
         style={{
           marginTop: mobile ? "16px" : "auto",
-          paddingTop: "4px",
+          paddingTop: mobile ? "10px" : "4px",
+          borderTop: mobile ? "1px solid rgba(255,255,255,0.06)" : undefined,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           flexShrink: 0,
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="vk-order-card-footer-total">
           <div style={{ fontSize: "12px", fontWeight: 600, color: "#888", marginBottom: "4px" }}>
-            ×{items.length} Item{items.length !== 1 ? "s" : ""}
+            × {items.length} Item{items.length !== 1 ? "s" : ""}
           </div>
           <div style={{ lineHeight: 1 }}>
             <RupeeAmount amount={totalAmount} size={22} mobile={mobile} cardTotal={!mobile} />

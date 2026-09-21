@@ -13,6 +13,7 @@ type DashboardConfirmDialogProps = {
   body: string;
   confirmLabel: string;
   cancelLabel?: string;
+  confirmBusyLabel?: string;
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -24,6 +25,7 @@ export function DashboardConfirmDialog({
   body,
   confirmLabel,
   cancelLabel = "Keep order",
+  confirmBusyLabel = "Working",
   busy = false,
   onConfirm,
   onCancel,
@@ -144,7 +146,7 @@ export function DashboardConfirmDialog({
                 {busy ? (
                   <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Working…</span>
+                    <span>{confirmBusyLabel}</span>
                   </span>
                 ) : confirmLabel}
               </button>

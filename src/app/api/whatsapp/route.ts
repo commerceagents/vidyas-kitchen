@@ -85,6 +85,7 @@ import {
 import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
 import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
+import { formatFullDishName } from "@/lib/dish-name";
 import {
   saveWaLang,
   langForPhone,
@@ -306,7 +307,7 @@ function upcomingDateRows(): { id: string; title: string; description?: string }
 }
 
 function itemOptions(items: MenuItem[]): { id: string; title: string }[] {
-  return items.map((m) => ({ id: m.id, title: m.name }));
+  return items.map((m) => ({ id: m.id, title: formatFullDishName(m.name) }));
 }
 
 function shortRef(orderId: string, orderNumber?: number | null): string {
@@ -1108,14 +1109,17 @@ async function presentProposal(
     if (result.field === "dish" && result.dishOptions?.length) {
       await updateSession(from, { state: "picking_item" });
       await storeOptions(from, itemOptions(result.dishOptions));
-      await sendList(from, ask, "Pick a dish", [
+      await sendList(from, ask, "Pick A Dish", [
         {
-          title: "Did you mean",
-          rows: result.dishOptions.slice(0, 10).map((m) => ({
-            id: m.id,
-            title: m.name.length > 24 ? `${m.name.slice(0, 21)}...` : m.name,
-            description: packPriceLine(m, " / "),
-          })),
+          title: "Did You Mean",
+          rows: result.dishOptions.slice(0, 10).map((m) => {
+            const formatted = formatFullDishName(m.name);
+            return {
+              id: m.id,
+              title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
+              description: packPriceLine(m, " / "),
+            };
+          }),
         },
       ]);
       return ack();
@@ -1391,21 +1395,21 @@ async function showCategoryBrowser(from: string) {
     {
       id: "cat_chicken",
       title: BTN.chicken,
-      body: "Pepper, chilly, mom's recipe, wings.",
+      body: "Pepper, Chilly, Mom's Recipe, Wings.",
       imageUrl: CATEGORY_CAROUSEL_IMAGES.chicken,
       buttonTitle: BTN.chicken,
     },
     {
       id: "cat_mutton",
       title: BTN.mutton,
-      body: "Curries, keema, stew, chukka.",
+      body: "Curries, Keema, Stew, Chukka.",
       imageUrl: CATEGORY_CAROUSEL_IMAGES.mutton,
       buttonTitle: BTN.mutton,
     },
     {
       id: "cat_egg",
       title: BTN.egg,
-      body: "Egg curry and egg chalna.",
+      body: "Egg Curry and Egg Chalna.",
       imageUrl: CATEGORY_CAROUSEL_IMAGES.egg,
       buttonTitle: BTN.egg,
     },
@@ -1413,13 +1417,13 @@ async function showCategoryBrowser(from: string) {
   const carouselOk = await sendCarousel(from, buildCategoryListBody(lang), cards);
   if (carouselOk) return ack();
 
-  await sendList(from, buildCategoryListBody(lang), "View menu", [
+  await sendList(from, buildCategoryListBody(lang), "View Menu", [
     {
       title: "Categories",
       rows: [
-        { id: "cat_chicken", title: BTN.chicken, description: "Gravies, pepper, wings" },
-        { id: "cat_mutton", title: BTN.mutton, description: "Curries, keema, stew" },
-        { id: "cat_egg", title: BTN.egg, description: "Egg curry and chalna" },
+        { id: "cat_chicken", title: BTN.chicken, description: "Gravies, Pepper, Wings" },
+        { id: "cat_mutton", title: BTN.mutton, description: "Curries, Keema, Stew" },
+        { id: "cat_egg", title: BTN.egg, description: "Egg Curry and Chalna" },
       ],
     },
   ]);
@@ -1451,13 +1455,16 @@ async function showCategoryItems(from: string, cat: string) {
   }
 
   if (slice.length >= 2) {
-    const cards = slice.map((m) => ({
-      id: m.id,
-      title: m.name.length > 20 ? `${m.name.slice(0, 17)}...` : m.name,
-      body: `${m.name}\n${packPriceLine(m)}`.slice(0, 160),
-      imageUrl: publicDishImageUrl(m),
-      buttonTitle: "Choose",
-    }));
+    const cards = slice.map((m) => {
+      const formatted = formatFullDishName(m.name);
+      return {
+        id: m.id,
+        title: formatted.length > 20 ? `${formatted.slice(0, 17)}...` : formatted,
+        body: `${formatted}\n${packPriceLine(m)}`.slice(0, 160),
+        imageUrl: publicDishImageUrl(m),
+        buttonTitle: "Choose",
+      };
+    });
     const carouselOk = await sendCarousel(from, buildCarouselBody(catLabel, lang), cards);
     if (carouselOk) return ack();
     console.error(`[WA] carousel failed for ${cat} — falling back to a list.`);
@@ -1467,12 +1474,15 @@ async function showCategoryItems(from: string, cat: string) {
   if (items.length > 10) {
     body += `\n\n${buildAppNudgeFooter(lang)}`;
   }
-  const rows = slice.map((m) => ({
-    id: m.id,
-    title: m.name.length > 24 ? `${m.name.slice(0, 21)}...` : m.name,
-    description: packPriceLine(m, " / "),
-  }));
-  await sendList(from, body, "Pick a dish", [{ title: catLabel, rows }]);
+  const rows = slice.map((m) => {
+    const formatted = formatFullDishName(m.name);
+    return {
+      id: m.id,
+      title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
+      description: packPriceLine(m, " / "),
+    };
+  });
+  await sendList(from, body, "Pick A Dish", [{ title: catLabel, rows }]);
   return ack();
 }
 
@@ -1484,7 +1494,7 @@ async function showVariantPicker(from: string, item: MenuItem) {
   ];
   await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
   await storeOptions(from, buttons);
-  await sendButtons(from, buildVariantMessage(item.name, packPricesFor(item), lang), buttons, {
+  await sendButtons(from, buildVariantMessage(formatFullDishName(item.name), packPricesFor(item), lang), buttons, {
     headerImageUrl: publicDishImageUrl(item),
   });
   return ack();
@@ -1621,7 +1631,7 @@ async function afterCartReady(from: string, session: WhatsAppSession) {
 async function showDatePicker(from: string) {
   const rows = upcomingDateRows();
   await updateSession(from, { state: "picking_date", pending_options: rows.map((r) => ({ id: r.id, title: r.title })) });
-  await sendList(from, buildDatePickerMessage(langOf(from)), "Pick a day", [{ title: "Delivery day", rows }]);
+  await sendList(from, buildDatePickerMessage(langOf(from)), "Pick A Day", [{ title: "Delivery Day", rows }]);
   return ack();
 }
 

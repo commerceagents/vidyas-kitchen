@@ -331,13 +331,13 @@ export function paymentBadgeForOrder(
 
   // A refund outranks everything else: the customer has already been told their
   // money is on the way, so a stuck one needs chasing today, not at month end.
-  if (refund === "refund_failed") return { label: "Refund failed", tone: "failed" };
+  if (refund === "refund_failed") return { label: "Refund Failed", tone: "failed" };
   if (refund === "refunded") return { label: "Refunded", tone: "paid" };
-  if (refund === "initiated") return { label: "Refunding…", tone: "pending" };
+  if (refund === "initiated") return { label: "Refunding", tone: "pending" };
 
-  if (pay === PaymentStatus.FAILED) return { label: "Not collected", tone: "failed" };
-  if (pay === PaymentStatus.PAID) return { label: isCod ? "Cash collected" : "Paid", tone: "paid" };
-  return { label: isCod ? "Pending — COD" : "Awaiting payment", tone: "pending" };
+  if (pay === PaymentStatus.FAILED) return { label: "Not Collected", tone: "failed" };
+  if (pay === PaymentStatus.PAID) return { label: isCod ? "Cash Collected" : "Paid", tone: "paid" };
+  return { label: isCod ? "Pending — Cod" : "Awaiting Payment", tone: "pending" };
 }
 
 export function isCodOrder(order: Pick<DashboardOrder, "payment_method">): boolean {

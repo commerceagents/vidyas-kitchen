@@ -8,6 +8,7 @@ import { DashboardToastProvider } from "@/components/dashboard/DashboardToast";
 import { DashboardNavProgress } from "@/components/dashboard/DashboardNavProgress";
 import { DashboardDataProvider } from "@/hooks/DashboardDataContext";
 import { Lock } from "lucide-react";
+import { DashboardPwa } from "@/components/dashboard/DashboardPwa";
 
 const FONT = "var(--font-outfit), system-ui, -apple-system, sans-serif";
 
@@ -459,12 +460,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       flexShrink: 0,
                     }}
                   />
-                  <span>Authenticating...</span>
+                  <span>Authenticating</span>
                 </>
               ) : (
                 "Confirm"
               )}
             </button>
+
+            {/* PWA Install prompt on login screen */}
+            <div style={{ marginTop: 24 }}>
+              <DashboardPwa />
+            </div>
           </motion.div>
         </div>
       </div>
