@@ -1,5 +1,11 @@
 /**
- * Unified WhatsApp send layer — Meta Cloud API (primary) with Twilio fallback.
+ * WhatsApp send layer — Meta Cloud API, and only Meta.
+ *
+ * There used to be a Twilio WhatsApp fallback here. Two providers meant two
+ * sender identities, two sets of logs and two places a missing message could
+ * be hiding, which is exactly the wrong shape for debugging "the customer
+ * never got it". Twilio remains for SMS only (`src/lib/sms.ts`), as the last
+ * resort when WhatsApp cannot reach a gift recipient at all.
  *
  * The rich formats (product_list, carousel) return a boolean rather than
  * throwing, because the menu deliberately degrades: catalog cards → photo
@@ -21,15 +27,17 @@ import {
   type CarouselCard,
   type ProductSection,
 } from "@/lib/meta-whatsapp";
-import {
-  sendText as twilioSendText,
-  sendButtons as twilioSendButtons,
-  sendCtaUrl as twilioSendCtaUrl,
-} from "@/lib/twilio-whatsapp";
 import { logWhatsAppMessageSoon } from "@/lib/whatsapp-message-log";
 
 function isMetaApiConfigured(): boolean {
   return Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+}
+
+/** Missing credentials are a deployment fault, not a message-level one. */
+function notConfigured(label: string): WaSendOutcome {
+  const error = "WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set";
+  console.error(`[whatsapp-send] ${label} skipped: ${error}`);
+  return { ok: false, error };
 }
 
 /**
@@ -40,21 +48,13 @@ function isMetaApiConfigured(): boolean {
 export type WaSendOutcome = { ok: boolean; error?: string };
 
 export async function sendText(to: string, text: string): Promise<WaSendOutcome> {
-  if (isMetaApiConfigured()) {
-    const r = await metaSendText(to, text);
-    if (!r.success) {
-      console.error("[whatsapp-send] Meta text failed:", r.error);
-      return { ok: false, error: r.error };
-    }
-    logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "meta", waMessageId: r.messageId });
-    return { ok: true };
-  }
-  const r = await twilioSendText(to, text);
-  if (r.error) {
-    console.error("[whatsapp-send] Twilio text failed:", r.error);
+  if (!isMetaApiConfigured()) return notConfigured("text");
+  const r = await metaSendText(to, text);
+  if (!r.success) {
+    console.error("[whatsapp-send] text failed:", r.error);
     return { ok: false, error: r.error };
   }
-  logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "twilio" });
+  logWhatsAppMessageSoon({ phone: to, direction: "out", kind: "text", body: text, provider: "meta", waMessageId: r.messageId });
   return { ok: true };
 }
 
@@ -65,43 +65,29 @@ export async function sendButtons(
   bodyText: string,
   buttons: { id: string; title: string }[],
   options?: SendButtonsOptions,
-): Promise<void> {
-  if (isMetaApiConfigured()) {
-    let r = await metaSendButtons(to, bodyText, buttons, options);
-    if (!r.success && options?.headerImageUrl) {
-      // Nearly always an image Meta could not fetch — the words still matter.
-      console.error("[whatsapp-send] buttons with header failed, retrying without image:", r.error);
-      r = await metaSendButtons(to, bodyText, buttons);
-    }
-    if (!r.success) {
-      console.error("[whatsapp-send] buttons failed, sending numbered text:", r.error);
-      const numbered = buttons.map((b, i) => `${i + 1}. ${b.title}`).join("\n");
-      await sendText(to, `${bodyText}\n\n${numbered}`);
-    } else {
-      logWhatsAppMessageSoon({
-        phone: to,
-        direction: "out",
-        kind: "button",
-        body: bodyText,
-        payload: { buttons: buttons.map((b) => ({ id: b.id, title: b.title })) },
-        provider: "meta",
-        waMessageId: r.messageId,
-      });
-    }
-    return;
+): Promise<WaSendOutcome> {
+  if (!isMetaApiConfigured()) return notConfigured("buttons");
+  let r = await metaSendButtons(to, bodyText, buttons, options);
+  if (!r.success && options?.headerImageUrl) {
+    // Nearly always an image Meta could not fetch — the words still matter.
+    console.error("[whatsapp-send] buttons with header failed, retrying without image:", r.error);
+    r = await metaSendButtons(to, bodyText, buttons);
   }
-  const r = await twilioSendButtons(to, bodyText, buttons);
-  if (r.error) console.error("[whatsapp-send] Twilio buttons failed:", r.error);
-  else {
-    logWhatsAppMessageSoon({
-      phone: to,
-      direction: "out",
-      kind: "button",
-      body: bodyText,
-      payload: { buttons: buttons.map((b) => ({ id: b.id, title: b.title })) },
-      provider: "twilio",
-    });
+  if (!r.success) {
+    console.error("[whatsapp-send] buttons failed, sending numbered text:", r.error);
+    const numbered = buttons.map((b, i) => `${i + 1}. ${b.title}`).join("\n");
+    return sendText(to, `${bodyText}\n\n${numbered}`);
   }
+  logWhatsAppMessageSoon({
+    phone: to,
+    direction: "out",
+    kind: "button",
+    body: bodyText,
+    payload: { buttons: buttons.map((b) => ({ id: b.id, title: b.title })) },
+    provider: "meta",
+    waMessageId: r.messageId,
+  });
+  return { ok: true };
 }
 
 /** bodyText, url, button label — consistent across Meta and Twilio. */
@@ -112,31 +98,15 @@ export async function sendCtaUrl(
   buttonText: string,
   options?: { headerImageUrl?: string; footer?: string },
 ): Promise<WaSendOutcome> {
-  if (isMetaApiConfigured()) {
-    let r = await metaSendCtaUrl(to, bodyText, buttonText, url, options);
-    if (!r.success && options?.headerImageUrl) {
-      console.error("[whatsapp-send] CTA with image failed, retrying without:", r.error);
-      r = await metaSendCtaUrl(to, bodyText, buttonText, url);
-    }
-    if (r.success) {
-      logWhatsAppMessageSoon({
-        phone: to,
-        direction: "out",
-        kind: "cta",
-        body: bodyText,
-        payload: { url, buttonText },
-        provider: "meta",
-        waMessageId: r.messageId,
-      });
-      return { ok: true };
-    }
+  if (!isMetaApiConfigured()) return notConfigured("cta");
+  let r = await metaSendCtaUrl(to, bodyText, buttonText, url, options);
+  if (!r.success && options?.headerImageUrl) {
+    console.error("[whatsapp-send] CTA with image failed, retrying without:", r.error);
+    r = await metaSendCtaUrl(to, bodyText, buttonText, url);
+  }
+  if (!r.success) {
     console.error("[whatsapp-send] CTA failed, sending link as text:", r.error);
     return sendText(to, `${bodyText}\n\n${url}`);
-  }
-  const r = await twilioSendCtaUrl(to, bodyText, url, buttonText);
-  if (r.error) {
-    console.error("[whatsapp-send] Twilio CTA failed:", r.error);
-    return { ok: false, error: r.error };
   }
   logWhatsAppMessageSoon({
     phone: to,
@@ -144,7 +114,8 @@ export async function sendCtaUrl(
     kind: "cta",
     body: bodyText,
     payload: { url, buttonText },
-    provider: "twilio",
+    provider: "meta",
+    waMessageId: r.messageId,
   });
   return { ok: true };
 }
@@ -249,36 +220,29 @@ export async function sendLocation(
   return r.success;
 }
 
-/** Interactive list (Meta) or numbered fallback (Twilio / on rejection). */
+/** Interactive list, or a numbered text list when Meta rejects it. */
 export async function sendList(
   to: string,
   bodyText: string,
   buttonLabel: string,
   sections: ListSection[],
-): Promise<void> {
-  if (isMetaApiConfigured()) {
-    const r = await metaSendList(to, bodyText, buttonLabel, sections);
-    if (!r.success) {
-      console.error("[whatsapp-send] list failed, sending numbered text:", r.error);
-      await sendListFallback(to, bodyText, sections);
-    } else {
-      logWhatsAppMessageSoon({
-        phone: to,
-        direction: "out",
-        kind: "list",
-        body: bodyText,
-        payload: { buttonLabel, sections },
-        provider: "meta",
-        waMessageId: r.messageId,
-      });
-    }
-    return;
+): Promise<WaSendOutcome> {
+  if (!isMetaApiConfigured()) return notConfigured("list");
+  const r = await metaSendList(to, bodyText, buttonLabel, sections);
+  if (!r.success) {
+    console.error("[whatsapp-send] list failed, sending numbered text:", r.error);
+    const rows = sections.flatMap((s) => s.rows);
+    const lines = rows.map((row, i) => `${i + 1}. ${row.title}${row.description ? ` — ${row.description}` : ""}`);
+    return sendText(to, `${bodyText}\n\n${lines.join("\n")}\n\n_Reply with the number._`);
   }
-  await sendListFallback(to, bodyText, sections);
-}
-
-async function sendListFallback(to: string, bodyText: string, sections: ListSection[]): Promise<void> {
-  const rows = sections.flatMap((s) => s.rows);
-  const lines = rows.map((r, i) => `${i + 1}. ${r.title}${r.description ? ` — ${r.description}` : ""}`);
-  await sendText(to, `${bodyText}\n\n${lines.join("\n")}\n\n_Reply with the number._`);
+  logWhatsAppMessageSoon({
+    phone: to,
+    direction: "out",
+    kind: "list",
+    body: bodyText,
+    payload: { buttonLabel, sections },
+    provider: "meta",
+    waMessageId: r.messageId,
+  });
+  return { ok: true };
 }

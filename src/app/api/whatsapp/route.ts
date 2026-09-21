@@ -24,7 +24,6 @@ import {
   sendCarousel,
   sendProductList,
 } from "@/lib/whatsapp-send";
-import { fromWhatsAppFrom } from "@/lib/twilio-whatsapp";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
 import {
   getSession,
@@ -356,7 +355,6 @@ export async function POST(req: Request) {
     let interactiveReplyId: string | null = null;
     let catalogProductItems: CatalogOrderItem[] | null = null;
     let inboundKind: WaMessageKind = "text";
-    let inboundProvider: "meta" | "twilio" = "meta";
     /** Set when the customer sends a WhatsApp location pin. */
     let sharedPin: { lat: number; lng: number; label: string } | null = null;
 
@@ -452,20 +450,7 @@ export async function POST(req: Request) {
         } else {
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
         }
-      } else if (json.From || json.Body) {
-        inboundProvider = "twilio";
-        from = fromWhatsAppFrom(json.From || "");
-        body = json.Body || "";
-        profileName = json.ProfileName || "";
-        console.log(`[Twilio WA JSON] From=${from} Body="${body}" Name=${profileName}`);
       }
-    } else if (contentType.includes("application/x-www-form-urlencoded")) {
-      inboundProvider = "twilio";
-      const formData = await req.formData();
-      from = fromWhatsAppFrom(formData.get("From")?.toString() || "");
-      body = formData.get("Body")?.toString() || "";
-      profileName = formData.get("ProfileName")?.toString() || "";
-      console.log(`[Twilio WA Form] From=${from} Body="${body}" Name=${profileName}`);
     }
 
     if (!from || (!body && !catalogProductItems?.length)) {
@@ -482,7 +467,7 @@ export async function POST(req: Request) {
         replyId: interactiveReplyId || undefined,
         catalogItems: catalogProductItems || undefined,
       },
-      provider: inboundProvider,
+      provider: "meta",
       waMessageId: messageId || null,
     });
 
