@@ -44,9 +44,12 @@ function composeDeliveryLabel(street: string, house: string, building: string, l
   return out;
 }
 
-interface GeoFeature {
-  place_name: string;
-  center: [number, number];
+/** One row in the search dropdown, as returned by /api/places/search. */
+interface PlaceHit {
+  id: string;
+  provider: "google" | "mapbox";
+  title: string;
+  subtitle: string;
 }
 
 interface LocationScreenProps {
@@ -96,15 +99,27 @@ const LOC = {
     whiteSpace: "nowrap" as const,
   },
   searchInput: { ...TYPO.input, flex: 1, background: "transparent", border: "none", outline: "none" },
-  suggestTitle: { ...TYPO.caption, margin: 0, color: "#1A1A1A" },
-  suggestSub: {
-    ...TYPO.eyebrow,
+  suggestTitle: {
+    ...TYPO.caption,
     margin: 0,
-    fontSize: 11,
-    letterSpacing: "0.02em",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#1A1A1A",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap" as const,
+  },
+  suggestSub: {
+    ...TYPO.eyebrow,
+    margin: "2px 0 0",
+    fontSize: 12,
+    letterSpacing: "0.02em",
+    lineHeight: 1.35,
+    color: "rgba(0,0,0,0.5)",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical" as const,
+    overflow: "hidden",
   },
   sectionEyebrow: {
     ...TYPO.micro,
@@ -362,7 +377,9 @@ export function LocationScreen({
   });
   const [pinCoords, setPinCoords] = useState(start);
   const [searchText, setSearchText] = useState(initialLocation?.label ?? "");
-  const [suggestions, setSuggestions] = useState<GeoFeature[]>([]);
+  const [suggestions, setSuggestions] = useState<PlaceHit[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchedOnce, setSearchedOnce] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_SAVED_PLACES);
@@ -378,6 +395,10 @@ export function LocationScreen({
   /** True once the user has explicitly picked a spot (search, GPS, saved place, or map tap/drag). */
   const [hasPicked, setHasPicked] = useState(Boolean(initialLocation));
   const geocodeGenRef = useRef(0);
+  /** Groups the keystrokes of one search with the pick that ends it, for provider session billing. */
+  const searchSessionRef = useRef<string>("");
+  /** Only the newest query may write results — slow responses from older ones are dropped. */
+  const searchGenRef = useRef(0);
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -520,55 +541,95 @@ export function LocationScreen({
     tipTimerRef.current = setTimeout(() => setFloatingTip(null), 2200);
   }, []);
 
-  // Geocoding search with debounce
-  const handleSearchChange = useCallback((val: string) => {
-    setSearchText(val);
-    if (searchDebounce.current) clearTimeout(searchDebounce.current);
-    if (val.length < 3) { setSuggestions([]); return; }
-    searchDebounce.current = setTimeout(async () => {
-      if (!MAPBOX_TOKEN) {
-        setSuggestions([]);
-        return;
-      }
-      try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&country=IN&limit=5&proximity=${KITCHEN_CENTER.lng},${KITCHEN_CENTER.lat}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          setSuggestions([]);
-          return;
-        }
-        const data = await res.json();
-        setSuggestions(data.features || []);
-      } catch {
-        setSuggestions([]);
-      }
-    }, 350);
+  /** A search session spans the keystrokes plus the tap that ends them. */
+  const searchSession = useCallback(() => {
+    if (!searchSessionRef.current) {
+      searchSessionRef.current =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+    return searchSessionRef.current;
   }, []);
 
+  const handleSearchChange = useCallback(
+    (val: string) => {
+      setSearchText(val);
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+      if (val.trim().length < 2) {
+        searchGenRef.current += 1;
+        setSuggestions([]);
+        setIsSearching(false);
+        setSearchedOnce(false);
+        return;
+      }
+      setIsSearching(true);
+      searchDebounce.current = setTimeout(async () => {
+        const gen = ++searchGenRef.current;
+        try {
+          const res = await fetch(
+            `/api/places/search?q=${encodeURIComponent(val.trim())}&session=${encodeURIComponent(searchSession())}`,
+          );
+          const data = res.ok ? ((await res.json()) as { results?: PlaceHit[] }) : { results: [] };
+          if (gen !== searchGenRef.current) return;
+          setSuggestions(data.results || []);
+        } catch {
+          if (gen !== searchGenRef.current) return;
+          setSuggestions([]);
+        } finally {
+          if (gen === searchGenRef.current) {
+            setIsSearching(false);
+            setSearchedOnce(true);
+          }
+        }
+      }, 250);
+    },
+    [searchSession],
+  );
+
   const resolveAddress = useCallback(async (lat: number, lng: number) => {
-    if (!MAPBOX_TOKEN) return "Pinned location";
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi,place,neighborhood&limit=1`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/places/resolve?lat=${lat}&lng=${lng}`);
       if (!res.ok) return "Pinned location";
-      const data = await res.json();
-      const feature = data?.features?.[0];
-      return feature?.place_name?.trim() || "Pinned location";
+      const data = (await res.json()) as { label?: string | null };
+      return data.label?.trim() || "Pinned location";
     } catch {
       return "Pinned location";
     }
   }, []);
 
-  const handleSuggestionSelect = (feature: GeoFeature) => {
-    geocodeGenRef.current += 1; // invalidate any in-flight reverse-geocode from a previous pin drop
-    const [lng, lat] = feature.center;
-    setSearchText(feature.place_name);
-    setSuggestions([]);
-    setPinCoords({ lat, lng });
-    setSelectedSaved(null);
-    setHasPicked(true);
-    animateCameraTo(lng, lat, 1600);
-  };
+  const handleSuggestionSelect = useCallback(
+    async (hit: PlaceHit) => {
+      geocodeGenRef.current += 1; // invalidate any in-flight reverse-geocode from a previous pin drop
+      const label = [hit.title, hit.subtitle].filter(Boolean).join(", ");
+      setSearchText(label);
+      setSuggestions([]);
+      setSearchedOnce(false);
+      searchInputRef.current?.blur();
+
+      try {
+        const res = await fetch(
+          `/api/places/resolve?id=${encodeURIComponent(hit.id)}&provider=${hit.provider}` +
+            `&session=${encodeURIComponent(searchSession())}`,
+        );
+        if (!res.ok) {
+          showTip("Couldn't open that place. Try another result.", "warn");
+          return;
+        }
+        const place = (await res.json()) as { label?: string; lat: number; lng: number };
+        // The pick closes the session; the next search starts a fresh one.
+        searchSessionRef.current = "";
+        setSearchText(place.label?.trim() || label);
+        setPinCoords({ lat: place.lat, lng: place.lng });
+        setSelectedSaved(null);
+        setHasPicked(true);
+        animateCameraTo(place.lng, place.lat, 1600);
+      } catch {
+        showTip("Couldn't open that place. Try another result.", "warn");
+      }
+    },
+    [animateCameraTo, searchSession, showTip],
+  );
 
   const applyPin = useCallback(
     async (lat: number, lng: number) => {
@@ -851,6 +912,13 @@ export function LocationScreen({
   };
 
   const hasToken = MAPBOX_TOKEN.length > 0;
+  /**
+   * Open while a query is in flight or has an answer. Deliberately not tied to
+   * input focus: on a phone the first touch on the list blurs the field, and a
+   * focus-gated panel would vanish under the finger mid-scroll.
+   */
+  const showResultsPanel =
+    searchText.trim().length >= 2 && (isSearching || suggestions.length > 0 || searchedOnce);
 
   return (
     <>
@@ -1124,7 +1192,7 @@ export function LocationScreen({
                 display: "flex", alignItems: "center", gap: 10,
                 background: "rgba(0,0,0,0.03)",
                 border: `1.5px solid ${searchFocused ? "rgba(189,35,32,0.5)" : "rgba(0,0,0,0.08)"}`,
-                borderRadius: suggestions.length > 0 ? "16px 16px 0 0" : 16,
+                borderRadius: showResultsPanel ? "16px 16px 0 0" : 16,
                 padding: "12px 14px",
                 transition: "border-color 0.2s",
                 boxShadow: searchFocused ? "0 0 0 3px rgba(189,35,32,0.08)" : "none",
@@ -1156,7 +1224,13 @@ export function LocationScreen({
                     initial={{ opacity: 0, scale: 0.7 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.7 }}
-                    onClick={() => { setSearchText(""); setSuggestions([]); }}
+                    onClick={() => {
+                      setSearchText("");
+                      setSuggestions([]);
+                      setSearchedOnce(false);
+                      setIsSearching(false);
+                      searchInputRef.current?.focus();
+                    }}
                     style={{
                       background: "rgba(0,0,0,0.06)", border: "none",
                       borderRadius: 10, width: 26, height: 26,
@@ -1171,9 +1245,9 @@ export function LocationScreen({
               </AnimatePresence>
             </div>
 
-            {/* Geocoding suggestions dropdown */}
+            {/* Search results */}
             <AnimatePresence>
-              {suggestions.length > 0 && (
+              {showResultsPanel && (
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1183,35 +1257,49 @@ export function LocationScreen({
                     border: "1.5px solid rgba(189,35,32,0.25)",
                     borderTop: "none",
                     borderRadius: "0 0 16px 16px",
-                    overflow: "hidden",
+                    // Long lists scroll on their own instead of running off the sheet.
+                    maxHeight: "min(46vh, 320px)",
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    overscrollBehavior: "contain",
+                    scrollbarWidth: "none",
                   }}
                 >
-                  {suggestions.map((f, i) => (
-                    <button
-                      key={i}
-                      onMouseDown={() => handleSuggestionSelect(f)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        width: "100%", background: "none", border: "none",
-                        borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
-                        padding: "11px 14px",
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <span style={{ color: "rgba(189,35,32,0.6)", flexShrink: 0, display: "flex" }}>
-                        <PinIcon color="#BD2320" />
-                      </span>
-                      <div>
-                        <p style={LOC.suggestTitle}>
-                          {f.place_name.split(",")[0]}
-                        </p>
-                        <p style={LOC.suggestSub}>
-                          {f.place_name.split(",").slice(1).join(",").trim()}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                  {isSearching && suggestions.length === 0 ? (
+                    <p style={{ ...LOC.suggestSub, padding: "14px 16px", whiteSpace: "normal" }}>
+                      Searching…
+                    </p>
+                  ) : suggestions.length === 0 ? (
+                    <p style={{ ...LOC.suggestSub, padding: "14px 16px", whiteSpace: "normal", lineHeight: 1.5 }}>
+                      Nothing found for that. Try the shop name with the town, or drop a pin on the map.
+                    </p>
+                  ) : (
+                    suggestions.map((hit, i) => (
+                      <button
+                        key={`${hit.provider}:${hit.id}`}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void handleSuggestionSelect(hit)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          width: "100%", background: "none", border: "none",
+                          borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                          padding: "14px 16px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          minHeight: 56,
+                        }}
+                      >
+                        <span style={{ color: "rgba(189,35,32,0.6)", flexShrink: 0, display: "flex" }}>
+                          <PinIcon color="#BD2320" />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p style={LOC.suggestTitle}>{hit.title}</p>
+                          {hit.subtitle ? <p style={LOC.suggestSub}>{hit.subtitle}</p> : null}
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
