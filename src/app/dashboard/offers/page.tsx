@@ -192,7 +192,7 @@ export default function OffersPage() {
       <p style={{ margin: 0, fontSize: 12, color: "#888", fontFamily: FONT, lineHeight: 1.5 }}>
         {draft.kind === "auto"
           ? "Applies on its own to every order inside the dates below. Use this for Diwali, Pongal and seasonal pushes."
-          : "Only applies when the customer types the code at checkout. Share it on WhatsApp, Instagram or a flyer."}
+          : "Shows under View promos in the cart while this offer is on, so customers can use it without seeing an Instagram post. Turn it off when the festival ends."}
       </p>
 
       <Field label="Offer name (customers see this)">

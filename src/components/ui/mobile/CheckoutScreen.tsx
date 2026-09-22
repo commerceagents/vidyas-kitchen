@@ -37,6 +37,7 @@ import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 import { formatFullDishName } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { normalizeOfferCode } from "@/lib/offers";
+import { PromoListSheet, type PublicPromo } from "@/components/ui/mobile/PromoListSheet";
 import { getVkToken } from "@/lib/vk-session";
 import { readSavedPromo, writeSavedPromo } from "@/lib/vk-cart-storage";
 
@@ -409,6 +410,9 @@ export function CheckoutScreen({
     return s?.checkoutAppliedOffer ?? null;
   });
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [promosOpen, setPromosOpen] = useState(false);
+  const [publicPromos, setPublicPromos] = useState<PublicPromo[]>([]);
+  const [promosLoading, setPromosLoading] = useState(false);
   const [promoChecking, setPromoChecking] = useState(false);
   const [activeCode, setActiveCode] = useState<string | null>(() => savedPromoCode());
   // Mirrors activeCode. Kept in a ref so re-checking on cart change doesn't
@@ -566,6 +570,19 @@ export function CheckoutScreen({
     void checkOffer(appliedCodeRef.current);
   }, [checkOffer]);
 
+  const applyListedPromo = useCallback(
+    async (code: string) => {
+      const normalized = normalizeOfferCode(code);
+      if (!normalized) return;
+      setPromoInput(normalized);
+      appliedCodeRef.current = normalized;
+      setActiveCode(normalized);
+      setPromosOpen(false);
+      await checkOffer(normalized);
+    },
+    [checkOffer],
+  );
+
   const applyPromo = useCallback(async () => {
     const code = normalizeOfferCode(promoInput);
     if (!code) {
@@ -588,6 +605,31 @@ export function CheckoutScreen({
   }, [checkOffer]);
 
   const itemTotal = cartEntries.reduce((acc, it) => acc + it.price * it.quantity, 0);
+
+  useEffect(() => {
+    if (itemTotal <= 0) {
+      setPublicPromos([]);
+      return;
+    }
+    let cancel = false;
+    setPromosLoading(true);
+    const q = new URLSearchParams({ subtotal: String(Math.round(itemTotal)) });
+    if (phone.trim()) q.set("phone", phone.trim());
+    void fetch(`/api/offers?${q}`)
+      .then((res) => res.json())
+      .then((data: { rows?: PublicPromo[] }) => {
+        if (!cancel) setPublicPromos(Array.isArray(data.rows) ? data.rows : []);
+      })
+      .catch(() => {
+        if (!cancel) setPublicPromos([]);
+      })
+      .finally(() => {
+        if (!cancel) setPromosLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [itemTotal, phone]);
   const discount = Math.min(appliedOffer?.amount ?? 0, itemTotal);
   const discountedItems = Math.max(0, itemTotal - discount);
   const packagingFee = 20;
@@ -1132,9 +1174,27 @@ export function CheckoutScreen({
                     })}
                   </div>
 
-                  <h3 style={{ ...TYPO.sectionTitle, margin: "28px 0 12px", opacity: 0.72 }}>
-                    Offers
-                  </h3>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "28px 0 12px" }}>
+                    <h3 style={{ ...TYPO.sectionTitle, margin: 0, opacity: 0.72 }}>
+                      Offers
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setPromosOpen(true)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: C.red,
+                        fontFamily: C.mono,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      View promos{publicPromos.length > 0 ? ` · ${publicPromos.length}` : ""}
+                    </button>
+                  </div>
                   <div
                     style={{
                       background: C.surface,
@@ -2219,6 +2279,14 @@ export function CheckoutScreen({
           </motion.div>
         </>
       )}
+
+      <PromoListSheet
+        open={promosOpen}
+        promos={publicPromos}
+        loading={promosLoading}
+        onClose={() => setPromosOpen(false)}
+        onApply={(code) => void applyListedPromo(code)}
+      />
     </div>
   );
 }

@@ -35,9 +35,9 @@ export async function loadOffers(supabase?: SupabaseClient): Promise<OfferRow[]>
 }
 
 /**
- * Live offers as prompt text for the WhatsApp bot. Auto offers are described
- * fully; codes are named without revealing the code, so the bot can confirm a
- * code a customer already has without handing codes out to everyone.
+ * Live offers as prompt text for the WhatsApp bot. A switched-on code is a
+ * public festive code (the cart lists it under View promos), so the bot may
+ * name it. Turn the offer off in the dashboard when it should disappear.
  */
 export async function liveOffersPromptBlock(now = new Date()): Promise<string> {
   const offers = (await loadOffers()).filter((o) => isOfferLive(o, now));
@@ -47,9 +47,63 @@ export async function liveOffersPromptBlock(now = new Date()): Promise<string> {
     .map((o) =>
       o.kind === "auto"
         ? `- ${o.name}: ${offerTerms(o)}. Applies automatically, no code needed.`
-        : `- ${o.name}: ${offerTerms(o)}. Needs a promo code entered in the app at checkout. Do not reveal the code.`,
+        : `- ${o.name}: code ${o.code}. ${offerTerms(o)}. Also listed under View promos in the cart.`,
     )
     .join("\n");
+}
+
+export type PublicOffer = {
+  id: string;
+  name: string;
+  kind: "auto" | "code";
+  code: string | null;
+  terms: string;
+  minOrder: number;
+  /** Rupees off this cart. Zero when the cart is not big enough yet. */
+  amount: number;
+  eligible: boolean;
+  reason: string | null;
+  endsOn: string | null;
+};
+
+/**
+ * What the cart's "View promos" list is allowed to show: every live offer.
+ * A code that is switched on is a public festive code. Turn it off in the
+ * dashboard when it should stop appearing.
+ */
+export async function listPublicOffers(input: {
+  subtotal: number;
+  phone?: string | null;
+  now?: Date;
+}): Promise<PublicOffer[]> {
+  const now = input.now ?? new Date();
+  const db = createServerSupabase();
+  const offers = (await loadOffers(db)).filter((o) => isOfferLive(o, now));
+  const rows: PublicOffer[] = [];
+
+  for (const offer of offers) {
+    let reason = offerRejectionReason(offer, input.subtotal, now);
+    if (!reason && offer.kind === "code" && offer.per_customer_limit != null && input.phone) {
+      const used = await customerRedemptionCount(db, offer.id, input.phone);
+      if (used >= offer.per_customer_limit) reason = "You've already used this code.";
+    }
+    const amount = reason ? 0 : offerDiscountFor(offer, input.subtotal);
+    rows.push({
+      id: offer.id,
+      name: offer.name,
+      kind: offer.kind,
+      code: offer.kind === "code" ? offer.code : null,
+      terms: offerTerms(offer),
+      minOrder: Math.round(Number(offer.min_order) || 0),
+      amount,
+      eligible: !reason && amount > 0,
+      reason,
+      endsOn: offer.ends_on,
+    });
+  }
+
+  rows.sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.amount - a.amount);
+  return rows;
 }
 
 export async function findOfferByCode(
