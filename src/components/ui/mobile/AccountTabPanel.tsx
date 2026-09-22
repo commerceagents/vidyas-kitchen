@@ -8,7 +8,8 @@ import {
   ClockCounterClockwise, 
   Bell, 
   Phone, 
-  ShieldCheck, 
+  Scroll, 
+  LockKey, 
   CaretRight,
   PencilSimple,
   DownloadSimple,
@@ -132,8 +133,12 @@ function IconWhatsApp() {
   );
 }
 
-function IconShield() {
-  return <ShieldCheck size={20} weight="regular" color={ICON_STROKE} />;
+function IconTerms() {
+  return <Scroll size={20} weight="regular" color={ICON_STROKE} />;
+}
+
+function IconPrivacy() {
+  return <LockKey size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconDownload() {
@@ -470,7 +475,7 @@ export function AccountTabPanel({
         <PressRow
           icon={
             <AccountRowIcon>
-              <IconShield />
+              <IconTerms />
             </AccountRowIcon>
           }
           subtitle="Ordering, slots, and payment rules"
@@ -480,7 +485,7 @@ export function AccountTabPanel({
         <PressRow
           icon={
             <AccountRowIcon>
-              <ShieldCheck size={20} weight="duotone" color={ICON_STROKE} />
+              <IconPrivacy />
             </AccountRowIcon>
           }
           subtitle="How your personal data is protected"
