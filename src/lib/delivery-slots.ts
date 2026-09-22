@@ -23,17 +23,13 @@ function pad2(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-/** Check if the ordering window is open (6 AM – 6 PM IST). */
-export function isOrderingWindowOpen(nowMs: number = Date.now()): boolean {
-  const hour = parseInt(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: DELIVERY_SLOT_TIMEZONE,
-      hour: "numeric",
-      hourCycle: "h23",
-    }).format(new Date(nowMs)),
-    10,
-  );
-  return hour >= 6 && hour < 18;
+/**
+ * Orders can be placed at any hour. The only cutoff is the delivery slot
+ * itself: it must still be at least 24 hours away (see isSlotBookable).
+ * The old 6 AM–6 PM gate blocked late-night orders for a morning two days out.
+ */
+export function isOrderingWindowOpen(_nowMs: number = Date.now()): boolean {
+  return true;
 }
 
 /** IST calendar date YYYY-MM-DD for `d` (Wall time in Kolkata). */
