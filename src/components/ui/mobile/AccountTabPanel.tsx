@@ -14,7 +14,7 @@ import {
   PencilSimple,
   DownloadSimple,
   Question,
-  Receipt,
+  ReceiptX,
   Heart,
   SealCheck,
 } from "@phosphor-icons/react";
@@ -110,8 +110,8 @@ function IconQuestion() {
   return <Question size={20} weight="regular" color={ICON_STROKE} />;
 }
 
-function IconReceipt() {
-  return <Receipt size={20} weight="regular" color={ICON_STROKE} />;
+function IconRefund() {
+  return <ReceiptX size={20} weight="regular" color={ICON_STROKE} />;
 }
 
 function IconBell() {
@@ -465,7 +465,7 @@ export function AccountTabPanel({
         <PressRow
           icon={
             <AccountRowIcon>
-              <IconReceipt />
+              <IconRefund />
             </AccountRowIcon>
           }
           subtitle="When we cancel and how refunds work"
