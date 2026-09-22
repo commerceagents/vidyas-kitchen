@@ -640,8 +640,11 @@ export function OrderTrackingPanel({
   const pinLat = trackSnap?.deliveryLat ?? location?.lat ?? null;
   const pinLng = trackSnap?.deliveryLng ?? location?.lng ?? null;
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
-  const driverLat = driverFixFresh ? trackSnap?.driverLastLat ?? null : null;
-  const driverLng = driverFixFresh ? trackSnap?.driverLastLng ?? null : null;
+  // Show the last fix even when it has gone quiet — a phone that locked its
+  // screen mid-ride stops reporting, and blanking the map then tells the
+  // customer less than a greyed bike labelled "last seen 4 min ago".
+  const driverLat = trackSnap?.driverLastLat ?? null;
+  const driverLng = trackSnap?.driverLastLng ?? null;
   const showLiveMap = outForDelivery && pinLat != null && pinLng != null && !!mapToken;
   const codPending =
     (trackSnap?.paymentMethod || "").toLowerCase() === "cod" &&
@@ -845,6 +848,8 @@ export function OrderTrackingPanel({
                       customerLng={pinLng}
                       driverLat={driverLat ?? null}
                       driverLng={driverLng ?? null}
+                      driverStale={driverLat != null && !driverFixFresh}
+                      driverFixAt={trackSnap?.driverLocationAt ?? null}
                       height={280}
                     />
                   ) : null}
@@ -1411,9 +1416,11 @@ export function OrderTrackingPanel({
                     textAlign: "center",
                   }}
                 >
-                  {driverLat != null
-                    ? "The bike is your driver, moving live towards your red pin."
-                    : "Your driver will appear on the map once they start sharing their location."}
+                  {driverLat == null
+                    ? "Your driver will appear on the map once they start sharing their location."
+                    : driverFixFresh
+                      ? "The bike is your driver, following the red route to your pin."
+                      : "This is where your driver was last seen — the bike moves again as soon as their phone reports in."}
                 </p>
               ) : null}
 

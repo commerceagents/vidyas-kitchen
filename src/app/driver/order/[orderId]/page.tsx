@@ -14,7 +14,6 @@ import {
   X,
   Banknote,
   BellRing,
-  Crosshair,
   QrCode,
 } from "lucide-react";
 import QRCode from "react-qr-code";
@@ -25,7 +24,6 @@ import { D, RADIUS } from "../../driver-theme";
 import { DriverAuthShell, useSignedInDriver } from "../../driver-auth-gate";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 type MenuRef = { name?: string | null; image_url?: string | null } | null;
 type ItemRow = { quantity?: number | null; menu_items?: MenuRef };
@@ -56,9 +54,8 @@ type DriverOrder = {
 /** Matches the server check in /api/orders/driver/complete. */
 const PROXIMITY_UNLOCK_M = 120;
 const LOCATION_POST_MS = 12_000;
-/** Re-request the driving line only after the driver has actually moved this far. */
+/** Re-request the driving ETA only after the driver has actually moved this far. */
 const ROUTE_REFRESH_M = 150;
-const ROUTE_SOURCE = "vk-driver-route";
 
 function toTitleCase(s: string): string {
   return s.toLowerCase().replace(/(?:^|\s|[-/])\S/g, (c) => c.toUpperCase());
@@ -244,12 +241,7 @@ function DriverOrderDetailInner() {
   const watchId = useRef<number | null>(null);
   const postTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPos = useRef<{ lat: number; lng: number } | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const driverMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const routeFromRef = useRef<{ lat: number; lng: number } | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [userPanned, setUserPanned] = useState(false);
   const [route, setRoute] = useState<{ distanceM: number; durationS: number } | null>(null);
 
   const postLocation = useCallback(
@@ -388,147 +380,85 @@ function DriverOrderDetailInner() {
     );
   }, [postLocation]);
 
+  // A locked screen suspends the GPS watch, which is why a customer used to see
+  // nothing until the rider showed up and reopened the app. Hold a wake lock
+  // while out for delivery, and push a fresh fix the moment the driver comes
+  // back from Google Maps so their map catches up instead of staying frozen.
   useEffect(() => {
-    if (!MAPBOX_TOKEN || !mapContainerRef.current || !hasDropPin || mapRef.current) return;
+    if (!isOut || typeof document === "undefined") return;
 
-    let cancelled = false;
-    let created: mapboxgl.Map | null = null;
-
-    (async () => {
-      const mapboxgl = (await import("mapbox-gl")).default;
-      await import("mapbox-gl/dist/mapbox-gl.css");
-      if (cancelled) return;
-
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      const map = new mapboxgl.Map({
-        container: mapContainerRef.current!,
-        style: MAP_STYLE,
-        center: [dropLng!, dropLat!],
-        zoom: 14,
-        attributionControl: false,
-        interactive: true,
-      });
-      created = map;
-
-      const customerEl = document.createElement("div");
-      customerEl.innerHTML = `<div style="width:30px;height:30px;border-radius:50%;background:${D.red};border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`;
-      new mapboxgl.Marker({ element: customerEl }).setLngLat([dropLng!, dropLat!]).addTo(map);
-
-      // Only a gesture counts as the driver taking over. Our own fitBounds
-      // calls fire the same events without an originalEvent.
-      const takeOver = (e: unknown) => {
-        if ((e as { originalEvent?: unknown }).originalEvent) setUserPanned(true);
-      };
-      map.on("dragstart", takeOver);
-      map.on("zoomstart", takeOver);
-      map.on("load", () => {
-        if (!cancelled) setMapReady(true);
-      });
-
-      mapRef.current = map;
-    })();
-
-    return () => {
-      cancelled = true;
-      // Every map holds a WebGL context and browsers cap those at around a
-      // dozen. Without this, a driver who opens enough orders in one shift
-      // ends up with a blank map until they reload the app.
-      created?.remove();
-      mapRef.current = null;
-      driverMarkerRef.current = null;
-      routeFromRef.current = null;
+    type WakeLockSentinelLike = { release: () => Promise<void> };
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (type: "screen") => Promise<WakeLockSentinelLike> };
     };
-  }, [hasDropPin, dropLat, dropLng]);
+    let sentinel: WakeLockSentinelLike | null = null;
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || geoLat == null || geoLng == null) return;
-
-    let cancelled = false;
-    (async () => {
-      const mapboxgl = (await import("mapbox-gl")).default;
-      if (cancelled || !mapRef.current) return;
-
-      if (!driverMarkerRef.current) {
-        const el = document.createElement("div");
-        el.innerHTML = `<div style="width:18px;height:18px;border-radius:50%;background:${D.green};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25)"></div>`;
-        driverMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat([geoLng, geoLat]).addTo(map);
-      } else {
-        driverMarkerRef.current.setLngLat([geoLng, geoLat]);
+    const acquire = async () => {
+      if (!nav.wakeLock) return;
+      try {
+        sentinel = await nav.wakeLock.request("screen");
+      } catch {
+        // Denied on some browsers / low battery. Tracking still works while
+        // the driver keeps the screen on themselves.
       }
+    };
 
-      // Once the driver has panned to look ahead, stop yanking the camera back
-      // on every GPS tick — they can tap Recentre when they want it again.
-      if (hasDropPin && !userPanned) {
-        const bounds = new mapboxgl.LngLatBounds();
-        bounds.extend([dropLng!, dropLat!]);
-        bounds.extend([geoLng, geoLat]);
-        map.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 900 });
-      }
-    })();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void acquire();
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          lastPos.current = { lat: p.coords.latitude, lng: p.coords.longitude };
+          setGeoLat(p.coords.latitude);
+          setGeoLng(p.coords.longitude);
+          void postLocation(p.coords.latitude, p.coords.longitude);
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+      );
+    };
 
-    return () => { cancelled = true; };
-  }, [mapReady, geoLat, geoLng, hasDropPin, dropLat, dropLng, userPanned]);
+    void acquire();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      void sentinel?.release().catch(() => {});
+    };
+  }, [isOut, postLocation]);
 
-  // Driving route from the driver to the door. Re-requested only after real
-  // movement: the GPS watch fires every few seconds and the Directions API is
-  // metered, but a line that lags 150m behind is still an honest guide.
+  // Distance and ETA to the door. The driver navigates in Google Maps, so this
+  // is only here to answer "how far am I?" without leaving the app — and it is
+  // re-requested only after real movement, because the GPS watch fires every
+  // few seconds and the Directions API is metered.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !hasDropPin || geoLat == null || geoLng == null) return;
+    if (!MAPBOX_TOKEN || !hasDropPin || geoLat == null || geoLng == null) return;
 
     const from = routeFromRef.current;
     if (from && haversineMeters(from.lat, from.lng, geoLat, geoLng) < ROUTE_REFRESH_M) return;
     routeFromRef.current = { lat: geoLat, lng: geoLng };
 
-    let cancelled = false;
+    const ctrl = new AbortController();
     (async () => {
       try {
         const url =
           `https://api.mapbox.com/directions/v5/mapbox/driving/${geoLng},${geoLat};${dropLng},${dropLat}` +
-          `?geometries=geojson&overview=full&access_token=${encodeURIComponent(MAPBOX_TOKEN)}`;
-        const res = await fetch(url);
-        const j = (await res.json()) as {
-          routes?: { geometry?: GeoJSON.LineString; distance?: number; duration?: number }[];
-        };
-        const route = j.routes?.[0];
-        if (cancelled || !route?.geometry || !mapRef.current) return;
-
-        setRoute({ distanceM: Number(route.distance) || 0, durationS: Number(route.duration) || 0 });
-
-        const data: GeoJSON.Feature<GeoJSON.LineString> = {
-          type: "Feature",
-          properties: {},
-          geometry: route.geometry,
-        };
-        const existing = map.getSource(ROUTE_SOURCE) as mapboxgl.GeoJSONSource | undefined;
-        if (existing) {
-          existing.setData(data);
-          return;
-        }
-        map.addSource(ROUTE_SOURCE, { type: "geojson", data });
-        map.addLayer({
-          id: `${ROUTE_SOURCE}-casing`,
-          type: "line",
-          source: ROUTE_SOURCE,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#fff", "line-width": 8, "line-opacity": 0.9 },
-        });
-        map.addLayer({
-          id: `${ROUTE_SOURCE}-line`,
-          type: "line",
-          source: ROUTE_SOURCE,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": D.red, "line-width": 4.5 },
-        });
-      } catch {
-        // A missing line is cosmetic; Navigate is still one tap away.
+          `?geometries=geojson&overview=false&access_token=${encodeURIComponent(MAPBOX_TOKEN)}`;
+        const res = await fetch(url, { signal: ctrl.signal });
+        const j = (await res.json()) as { routes?: { distance?: number; duration?: number }[] };
+        const best = j.routes?.[0];
+        if (!best) throw new Error("no route");
+        setRoute({ distanceM: Number(best.distance) || 0, durationS: Number(best.duration) || 0 });
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
+        // The straight-line distance below still covers it, and Navigate is one
+        // tap away. Clear the throttle so the next fix retries.
         routeFromRef.current = null;
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [mapReady, geoLat, geoLng, hasDropPin, dropLat, dropLng]);
+    return () => ctrl.abort();
+  }, [geoLat, geoLng, hasDropPin, dropLat, dropLng]);
 
   const handlePickup = async () => {
     setPickingUp(true);
@@ -655,8 +585,11 @@ function DriverOrderDetailInner() {
         ? `${Math.round(distanceM)} m away`
         : `${(distanceM / 1000).toFixed(1)} km away`;
 
+  // The pinned drop beats the typed address every time — it is the exact spot
+  // the customer (or the gift recipient) dropped on the map at checkout, so
+  // Google Maps routes to the door rather than to a street name.
   const mapsUrl = hasDropPin
-    ? `https://www.google.com/maps/dir/?api=1&destination=${dropLat},${dropLng}`
+    ? `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${dropLat},${dropLng}`
     : order?.delivery_address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address)}`
       : "";
@@ -694,105 +627,96 @@ function DriverOrderDetailInner() {
         color: D.text,
       }}
     >
-      {/* Map */}
-      <div style={{ position: "relative", width: "100%", height: "38dvh", minHeight: 230, flexShrink: 0 }}>
-        {MAPBOX_TOKEN && hasDropPin ? (
-          <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <MapPin size={38} strokeWidth={1.4} style={{ color: D.faint }} />
-          </div>
-        )}
-
+      {/* Header — turn-by-turn lives in Google Maps, so this screen stays a
+          one-thumb job card rather than a second map to babysit. */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "max(14px, env(safe-area-inset-top, 12px)) 16px 12px",
+          background: D.bg,
+          borderBottom: `1px solid ${D.border}`,
+        }}
+      >
         <Link
           href="/driver"
           style={{
-            position: "absolute",
-            top: "max(14px, env(safe-area-inset-top, 12px))",
-            left: 16,
             width: 40,
             height: 40,
+            flexShrink: 0,
             borderRadius: 12,
             background: D.surface,
             border: `1px solid ${D.border}`,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: D.text,
             textDecoration: "none",
-            zIndex: 10,
           }}
         >
           <ArrowLeft size={19} strokeWidth={2.2} />
         </Link>
 
-        {tripLabel && (
-          <div
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: D.faint }}>
+            {isOut ? "ON THE WAY" : isReady ? "READY FOR PICKUP" : "ORDER"}
+          </p>
+          <p
             style={{
-              position: "absolute",
-              top: "max(14px, env(safe-area-inset-top, 12px))",
-              right: 16,
-              zIndex: 10,
-              padding: "9px 14px",
-              borderRadius: 12,
-              background: D.surface,
-              border: `1px solid ${D.border}`,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+              margin: "1px 0 0",
+              fontSize: 14.5,
+              fontWeight: 800,
+              letterSpacing: "-0.01em",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: "-0.01em" }}>{tripLabel}</span>
-          </div>
-        )}
+            {tripLabel || formatOrderRef(order.order_number, orderId)}
+          </p>
+        </div>
 
-        {userPanned && (
-          <button
-            type="button"
-            onClick={() => setUserPanned(false)}
+        {mapsUrl && (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              position: "absolute",
-              right: 16,
-              bottom: 32,
-              zIndex: 10,
               display: "flex",
               alignItems: "center",
               gap: 6,
-              padding: "9px 13px",
+              flexShrink: 0,
+              padding: "10px 13px",
               borderRadius: 12,
-              border: `1px solid ${D.border}`,
-              background: D.surface,
-              color: D.text,
+              background: D.red,
+              color: "#fff",
               fontSize: 13,
               fontWeight: 800,
-              fontFamily: D.font,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
-              cursor: "pointer",
+              textDecoration: "none",
             }}
           >
-            <Crosshair size={15} strokeWidth={2.2} />
-            Recentre
-          </button>
+            <Navigation size={15} strokeWidth={2.3} />
+            Navigate
+          </a>
         )}
       </div>
 
       {/* Sheet */}
       <div
         style={{
-          marginTop: -20,
-          borderRadius: "22px 22px 0 0",
           background: D.bg,
           position: "relative",
-          zIndex: 5,
           display: "flex",
           flexDirection: "column",
-          padding: "0 18px",
+          padding: "12px 18px 0",
           paddingBottom: "max(22px, env(safe-area-inset-bottom, 16px))",
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "center", padding: "9px 0 5px" }}>
-          <div style={{ width: 34, height: 4, borderRadius: 4, background: "rgba(0,0,0,0.14)" }} />
-        </div>
 
         {/* Customer */}
         <div style={{ background: D.surface, borderRadius: RADIUS.card, border: `1px solid ${D.border}`, padding: 15, display: "flex", flexDirection: "column", gap: 13 }}>
@@ -887,7 +811,9 @@ function DriverOrderDetailInner() {
 
         {mapsUrl && (
           <p style={{ margin: "-4px 0 0", fontSize: 11.5, color: D.faint, fontWeight: 600, textAlign: "center" }}>
-            Navigate opens Google Maps with turn-by-turn directions to the drop.
+            {hasDropPin
+              ? "Navigate opens Google Maps at the exact pin the customer dropped."
+              : "No pin on this order, so Navigate searches Google Maps for the address — check it before you ride."}
           </p>
         )}
 
