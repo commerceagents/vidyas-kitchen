@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
@@ -14,6 +13,7 @@ import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
+import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 
 // Mapbox GL is ~200kB and only ever renders while an order is out for
 // delivery, so it stays out of the main bundle.
@@ -609,8 +609,6 @@ export function OrderTrackingPanel({
 }) {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [pickedStars, setPickedStars] = useState<number | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
   useEffect(() => {
     setPickedStars(null);
   }, [trackingOrderId]);
@@ -1614,130 +1612,18 @@ export function OrderTrackingPanel({
         </div>
       )}
 
-      {portalReady
-        ? createPortal(
-      <AnimatePresence>
-        {cancelModalOpen ? (
-          <motion.div
-            key="vk-cancel-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="vk-cancel-title"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 420,
-              background: "rgba(12,12,12,0.48)",
-              backdropFilter: "blur(14px) saturate(140%)",
-              WebkitBackdropFilter: "blur(14px) saturate(140%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-            onClick={() => {
-              if (!cancelSubmitting) setCancelModalOpen(false);
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: "100%",
-                maxWidth: 340,
-                borderRadius: 24,
-                padding: "28px 22px 20px",
-                background: C.white,
-                boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-              }}
-            >
-              <h2
-                id="vk-cancel-title"
-                style={{
-                  margin: 0,
-                  fontSize: 20,
-                  fontWeight: 800,
-                  color: C.text,
-                  fontFamily: fontUi,
-                  lineHeight: 1.3,
-                  textAlign: "center",
-                }}
-              >
-                Cancel this order?
-              </h2>
-              <p
-                style={{
-                  margin: "14px 0 0",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: C_TEXT_MUTED,
-                  fontFamily: fontUi,
-                  lineHeight: 1.55,
-                  textAlign: "center",
-                }}
-              >
-                {cancelConfirmBody}
-              </p>
-              {cancelErr ? (
-                <p style={{ margin: "12px 0 0", fontSize: 14, fontWeight: 700, color: "#fca5a5", fontFamily: fontUi, textAlign: "center", lineHeight: 1.45 }}>
-                  {cancelErr}
-                </p>
-              ) : null}
-              <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.98 }}
-                  disabled={cancelSubmitting}
-                  onClick={() => setCancelModalOpen(false)}
-                  style={{
-                    flex: 1,
-                    padding: "14px 12px",
-                    borderRadius: 14,
-                    border: `1px solid ${C.border}`,
-                    background: C.glass,
-                    color: C_TEXT_SEC,
-                    fontSize: 15,
-                    fontWeight: 800,
-                    cursor: cancelSubmitting ? "wait" : "pointer",
-                    fontFamily: fontUi,
-                  }}
-                >
-                  Keep order
-                </motion.button>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.98 }}
-                  disabled={cancelSubmitting}
-                  onClick={handleConfirmCancel}
-                  style={{
-                    flex: 1,
-                    padding: "14px 12px",
-                    borderRadius: 14,
-                    border: `1px solid ${C.redBorder}`,
-                    background: C.redFaint,
-                    color: C.red,
-                    fontSize: 15,
-                    fontWeight: 800,
-                    cursor: cancelSubmitting ? "wait" : "pointer",
-                    fontFamily: fontUi,
-                  }}
-                >
-                  {cancelSubmitting ? "Cancelling…" : "Yes, cancel"}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>,
-          document.body,
-        )
-        : null}
+      <ConfirmDialog
+        open={cancelModalOpen}
+        labelledBy="vk-cancel-title"
+        title="Cancel this order?"
+        body={cancelConfirmBody}
+        error={cancelErr}
+        busy={cancelSubmitting}
+        dismissLabel="Keep order"
+        confirmLabel={cancelSubmitting ? "Cancelling…" : "Yes, cancel"}
+        onDismiss={() => setCancelModalOpen(false)}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 }

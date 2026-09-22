@@ -23,6 +23,7 @@ import {
 } from "@/lib/vk-saved-places";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { FavoritesSheet, type FavoriteRow } from "@/components/ui/mobile/FavoritesSheet";
+import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
 import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
@@ -2911,121 +2912,24 @@ export function MobileHomeScreen({
         )}
       </AnimatePresence>
 
-      {/* Remove-from-favorites confirm (Home Favorites / Account / Dish Details) */}
-      <AnimatePresence>
-        {unfavoriteConfirm && (
-          <motion.div
-            key="unfav-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 200,
-              background: "rgba(12,12,12,0.48)",
-              backdropFilter: "blur(14px) saturate(140%)",
-              WebkitBackdropFilter: "blur(14px) saturate(140%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-            onClick={() => setUnfavoriteConfirm(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="vk-unfav-title"
-              style={{
-                width: "100%",
-                maxWidth: 340,
-                borderRadius: 24,
-                background: C.white,
-                padding: "28px 22px 20px",
-                boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-                fontFamily: C.mono,
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              <h2
-                id="vk-unfav-title"
-                style={{
-                  margin: 0,
-                  fontSize: 20,
-                  fontWeight: 900,
-                  color: C.text,
-                  letterSpacing: "-0.02em",
-                  textAlign: "center",
-                }}
-              >
-                Remove from favorites?
-              </h2>
-              <p
-                style={{
-                  margin: "12px 0 0",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  lineHeight: 1.45,
-                  color: "rgba(0,0,0,0.5)",
-                  textAlign: "center",
-                }}
-              >
-                {unfavoriteConfirm.name} will be removed from your favorites list.
-              </p>
-              <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-                <button
-                  type="button"
-                  onClick={() => setUnfavoriteConfirm(null)}
-                  style={{
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 14,
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    background: "rgba(0,0,0,0.04)",
-                    color: C.text,
-                    fontSize: 15,
-                    fontWeight: 800,
-                    fontFamily: C.mono,
-                    cursor: "pointer",
-                  }}
-                >
-                  Keep
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    removeFavorite(unfavoriteConfirm.id);
-                    setUnfavoriteConfirm(null);
-                  }}
-                  style={{
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 14,
-                    border: "none",
-                    background: C.red,
-                    color: "#fff",
-                    fontSize: 15,
-                    fontWeight: 800,
-                    fontFamily: C.mono,
-                    cursor: "pointer",
-                    boxShadow: `0 8px 20px ${C.redGlow}`,
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={unfavoriteConfirm != null}
+        labelledBy="vk-unfav-title"
+        title="Remove from favorites?"
+        body={
+          unfavoriteConfirm
+            ? `${unfavoriteConfirm.name} will be removed from your favorites list.`
+            : ""
+        }
+        dismissLabel="Keep"
+        confirmLabel="Remove"
+        onDismiss={() => setUnfavoriteConfirm(null)}
+        onConfirm={() => {
+          if (!unfavoriteConfirm) return;
+          removeFavorite(unfavoriteConfirm.id);
+          setUnfavoriteConfirm(null);
+        }}
+      />
 
       {/* ── Bottom Vignette (smooth gradient behind floating navbar so it is clearly visible without blocking content) ─ */}
       {!dishDetailItem && activeScreen !== "menu" && (activeNav === "home" || activeNav === "orders") && (

@@ -18,7 +18,7 @@ import {
   Heart,
   SealCheck,
 } from "@phosphor-icons/react";
-import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
+import { C, C_TEXT_MUTED } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { loadSavedPlaces, savedPlacesSummary, type SavedPlace } from "@/lib/vk-saved-places";
 import { SUPPORT_PHONE_E164, whatsappBotLink } from "@/lib/whatsapp-copy";
@@ -27,6 +27,7 @@ import { HelpSheet } from "@/components/ui/mobile/HelpSheet";
 import { ProfileEditSheet } from "@/components/ui/mobile/ProfileEditSheet";
 import { SavedAddressesSheet } from "@/components/ui/mobile/SavedAddressesSheet";
 import { PolicySheet } from "@/components/ui/mobile/PolicySheet";
+import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import {
   currentPushState,
   disablePush,
@@ -628,123 +629,19 @@ export function AccountTabPanel({
         document.body,
       )}
 
-    {mounted &&
-      createPortal(
-        <AnimatePresence>
-          {confirmSignOut ? (
-            <motion.div
-              key="vk-signout-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="vk-signout-title"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 420,
-                background: "rgba(12,12,12,0.48)",
-                backdropFilter: "blur(14px) saturate(140%)",
-                WebkitBackdropFilter: "blur(14px) saturate(140%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 24,
-              }}
-              onClick={() => setConfirmSignOut(false)}
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 14, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: "100%",
-                  maxWidth: 340,
-                  borderRadius: 24,
-                  padding: "28px 22px 20px",
-                  background: C.white,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-                }}
-              >
-                <h2
-                  id="vk-signout-title"
-                  style={{
-                    margin: 0,
-                    fontSize: 20,
-                    fontWeight: 800,
-                    color: C.text,
-                    fontFamily: C.mono,
-                    lineHeight: 1.3,
-                    textAlign: "center",
-                  }}
-                >
-                  Log out?
-                </h2>
-                <p
-                  style={{
-                    margin: "14px 0 0",
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: C_TEXT_MUTED,
-                    fontFamily: C.mono,
-                    lineHeight: 1.55,
-                    textAlign: "center",
-                  }}
-                >
-                  You’ll need this phone number to sign back in. Live orders stay with the kitchen.
-                </p>
-                <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setConfirmSignOut(false)}
-                    style={{
-                      flex: 1,
-                      padding: "14px 12px",
-                      borderRadius: 14,
-                      border: `1px solid ${C.border}`,
-                      background: C.glass,
-                      color: C_TEXT_SEC,
-                      fontSize: 15,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      fontFamily: C.mono,
-                    }}
-                  >
-                    Stay
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      setConfirmSignOut(false);
-                      onSignOut?.();
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "14px 12px",
-                      borderRadius: 14,
-                      border: `1px solid ${C.redBorder}`,
-                      background: C.redFaint,
-                      color: C.red,
-                      fontSize: 15,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      fontFamily: C.mono,
-                    }}
-                  >
-                    Log out
-                  </motion.button>
-                </div>
-              </motion.div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>,
-        document.body,
-      )}
+    <ConfirmDialog
+      open={confirmSignOut}
+      labelledBy="vk-signout-title"
+      title="Log out?"
+      body="You’ll need this phone number to sign back in. Live orders stay with the kitchen."
+      dismissLabel="Stay"
+      confirmLabel="Log out"
+      onDismiss={() => setConfirmSignOut(false)}
+      onConfirm={() => {
+        setConfirmSignOut(false);
+        onSignOut?.();
+      }}
+    />
     </>
   );
 }
