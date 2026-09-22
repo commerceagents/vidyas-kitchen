@@ -43,6 +43,7 @@ export async function sendDashboardPushNotifications(
 
   const expired: string[] = [];
   let sent = 0;
+  let failed = 0;
 
   await Promise.allSettled(
     subs.map(async (sub) => {
@@ -50,17 +51,19 @@ export async function sendDashboardPushNotifications(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
         pushPayload,
       );
-      if (res === "sent") {
-        sent += 1;
-      } else if (res === "gone") {
-        expired.push(sub.endpoint);
-      }
+      if (res === "sent") sent += 1;
+      else if (res === "gone") expired.push(sub.endpoint);
+      else failed += 1;
     }),
   );
 
   if (expired.length > 0) {
     await supabase.from("dashboard_push_subscriptions").delete().in("endpoint", expired);
   }
+
+  console.log(
+    `[push-dashboard] sent=${sent} failed=${failed} expired=${expired.length} devices=${subs.length}`,
+  );
 
   return sent;
 }

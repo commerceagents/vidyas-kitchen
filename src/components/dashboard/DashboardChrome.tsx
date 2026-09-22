@@ -863,6 +863,33 @@ function DashboardPushAlertsBanner() {
     };
   }, []);
 
+  // Browsers rotate the push endpoint. Re-save it whenever this phone opens
+  // the dashboard, or a device that enabled alerts days ago stops receiving them.
+  useEffect(() => {
+    if (pushState !== "on") return;
+    let cancel = false;
+    void (async () => {
+      try {
+        const sub = await ensureSubscription();
+        if (cancel) return;
+        await fetch("/api/dashboard/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            p256dh: keyToBase64(sub, "p256dh"),
+            auth: keyToBase64(sub, "auth"),
+          }),
+        });
+      } catch (e) {
+        console.error("[dashboard] push resync failed", e);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [pushState]);
+
   const handleEnable = async () => {
     setBusy(true);
     setMsg(null);

@@ -218,33 +218,39 @@ export async function markOrderPaidAndNotify(
     console.error("[markOrderPaidAndNotify] WhatsApp notify failed", e);
   }
 
-  void sendOrderPushNotifications(
-    supabase,
-    row.phone_number as string | null,
-    OrderStatus.PAID,
-    row.id as string,
-    row.delivery_slot as string | null,
-    (row as { order_number?: number | null }).order_number ?? null,
-    isCod ? "cod" : "online",
-  ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e));
-
   const orderNum = (row as { order_number?: number | null }).order_number;
   const orderRef = formatOrderRef(orderNum, row.id as string).replace(/^#/, "");
   const totalAmt = (row as { total_amount?: number | null }).total_amount;
   const amtFormatted = totalAmt != null ? `₹${Math.round(totalAmt)}` : "";
 
-  void countDashboardNewOrders(supabase)
-    .then((badgeCount) =>
-      sendDashboardPushNotifications(supabase, {
-        title: `New Order #${orderRef}`,
-        body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
-        tag: `vk-dash-${row.id}`,
-        url: "/dashboard",
-        urgent: true,
-        badgeCount,
-      }),
-    )
-    .catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e));
+  // Await both. A floating promise gets frozen when the checkout response
+  // returns, so the kitchen phone never hears about the order.
+  await Promise.all([
+    sendOrderPushNotifications(
+      supabase,
+      row.phone_number as string | null,
+      OrderStatus.PAID,
+      row.id as string,
+      row.delivery_slot as string | null,
+      orderNum ?? null,
+      isCod ? "cod" : "online",
+    ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e)),
+    countDashboardNewOrders(supabase)
+      .then((badgeCount) =>
+        sendDashboardPushNotifications(supabase, {
+          title: `New Order #${orderRef}`,
+          body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
+          tag: `vk-dash-${row.id}`,
+          url: "/dashboard",
+          urgent: true,
+          badgeCount,
+        }),
+      )
+      .then((sent) => {
+        if (sent === 0) console.warn("[markOrderPaidAndNotify] dashboard push reached no devices");
+      })
+      .catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e)),
+  ]);
 
   return { ok: true };
 }

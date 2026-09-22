@@ -52,7 +52,11 @@ export async function sendPushNotificationResult(
   };
 
   try {
-    await webpush.sendNotification(subscription, JSON.stringify(payload));
+    await webpush.sendNotification(subscription, JSON.stringify(payload), {
+      // High wakes a locked Android phone. Normal can sit in Doze until the
+      // screen comes on, which is how a kitchen misses a new order.
+      urgency: payload.urgent ? "high" : "normal",
+    });
     return "sent";
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number })?.statusCode;
