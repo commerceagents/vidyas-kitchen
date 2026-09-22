@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPushNotificationResult, type PushPayload } from "@/lib/web-push";
 import { formatOrderRef, PaymentStatus } from "@/lib/order-status";
 import { publicSiteOrigin } from "@/lib/site-url";
+import { countDriverQueueOrders } from "@/lib/push-badge-counts";
 
 type SubRow = { endpoint: string; p256dh: string; auth: string };
 
@@ -216,13 +217,14 @@ export async function notifyDriverAssigned(
   orderId: string,
   driverName?: string,
 ): Promise<number> {
-  const s = await loadOrderSummary(supabase, orderId);
+  const [s, badgeCount] = await Promise.all([
+    loadOrderSummary(supabase, orderId),
+    countDriverQueueOrders(supabase),
+  ]);
   if (!s) return 0;
 
-  return sendDriverPushTo(
-    supabase,
-    driverId,
-    driverOrderAlertPayload({
+  return sendDriverPushTo(supabase, driverId, {
+    ...driverOrderAlertPayload({
       driverName,
       ref: s.ref,
       address: s.address,
@@ -232,5 +234,6 @@ export async function notifyDriverAssigned(
       tag: `vk-driver-${orderId}-assigned`,
       url: orderUrl(orderId),
     }),
-  );
+    ...(badgeCount != null ? { badgeCount } : {}),
+  });
 }

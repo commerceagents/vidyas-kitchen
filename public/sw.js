@@ -51,9 +51,17 @@ self.addEventListener("push", (event) => {
     options.vibrate = [220, 90, 220, 90, 220];
   }
 
-  // App Badging API (set badge dot / counter on PWA home screen icon)
+  // Home-screen icon number. Kitchen and driver alerts carry the live count of
+  // waiting orders; an alert without one (e.g. "driver arrived") leaves the
+  // badge as it is rather than resetting it to 1.
+  const isDriver = (data.url || "").includes("/driver") || (data.tag || "").startsWith("vk-driver");
   if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
-    navigator.setAppBadge(data.badgeCount != null ? data.badgeCount : 1).catch(() => {});
+    if (typeof data.badgeCount === "number") {
+      if (data.badgeCount > 0) navigator.setAppBadge(data.badgeCount).catch(() => {});
+      else navigator.clearAppBadge().catch(() => {});
+    } else if (!isDashboard && !isDriver) {
+      navigator.setAppBadge(1).catch(() => {});
+    }
   }
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -62,15 +70,16 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  // Clear app badge when notification is tapped
-  if (typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
-    navigator.clearAppBadge().catch(() => {});
-  }
-
   const raw = event.notification.data?.url || "/";
   const target = new URL(raw, self.location.origin).href;
   const isDriver = /\/driver(\/|$|\?)/.test(target);
   const isDashboard = /\/dashboard(\/|$|\?)/.test(target);
+
+  // Kitchen and driver badges count waiting orders, so opening one alert must
+  // not zero them — the app resets the number itself once it loads the list.
+  if (!isDriver && !isDashboard && typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

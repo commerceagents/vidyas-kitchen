@@ -13,6 +13,7 @@ import {
 import { refundPayment } from "@/lib/payments";
 import { sendOrderPushNotifications } from "@/lib/push-order-notify";
 import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
+import { countDashboardNewOrders } from "@/lib/push-badge-counts";
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
@@ -232,13 +233,18 @@ export async function markOrderPaidAndNotify(
   const totalAmt = (row as { total_amount?: number | null }).total_amount;
   const amtFormatted = totalAmt != null ? `₹${Math.round(totalAmt)}` : "";
 
-  void sendDashboardPushNotifications(supabase, {
-    title: `New Order #${orderRef}`,
-    body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
-    tag: `vk-dash-${row.id}`,
-    url: "/dashboard",
-    urgent: true,
-  }).catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e));
+  void countDashboardNewOrders(supabase)
+    .then((badgeCount) =>
+      sendDashboardPushNotifications(supabase, {
+        title: `New Order #${orderRef}`,
+        body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
+        tag: `vk-dash-${row.id}`,
+        url: "/dashboard",
+        urgent: true,
+        badgeCount,
+      }),
+    )
+    .catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e));
 
   return { ok: true };
 }

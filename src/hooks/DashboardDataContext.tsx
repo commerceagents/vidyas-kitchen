@@ -342,11 +342,17 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     void load().finally(() => setLoading(false));
   }, [load]);
 
+  // Icon number = orders still waiting for Accept, across every month, so it
+  // drops as the kitchen works through them instead of vanishing on open.
+  const waitingCount = useMemo(
+    () => allOrders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.PAID).length,
+    [allOrders],
+  );
   useEffect(() => {
-    if (typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
-      navigator.clearAppBadge().catch(() => {});
-    }
-  }, [allOrders]);
+    if (loading || typeof navigator === "undefined" || !("setAppBadge" in navigator)) return;
+    if (waitingCount > 0) navigator.setAppBadge(waitingCount).catch(() => {});
+    else navigator.clearAppBadge().catch(() => {});
+  }, [waitingCount, loading]);
 
   useEffect(() => {
     if (!notifHydratedRef.current) {

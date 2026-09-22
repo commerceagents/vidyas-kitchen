@@ -24,6 +24,8 @@ export type PushPayload = {
   actions?: { action: string; title: string }[];
   /** Buzz the phone and keep the card up until it is acted on (driver alerts). */
   urgent?: boolean;
+  /** Number on the home-screen icon. Omit to leave the current badge alone. */
+  badgeCount?: number;
 };
 
 export type PushSendResult = "sent" | "gone" | "failed";

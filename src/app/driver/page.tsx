@@ -96,6 +96,11 @@ function DriverHubInner() {
         if (cancel) return;
         if (!res.ok || !j.orders) throw new Error(j.error || "Could not load deliveries");
         setOrders(j.orders);
+        // Icon number = deliveries waiting in this queue.
+        if ("setAppBadge" in navigator) {
+          if (j.orders.length > 0) navigator.setAppBadge(j.orders.length).catch(() => {});
+          else navigator.clearAppBadge().catch(() => {});
+        }
         setLoadError(null);
         setLastRefresh(new Date());
         hasLoadedRef.current = true;

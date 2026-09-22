@@ -15,7 +15,6 @@ import {
   currentPushState,
   disableDriverPush,
   enableDriverPush,
-  sendDriverTestPush,
   type PushState,
 } from "@/lib/driver-push-subscribe";
 import { D, RADIUS } from "./driver-theme";
@@ -33,7 +32,7 @@ export function DriverAlerts() {
       if (cancel) return;
       // The kitchen PWA shares this origin's service worker. Permission can
       // already be "on" here without a row in driver_push_subscriptions —
-      // Send test then looks like a dead device. Re-file against this driver.
+      // alerts would then never reach this driver. Re-file against this driver.
       if (browser === "on") {
         const res = await enableDriverPush();
         if (cancel) return;
@@ -80,15 +79,6 @@ export function DriverAlerts() {
     setBusy(false);
   }, []);
 
-  const test = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    const res = await sendDriverTestPush();
-    if (res.ok) setNote("Test alert sent.");
-    else setError(res.error ?? "Could not send a test.");
-    setBusy(false);
-  }, []);
-
   if (state === null) return null;
 
   if (state === "on") {
@@ -100,14 +90,9 @@ export function DriverAlerts() {
         note={note}
         error={error}
         actions={
-          <>
-            <TextButton onClick={test} disabled={busy}>
-              Send test
-            </TextButton>
-            <TextButton onClick={turnOff} disabled={busy} muted>
-              Turn off
-            </TextButton>
-          </>
+          <TextButton onClick={turnOff} disabled={busy} muted>
+            Turn off
+          </TextButton>
         }
       />
     );

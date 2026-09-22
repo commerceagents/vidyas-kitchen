@@ -39,7 +39,7 @@ export async function sendDashboardPushNotifications(
     badge: "/dashboard-icon-192.png",
     urgent: payload.urgent ?? true,
     ...(payload.badgeCount != null ? { badgeCount: payload.badgeCount } : {}),
-  } as PushPayload & { badgeCount?: number };
+  };
 
   const expired: string[] = [];
   let sent = 0;
