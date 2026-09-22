@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 
+import { phoneInstallUrl, publicSiteOrigin } from "@/lib/site-url";
 import { ChefSpecialVector } from "./vectors/ChefSpecialVector";
 import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 
@@ -82,9 +83,29 @@ function GlowingBlobsBackground() {
   );
 }
 
+/** Simple-icons glyphs, inlined so the landing page stays one request. */
+const ANDROID_PATH =
+  "M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.76 0L5.3 5.92a.38.38 0 1 0-.66.38L6.48 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z";
+const APPLE_PATH =
+  "M16.365 1.43c0 1.14-.42 2.2-1.12 3.01-.85.98-2.24 1.73-3.37 1.64-.14-1.12.42-2.29 1.09-3.01.79-.86 2.19-1.54 3.4-1.64zM20.9 17.1c-.56 1.29-.83 1.87-1.55 3.01-1.01 1.59-2.43 3.57-4.2 3.58-1.57.02-1.97-1.02-4.1-1.01-2.13.01-2.57 1.03-4.14 1.02-1.77-.01-3.12-1.8-4.13-3.39-2.82-4.44-3.12-9.65-1.38-12.42 1.24-1.97 3.2-3.12 5.04-3.12 1.87 0 3.05 1.03 4.6 1.03 1.5 0 2.42-1.03 4.59-1.03 1.64 0 3.38.89 4.62 2.43-4.06 2.22-3.4 8.02.65 9.9z";
+
 export function DesktopLanding() {
-  const domain = "https://vidyaskitchenhome.com";
+  const origin = publicSiteOrigin();
   const whatsappNumber = "+91 75500 28179";
+  // Empty until the Play Store listing is live; the Android QR then falls back
+  // to the same install page that Chrome turns into a home-screen app.
+  const playStoreUrl = (process.env.NEXT_PUBLIC_PLAY_STORE_URL || "").trim();
+  const installUrl = phoneInstallUrl(origin);
+
+  // Most of India is on Android, so that is the tab a stranger should land on.
+  const [platform, setPlatform] = useState<"android" | "ios">("android");
+  const qrValue = platform === "android" ? playStoreUrl || installUrl : installUrl;
+  const qrCaption =
+    platform === "android"
+      ? playStoreUrl
+        ? "Scan with your Android phone to get Vidya's Kitchen\non Google Play"
+        : "Scan with your Android phone — Chrome will offer to\ninstall Vidya's Kitchen on your home screen"
+      : "Scan with your iPhone camera, then tap Share\nand choose Add to Home Screen";
 
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -538,6 +559,59 @@ export function DesktopLanding() {
           </h2>
         </div>
 
+        {/* Phone picker — the QR below points wherever this says. */}
+        <div
+          role="tablist"
+          aria-label="Choose your phone"
+          style={{
+            display: 'flex',
+            gap: '4px',
+            padding: '4px',
+            marginBottom: 'clamp(12px, 1.8vh, 14px)',
+            borderRadius: '999px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            zIndex: 10
+          }}
+        >
+          {([
+            { id: 'android' as const, label: 'Android', path: ANDROID_PATH },
+            { id: 'ios' as const, label: 'iPhone', path: APPLE_PATH },
+          ]).map((tab) => {
+            const on = platform === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setPlatform(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: 'clamp(8px, 1.1vh, 10px) clamp(16px, 1.4vw, 20px)',
+                  borderRadius: '999px',
+                  border: 'none',
+                  background: on ? '#BD2320' : 'transparent',
+                  color: on ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
+                  fontSize: 'clamp(12.5px, 1vw, 13.5px)',
+                  fontWeight: 800,
+                  letterSpacing: '0.01em',
+                  fontFamily: 'var(--font-outfit), sans-serif',
+                  cursor: 'pointer',
+                  transition: 'background 0.25s ease, color 0.25s ease'
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d={tab.path} />
+                </svg>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Floating QR Section with Glass Effect */}
         <div style={{
           position: 'relative',
@@ -588,7 +662,7 @@ export function DesktopLanding() {
             boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
           }}>
             <QRCode 
-              value={domain}
+              value={qrValue}
               size={140}
               fgColor="#FFFFFF"
               bgColor="transparent"
@@ -600,9 +674,10 @@ export function DesktopLanding() {
 
         {/* QR Instruction Text */}
         <motion.p
+          key={`${platform}-${qrCaption}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.8, duration: 1 }}
+          transition={{ duration: 0.45 }}
           style={{
             fontSize: 'clamp(13px, 1.05vw, 14px)',
             color: 'rgba(255, 255, 255, 0.72)',
@@ -619,7 +694,7 @@ export function DesktopLanding() {
             fontFamily: 'var(--font-outfit), sans-serif'
           }}
         >
-          {"Scan with your phone to open our app instantly\nand order your favorite meals with ease"}
+          {qrCaption}
         </motion.p>
 
         {/* Action Button Row */}

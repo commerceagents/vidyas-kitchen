@@ -226,6 +226,11 @@ function DriverOrderDetailInner() {
   const [pickingUp, setPickingUp] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [collectVia, setCollectVia] = useState<"cash" | "upi" | null>(null);
+  const [upiOpen, setUpiOpen] = useState(false);
+  const [upiCopied, setUpiCopied] = useState(false);
+  // GPS can read hundreds of metres off between close buildings. The driver is
+  // standing at the door holding the food; let them say so.
+  const [gpsOverride, setGpsOverride] = useState(false);
   const [arriving, setArriving] = useState(false);
   const [failOpen, setFailOpen] = useState(false);
   const [failing, setFailing] = useState(false);
@@ -298,13 +303,22 @@ function DriverOrderDetailInner() {
   const withinRange =
     !hasDropPin ||
     !hasFix ||
+    gpsOverride ||
     (distanceM != null && distanceM <= PROXIMITY_UNLOCK_M) ||
     process.env.NODE_ENV === "development";
 
   const hasArrived = Boolean(order?.driver_arrived_at);
   const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
-  const canMarkDelivered = withinRange && (!cashOutstanding || collectVia != null);
+  // A dimmed bar that won't move is the most frustrating thing on this screen,
+  // so always be able to say out loud why it isn't moving.
+  const deliverBlock: string | null =
+    cashOutstanding && collectVia == null
+      ? "Mark the money collected first — cash or UPI"
+      : !withinRange
+        ? `You're ${distanceM != null ? `${Math.round(distanceM)} m` : "too far"} from the drop — move within ${PROXIMITY_UNLOCK_M} m`
+        : null;
+  const canMarkDelivered = deliverBlock == null;
 
   // GPS tracking while en route
   useEffect(() => {
@@ -519,6 +533,9 @@ function DriverOrderDetailInner() {
         body: JSON.stringify({
           orderId,
           ...(geoLat != null && geoLng != null ? { lat: geoLat, lng: geoLng } : {}),
+          // Sent so the server logs the real distance rather than the driver
+          // simply withholding their position to slip past the check.
+          ...(gpsOverride ? { proximityOverride: true } : {}),
           codCollected: cashOutstanding ? true : undefined,
           codVia: cashOutstanding ? collectVia || "cash" : undefined,
         }),
@@ -946,67 +963,103 @@ function DriverOrderDetailInner() {
                   border: `1px solid ${D.border}`,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 12,
+                  gap: 11,
                 }}
               >
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: D.text, lineHeight: 1.4 }}>
-                  They can pay cash or scan UPI — no change needed if they use the QR.
+                  Collect ₹{amount.toLocaleString("en-IN")} — cash, or let them scan UPI if they have no change.
                 </p>
-                {order?.collectUpi?.link ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                    <div style={{ background: "#fff", padding: 12, borderRadius: 16 }}>
-                      <QRCode value={order.collectUpi.link} size={168} fgColor="#1A1A1A" bgColor="#FFFFFF" level="M" />
-                    </div>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: D.muted, textAlign: "center", lineHeight: 1.4 }}>
-                      Amount is already ₹{amount.toLocaleString("en-IN")}. Same UPI as your printed card
-                      {order.collectUpi.vpa ? ` · ${order.collectUpi.vpa}` : ""}.
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <QrCode size={18} strokeWidth={2} style={{ color: D.muted, flexShrink: 0, marginTop: 1 }} />
-                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: D.muted, lineHeight: 1.4 }}>
-                      Show your printed QR. Ask them to pay ₹{amount.toLocaleString("en-IN")} to Vidya&apos;s Kitchen.
-                    </p>
-                  </div>
-                )}
+
                 <div style={{ display: "flex", gap: 8 }}>
-                  {(["cash", "upi"] as const).map((via) => {
-                    const on = collectVia === via;
-                    return (
-                      <button
-                        key={via}
-                        type="button"
-                        onClick={() => setCollectVia(via)}
-                        style={{
-                          flex: 1,
-                          padding: "12px 10px",
-                          borderRadius: 12,
-                          border: `1.5px solid ${on ? "rgba(18,131,63,0.45)" : D.border}`,
-                          background: on ? D.greenFaint : D.bg,
-                          color: on ? D.green : D.text,
-                          fontSize: 13.5,
-                          fontWeight: 800,
-                          fontFamily: D.font,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {via === "cash" ? "Got cash" : "Got UPI"}
-                      </button>
-                    );
-                  })}
+                  <button
+                    type="button"
+                    onClick={() => setCollectVia("cash")}
+                    style={{
+                      flex: 1,
+                      padding: "13px 10px",
+                      borderRadius: 12,
+                      border: `1.5px solid ${collectVia === "cash" ? "rgba(18,131,63,0.45)" : D.border}`,
+                      background: collectVia === "cash" ? D.greenFaint : D.bg,
+                      color: collectVia === "cash" ? D.green : D.text,
+                      fontSize: 13.5,
+                      fontWeight: 800,
+                      fontFamily: D.font,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 7,
+                    }}
+                  >
+                    {collectVia === "cash" ? <Check size={15} strokeWidth={2.8} /> : <Banknote size={16} strokeWidth={2} />}
+                    Got cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUpiCopied(false);
+                      setUpiOpen(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "13px 10px",
+                      borderRadius: 12,
+                      border: `1.5px solid ${collectVia === "upi" ? "rgba(18,131,63,0.45)" : D.border}`,
+                      background: collectVia === "upi" ? D.greenFaint : D.bg,
+                      color: collectVia === "upi" ? D.green : D.text,
+                      fontSize: 13.5,
+                      fontWeight: 800,
+                      fontFamily: D.font,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 7,
+                    }}
+                  >
+                    {collectVia === "upi" ? <Check size={15} strokeWidth={2.8} /> : <QrCode size={16} strokeWidth={2} />}
+                    {collectVia === "upi" ? "UPI paid" : "Pay by UPI"}
+                  </button>
                 </div>
+
+                {collectVia && (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: D.green, textAlign: "center" }}>
+                    ₹{amount.toLocaleString("en-IN")} marked as collected by {collectVia === "cash" ? "cash" : "UPI"}. Swipe below to finish.
+                  </p>
+                )}
               </div>
             )}
 
-            {!withinRange && distanceM != null && (
-              <p style={{ fontSize: 12, color: D.muted, margin: 0, textAlign: "center", fontWeight: 600 }}>
-                {Math.round(distanceM)} m away — move within {PROXIMITY_UNLOCK_M} m to deliver.
-              </p>
+            {deliverBlock && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <p style={{ fontSize: 12.5, color: D.muted, margin: 0, textAlign: "center", fontWeight: 700, lineHeight: 1.45 }}>
+                  {deliverBlock}
+                </p>
+                {!withinRange && (
+                  <button
+                    type="button"
+                    onClick={() => setGpsOverride(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: D.red,
+                      fontSize: 12.5,
+                      fontWeight: 800,
+                      fontFamily: D.font,
+                      padding: "2px 0",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    GPS is wrong — I&apos;m at the door
+                  </button>
+                )}
+              </div>
             )}
 
             <SwipeAction
-              label={cashOutstanding && !collectVia ? "Choose cash or UPI first" : "Swipe to mark delivered"}
+              label={deliverBlock ? "Swipe blocked — see above" : "Swipe to mark delivered"}
               doneLabel="Delivered"
               disabled={!canMarkDelivered}
               onSwipe={handleComplete}
@@ -1042,6 +1095,30 @@ function DriverOrderDetailInner() {
           </div>
         )}
       </div>
+
+      {upiOpen && amount != null && (
+        <UpiSheet
+          amount={amount}
+          vpa={order.collectUpi?.vpa || null}
+          link={order.collectUpi?.link || null}
+          copied={upiCopied}
+          onCopy={async (value) => {
+            try {
+              await navigator.clipboard.writeText(value);
+              setUpiCopied(true);
+            } catch {
+              // Clipboard is blocked in some in-app browsers; the ID is on
+              // screen to read out loud either way.
+              setUpiCopied(false);
+            }
+          }}
+          onConfirm={() => {
+            setCollectVia("upi");
+            setUpiOpen(false);
+          }}
+          onClose={() => setUpiOpen(false)}
+        />
+      )}
 
       {failOpen && (
         <FailSheet
@@ -1122,6 +1199,166 @@ function SecondaryLink({
       {icon}
       {children}
     </a>
+  );
+}
+
+/** Door-step UPI: a QR the customer scans, plus the ID they can type instead. */
+function UpiSheet({
+  amount,
+  vpa,
+  link,
+  copied,
+  onCopy,
+  onConfirm,
+  onClose,
+}: {
+  amount: number;
+  vpa: string | null;
+  link: string | null;
+  copied: boolean;
+  onCopy: (value: string) => void | Promise<void>;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        fontFamily: D.font,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxHeight: "92dvh",
+          overflowY: "auto",
+          background: D.surface,
+          borderRadius: "22px 22px 0 0",
+          padding: "18px 18px max(22px, env(safe-area-inset-bottom, 16px))",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 13,
+        }}
+      >
+        <div style={{ width: 34, height: 4, borderRadius: 4, background: "rgba(0,0,0,0.14)" }} />
+
+        <div style={{ textAlign: "center" }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>Ask them to scan</h3>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: D.muted, fontWeight: 600 }}>
+            Paying Vidya&apos;s Kitchen · ₹{amount.toLocaleString("en-IN")}
+          </p>
+        </div>
+
+        {link ? (
+          <>
+            <div style={{ background: "#fff", padding: 14, borderRadius: 18, border: `1px solid ${D.border}` }}>
+              <QRCode value={link} size={212} fgColor="#1A1A1A" bgColor="#FFFFFF" level="M" />
+            </div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: D.muted, textAlign: "center", lineHeight: 1.45 }}>
+              The amount is already filled in — GPay, PhonePe, Paytm and any bank app will read this.
+            </p>
+          </>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 9,
+              padding: "13px 14px",
+              borderRadius: 12,
+              background: D.amberFaint,
+            }}
+          >
+            <QrCode size={18} strokeWidth={2} style={{ color: D.amber, flexShrink: 0, marginTop: 1 }} />
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: D.amber, lineHeight: 1.45 }}>
+              No UPI ID is set up yet. Show your printed QR and ask them to pay ₹{amount.toLocaleString("en-IN")} to
+              Vidya&apos;s Kitchen.
+            </p>
+          </div>
+        )}
+
+        {vpa && (
+          <button
+            type="button"
+            onClick={() => void onCopy(vpa)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: `1px solid ${D.border}`,
+              background: D.bg,
+              cursor: "pointer",
+              fontFamily: D.font,
+            }}
+          >
+            <span style={{ textAlign: "left", minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 10, fontWeight: 800, letterSpacing: "0.07em", color: D.faint }}>
+                UPI ID
+              </span>
+              <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: D.text, overflowWrap: "anywhere" }}>
+                {vpa}
+              </span>
+            </span>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: copied ? D.green : D.red, flexShrink: 0 }}>
+              {copied ? "Copied" : "Copy"}
+            </span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onConfirm}
+          style={{
+            width: "100%",
+            minHeight: 52,
+            borderRadius: RADIUS.control,
+            border: "none",
+            background: D.green,
+            color: "#fff",
+            fontSize: 15.5,
+            fontWeight: 800,
+            fontFamily: D.font,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <Check size={18} strokeWidth={2.8} />
+          Payment received
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            color: D.muted,
+            fontSize: 13.5,
+            fontWeight: 700,
+            fontFamily: D.font,
+            padding: "2px 0 4px",
+            cursor: "pointer",
+          }}
+        >
+          Not yet
+        </button>
+      </div>
+    </div>
   );
 }
 

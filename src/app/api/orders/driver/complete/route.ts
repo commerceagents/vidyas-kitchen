@@ -16,7 +16,14 @@ export async function POST(request: Request) {
   const auth = await requireDriverSession();
   if (!auth.ok) return auth.response;
 
-  let body: { orderId?: string; lat?: number; lng?: number; codCollected?: boolean; codVia?: string };
+  let body: {
+    orderId?: string;
+    lat?: number;
+    lng?: number;
+    codCollected?: boolean;
+    codVia?: string;
+    proximityOverride?: boolean;
+  };
   try {
     body = (await request.json()) as {
       orderId?: string;
@@ -24,6 +31,7 @@ export async function POST(request: Request) {
       lng?: number;
       codCollected?: boolean;
       codVia?: string;
+      proximityOverride?: boolean;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -72,11 +80,19 @@ export async function POST(request: Request) {
   const dlng = row.delivery_lng as number | null | undefined;
   if (hasFix && dlat != null && dlng != null && Number.isFinite(Number(dlat)) && Number.isFinite(Number(dlng))) {
     const m = haversineMeters(lat, lng, Number(dlat), Number(dlng));
-    // Skip proximity check in development
-    if (m > MAX_METRES && process.env.NODE_ENV !== 'development') {
-      return NextResponse.json(
-        { error: `Too far from drop-off (~${Math.round(m)}m). Move within about 100m to complete.` },
-        { status: 400 },
+    if (m > MAX_METRES && process.env.NODE_ENV !== "development") {
+      // A driver whose GPS reads 300m off between apartment blocks can say so
+      // rather than being stuck at the door with food they can't hand over.
+      // Refusing them would just push them to deny location and skip the check
+      // entirely, so take the override and leave a trail instead.
+      if (body.proximityOverride !== true) {
+        return NextResponse.json(
+          { error: `Too far from drop-off (~${Math.round(m)}m). Move within about 100m to complete.` },
+          { status: 400 },
+        );
+      }
+      console.warn(
+        `[driver/complete] proximity override order=${orderId} driver=${auth.driver.id} distance=${Math.round(m)}m`,
       );
     }
   }
