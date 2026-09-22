@@ -392,7 +392,7 @@ export function AccountTabPanel({
         <PressRow
           icon={
             <AccountRowIcon>
-              <IconPhone />
+              <IconWhatsApp />
             </AccountRowIcon>
           }
           subtitle={
