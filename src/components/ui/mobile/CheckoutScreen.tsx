@@ -38,6 +38,7 @@ import { formatFullDishName } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { normalizeOfferCode } from "@/lib/offers";
 import { getVkToken } from "@/lib/vk-session";
+import { readSavedPromo, writeSavedPromo } from "@/lib/vk-cart-storage";
 
 /** Discount the server decided on — mirrors AppliedOffer from lib/offers. */
 type AppliedOfferView = {
@@ -63,6 +64,11 @@ const C = {
 const sp = (n: number) => n * 8;
 
 type CheckoutPhase = "cart" | "schedule";
+
+/** Device copy first, then the tab copy, so a closed app still remembers the code. */
+function savedPromoCode(): string | null {
+  return readSavedPromo() ?? readUiSession()?.checkoutActiveCode ?? null;
+}
 
 function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
@@ -397,28 +403,24 @@ export function CheckoutScreen({
     () => readUiSession()?.checkoutRecipientPhone ?? "",
   );
   const [dayTip, setDayTip] = useState<string | null>(null);
-  const [promoInput, setPromoInput] = useState(() => {
-    const s = readUiSession();
-    return s?.checkoutActiveCode ?? "";
-  });
+  const [promoInput, setPromoInput] = useState(() => savedPromoCode() ?? "");
   const [appliedOffer, setAppliedOffer] = useState<AppliedOfferView | null>(() => {
     const s = readUiSession();
     return s?.checkoutAppliedOffer ?? null;
   });
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
-  const [activeCode, setActiveCode] = useState<string | null>(() => {
-    const s = readUiSession();
-    return s?.checkoutActiveCode ?? null;
-  });
+  const [activeCode, setActiveCode] = useState<string | null>(() => savedPromoCode());
   // Mirrors activeCode. Kept in a ref so re-checking on cart change doesn't
   // list the code as an effect dependency and re-trigger itself.
   const appliedCodeRef = useRef<string | null>(
-    typeof window !== "undefined" ? (readUiSession()?.checkoutActiveCode ?? null) : null,
+    typeof window !== "undefined" ? savedPromoCode() : null,
   );
 
-  // Persist promo state so it survives LocationScreen navigation
+  // The code lives on the device, same as the cart. Session storage alone
+  // vanished the moment the app was closed.
   useEffect(() => {
+    writeSavedPromo(activeCode);
     writeUiSession({ checkoutAppliedOffer: appliedOffer ?? null, checkoutActiveCode: activeCode });
   }, [appliedOffer, activeCode]);
   const dayTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -537,6 +539,12 @@ export function CheckoutScreen({
           error?: string;
           applied?: AppliedOfferView | null;
         };
+        // A blip must not forget a code they already applied. Only a real
+        // rejection (expired, wrong, used up) clears it.
+        if (!res.ok && res.status >= 500) {
+          setPromoError(data.error ?? "Could not check that code right now.");
+          return;
+        }
         setAppliedOffer(data.applied ?? null);
         if (data.ok === false) {
           setPromoError(data.error ?? "That code isn't valid.");

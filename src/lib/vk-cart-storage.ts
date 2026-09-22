@@ -12,6 +12,7 @@
  */
 
 const CART_KEY = "vk_cart";
+const PROMO_KEY = "vk_promo";
 const CART_TTL_MS = 24 * 60 * 60 * 1000;
 
 type StoredCart = { cart: Record<string, number>; updatedAt: number };
@@ -48,6 +49,7 @@ export function writeSavedCart(cart: Cart): void {
   try {
     if (Object.keys(cart).length === 0) {
       localStorage.removeItem(CART_KEY);
+      localStorage.removeItem(PROMO_KEY);
       return;
     }
     localStorage.setItem(CART_KEY, JSON.stringify({ cart, updatedAt: Date.now() } satisfies StoredCart));
@@ -60,8 +62,46 @@ export function clearSavedCart(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(CART_KEY);
+    localStorage.removeItem(PROMO_KEY);
   } catch {
     /* noop */
+  }
+}
+
+type StoredPromo = { code: string; updatedAt: number };
+
+/** The code the customer applied, kept with the cart so a closed app doesn't forget it. */
+export function readSavedPromo(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PROMO_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredPromo;
+    const code = typeof parsed?.code === "string" ? parsed.code.trim() : "";
+    if (!code || !parsed.updatedAt || Date.now() - parsed.updatedAt > CART_TTL_MS) {
+      localStorage.removeItem(PROMO_KEY);
+      return null;
+    }
+    return code;
+  } catch {
+    return null;
+  }
+}
+
+export function writeSavedPromo(code: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    const clean = code?.trim() ?? "";
+    if (!clean) {
+      localStorage.removeItem(PROMO_KEY);
+      return;
+    }
+    localStorage.setItem(
+      PROMO_KEY,
+      JSON.stringify({ code: clean, updatedAt: Date.now() } satisfies StoredPromo),
+    );
+  } catch {
+    /* private mode / quota */
   }
 }
 
