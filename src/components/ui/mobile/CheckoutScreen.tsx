@@ -387,9 +387,15 @@ export function CheckoutScreen({
     return (firstAvailable ?? dayOptions[0])?.istYmd ?? "";
   });
   const [slotKind, setSlotKind] = useState<DeliverySlotKind | null>(null);
-  const [forSomeoneElse, setForSomeoneElse] = useState(false);
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
+  const [forSomeoneElse, setForSomeoneElse] = useState(
+    () => readUiSession()?.checkoutForSomeoneElse === true,
+  );
+  const [recipientName, setRecipientName] = useState(
+    () => readUiSession()?.checkoutRecipientName ?? "",
+  );
+  const [recipientPhone, setRecipientPhone] = useState(
+    () => readUiSession()?.checkoutRecipientPhone ?? "",
+  );
   const [dayTip, setDayTip] = useState<string | null>(null);
   const [promoInput, setPromoInput] = useState(() => {
     const s = readUiSession();
@@ -441,6 +447,14 @@ export function CheckoutScreen({
   useEffect(() => {
     writeUiSession({ checkoutPhase: phase });
   }, [phase]);
+
+  useEffect(() => {
+    writeUiSession({
+      checkoutRecipientName: recipientName,
+      checkoutRecipientPhone: recipientPhone,
+      checkoutForSomeoneElse: forSomeoneElse,
+    });
+  }, [recipientName, recipientPhone, forSomeoneElse]);
 
   const slotCards = useMemo(() => slotCardsForIstDate(deliveryDateYmd), [deliveryDateYmd]);
 
@@ -735,7 +749,14 @@ export function CheckoutScreen({
         orderId?: string;
       };
       if (!res.ok) throw new Error(data.error || `Checkout failed (${res.status})`);
-      writeUiSession({ checkoutPhase: "cart", checkoutAppliedOffer: null, checkoutActiveCode: null });
+      writeUiSession({
+        checkoutPhase: "cart",
+        checkoutAppliedOffer: null,
+        checkoutActiveCode: null,
+        checkoutRecipientName: "",
+        checkoutRecipientPhone: "",
+        checkoutForSomeoneElse: false,
+      });
       if (paymentMethod === "cod") {
         // No online payment to redirect to — the order is already placed, cash is
         // collected at delivery. Reuse the same success route as the paid flow so

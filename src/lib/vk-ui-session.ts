@@ -19,6 +19,10 @@ export type VkUiSession = {
     amount: number;
   } | null;
   checkoutActiveCode?: string | null;
+  /** Gift recipient draft — the schedule screen unmounts while the map is open. */
+  checkoutRecipientName?: string;
+  checkoutRecipientPhone?: string;
+  checkoutForSomeoneElse?: boolean;
 };
 
 export function readUiSession(): VkUiSession | null {
