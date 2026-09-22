@@ -623,47 +623,20 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
       <div style={S.glowBottom} />
       <div style={S.inner}>
 
-        {/* Logo — circle + slow pulsing red rings */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 340, damping: 26 }}
-          style={{ marginBottom: T.sp5, position: "relative", width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", overflow: "visible" }}
+          style={{ ...S.logoWrap, marginBottom: T.sp5 }}
         >
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              aria-hidden
-              style={{
-                position: "absolute",
-                width: 96,
-                height: 96,
-                borderRadius: "50%",
-                border: "1px solid rgba(189,35,32,0.3)",
-                pointerEvents: "none",
-              }}
-              animate={{
-                scale: [1, 9],
-                opacity: [0.22 - i * 0.04, 0],
-              }}
-              transition={{
-                duration: 3.8,
-                repeat: Infinity,
-                ease: "easeOut",
-                delay: i * 1.25,
-              }}
-            />
-          ))}
-          <motion.div style={S.logoWrap}>
-            <Image
-              src="/VK_Logo.webp"
-              alt="Vidya's Kitchen"
-              width={96}
-              height={96}
-              className="vk-logo-circle"
-              style={S.logoImg}
-            />
-          </motion.div>
+          <Image
+            src="/VK_Logo.webp"
+            alt="Vidya's Kitchen"
+            width={96}
+            height={96}
+            className="vk-logo-circle"
+            style={S.logoImg}
+          />
         </motion.div>
 
         {/* Greeting — flex + tight gap so monospace doesn’t add a huge space after “Hey,” */}
