@@ -108,12 +108,25 @@ export class VidyaAgent {
   }
 
   /** True if this WhatsApp number already has at least one order row (for hiding "Order again"). */
+  /**
+   * Returns all plausible storage formats for a WhatsApp phone number.
+   * Meta gives `919XXXXXXXXX`; the PWA may have stored `+919XXXXXXXXX` or
+   * the bare 10-digit number, so we query with all variants at once.
+   */
+  private phoneVariants(phone: string): string[] {
+    const digits = phone.replace(/\D/g, "");
+    const last10 = digits.slice(-10);
+    return [...new Set([digits, `+${digits}`, last10, `91${last10}`, `+91${last10}`])].filter(
+      (v) => v.length >= 10,
+    );
+  }
+
   private async hasPriorOrders(phoneNumber: string): Promise<boolean> {
     try {
       const { data, error } = await supabase
         .from("orders")
         .select("id")
-        .eq("phone_number", phoneNumber)
+        .in("phone_number", this.phoneVariants(phoneNumber))
         .limit(1);
       if (error) return false;
       return (data?.length ?? 0) > 0;
@@ -126,16 +139,25 @@ export class VidyaAgent {
     return !(await this.hasPriorOrders(phoneNumber));
   }
 
-  /** Order still in pipeline (not completed / cancelled). */
+  private static readonly STALE_PENDING_MS = 24 * 60 * 60 * 1000;
+
+  /** Order still in pipeline (not completed / cancelled / stale-pending-payment). */
   private async hasActiveUpcomingOrder(phoneNumber: string): Promise<boolean> {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status")
-        .eq("phone_number", phoneNumber)
+        .select("id, status, created_at")
+        .in("phone_number", this.phoneVariants(phoneNumber))
         .limit(40);
       if (error || !data?.length) return false;
-      return data.some((o: { status: unknown }) => !["delivered", "cancelled"].includes(String(o.status)));
+      const now = Date.now();
+      return data.some((o: { status: unknown; created_at: unknown }) => {
+        const s = String(o.status);
+        if (["delivered", "cancelled", "rejected"].includes(s)) return false;
+        if (s === "pending_payment" && now - Date.parse(String(o.created_at)) > VidyaAgent.STALE_PENDING_MS)
+          return false;
+        return true;
+      });
     } catch {
       return false;
     }
@@ -199,11 +221,17 @@ export class VidyaAgent {
     const { data: orders, error } = await supabase
       .from("orders")
       .select("id, order_number, status, created_at, total_amount, delivery_slot")
-      .eq("phone_number", phoneNumber)
+      .in("phone_number", this.phoneVariants(phoneNumber))
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) throw error;
-    const active = (orders || []).filter((o: OrderRow) => !["delivered", "cancelled"].includes(String(o.status)));
+    const now = Date.now();
+    const active = (orders || []).filter((o: OrderRow) => {
+      if (["delivered", "cancelled", "rejected"].includes(String(o.status))) return false;
+      if (o.status === "pending_payment" && now - Date.parse(String(o.created_at)) > VidyaAgent.STALE_PENDING_MS)
+        return false;
+      return true;
+    });
     if (!active.length) {
       return {
         reply:
@@ -231,7 +259,7 @@ export class VidyaAgent {
     const { data: orders, error } = await supabase
       .from("orders")
       .select("id, order_number, status, created_at, total_amount")
-      .eq("phone_number", phoneNumber)
+      .in("phone_number", this.phoneVariants(phoneNumber))
       .order("created_at", { ascending: false })
       .limit(8);
     if (error) throw error;
@@ -261,7 +289,7 @@ export class VidyaAgent {
     const { data: orders, error } = await supabase
       .from("orders")
       .select("id, order_number, status, total_amount, created_at, payment_link_id")
-      .eq("phone_number", phoneNumber)
+      .in("phone_number", this.phoneVariants(phoneNumber))
       .order("created_at", { ascending: false })
       .limit(15);
     if (error) throw error;
@@ -401,7 +429,7 @@ export class VidyaAgent {
       const { data } = await supabase
         .from("orders")
         .select("id, order_number, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
-        .eq("phone_number", phoneNumber)
+        .in("phone_number", this.phoneVariants(phoneNumber))
         .order("created_at", { ascending: false })
         .limit(3);
 
@@ -449,7 +477,7 @@ export class VidyaAgent {
       const { data } = await supabase
         .from("orders")
         .select("id, order_number, status, total_amount, delivery_slot, created_at")
-        .eq("phone_number", phoneNumber)
+        .in("phone_number", this.phoneVariants(phoneNumber))
         .order("created_at", { ascending: false })
         .limit(5);
       const rows = (data || []) as {
@@ -478,7 +506,7 @@ export class VidyaAgent {
       const { data: orders, error } = await supabase
         .from("orders")
         .select("id, order_number, status, created_at, total_amount")
-        .eq("phone_number", phoneNumber)
+        .in("phone_number", this.phoneVariants(phoneNumber))
         .order("created_at", { ascending: false })
         .limit(5);
 
@@ -707,8 +735,11 @@ export class VidyaAgent {
       // 🧠 FAST PATH for Greetings (Bypass OpenAI to prevent 5s timeouts)
       if (isGreeting && history.length === 0) {
         const first = displayName?.trim().split(/\s+/)[0];
-        let replyBody = buildWelcomeMessage(first);
-        if (phoneNumber && (await this.hasActiveUpcomingOrder(phoneNumber))) {
+        const isNew = phoneNumber ? await this.isNewUser(phoneNumber) : true;
+        const isActive = !isNew && phoneNumber ? await this.hasActiveUpcomingOrder(phoneNumber) : false;
+        const kind = isActive ? "active" : isNew ? "new" : "returning";
+        let replyBody = buildWelcomeMessage(first, kind);
+        if (isActive && phoneNumber) {
           const name = encodeURIComponent(displayName?.trim() || "Friend");
           replyBody += `\n\n_Open the full menu in your browser:_\n${publicSiteOrigin()}?phone=${phoneNumber}&name=${name}`;
         }
@@ -721,7 +752,8 @@ export class VidyaAgent {
           helpListRows: [] as HelpListRow[],
           buttons: await this.getWelcomeButtonsForGreeting(phoneNumber),
           menuItems: [] as MenuItem[],
-          headerImage: welcomeLogoImageUrl(),
+          // Only show logo header for first-ever contact; returning users know the brand.
+          headerImage: isNew ? welcomeLogoImageUrl() : undefined,
         };
       }
 
@@ -747,7 +779,7 @@ export class VidyaAgent {
         const { data: pastOrders } = await supabase
           .from('orders')
           .select('*, order_items(menu_items(*))')
-          .eq('phone_number', phoneNumber)
+          .in('phone_number', this.phoneVariants(phoneNumber))
           .order('created_at', { ascending: false })
           .limit(5);
 

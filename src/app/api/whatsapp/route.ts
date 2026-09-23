@@ -317,6 +317,98 @@ function shortRef(orderId: string, orderNumber?: number | null): string {
   return formatOrderRef(orderNumber ?? null, orderId).replace(/^#/, "");
 }
 
+/**
+ * Returns all plausible storage formats for a WhatsApp phone so a single
+ * Supabase `.in()` can match orders regardless of which format the app used.
+ * Meta sends `919XXXXXXXXX`; the PWA might have stored `+919XXXXXXXXX` or
+ * just the 10-digit number.
+ */
+function phoneVariants(phone: string): string[] {
+  const digits = phone.replace(/\D/g, "");
+  const last10 = digits.slice(-10);
+  return [...new Set([digits, `+${digits}`, last10, `91${last10}`, `+91${last10}`])].filter(
+    (v) => v.length >= 10,
+  );
+}
+
+/** Status labels for a specific order lookup. */
+const STATUS_DETAIL: Record<string, string> = {
+  pending_payment: "waiting for payment — if you've already paid, it'll update in a moment.",
+  paid: "received by us and queued for the kitchen.",
+  confirmed: "accepted by the kitchen.",
+  preparing: "being cooked right now.",
+  ready: "packed and ready — we're arranging a driver.",
+  out_for_delivery: "picked up and on its way to you.",
+  delivered: "delivered. Enjoy!",
+  cancelled: "cancelled.",
+  rejected: "not accepted by the kitchen (we'll reach out if needed).",
+  undelivered: "couldn't be handed over — we'll be in touch.",
+};
+
+/**
+ * Look up a specific order by its 5-digit reference number and phone, then
+ * reply with its current status and a track link. Called when the message
+ * contains "need help with order #XXXXX" or similar.
+ */
+async function showSpecificOrderStatus(from: string, refNum: string, profileName: string) {
+  const num = parseInt(refNum, 10);
+  if (!Number.isFinite(num) || num < 1) {
+    return await showWelcome(from, profileName);
+  }
+
+  const db = createServerSupabase();
+  const phones = phoneVariants(from);
+
+  const { data: order } = await db
+    .from("orders")
+    .select("id, order_number, status, total_amount, delivery_slot, delivery_slot_kind")
+    .in("phone_number", phones)
+    .eq("order_number", num)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const trackBase = `${publicSiteOrigin()}/?track=`;
+
+  if (!order) {
+    // Order not found for this phone — fall back to general greeting so the
+    // customer can use Track Order for all their orders.
+    await sendText(
+      from,
+      `I couldn't find order #${String(num).padStart(5, "0")} on this number. Use *Track Order* below to see all your active orders, or call us if something's wrong.`,
+    );
+    const buttons = await homeButtons(from);
+    await storeOptions(from, buttons);
+    await sendButtons(from, "Here's what I can do for you:", buttons);
+    return ack();
+  }
+
+  const row = order as {
+    id: string;
+    order_number?: number | null;
+    status: string;
+    total_amount?: number | null;
+    delivery_slot?: string | null;
+    delivery_slot_kind?: string | null;
+  };
+  const ref = shortRef(row.id, row.order_number);
+  const statusPhrase = STATUS_DETAIL[row.status] ?? `status: ${row.status.replace(/_/g, " ")}`;
+  const slotLine = row.delivery_slot
+    ? `\n\nDelivery: ${new Date(row.delivery_slot).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : "";
+
+  const body = `*Order #${ref}* is ${statusPhrase}${slotLine}\n\nTap below to follow it live or share your location with the driver.`;
+  await sendCtaUrl(from, body, `${trackBase}${row.id}`, BTN.track);
+  return ack();
+}
+
 const VK_DRAFT_PREFIX = "__vk_draft__:";
 
 type SessionTurns = NonNullable<WhatsAppSession["recent_turns"]>;
@@ -502,6 +594,16 @@ export async function POST(req: Request) {
     // marketing.
     if (isStopCmd) {
       return await applyMarketingOptOut(from);
+    }
+
+    // "Hi — I need help with order #00010." or "need help with order 10"
+    // The PWA sends a pre-filled message like this when the customer taps the
+    // Help button on a specific order. Extract the 4–6 digit reference and
+    // look it up directly instead of showing the generic welcome screen.
+    const orderRefInMsg = text.match(/#(\d{4,6})\b|order\s*#?(\d{4,6})\b/i);
+    if (orderRefInMsg && (isGreeting || isHelpCmd || isTrackCmd || session.state === "idle")) {
+      const refNum = orderRefInMsg[1] ?? orderRefInMsg[2];
+      if (refNum) return await showSpecificOrderStatus(from, refNum, profileName);
     }
 
     if (isGreeting) {
@@ -1052,13 +1154,32 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     return await presentProposal(from, result.proposalDraft, text);
   }
 
-  const buttons = [
-    { id: "browse_menu", title: BTN.menu },
-    { id: "help_support", title: BTN.help },
-    { id: "back_home", title: BTN.startOver },
-  ];
-  await storeOptions(from, buttons);
-  await sendButtons(from, aiFollowupPrompt(langOf(from)), buttons);
+  // Only send action buttons when the reply naturally leads to a next step.
+  // Attaching "Anything else I can do?" + 3 buttons after every single AI
+  // response makes the bot feel like an IVR, not a conversational assistant.
+  const replyLower = (result.reply ?? "").toLowerCase();
+  const menusignals = /menu|order|dish|chicken|mutton|egg|biryani|curry|meal|food|browse|item/i;
+  const helpsignals = /help|support|complaint|contact|issue|problem|refund|cancel|track|delivery/i;
+  const isMenuRelated = menusignals.test(replyLower);
+  const isHelpRelated = helpsignals.test(replyLower) && !isMenuRelated;
+
+  if (isMenuRelated) {
+    const buttons = [
+      { id: "browse_menu", title: BTN.menu },
+      { id: "help_support", title: BTN.help },
+    ];
+    await storeOptions(from, buttons);
+    await sendButtons(from, aiFollowupPrompt(langOf(from)), buttons);
+  } else if (isHelpRelated) {
+    const buttons = [
+      { id: "help_support", title: BTN.help },
+      { id: "browse_menu", title: BTN.menu },
+    ];
+    await storeOptions(from, buttons);
+    await sendButtons(from, aiFollowupPrompt(langOf(from)), buttons);
+  }
+  // For pure Q&A (hours, location, allergens, FAQs…) no follow-up buttons
+  // are needed — just let the customer continue the conversation naturally.
 
   await updateSession(from, { state: "idle", recent_turns: turns });
   return ack();
@@ -1313,7 +1434,9 @@ async function showWelcome(from: string, profileName: string) {
 
   try {
     await sendButtons(from, buildWelcomeMessage(firstName, kind, lang), buttons, {
-      headerImageUrl: welcomeLogoImageUrl(),
+      // Only show the Vidya's Kitchen logo header on the very first greeting.
+      // Returning / active users know the brand — skip the image.
+      headerImageUrl: kind === "new" ? welcomeLogoImageUrl() : undefined,
     });
     console.log(`[WA] Welcome (${kind}) sent to ${from}`);
   } catch (e) {
@@ -1831,13 +1954,18 @@ async function showTrackOrder(from: string) {
   const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, order_number, status, created_at, total_amount")
-    .eq("phone_number", from)
+    .in("phone_number", phoneVariants(from))
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(10);
 
-  const active = ((orders || []) as OrderRow[]).filter(
-    (o) => !["delivered", "cancelled", "rejected"].includes(o.status),
-  );
+  const now = Date.now();
+  const active = ((orders || []) as OrderRow[]).filter((o) => {
+    if (["delivered", "cancelled", "rejected"].includes(o.status)) return false;
+    // Drop stale abandoned-payment orders so the list stays relevant
+    if (o.status === "pending_payment" && now - Date.parse(o.created_at) > STALE_PENDING_MS)
+      return false;
+    return true;
+  });
 
   const buttons = await homeButtons(from);
   await storeOptions(from, buttons);
@@ -1861,7 +1989,7 @@ async function showOrderHistory(from: string) {
   const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, order_number, status, created_at, total_amount")
-    .eq("phone_number", from)
+    .in("phone_number", phoneVariants(from))
     .order("created_at", { ascending: false })
     .limit(8);
 
@@ -1895,7 +2023,7 @@ async function showPaymentsSummary(from: string) {
   const { data: orders } = await createServerSupabase()
     .from("orders")
     .select("id, order_number, status, total_amount, created_at")
-    .eq("phone_number", from)
+    .in("phone_number", phoneVariants(from))
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -2159,18 +2287,25 @@ async function processConfirmOrder(
   return ack();
 }
 
+const STALE_PENDING_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 async function hasActiveOrder(phone: string): Promise<boolean> {
   try {
     const db = createServerSupabase();
     const { data, error } = await db
       .from("orders")
-      .select("id, status")
-      .eq("phone_number", phone)
-      .limit(20);
+      .select("id, status, created_at")
+      .in("phone_number", phoneVariants(phone))
+      .limit(40);
     if (error) return false;
-    return ((data || []) as { id: string; status: string }[]).some(
-      (o) => !["delivered", "cancelled", "rejected"].includes(o.status),
-    );
+    const now = Date.now();
+    return ((data || []) as { id: string; status: string; created_at: string }[]).some((o) => {
+      if (["delivered", "cancelled", "rejected"].includes(o.status)) return false;
+      // pending_payment older than 24 h = abandoned; don't count as active
+      if (o.status === "pending_payment" && now - Date.parse(o.created_at) > STALE_PENDING_MS)
+        return false;
+      return true;
+    });
   } catch {
     return false;
   }
@@ -2182,7 +2317,7 @@ async function hasOrders(phone: string): Promise<boolean> {
     const { data, error } = await db
       .from("orders")
       .select("id")
-      .eq("phone_number", phone)
+      .in("phone_number", phoneVariants(phone))
       .limit(1);
     if (error) return false;
     return (data?.length ?? 0) > 0;
