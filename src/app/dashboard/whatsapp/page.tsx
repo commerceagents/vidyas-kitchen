@@ -218,6 +218,8 @@ function WhatsAppHealthPageInner() {
   const [testPhone, setTestPhone] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const load = useCallback(async (phone?: string) => {
     setLoading(true);
@@ -238,6 +240,40 @@ function WhatsAppHealthPageInner() {
     void load(initialPhone || undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
+
+  const submitTemplates = async () => {
+    setSubmitting(true);
+    setSubmitResult(null);
+    try {
+      const res = await fetch("/api/whatsapp/order-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submit: true }),
+      });
+      const body = (await res.json()) as {
+        results?: { name: string; ok: boolean; error?: string }[];
+        error?: string;
+      };
+      const results = body.results ?? [];
+      if (results.length === 0) {
+        setSubmitResult({ ok: false, message: body.error ?? "No response from Meta" });
+      } else {
+        // Meta rejects a re-submit of an existing template — that is not a failure,
+        // it just means the template is already filed and waiting for review.
+        const lines = results.map((r) =>
+          r.ok
+            ? `${r.name}: submitted for review`
+            : `${r.name}: ${r.error ?? "failed"}`,
+        );
+        setSubmitResult({ ok: results.every((r) => r.ok), message: lines.join(" · ") });
+      }
+      void load(phoneSearch || undefined);
+    } catch (e) {
+      setSubmitResult({ ok: false, message: e instanceof Error ? e.message : "Error" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const sendTest = async () => {
     const digits = testPhone.replace(/\D/g, "");
@@ -436,20 +472,47 @@ function WhatsAppHealthPageInner() {
                   </p>
                 )}
                 {data.token.ok && !data.templatesReady && (
-                  <p style={{ color: "#ccc", fontSize: 13, margin: 0 }}>
-                    <strong style={{ color: "#fff" }}>Template not approved.</strong> Customers who
-                    haven't chatted with the bot in the last 24 hours (most app-only customers) won't
-                    receive status updates. Go to{" "}
-                    <a
-                      href="/api/whatsapp/order-templates?submit=1"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#60a5fa" }}
+                  <>
+                    <p style={{ color: "#ccc", fontSize: 13, margin: "0 0 10px" }}>
+                      <strong style={{ color: "#fff" }}>Template not approved.</strong> Customers who
+                      haven&apos;t chatted with the bot in the last 24 hours (every app-only customer)
+                      get nothing when their order status changes. Free-form messages are blocked
+                      outside that window — only an approved template gets through.
+                    </p>
+                    <button
+                      onClick={() => void submitTemplates()}
+                      disabled={submitting}
+                      style={{
+                        background: YELLOW,
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "9px 16px",
+                        color: "#000",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: submitting ? "not-allowed" : "pointer",
+                        opacity: submitting ? 0.6 : 1,
+                      }}
                     >
-                      Submit templates
-                    </a>{" "}
-                    then wait for Meta to approve them (usually minutes to hours).
-                  </p>
+                      {submitting ? "Submitting…" : "Submit templates for approval"}
+                    </button>
+                    {submitResult && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: "9px 12px",
+                          borderRadius: 8,
+                          background: submitResult.ok ? "#0a1a0a" : "#1a0a0a",
+                          border: `1px solid ${submitResult.ok ? GREEN : RED}`,
+                          color: submitResult.ok ? GREEN : RED,
+                          fontSize: 12,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {submitResult.message}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

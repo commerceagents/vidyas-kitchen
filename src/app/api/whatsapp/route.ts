@@ -579,7 +579,18 @@ export async function POST(req: Request) {
       return await applyLanguageChoice(from, "en", profileName);
     }
 
-    const isGreeting = /^(hi|hello|hey|namaste|vanakkam|start|restart)\b/i.test(text);
+    /**
+     * A greeting only counts when greeting is *all* they said. "Hey, is my
+     * order late?" is a real question and deserves a real answer — routing it
+     * to the welcome card is what made the bot feel like a phone menu.
+     */
+    const trimmedText = text.trim();
+    const isGreeting =
+      /^(hi+|hello+|hey+|yo|namaste|vanakkam|start|restart|good\s+(morning|afternoon|evening))\b/i.test(
+        trimmedText,
+      ) &&
+      !trimmedText.includes("?") &&
+      trimmedText.split(/\s+/).length <= 3;
     const isMenuCmd = /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower);
     const isCartCmd = /^(cart|my cart|view cart)\b/i.test(lower);
     const isHelpCmd = /^(help|support|help & support|help_support)\b/i.test(lower);
@@ -1141,7 +1152,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     ...history,
     { role: "user" as const, content: text },
     ...(result.reply ? [{ role: "assistant" as const, content: result.reply }] : []),
-  ].slice(-8);
+  ].slice(-16);
 
   if (result.reply) {
     await sendText(from, result.reply);
