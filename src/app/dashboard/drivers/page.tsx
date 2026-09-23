@@ -17,6 +17,7 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
+import { useToast } from "@/components/dashboard/DashboardToast";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -42,6 +43,8 @@ export default function DriversPage() {
     searchQuery,
     setSearchQuery,
   } = useDashboardData();
+  const { show: showToast } = useToast();
+  const [reveal, setReveal] = useState<{ id: string; n: number } | null>(null);
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [savedDrivers, setSavedDrivers] = useState<Driver[]>([]);
@@ -78,8 +81,29 @@ export default function DriversPage() {
     void fetchDrivers();
   }, [fetchDrivers]);
 
+  useEffect(() => {
+    if (!reveal) return;
+    const cards = document.querySelectorAll(`[data-driver-id="${CSS.escape(reveal.id)}"]`);
+    const card = Array.from(cards).find(
+      (node): node is HTMLElement => node instanceof HTMLElement && node.getClientRects().length > 0,
+    );
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const name = card.querySelector("input");
+    if (name instanceof HTMLInputElement) name.focus();
+  }, [reveal]);
+
   const addDriver = () => {
-    setDrivers((prev) => [...prev, { id: `new-${Date.now()}`, name: "", phone: "", hasInstalledApp: false }]);
+    const blank = drivers.find((d) => d.id.startsWith("new-") && !d.name.trim() && !d.phone.trim());
+    if (blank) {
+      showToast("Finish the new driver at the top, then tap Save Drivers.", "info");
+      setReveal({ id: blank.id, n: Date.now() });
+      return;
+    }
+    const id = `new-${Date.now()}`;
+    setDrivers((prev) => [{ id, name: "", phone: "", hasInstalledApp: false }, ...prev]);
+    showToast("New driver is at the top. Add a name, phone and PIN, then Save Drivers.", "success");
+    setReveal({ id, n: Date.now() });
   };
 
   const updateDriverField = (id: string, field: "name" | "phone", value: string) => {
@@ -127,6 +151,7 @@ export default function DriversPage() {
   };
 
   const saveAll = async () => {
+    const addedNew = drivers.some((d) => d.id.startsWith("new-") && d.name.trim() && d.phone.trim());
     setSaving(true);
     for (const d of drivers) {
       if (!d.name.trim() || !d.phone.trim()) continue;
@@ -137,6 +162,19 @@ export default function DriversPage() {
     }
     await fetchDrivers();
     setSaving(false);
+    showToast(
+      addedNew ? "Saved. The newest driver is at the bottom of the list." : "Drivers saved.",
+      "success",
+    );
+    if (addedNew) {
+      window.setTimeout(() => {
+        const lists = document.querySelectorAll("[data-driver-list]");
+        const el = Array.from(lists).find(
+          (node): node is HTMLElement => node instanceof HTMLElement && node.getClientRects().length > 0,
+        );
+        el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      }, 60);
+    }
   };
 
   const hasUnsavedChanges =
@@ -177,7 +215,19 @@ export default function DriversPage() {
         <DashboardSpinner minHeight="100%" />
       ) : (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div
+            data-driver-list
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+            }}
+          >
             {listError ? (
               <div style={{ color: "#f87171", fontSize: 13, fontFamily: FONT, padding: "8px 2px" }}>{listError}</div>
             ) : null}
@@ -202,15 +252,17 @@ export default function DriversPage() {
               return (
                 <div
                   key={d.id}
+                  data-driver-id={d.id}
                   style={{
                     background: CARD_BG,
                     borderRadius: 16,
                     padding: "16px",
-                    border: `1px solid ${BORDER}`,
+                    border: `1px solid ${unsaved ? "rgba(245,227,45,0.55)" : BORDER}`,
                     display: "flex",
                     flexDirection: "column",
                     gap: 12,
                     boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+                    flexShrink: 0,
                   }}
                 >
                   {/* Top row: Avatar + Name Input + Delete */}
@@ -561,6 +613,7 @@ export default function DriversPage() {
             padding: "clamp(14px, 1.5vh, 20px)",
             border: "1px solid #222222",
             overflow: "hidden",
+            minHeight: 0,
             boxSizing: "border-box",
           }}
         >
