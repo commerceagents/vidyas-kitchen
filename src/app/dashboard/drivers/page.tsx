@@ -216,6 +216,7 @@ export default function DriversPage() {
       ) : (
         <>
           <div
+            className="no-scrollbar"
             data-driver-list
             style={{
               display: "flex",
