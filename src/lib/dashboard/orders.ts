@@ -33,6 +33,10 @@ export type DashboardOrder = {
   driver_location_at: string | null;
   /** Set when the driver marked themselves at the customer's door. */
   driver_arrived_at: string | null;
+  /** Rupees taken off the item subtotal. Zero or absent when no promo applied. */
+  discount_amount?: number | null;
+  offer_code?: string | null;
+  offer_label?: string | null;
   items: DashboardOrderItem[];
 };
 

@@ -32,6 +32,7 @@ export async function GET(request: Request) {
         delivery_slot, delivery_slot_kind, payment_method, payment_status,
         cod_failure_reason, driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         refund_status, refund_amount,
+        discount_amount, offer_code, offer_label,
         order_items ( id, quantity, unit_price, menu_item_id,
           menu_items ( name, image_url, price ) )
         `,
