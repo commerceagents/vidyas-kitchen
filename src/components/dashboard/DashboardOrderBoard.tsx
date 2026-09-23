@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
-import { createPortal } from "react-dom";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy, Loader2, CookingPot } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import { listActiveDrivers } from "@/app/actions/drivers";
@@ -927,7 +926,6 @@ const COPY_POPPER_CSS = `
 function CopyPhoneButton({ phone }: { phone: string | null }) {
   const toast = useToast();
   const [popperPhase, setPopperPhase] = useState<"idle" | "in" | "out">("idle");
-  const [tip, setTip] = useState<{ top: number; left: number } | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
@@ -945,7 +943,6 @@ function CopyPhoneButton({ phone }: { phone: string | null }) {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
     const toCopy = displayed.replace(/\s/g, "");
-    const rect = e.currentTarget.getBoundingClientRect();
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(toCopy);
@@ -959,16 +956,9 @@ function CopyPhoneButton({ phone }: { phone: string | null }) {
         document.execCommand("copy");
         document.body.removeChild(ta);
       }
-      const half = 36;
-      const center = rect.left + rect.width / 2;
-      const left = Math.max(half + 8, Math.min(center, window.innerWidth - half - 8));
-      setTip({ top: rect.top - 8, left });
       setPopperPhase("in");
       schedule(() => setPopperPhase("out"), 1200);
-      schedule(() => {
-        setPopperPhase("idle");
-        setTip(null);
-      }, 1400);
+      schedule(() => setPopperPhase("idle"), 1400);
     } catch {
       toast.show("Could not copy phone number", "error");
     }
@@ -978,22 +968,22 @@ function CopyPhoneButton({ phone }: { phone: string | null }) {
 
   const copied = popperPhase !== "idle";
 
-  const tooltip =
-    copied && tip
-      ? createPortal(
-          <div
-            style={{
-              position: "fixed",
-              top: tip.top,
-              left: tip.left,
-              transform: "translate(-50%, -100%)",
-              pointerEvents: "none",
-              zIndex: 12000,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-            }}
-          >
+  return (
+    <div style={{ position: "relative", width: 28, height: 28, flexShrink: 0, zIndex: copied ? 5 : undefined }}>
+      {copied && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 6px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            pointerEvents: "none",
+            zIndex: 12,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span
               aria-hidden
@@ -1053,14 +1043,8 @@ function CopyPhoneButton({ phone }: { phone: string | null }) {
               marginTop: "-1px",
             }}
           />
-          </div>,
-          document.body,
-        )
-      : null;
-
-  return (
-    <div style={{ position: "relative", width: 28, height: 28, flexShrink: 0 }}>
-      {tooltip}
+        </div>
+      )}
       <button
         type="button"
         onClick={(e) => void copyPhone(e)}
@@ -1199,35 +1183,36 @@ function BillRow({
   bold?: boolean;
   discount?: boolean;
 }) {
+  const ink = discount ? "#1f7a45" : bold ? BILL_INK : BILL_MUTED;
   return (
     <div style={{
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "baseline",
+      alignItems: "center",
       gap: 12,
       fontSize: bold ? 14 : 13,
       fontWeight: bold ? 800 : 600,
-      color: bold ? BILL_INK : BILL_MUTED,
+      color: ink,
       fontFamily: FONT,
     }}>
       <span style={{ minWidth: 0 }}>{label}</span>
-      <span style={{ color: discount ? "#1B7A45" : BILL_INK, fontWeight: bold ? 800 : 700, flexShrink: 0 }}>{value}</span>
+      <span style={{ color: discount ? "#1f7a45" : BILL_INK, fontWeight: bold ? 800 : 700, flexShrink: 0 }}>{value}</span>
     </div>
   );
 }
 
-function promoBillLabel(order: DashboardOrder): string {
-  const name = order.offer_label?.trim() || "";
-  const code = order.offer_code?.trim() || "";
-  if (name && code) return `${name} (${code})`;
-  return code || name || "Promo";
+function promoLineLabel(order: DashboardOrder): string {
+  const name = (order.offer_label || "").trim();
+  const code = (order.offer_code || "").trim();
+  if (name && code) return `${name} · ${code}`;
+  return name || (code ? `Promo ${code}` : "Promo");
 }
 
 function OrderBillReceipt({ order }: { order: DashboardOrder }) {
   const items = order.items || [];
   const itemsSubtotal = orderItemsSubtotal(items);
   const discount = Math.min(itemsSubtotal, Math.max(0, Math.round(Number(order.discount_amount) || 0)));
-  const breakdown = computeOrderBreakdownFromItemSubtotal(itemsSubtotal - discount);
+  const breakdown = computeOrderBreakdownFromItemSubtotal(Math.max(0, itemsSubtotal - discount));
   const totalPaid = getOrderDisplayTotal(order);
   const adjustment = Math.round(totalPaid - breakdown.computedTotal);
 
@@ -1243,7 +1228,7 @@ function OrderBillReceipt({ order }: { order: DashboardOrder }) {
         >
           <BillRow label="Items subtotal" value={`₹${Math.round(itemsSubtotal)}`} />
           {discount > 0 ? (
-            <BillRow label={promoBillLabel(order)} value={`−₹${discount}`} discount />
+            <BillRow label={promoLineLabel(order)} value={`−₹${discount}`} discount />
           ) : null}
           <BillRow label="Packaging" value={`₹${breakdown.packaging}`} />
           <BillRow label="Delivery" value={`₹${breakdown.delivery}`} />

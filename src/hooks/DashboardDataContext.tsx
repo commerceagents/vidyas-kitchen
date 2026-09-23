@@ -207,7 +207,7 @@ function mapRow(row: Record<string, unknown>): DashboardOrder {
     driver_last_lng: row.driver_last_lng != null ? Number(row.driver_last_lng) : null,
     driver_location_at: (row.driver_location_at as string | null) ?? null,
     driver_arrived_at: (row.driver_arrived_at as string | null) ?? null,
-    discount_amount: row.discount_amount != null ? Math.round(Number(row.discount_amount)) : 0,
+    discount_amount: row.discount_amount != null ? Number(row.discount_amount) : null,
     offer_code: (row.offer_code as string | null) ?? null,
     offer_label: (row.offer_label as string | null) ?? null,
     items,
