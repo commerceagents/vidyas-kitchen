@@ -216,7 +216,7 @@ export default function DriversPage() {
       ) : (
         <>
           <div
-            className="no-scrollbar"
+            className="no-scrollbar vk-driver-grid"
             data-driver-list
             style={{
               display: "flex",
@@ -749,6 +749,12 @@ export default function DriversPage() {
           }
           .vk-dash-home-desktop {
             display: flex !important;
+          }
+          .vk-dash-home-desktop .vk-driver-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-content: start;
+            gap: 14px;
           }
         }
       `}</style>
