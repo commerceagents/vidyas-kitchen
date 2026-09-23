@@ -34,6 +34,8 @@ export type WaLogEntry = {
   payload?: Record<string, unknown> | null;
   provider?: "meta" | "twilio" | null;
   waMessageId?: string | null;
+  /** When set the row records a send attempt that Meta rejected. */
+  error?: string | null;
 };
 
 function digits(phone: string): string {
@@ -53,7 +55,9 @@ export async function logWhatsAppMessage(entry: WaLogEntry): Promise<void> {
       direction: entry.direction,
       kind: entry.kind,
       body: entry.body ?? null,
-      payload: entry.payload ?? null,
+      payload: entry.error
+        ? { ...(entry.payload ?? {}), _error: entry.error }
+        : (entry.payload ?? null),
       provider: entry.provider ?? null,
       wa_message_id: entry.waMessageId || null,
     };

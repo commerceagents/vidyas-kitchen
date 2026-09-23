@@ -1286,6 +1286,25 @@ function OrderDetailContent({ order, mobile = false }: { order: DashboardOrder; 
         ))}
       </div>
       <OrderBillReceipt order={order} />
+      {order.phone_number ? (
+        <div style={{ marginTop: 14, textAlign: "right" }}>
+          <a
+            href={`/dashboard/whatsapp?phone=${order.phone_number.replace(/\D/g, "").slice(-10)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#25d366",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.4px",
+              textDecoration: "none",
+              fontFamily: FONT,
+            }}
+          >
+            WhatsApp log →
+          </a>
+        </div>
+      ) : null}
       {scrollItems ? (
         <style>{`
           .vk-order-items-scroll {

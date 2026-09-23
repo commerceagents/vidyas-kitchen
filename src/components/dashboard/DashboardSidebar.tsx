@@ -10,6 +10,7 @@ import {
   ChevronsRight,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Tag,
   Truck,
   TrendingUp,
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/dashboard/pricing-agent", label: "AI Pricing", icon: Bot, exact: false },
   { href: "/dashboard/offers", label: "Offers", icon: Tag, exact: false },
   { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
+  { href: "/dashboard/whatsapp", label: "WhatsApp", icon: MessageSquare, exact: false },
 ] as const;
 
 const FOOTER = [

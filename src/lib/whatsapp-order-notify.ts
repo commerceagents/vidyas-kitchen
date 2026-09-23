@@ -34,6 +34,7 @@ import {
   orderItemsSubtotal,
 } from "@/lib/order-pricing";
 import { sendLocation } from "@/lib/whatsapp-send";
+import { logWhatsAppMessageSoon } from "@/lib/whatsapp-message-log";
 import { createServerSupabase } from "@/lib/supabase-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -384,6 +385,17 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
    */
   const fallbackToTemplate = async (stage: WaOrderStage, outcome: WaSendOutcome) => {
     if (outcome.ok) return;
+    // Log the free-form failure so the kitchen owner can see it in the dashboard
+    // without needing Vercel log access.
+    logWhatsAppMessageSoon({
+      phone: to,
+      direction: "out",
+      kind: "text",
+      body: `[FAILED] ${stage} — ${outcome.error ?? "Meta rejected free-form"}`,
+      payload: { stage, orderId: order.id, ref: short },
+      provider: "meta",
+      error: outcome.error ?? "Meta rejected free-form message",
+    });
     const sent = await sendOrderUpdateTemplate(to, {
       name: await displayNameForPhone(order.phone_number, "there"),
       ref: short,
@@ -395,6 +407,16 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       console.error(
         `[whatsapp-order-notify] order ${short} ${stage}: free-form and template both failed`,
       );
+      // Also log template failure to the DB.
+      logWhatsAppMessageSoon({
+        phone: to,
+        direction: "out",
+        kind: "template",
+        body: `[FAILED] ${stage} template — order_update`,
+        payload: { stage, orderId: order.id, ref: short, template: "order_update" },
+        provider: "meta",
+        error: "order_update template also failed — check WHATSAPP_ACCESS_TOKEN and template approval",
+      });
     }
   };
 
