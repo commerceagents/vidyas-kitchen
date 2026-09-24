@@ -311,78 +311,100 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
     });
 
     /**
-     * A recipient has almost never messaged the kitchen, so free-form is
-     * rejected and the template is the real delivery path — the card is only
-     * tried first for the rare friend who is already chatting with the bot.
-     * SMS is last, and only when WhatsApp gave us nothing, so a working
-     * WhatsApp does not also cost an SMS.
+     * Gift recipient delivery strategy — ordered from most-reliable to least.
+     *
+     * Meta silently accepts free-form sends to new recipients (HTTP 200) but
+     * never delivers them when the person has never initiated contact with the
+     * business account. The 200 is misleading — the message is queued and then
+     * dropped on Meta's side, with no error or webhook. This produced a log
+     * entry showing OUT (success) while the friend received nothing.
+     *
+     * Fix: for the initial "placed" notification always use the approved
+     * gift_order_placed template — it is the one path guaranteed to reach a
+     * first-time recipient. Free-form can follow as a richer card for repeat
+     * customers, but the template goes first.
+     *
+     * For subsequent status updates (dispatched, arrived, delivered,
+     * cancelled) both paths are tried in order because those recipients are
+     * more likely to have an open session from tapping the track link.
      */
     const waTo = toPhone(recPhone);
     let delivered = false;
-    let freeFormError: string | null = null;
     if (waTo) {
-      try {
-        const outcome =
-          kind === "placed"
-            ? await sendOrderCard(waTo, waBody, bill, url)
-            : await sendCtaUrl(waTo, waBody, url, BTN.track);
-        delivered = outcome.ok;
-        if (!outcome.ok) freeFormError = outcome.error ?? "Meta rejected free-form";
-      } catch (e) {
-        freeFormError = e instanceof Error ? e.message : String(e);
-        console.error("[whatsapp-order-notify] gift WhatsApp", e);
-      }
-      if (!delivered) {
-        // A gift recipient has almost never messaged the kitchen, so this
-        // rejection is expected — log it anyway so a silent total failure is
-        // visible in the dashboard message log rather than only in Vercel.
-        logWhatsAppMessageSoon({
-          phone: waTo,
-          direction: "out",
-          kind: "text",
-          body: `[FAILED] gift ${kind} free-form to recipient — ${freeFormError ?? "rejected"}`,
-          payload: { orderId: order.id, ref: bill.ref, giftKind: kind, recipient: true },
-          provider: "meta",
-          error: freeFormError ?? "Meta rejected free-form message to gift recipient",
+      if (kind === "placed") {
+        // Template first — guaranteed delivery to new recipients.
+        delivered = await sendGiftOrderTemplate(waTo, {
+          name: recipientName,
+          sender,
+          ref: bill.ref,
+          itemsLine,
+          slot: bill.slotLine || "See the tracking link",
+          payLine: isCod
+            ? `Please keep ${formatInr(bill.amount)} ready to pay at the door.`
+            : "Already paid - just receive it at the door.",
+          url,
         });
-        delivered =
-          kind === "placed"
-            ? await sendGiftOrderTemplate(waTo, {
-                name: recipientName,
-                sender,
-                ref: bill.ref,
-                itemsLine,
-                slot: bill.slotLine || "See the tracking link",
-                payLine: isCod
-                  ? `Please keep ${formatInr(bill.amount)} ready to pay at the door.`
-                  : "Already paid - just receive it at the door.",
-                url,
-              })
-            : await sendOrderUpdateTemplate(waTo, {
-                name: recipientName,
-                ref: bill.ref,
-                line: GIFT_TEMPLATE_LINE[kind],
-                slot: bill.slotLine || "See the tracking link",
-                url,
-              });
         if (!delivered) {
           logWhatsAppMessageSoon({
             phone: waTo,
             direction: "out",
             kind: "template",
-            body: `[FAILED] gift ${kind} template to recipient — falling back to SMS`,
-            payload: {
-              orderId: order.id,
-              ref: bill.ref,
-              giftKind: kind,
-              recipient: true,
-              template: kind === "placed" ? "gift_order_placed" : "order_update",
-            },
+            body: `[FAILED] gift placed template to recipient`,
+            payload: { orderId: order.id, ref: bill.ref, giftKind: kind, recipient: true, template: "gift_order_placed" },
             provider: "meta",
-            error:
-              "Gift template rejected — recipient will only get an SMS. Check template approval and that the number is on WhatsApp.",
+            error: "gift_order_placed template failed — check template approval and that the number is on WhatsApp",
+          });
+          // Template failed — try the richer free-form card as a last attempt
+          // before falling through to SMS.
+          const cardOutcome = await sendOrderCard(waTo, waBody, bill, url);
+          delivered = cardOutcome.ok;
+        }
+      } else {
+        // Status updates: try free-form first (recipient may have open session
+        // from tapping the track link), fall back to template if rejected.
+        let freeFormError: string | null = null;
+        try {
+          const outcome = await sendCtaUrl(waTo, waBody, url, BTN.track);
+          delivered = outcome.ok;
+          if (!outcome.ok) freeFormError = outcome.error ?? "Meta rejected free-form";
+        } catch (e) {
+          freeFormError = e instanceof Error ? e.message : String(e);
+          console.error("[whatsapp-order-notify] gift WhatsApp", e);
+        }
+        if (!delivered) {
+          logWhatsAppMessageSoon({
+            phone: waTo,
+            direction: "out",
+            kind: "text",
+            body: `[FAILED] gift ${kind} free-form to recipient — ${freeFormError ?? "rejected"}`,
+            payload: { orderId: order.id, ref: bill.ref, giftKind: kind, recipient: true },
+            provider: "meta",
+            error: freeFormError ?? "Meta rejected free-form message to gift recipient",
+          });
+          delivered = await sendOrderUpdateTemplate(waTo, {
+            name: recipientName,
+            ref: bill.ref,
+            line: GIFT_TEMPLATE_LINE[kind],
+            slot: bill.slotLine || "See the tracking link",
+            url,
           });
         }
+      }
+      if (!delivered) {
+        logWhatsAppMessageSoon({
+          phone: waTo,
+          direction: "out",
+          kind: "template",
+          body: `[FAILED] gift ${kind} all WhatsApp paths failed — falling back to SMS`,
+          payload: {
+            orderId: order.id,
+            ref: bill.ref,
+            giftKind: kind,
+            recipient: true,
+          },
+          provider: "meta",
+          error: "All WhatsApp paths failed for gift recipient — SMS fallback will be attempted.",
+        });
       }
     }
     if (!delivered) await sendSms(recPhone, smsBody);
