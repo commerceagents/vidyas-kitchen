@@ -63,6 +63,40 @@ export async function GET(request: Request) {
       process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
   );
 
+  /**
+   * Payment confirmation health.
+   *
+   * Order notifications only fire once an order leaves `pending_payment`.
+   * An online order stays there until Razorpay calls back, so a missing
+   * webhook secret (or a webhook never registered in the Razorpay dashboard)
+   * looks exactly like "WhatsApp is broken" — the kitchen sees orders arrive
+   * in the app and no message is ever sent, because no status change happened.
+   */
+  const webhookSecretSet = Boolean(process.env.RAZORPAY_WEBHOOK_SECRET);
+  let stuckPending = 0;
+  let lastConfirmedAt: string | null = null;
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending_payment")
+      .gte("created_at", weekAgo);
+    stuckPending = count ?? 0;
+
+    const { data: lastPaid } = await supabase
+      .from("orders")
+      .select("created_at")
+      .neq("status", "pending_payment")
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    lastConfirmedAt = (lastPaid as { created_at?: string } | null)?.created_at ?? null;
+  } catch {
+    /* orders table unreadable — leave defaults */
+  }
+
   return NextResponse.json({
     configured,
     token: { ok: tokenOk, error: tokenError },
@@ -71,6 +105,7 @@ export async function GET(request: Request) {
       { name: GIFT_ORDER_TEMPLATE_NAME, status: gift },
     ],
     templatesReady: orderUpdate === "APPROVED" && gift === "APPROVED",
+    payments: { webhookSecretSet, stuckPending, lastConfirmedAt },
     recentMessages,
   });
 }

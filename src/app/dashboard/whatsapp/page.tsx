@@ -34,6 +34,11 @@ type HealthData = {
   token: { ok: boolean; error?: string };
   templates: { name: string; status: TemplateStatus }[];
   templatesReady: boolean;
+  payments?: {
+    webhookSecretSet: boolean;
+    stuckPending: number;
+    lastConfirmedAt: string | null;
+  };
   recentMessages: {
     id: string;
     phone: string;
@@ -440,6 +445,53 @@ function WhatsAppHealthPageInner() {
                 ))}
               </div>
             </div>
+
+            {/* Payment confirmation — the other reason messages never send */}
+            {data.payments && (
+              <div
+                style={{
+                  background: CARD_BG,
+                  borderRadius: 12,
+                  border: `1px solid ${BORDER}`,
+                  overflow: "hidden",
+                  marginBottom: 20,
+                }}
+              >
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    borderBottom: `1px solid ${BORDER}`,
+                    color: "#aaa",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                  }}
+                >
+                  Order Confirmation
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>
+                  <StatusChip
+                    ok={data.payments.webhookSecretSet}
+                    label="Razorpay webhook secret"
+                    detail={
+                      data.payments.webhookSecretSet
+                        ? "RAZORPAY_WEBHOOK_SECRET is set — paid orders can be confirmed automatically"
+                        : "RAZORPAY_WEBHOOK_SECRET is missing. Online orders will stay stuck on 'pending payment' forever and NO WhatsApp message is ever sent, because the order never changes status."
+                    }
+                  />
+                  <StatusChip
+                    ok={data.payments.stuckPending === 0 ? true : null}
+                    label={`Orders stuck on pending payment: ${data.payments.stuckPending}`}
+                    detail={
+                      data.payments.stuckPending === 0
+                        ? "Nothing stuck in the last 7 days"
+                        : "These orders never got a payment confirmation, so they never triggered a notification. If you know one of these was actually paid, the Razorpay webhook is not reaching the site."
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {/* What's broken summary */}
             {(!data.token.ok || !data.templatesReady) && (
