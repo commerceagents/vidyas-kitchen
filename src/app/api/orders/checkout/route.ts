@@ -240,7 +240,9 @@ export async function POST(request: Request) {
     // `payment_status = pending` for COD, so the cash is only counted once the
     // driver collects it at the door.
     if (paymentMethod === "cod") {
-      const marked = await markOrderPaidAndNotify(supabase, orderId, null);
+      const marked = await markOrderPaidAndNotify(supabase, orderId, null, {
+        deferNotifications: true,
+      });
       if (!marked.ok) {
         console.error("[checkout] cod markOrderPaidAndNotify", marked.error);
         if (appliedOffer) await releaseOffer(supabase, orderId);

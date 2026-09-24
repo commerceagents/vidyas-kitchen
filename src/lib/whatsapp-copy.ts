@@ -821,13 +821,13 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: "We've reserved the stove",
-          intro: `Hi. Order ${ref} is in. You rest — the gravy is our problem now.`,
+          title: "🔥 We've reserved the stove",
+          intro: `Hi! Order ${ref} is in. You rest — the gravy is our problem now. 😌`,
           note: "We'll write again as it moves.",
         },
         {
-          title: "Stove reserve aayiduchu",
-          intro: `Hi. Order ${ref} in-la irukku. Neenga rest pannunga — gravy enga vela.`,
+          title: "🔥 Stove reserve aayiduchu",
+          intro: `Hi! Order ${ref} in-la irukku. Neenga rest pannunga — gravy enga vela. 😌`,
           note: "Move aana write pannuvom.",
         },
       );
@@ -835,13 +835,13 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: "Payment in. Dinner is ours",
-          intro: `Order ${ref} is confirmed. No need to start cooking at home.`,
+          title: "🎉 Payment in. Dinner is ours",
+          intro: `Order ${ref} is confirmed. No need to start cooking at home tonight. 🙌`,
           note: "We'll write again as it moves.",
         },
         {
-          title: "Payment vandhuduchu",
-          intro: `Order ${ref} confirm. Veetla stove on panna vendaam.`,
+          title: "🎉 Payment vandhuduchu",
+          intro: `Order ${ref} confirm. Veetla stove on panna vendaam. 🙌`,
           note: "Move aana write pannuvom.",
         },
       );
@@ -849,13 +849,13 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: "The kitchen said yes",
-          intro: `Order ${ref} is on the board. The onions have been warned.`,
+          title: "👩‍🍳 The kitchen said yes",
+          intro: `Order ${ref} is on the board. The onions have been warned. 🧅`,
           note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
         },
         {
-          title: "Kitchen yes solliduchu",
-          intro: `Order ${ref} board-la vandhuduchu. Onion-ku warning kuduthutom.`,
+          title: "👩‍🍳 Kitchen yes solliduchu",
+          intro: `Order ${ref} board-la vandhuduchu. Onion-ku warning kuduthutom. 🧅`,
           note: "Cancel-na app-la, slot-ku 12 hours munnadi.",
         },
       );
@@ -863,48 +863,48 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: "The stove is on",
-          intro: `${ref ? `Order ${ref}` : "Your order"} — someone at the stove is taking this personally. In a good way.`,
+          title: "🍳 The stove is on",
+          intro: `${ref ? `Order ${ref}` : "Your order"} — someone at the stove is taking this personally. In a good way. 😄`,
         },
         {
-          title: "Stove on aayiduchu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} — stove-la oruthar personally eduthuttanga. Nalla sense-la.`,
+          title: "🍳 Stove on aayiduchu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} — stove-la oruthar personally eduthuttanga. Nalla sense-la. 😄`,
         },
       );
     case "packed":
       return pickLang(
         lang,
         {
-          title: "Packed. Pretending to be patient",
-          intro: `${ref ? `Order ${ref}` : "Your order"} is in a box by the door. The driver is next.`,
+          title: "📦 Packed. Pretending to be patient",
+          intro: `${ref ? `Order ${ref}` : "Your order"} is in a box by the door. The driver is next. ⏳`,
         },
         {
-          title: "Pack aayiduchu. Patience act pannudhu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} box-la, door side. Driver next.`,
+          title: "📦 Pack aayiduchu. Patience act pannudhu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} box-la, door side. Driver next. ⏳`,
         },
       );
     case "dispatched":
       return pickLang(
         lang,
         {
-          title: "Out the gate",
-          intro: `${ref ? `Order ${ref}` : "Your order"} has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins.`,
+          title: "🛵 Out the gate",
+          intro: `${ref ? `Order ${ref}` : "Your order"} has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins. 😉`,
         },
         {
-          title: "Gate-la kilambiduchu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} kitchen-la irundhu kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum.`,
+          title: "🛵 Gate-la kilambiduchu",
+          intro: `${ref ? `Order ${ref}` : "Unga order"} kitchen-la irundhu kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum. 😉`,
         },
       );
     case "delivered":
       return pickLang(
         lang,
         {
-          title: "That's it — enjoy",
-          intro: `Order ${ref} is at your door. How was it?`,
+          title: "🍽️ That's it — enjoy",
+          intro: `Order ${ref} is at your door. Hope it's still steaming. How was it? 😊`,
         },
         {
-          title: "Vandhuduchu — enjoy",
-          intro: `Order ${ref} veetla. Eppadi irundhuchu?`,
+          title: "🍽️ Vandhuduchu — enjoy",
+          intro: `Order ${ref} veetla. Sooda irukkanum! Eppadi irundhuchu? 😊`,
         },
       );
     case "cancelled":
@@ -935,12 +935,12 @@ function stageWelcome(
       return pickLang(
         lang,
         {
-          title: `Cash received for ${ref}`,
-          intro: `Got *${pay}*. Our driver says thank you. We say enjoy.`,
+          title: `✅ Cash received for ${ref}`,
+          intro: `Got *${pay}*. Our driver says thank you. We say enjoy. 🙏`,
         },
         {
-          title: `${ref}-ku cash vandhuduchu`,
-          intro: `*${pay}* kittuchu. Driver thanks solraaru. Naanga solrom — enjoy pannunga.`,
+          title: `✅ ${ref}-ku cash vandhuduchu`,
+          intro: `*${pay}* kittuchu. Driver thanks solraaru. Naanga solrom — enjoy pannunga. 🙏`,
         },
       );
     case "undelivered":

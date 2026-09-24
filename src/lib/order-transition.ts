@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   canTransitionOrderStatus,
@@ -20,11 +21,25 @@ export type TransitionResult = { ok: true } | { ok: false; error: string };
 const ORDER_NOTIFY_COLUMNS =
   "id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, payment_method, payment_status, total_amount";
 
+export type TransitionOptions = {
+  /**
+   * Skip the customer-facing WhatsApp / push message for this hop.
+   *
+   * The kitchen's "Accept" button moves an order paid → confirmed → preparing
+   * in one tap. Both hops are real and both belong in the status history, but
+   * to the customer that is a single event — notifying on each one delivers
+   * two near-identical cards seconds apart.
+   */
+  notifyCustomer?: boolean;
+};
+
 export async function transitionOrderStatusInDb(
   supabase: SupabaseClient,
   orderId: string,
   newStatus: string,
+  options: TransitionOptions = {},
 ): Promise<TransitionResult> {
+  const notifyCustomer = options.notifyCustomer !== false;
   const { data: row, error: fetchErr } = await supabase
     .from("orders")
     .select(ORDER_NOTIFY_COLUMNS)
@@ -114,6 +129,8 @@ export async function transitionOrderStatusInDb(
     }
   }
 
+  if (!notifyCustomer) return { ok: true };
+
   try {
     await notifyWhatsAppOrderEvent({
       id: row.id as string,
@@ -154,6 +171,7 @@ export async function markOrderPaidAndNotify(
   supabase: SupabaseClient,
   orderId: string,
   paymentId: string | null,
+  options: { deferNotifications?: boolean } = {},
 ): Promise<TransitionResult> {
   const { data: row, error: fetchErr } = await supabase
     .from("orders")
@@ -203,54 +221,71 @@ export async function markOrderPaidAndNotify(
 
   if (upErr) return { ok: false, error: upErr.message };
 
-  try {
-    await notifyWhatsAppOrderEvent({
-      id: row.id as string,
-      order_number: (row as { order_number?: number | null }).order_number ?? null,
-      status: OrderStatus.PAID,
-      phone_number: row.phone_number as string | null,
-      delivery_slot: row.delivery_slot as string | null,
-      delivery_slot_kind: (row as { delivery_slot_kind?: string | null }).delivery_slot_kind ?? null,
-      total_amount: (row as { total_amount?: number | null }).total_amount ?? null,
-      payment_method: isCod ? "cod" : "online",
-    });
-  } catch (e) {
-    console.error("[markOrderPaidAndNotify] WhatsApp notify failed", e);
-  }
-
   const orderNum = (row as { order_number?: number | null }).order_number;
   const orderRef = formatOrderRef(orderNum, row.id as string).replace(/^#/, "");
   const totalAmt = (row as { total_amount?: number | null }).total_amount;
   const amtFormatted = totalAmt != null ? `₹${Math.round(totalAmt)}` : "";
 
-  // Await both. A floating promise gets frozen when the checkout response
-  // returns, so the kitchen phone never hears about the order.
-  await Promise.all([
-    sendOrderPushNotifications(
-      supabase,
-      row.phone_number as string | null,
-      OrderStatus.PAID,
-      row.id as string,
-      row.delivery_slot as string | null,
-      orderNum ?? null,
-      isCod ? "cod" : "online",
-    ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e)),
-    countDashboardNewOrders(supabase)
-      .then((badgeCount) =>
-        sendDashboardPushNotifications(supabase, {
-          title: `New Order #${orderRef}`,
-          body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
-          tag: `vk-dash-${row.id}`,
-          url: "/dashboard",
-          urgent: true,
-          badgeCount,
-        }),
-      )
-      .then((sent) => {
-        if (sent === 0) console.warn("[markOrderPaidAndNotify] dashboard push reached no devices");
-      })
-      .catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e)),
-  ]);
+  /**
+   * Every message this order triggers: customer WhatsApp card (plus the gift
+   * recipient's, which is several more Meta round-trips), customer push, and
+   * the kitchen's dashboard push.
+   *
+   * A floating promise gets frozen the moment the response returns, so this
+   * must either be awaited or handed to `after()` — never just dropped.
+   */
+  const runNotifications = async () => {
+    try {
+      await notifyWhatsAppOrderEvent({
+        id: row.id as string,
+        order_number: orderNum ?? null,
+        status: OrderStatus.PAID,
+        phone_number: row.phone_number as string | null,
+        delivery_slot: row.delivery_slot as string | null,
+        delivery_slot_kind: (row as { delivery_slot_kind?: string | null }).delivery_slot_kind ?? null,
+        total_amount: totalAmt ?? null,
+        payment_method: isCod ? "cod" : "online",
+      });
+    } catch (e) {
+      console.error("[markOrderPaidAndNotify] WhatsApp notify failed", e);
+    }
+
+    await Promise.all([
+      sendOrderPushNotifications(
+        supabase,
+        row.phone_number as string | null,
+        OrderStatus.PAID,
+        row.id as string,
+        row.delivery_slot as string | null,
+        orderNum ?? null,
+        isCod ? "cod" : "online",
+      ).catch((e) => console.error("[markOrderPaidAndNotify] push notify failed", e)),
+      countDashboardNewOrders(supabase)
+        .then((badgeCount) =>
+          sendDashboardPushNotifications(supabase, {
+            title: `New Order #${orderRef}`,
+            body: `${amtFormatted ? `${amtFormatted} · ` : ""}${isCod ? "Cash on Delivery" : "Paid Online"} · Tap to open dashboard`,
+            tag: `vk-dash-${row.id}`,
+            url: "/dashboard",
+            urgent: true,
+            badgeCount,
+          }),
+        )
+        .then((sent) => {
+          if (sent === 0) console.warn("[markOrderPaidAndNotify] dashboard push reached no devices");
+        })
+        .catch((e) => console.error("[markOrderPaidAndNotify] dashboard push failed", e)),
+    ]);
+  };
+
+  // Checkout passes deferNotifications so the customer's "order placed" screen
+  // is not held open for a handful of Meta and web-push round-trips. `after()`
+  // keeps the function alive past the response, so nothing is dropped.
+  if (options.deferNotifications) {
+    after(runNotifications);
+  } else {
+    await runNotifications();
+  }
 
   return { ok: true };
 }

@@ -561,7 +561,12 @@ export function DashboardOrderBoard({
 
   const runAccept = async (orderId: string) => {
     setBusyId(orderId);
-    const r1 = await transitionOrderStatus(orderId, OrderStatus.CONFIRMED);
+    // Accept is one action to the customer, so only the second hop messages
+    // them — otherwise they get "kitchen said yes" and "the stove is on"
+    // seconds apart, each with its own Track Order button.
+    const r1 = await transitionOrderStatus(orderId, OrderStatus.CONFIRMED, {
+      notifyCustomer: false,
+    });
     if (!r1.ok) {
       alert(r1.error);
       setBusyId(null);
@@ -1446,6 +1451,10 @@ function OrderCard({
             style={{
               height: "44px",
               padding: mobile ? "0 18px" : "0 14px",
+              // Sized for the busy label so swapping "Reject" → spinner +
+              // "Rejecting" cannot widen the button and shove the row into
+              // the price beside it.
+              minWidth: mobile ? 124 : 112,
               borderRadius: "12px",
               border: "1.5px solid rgba(239,68,68,0.35)",
               background: "rgba(239,68,68,0.08)",
@@ -1476,6 +1485,7 @@ function OrderCard({
             style={{
               height: "44px",
               padding: mobile ? "0 22px" : "0 18px",
+              minWidth: mobile ? 130 : 118,
               borderRadius: "12px",
               border: "none",
               background: YELLOW,
@@ -1547,6 +1557,7 @@ function OrderCard({
           style={{
             height: "44px",
             padding: mobile ? "0 22px" : "0 16px",
+            minWidth: mobile ? 138 : 126,
             borderRadius: "12px",
             border: "none",
             background: YELLOW,
@@ -1557,6 +1568,7 @@ function OrderCard({
             fontFamily: FONT,
             boxShadow: `0 4px 14px ${YELLOW}35`,
             opacity: busy ? 0.6 : 1,
+            boxSizing: "border-box",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",

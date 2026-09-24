@@ -319,6 +319,7 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
      */
     const waTo = toPhone(recPhone);
     let delivered = false;
+    let freeFormError: string | null = null;
     if (waTo) {
       try {
         const outcome =
@@ -326,10 +327,24 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
             ? await sendOrderCard(waTo, waBody, bill, url)
             : await sendCtaUrl(waTo, waBody, url, BTN.track);
         delivered = outcome.ok;
+        if (!outcome.ok) freeFormError = outcome.error ?? "Meta rejected free-form";
       } catch (e) {
+        freeFormError = e instanceof Error ? e.message : String(e);
         console.error("[whatsapp-order-notify] gift WhatsApp", e);
       }
       if (!delivered) {
+        // A gift recipient has almost never messaged the kitchen, so this
+        // rejection is expected — log it anyway so a silent total failure is
+        // visible in the dashboard message log rather than only in Vercel.
+        logWhatsAppMessageSoon({
+          phone: waTo,
+          direction: "out",
+          kind: "text",
+          body: `[FAILED] gift ${kind} free-form to recipient — ${freeFormError ?? "rejected"}`,
+          payload: { orderId: order.id, ref: bill.ref, giftKind: kind, recipient: true },
+          provider: "meta",
+          error: freeFormError ?? "Meta rejected free-form message to gift recipient",
+        });
         delivered =
           kind === "placed"
             ? await sendGiftOrderTemplate(waTo, {
@@ -350,6 +365,24 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
                 slot: bill.slotLine || "See the tracking link",
                 url,
               });
+        if (!delivered) {
+          logWhatsAppMessageSoon({
+            phone: waTo,
+            direction: "out",
+            kind: "template",
+            body: `[FAILED] gift ${kind} template to recipient — falling back to SMS`,
+            payload: {
+              orderId: order.id,
+              ref: bill.ref,
+              giftKind: kind,
+              recipient: true,
+              template: kind === "placed" ? "gift_order_placed" : "order_update",
+            },
+            provider: "meta",
+            error:
+              "Gift template rejected — recipient will only get an SMS. Check template approval and that the number is on WhatsApp.",
+          });
+        }
       }
     }
     if (!delivered) await sendSms(recPhone, smsBody);

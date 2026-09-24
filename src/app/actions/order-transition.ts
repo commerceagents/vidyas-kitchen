@@ -2,10 +2,19 @@
 
 import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
-import { markCodCollected, transitionOrderStatusInDb, type TransitionResult } from "@/lib/order-transition";
+import {
+  markCodCollected,
+  transitionOrderStatusInDb,
+  type TransitionOptions,
+  type TransitionResult,
+} from "@/lib/order-transition";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 
-export async function transitionOrderStatus(orderId: string, newStatus: string): Promise<TransitionResult> {
+export async function transitionOrderStatus(
+  orderId: string,
+  newStatus: string,
+  options: TransitionOptions = {},
+): Promise<TransitionResult> {
   // Cancelling or rejecting from here fires a real Razorpay refund.
   const denied = await guardDashboardAction();
   if (denied) return denied;
@@ -30,5 +39,5 @@ export async function transitionOrderStatus(orderId: string, newStatus: string):
     }
   }
 
-  return transitionOrderStatusInDb(supabase, orderId, newStatus);
+  return transitionOrderStatusInDb(supabase, orderId, newStatus, options);
 }
