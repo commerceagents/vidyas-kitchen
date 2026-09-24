@@ -16,6 +16,7 @@ import { logWhatsAppMessageSoon } from "@/lib/whatsapp-message-log";
 
 export const ORDER_UPDATE_TEMPLATE_NAME = "order_update";
 export const GIFT_ORDER_TEMPLATE_NAME = "gift_order_placed";
+export const GIFT_ORDER_SURPRISE_TEMPLATE_NAME = "gift_order_surprise";
 export const ORDER_TEMPLATE_LANG = "en";
 
 /** Track links differ only after the origin, so the button takes the tail. */
@@ -101,6 +102,45 @@ export function giftOrderTemplateDefinition(): Record<string, unknown> {
   };
 }
 
+/**
+ * Surprise-first wording — no two names side-by-side in the opening line.
+ * Meta requires the body to start and end on fixed words, not variables.
+ * Submit via POST /api/whatsapp/order-templates after deploy.
+ */
+export function giftOrderSurpriseTemplateDefinition(): Record<string, unknown> {
+  return {
+    name: GIFT_ORDER_SURPRISE_TEMPLATE_NAME,
+    language: ORDER_TEMPLATE_LANG,
+    category: "UTILITY",
+    allow_category_change: true,
+    components: [
+      {
+        type: "BODY",
+        text:
+          "A meal is on its way to you! 🍛\n\n" +
+          "{{1}} ordered it from Vidya's Kitchen — you just open the door.\n\n" +
+          "Order #{{2}}\n" +
+          "Items: {{3}}\n" +
+          "Delivery: {{4}}\n\n" +
+          "{{5}}\n" +
+          "Tap below to follow it live.",
+        example: {
+          body_text: [
+            [
+              "Simon",
+              "00123",
+              "Mom's Recipe Chicken Gravy x 1",
+              "Today, 1:00 PM - 2:00 PM",
+              "Already paid - just receive it at the door.",
+            ],
+          ],
+        },
+      },
+      trackButton("?track=7b3f1c2a-0d44-4f1e-9d02-5a6b7c8d9e0f&gift=9a1b2c3d4e5f6071"),
+    ],
+  };
+}
+
 function body(values: string[]): TemplateComponent {
   return {
     type: "body",
@@ -164,6 +204,16 @@ export async function sendGiftOrderTemplate(
     url: string;
   },
 ): Promise<boolean> {
+  // Try the new surprise template first (better wording, no two names in a row).
+  // Falls back to the original if it's not approved yet.
+  const sent = await send(
+    to,
+    GIFT_ORDER_SURPRISE_TEMPLATE_NAME,
+    [body([input.sender, input.ref, input.itemsLine, input.slot, input.payLine]), button(input.url)],
+    `${input.sender} sent an order to ${input.name}`,
+  );
+  if (sent) return true;
+
   return send(
     to,
     GIFT_ORDER_TEMPLATE_NAME,

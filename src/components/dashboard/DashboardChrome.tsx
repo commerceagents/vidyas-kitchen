@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bell,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -160,37 +159,6 @@ export function DashboardDesktopTopBar({
       )}
 
       {trailingActions}
-
-      <button
-        type="button"
-        onClick={onOpenNotifications}
-        aria-label="Notifications"
-        style={{ ...lightIconBtnStyle, position: "relative" }}
-      >
-        <Bell size={20} />
-        {unreadCount > 0 ? (
-          <span
-            style={{
-              position: "absolute",
-              top: "6px",
-              right: "6px",
-              minWidth: "18px",
-              height: "18px",
-              padding: "0 5px",
-              borderRadius: "6px",
-              background: "#F5A623",
-              color: "#ffffff",
-              fontSize: "11px",
-              fontWeight: 800,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        ) : null}
-      </button>
     </div>
   );
 }
@@ -234,38 +202,6 @@ export function DashboardMobileHeader({
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>Admin</h1>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {onOpenNotifications ? (
-              <button
-                type="button"
-                onClick={onOpenNotifications}
-                aria-label="Notifications"
-                style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", position: "relative" }}
-              >
-                <Bell size={18} />
-                {unreadCount > 0 ? (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "4px",
-                      minWidth: "16px",
-                      height: "16px",
-                      padding: "0 4px",
-                      borderRadius: "6px",
-                      background: "#F5A623",
-                      color: "#fff",
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                ) : null}
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={onToggleSound}
@@ -862,6 +798,18 @@ function DashboardPushAlertsBanner() {
       alive = false;
     };
   }, []);
+
+  // Auto-subscribe when permission is already granted but no active sub
+  useEffect(() => {
+    if (pushState !== "off") return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") {
+      void handleEnable();
+    } else if (Notification.permission === "default") {
+      void handleEnable();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushState]);
 
   // Browsers rotate the push endpoint. Re-save it whenever this phone opens
   // the dashboard, or a device that enabled alerts days ago stops receiving them.

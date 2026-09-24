@@ -1781,11 +1781,15 @@ export function MobileHomeScreen({
   openSavedAddresses = false,
   avatarUrl = null,
 }: MobileHomeScreenProps) {
+  const isGiftVisitor = Boolean(giftTrackToken && !customerPhone);
+
   const activeFestival = useActiveFestival();
   const [uiBootstrap] = useState(() => {
     const ui = readUiSession();
     return {
-      activeNav: ui?.activeNav === "orders" || ui?.activeNav === "account" || ui?.activeNav === "home" ? ui.activeNav : "home",
+      activeNav: isGiftVisitor
+        ? "orders" as const
+        : ui?.activeNav === "orders" || ui?.activeNav === "account" || ui?.activeNav === "home" ? ui.activeNav : "home",
       activeScreen: ui?.activeScreen === "menu" ? ("menu" as const) : ("home" as const),
       dishDetailId: ui?.dishDetailId ?? null,
       homeDishFeedTab: ui?.homeDishFeedTab === "favorites" ? ("favorites" as const) : ("bestSelling" as const),
@@ -2086,6 +2090,7 @@ export function MobileHomeScreen({
 
   function handleNav(id: string) {
     if (id === activeNav) return;
+    if (isGiftVisitor && id !== "orders") return;
     setLocationOpen(false);
     setActiveNav(id);
     setChromeVisible(true);
@@ -2259,9 +2264,10 @@ export function MobileHomeScreen({
                   textAlign: "center",
                 }}
               >
-                Your Orders
+                {isGiftVisitor ? "Tracking" : "Your Orders"}
               </h1>
             </div>
+            {!isGiftVisitor && (
             <div
               role="tablist"
               style={{
@@ -2305,6 +2311,7 @@ export function MobileHomeScreen({
                 );
               })}
             </div>
+            )}
           </div>
         ) : activeNav === "account" ? (
           <div
@@ -3002,7 +3009,7 @@ export function MobileHomeScreen({
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8 }}>
-              {NAV_ITEMS.map((item) => {
+              {(isGiftVisitor ? NAV_ITEMS.filter(i => i.id === "orders") : NAV_ITEMS).map((item) => {
                 const { id, label: navLabel, icon: Icon, activeWidth } = item;
                 const isActive   = activeNav === id;
 

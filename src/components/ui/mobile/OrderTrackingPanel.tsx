@@ -339,11 +339,39 @@ function StatusMascot({ stage }: { stage: number }) {
   }
   if (stage === 3) {
     return (
-      <span style={wrap} aria-hidden>
+      <span style={{ ...wrap, position: "relative" }} aria-hidden>
+        {/* Road dashes moving right-to-left behind the bike */}
         <motion.span
-          animate={{ x: [-7, 7, -7], y: [1, -2, 1], rotate: [-8, 6, -8] }}
-          transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut" }}
-          style={{ display: "flex" }}
+          animate={{ x: [0, -20] }}
+          transition={{ duration: 0.6, repeat: Infinity, ease: "linear" }}
+          style={{
+            position: "absolute",
+            bottom: 10,
+            left: 0,
+            width: 80,
+            height: 2,
+            display: "flex",
+            gap: 6,
+          }}
+        >
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <span
+              key={i}
+              style={{
+                width: 8,
+                height: 2,
+                borderRadius: 1,
+                background: "rgba(255,255,255,0.25)",
+                flexShrink: 0,
+              }}
+            />
+          ))}
+        </motion.span>
+        {/* Bike body stays still, gentle up-down for road bumps */}
+        <motion.span
+          animate={{ y: [0, -1.5, 0] }}
+          transition={{ duration: 0.35, repeat: Infinity, ease: "easeInOut" }}
+          style={{ display: "flex", zIndex: 1 }}
         >
           <Motorcycle size={24} weight="fill" color={C.red} />
         </motion.span>

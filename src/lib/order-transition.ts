@@ -175,7 +175,7 @@ export async function markOrderPaidAndNotify(
 ): Promise<TransitionResult> {
   const { data: row, error: fetchErr } = await supabase
     .from("orders")
-    .select("id, status, phone_number, delivery_slot, delivery_slot_kind, payment_method, total_amount")
+    .select("id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, payment_method, total_amount")
     .eq("id", orderId)
     .single();
 

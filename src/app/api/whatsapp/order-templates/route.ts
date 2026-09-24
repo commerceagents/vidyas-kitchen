@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import {
   GIFT_ORDER_TEMPLATE_NAME,
+  GIFT_ORDER_SURPRISE_TEMPLATE_NAME,
   ORDER_UPDATE_TEMPLATE_NAME,
   giftOrderTemplateDefinition,
+  giftOrderSurpriseTemplateDefinition,
   orderUpdateTemplateDefinition,
 } from "@/lib/whatsapp-order-templates";
 import { createMessageTemplate, fetchTemplateStatus, graphGet } from "@/lib/meta-whatsapp";
@@ -77,9 +79,10 @@ export async function GET(request: Request) {
   if (params.get("submit") === "1") return submitTemplates();
   if (params.get("discover") === "1") return NextResponse.json(await discoverAccounts());
 
-  const [orderUpdate, gift] = await Promise.all([
+  const [orderUpdate, gift, giftSurprise] = await Promise.all([
     fetchTemplateStatus(ORDER_UPDATE_TEMPLATE_NAME),
     fetchTemplateStatus(GIFT_ORDER_TEMPLATE_NAME),
+    fetchTemplateStatus(GIFT_ORDER_SURPRISE_TEMPLATE_NAME),
   ]);
 
   // A WABA id with a stray letter in it fails as an unhelpful "object does not
@@ -99,8 +102,9 @@ export async function GET(request: Request) {
     templates: [
       { name: ORDER_UPDATE_TEMPLATE_NAME, status: orderUpdate },
       { name: GIFT_ORDER_TEMPLATE_NAME, status: gift },
+      { name: GIFT_ORDER_SURPRISE_TEMPLATE_NAME, status: giftSurprise },
     ],
-    ready: orderUpdate === "APPROVED" && gift === "APPROVED",
+    ready: orderUpdate === "APPROVED" && (gift === "APPROVED" || giftSurprise === "APPROVED"),
   });
 }
 
@@ -117,7 +121,7 @@ export async function POST(request: Request) {
 
 async function submitTemplates() {
   const results = [];
-  for (const definition of [orderUpdateTemplateDefinition(), giftOrderTemplateDefinition()]) {
+  for (const definition of [orderUpdateTemplateDefinition(), giftOrderTemplateDefinition(), giftOrderSurpriseTemplateDefinition()]) {
     const result = await createMessageTemplate(definition);
     results.push({
       name: definition.name,

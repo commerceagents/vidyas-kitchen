@@ -786,10 +786,10 @@ function billItemLines(items: WaBillLine[]): string[] {
   for (const it of shown) {
     const qty = Math.max(1, it.quantity);
     const size = it.variant ? `${it.variant}  × ${qty}` : `× ${qty}`;
-    lines.push(it.name, `${size} · ${money(it.lineTotal)}`);
+    lines.push(`*${it.name}*`, `_${size}_ · ${money(it.lineTotal)}`);
   }
   if (items.length > shown.length) {
-    lines.push(`+${items.length - shown.length} more in the app`);
+    lines.push(`_+${items.length - shown.length} more in the app_`);
   }
   return lines;
 }
@@ -801,10 +801,12 @@ function billMoneyLines(bill: WaOrderBill, lang?: WaLang): string[] {
     dottedRow(pickLang(lang, "Packaging", "Packing"), money(bill.breakdown.packaging)),
     dottedRow(pickLang(lang, "Delivery", "Delivery"), money(bill.breakdown.delivery)),
     dottedRow("GST", money(bill.breakdown.gst)),
-    `*${dottedRow(pickLang(lang, "To pay", "Kattanum"), pay)}*`,
+    RULE,
+    `*${dottedRow(pickLang(lang, "Total", "Total"), pay)}*`,
+    "",
     bill.isCod
-      ? pickLang(lang, "Pay at the door, exact if you can.", "Veetula cash — exact irundha nalla.")
-      : pickLang(lang, "Already paid online.", "Online-la already pay aayiduchu."),
+      ? `_${pickLang(lang, "Pay at the door, exact if you can.", "Veetula cash — exact irundha nalla.")}_`
+      : `_${pickLang(lang, "Already paid online.", "Online-la already pay aayiduchu.")}_`,
   ];
 }
 
@@ -1523,13 +1525,16 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
   switch (kind) {
     case "placed":
       return msg({
-        title: `${sender} sent you food`,
+        title: "🍛 A meal is headed your way!",
         lines: [
+          `${sender} ordered this from Vidya's Kitchen — you just open the door.`,
+          "",
           opts.itemsLine,
           opts.slotLine ? `When: ${opts.slotLine}` : null,
+          "",
           opts.isCod
-            ? `Pay ${money(opts.amount || 0)} cash or UPI at the door.`
-            : "Already paid — just receive it.",
+            ? `_Pay ${money(opts.amount || 0)} cash or UPI at the door._`
+            : "_Already paid — just receive it._",
         ],
         note: "Tap Track to watch the driver on the map.",
       });

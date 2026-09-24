@@ -151,10 +151,13 @@ const LOC = {
 } as const;
 
 /** Insets passed with the camera so the map never paints “unpadded” then snaps when overlays mount. */
-const MAP_PAD_TOP = 80;
+const MAP_PAD_TOP = 20;
 const MAP_PAD_BOTTOM_EXTRA = 20;
-/** Must match initial `sheetHeight` so padding matches before the first layout measure. */
-const INITIAL_SHEET_FALLBACK_H = 420;
+/**
+ * Must match initial `sheetHeight` so padding matches before the first layout
+ * measure. Smaller default gives the map ~65% of the viewport.
+ */
+const INITIAL_SHEET_FALLBACK_H = 280;
 
 /** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
 function easeSmootherstep(t: number) {
@@ -1081,45 +1084,7 @@ export function LocationScreen({
         zIndex: 5,
       }} />
 
-      {/* ── TOP BAR ── glass sqircle pill */}
-      <motion.div
-        variants={topBarReveal}
-        initial="hidden"
-        animate="show"
-        style={{
-          position: "absolute",
-          top: 16, left: 16, right: 16,
-          zIndex: 20,
-          background: "rgba(255,255,255,0.82)",
-          backdropFilter: "blur(24px) saturate(180%)",
-          WebkitBackdropFilter: "blur(24px) saturate(180%)",
-          borderRadius: 22,
-          border: "1px solid rgba(0,0,0,0.06)",
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
-        }}
-      >
-        <div style={{
-          width: 32, height: 32, borderRadius: 10,
-          background: "rgba(189,35,32,0.15)",
-          border: "1px solid rgba(189,35,32,0.25)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          <PhMapPin size={16} weight="fill" color="#BD2320" />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={LOC.eyebrow}>
-            Delivering to
-          </p>
-          <p style={LOC.placeName}>
-            {searchText || "Set your location"}
-          </p>
-        </div>
-      </motion.div>
+      {/* Top bar pill removed — the search field in the sheet is sufficient */}
 
       {/* ── FLOATING RECENTER BUTTON ── sits above bottom sheet */}
       <motion.button
@@ -1257,8 +1222,7 @@ export function LocationScreen({
                     border: "1.5px solid rgba(189,35,32,0.25)",
                     borderTop: "none",
                     borderRadius: "0 0 16px 16px",
-                    // Long lists scroll on their own instead of running off the sheet.
-                    maxHeight: "min(46vh, 320px)",
+                    maxHeight: `calc(${typeof window !== "undefined" && window.visualViewport ? `${window.visualViewport.height}px` : "100dvh"} - 200px)`,
                     overflowY: "auto",
                     WebkitOverflowScrolling: "touch",
                     overscrollBehavior: "contain",
