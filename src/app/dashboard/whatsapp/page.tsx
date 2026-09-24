@@ -310,11 +310,13 @@ function WhatsAppHealthPageInner() {
     <div
       className="vk-dash-home-desktop"
       style={{
-        minHeight: "100svh",
+        height: "100%",
+        minHeight: 0,
         background: "#0a0a0a",
         fontFamily: FONT,
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <DashboardMobileHeader
@@ -335,7 +337,19 @@ function WhatsAppHealthPageInner() {
         onMonthChange={setMonth}
       />
 
-      <div style={{ flex: 1, padding: "20px 16px 100px", maxWidth: 720, margin: "0 auto", width: "100%" }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          padding: "20px 16px 100px",
+          maxWidth: 720,
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
