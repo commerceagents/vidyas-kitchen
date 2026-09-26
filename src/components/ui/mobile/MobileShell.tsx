@@ -192,8 +192,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     if (typeof window === "undefined") return "";
     return sessionStorage.getItem(SS_GIFT_TRACK) || "";
   });
-  /** Where "back" from the map returns to; null during first-time setup. */
-  const [locationBackStep, setLocationBackStep] = useState<MobileStep | null>(null);
   /** Set while the location screen is being used to move an existing order. */
   const [editingAddressForOrder, setEditingAddressForOrder] = useState<string | null>(null);
   /** Set while the location screen is placing the pin for one saved address. */
@@ -703,7 +701,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       setRecipientDrop(loc);
       setLocationPickKind(null);
       setResumeCheckoutAfterLocation(false);
-      setLocationBackStep(null);
       setStep("checkout");
       return;
     }
@@ -711,7 +708,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     if (editingSavedPlace) {
       const slot = editingSavedPlace;
       setEditingSavedPlace(null);
-      setLocationBackStep(null);
       savePlaces(
         loadSavedPlaces().map((p) =>
           p.id === slot.id
@@ -746,7 +742,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
 
     setLocation(loc);
     localStorage.setItem("vk_location", JSON.stringify(loc));
-    setLocationBackStep(null);
 
     // Re-pointing an order that has already been placed. Until this persisted,
     // the pencil on the tracking panel only moved this device's pin — the
@@ -850,29 +845,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
                     ? "Use this drop-off"
                     : undefined
               }
-              // Back is offered whenever there is somewhere to return to. A
-              // saved address means home is always reachable, which also covers
-              // a refresh that restores straight onto the map. Only first-time
-              // setup has no way out: the app can't do anything without an
-              // address, so leaving would strand the user on a blank shell.
-              onBack={
-                locationBackStep || location
-                  ? () => {
-                      const back = locationBackStep ?? "home";
-                      setLocationBackStep(null);
-                      setEditingAddressForOrder(null);
-                      setResumeCheckoutAfterLocation(false);
-                      setLocationPickKind(null);
-                      // Backing out of a saved address returns to the drawer it
-                      // was opened from, with nothing changed.
-                      if (editingSavedPlace) {
-                        setEditingSavedPlace(null);
-                        setReopenSavedAddresses(true);
-                      }
-                      setStep(back);
-                    }
-                  : undefined
-              }
             />
           </motion.div>
         )}
@@ -897,13 +869,11 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               location={location}
               onSelectSavedPlace={handleSelectSavedPlace}
               onChangeLocation={() => {
-                setLocationBackStep("home");
                 setStep("location");
               }}
               onEditOrderAddress={(orderId) => {
                 setAddressSaveError(null);
                 setEditingAddressForOrder(orderId);
-                setLocationBackStep("home");
                 setStep("location");
               }}
               addressSaveError={addressSaveError}
@@ -919,7 +889,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               onEditSavedPlace={(place) => {
                 setReopenSavedAddresses(false);
                 setEditingSavedPlace(place);
-                setLocationBackStep("home");
                 setStep("location");
               }}
               onProfileSaved={({ name: n, avatarUrl: url }) => {
@@ -988,13 +957,11 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
               onChangeLocation={() => {
                 setLocationPickKind("delivery");
                 setResumeCheckoutAfterLocation(true);
-                setLocationBackStep("checkout");
                 setStep("location");
               }}
               onPickRecipientAddress={() => {
                 setLocationPickKind("recipient");
                 setResumeCheckoutAfterLocation(true);
-                setLocationBackStep("checkout");
                 setStep("location");
               }}
               onSetRecipientDrop={(loc) => setRecipientDrop(loc)}

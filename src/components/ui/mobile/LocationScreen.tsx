@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker } from "react-map-gl/mapbox";
-import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, CaretLeft, Gift } from "@phosphor-icons/react";
+import { House, Briefcase, MapPin as PhMapPin, Trash, MagnifyingGlass, Crosshair, NavigationArrow, WarningCircle, Gift } from "@phosphor-icons/react";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -60,11 +60,6 @@ interface LocationScreenProps {
    * "choose an address" all over again.
    */
   initialLocation?: LocationData | null;
-  /**
-   * Leave without choosing. Omitted during first-time setup, where there is no
-   * previous screen to go back to and an address is required to continue.
-   */
-  onBack?: () => void;
   /**
    * Overrides the confirm button's wording. Used when the pin is being filed
    * against a saved address rather than chosen for this order.
@@ -352,7 +347,6 @@ function FallbackMap({ children }: { children: React.ReactNode }) {
 export function LocationScreen({
   onLocationSet,
   initialLocation = null,
-  onBack,
   confirmLabel,
   mode = "my-gps",
   savedSlotId = null,
@@ -1025,43 +1019,6 @@ export function LocationScreen({
           </div>
         </FallbackMap>
       )}
-
-      {/* Escape hatch. A full-screen map with no chrome traps anyone who opened
-          it just to look — there was previously no way out except confirming a
-          new address. Hidden during first-time setup, where an address is
-          required before the app can do anything. */}
-      {onBack ? (
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25, duration: 0.35 }}
-          whileTap={{ scale: 0.93 }}
-          onClick={onBack}
-          aria-label="Go back"
-          style={{
-            position: "absolute",
-            top: "max(16px, env(safe-area-inset-top))",
-            left: 16,
-            zIndex: 20,
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            border: "1px solid rgba(0,0,0,0.06)",
-            background: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.14)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-            cursor: "pointer",
-          }}
-        >
-          <CaretLeft size={20} weight="bold" color="#1A1A1A" />
-        </motion.button>
-      ) : null}
 
       {/* Red-black tint over map for brand tone */}
       <div
