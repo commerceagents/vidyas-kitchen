@@ -1393,68 +1393,93 @@ function OrderStatusRail({ status }: { status: string }) {
   }
 
   const current = statusToStep(status);
+  const steps = RAIL_STEPS.length;
+  const progress = current <= 0 ? 0 : current / (steps - 1);
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "flex-start",
-      padding: "14px 4px 6px",
-      width: "100%",
-    }}>
+    <div
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: `repeat(${steps}, 1fr)`,
+        padding: "18px 2px 8px",
+        width: "100%",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 28,
+          left: `${50 / steps}%`,
+          right: `${50 / steps}%`,
+          height: 2,
+          borderRadius: 1,
+          background: "#2a2a2a",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 28,
+          left: `${50 / steps}%`,
+          width: `calc(${progress} * (100% - ${100 / steps}%))`,
+          height: 2,
+          borderRadius: 1,
+          background: "rgba(245,227,45,0.55)",
+          transition: "width 0.3s ease",
+        }}
+      />
       {RAIL_STEPS.map((step, idx) => {
         const isDone = idx < current;
         const isActive = idx === current;
         return (
-          <div key={step.key} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: "0 0 auto", minWidth: 36 }}>
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.25)" : "#222",
-                  border: isActive ? `2.5px solid ${YELLOW}` : isDone ? "2px solid rgba(245,227,45,0.45)" : "2px solid #333",
-                  transition: "all 0.3s ease",
-                  flexShrink: 0,
-                }}
-              >
-                {isDone ? (
-                  <Check size={12} strokeWidth={3} color="#f5e32d" />
-                ) : isActive ? (
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#000" }} />
-                ) : null}
-              </div>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: isActive ? 800 : 600,
-                  color: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.7)" : "#555",
-                  fontFamily: FONT,
-                  letterSpacing: "0.03em",
-                  transition: "color 0.3s ease",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {step.label}
-              </span>
+          <div
+            key={step.key}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                boxSizing: "border-box",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: isActive ? YELLOW : isDone ? "#3a3414" : "#1a1a1a",
+                border: isActive || isDone ? `2px solid ${YELLOW}` : "2px solid #3a3a3a",
+                transition: "background 0.3s ease, border-color 0.3s ease",
+                flexShrink: 0,
+              }}
+            >
+              {isDone ? (
+                <Check size={12} strokeWidth={3} color="#f5e32d" />
+              ) : isActive ? (
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#111" }} />
+              ) : null}
             </div>
-            {idx < RAIL_STEPS.length - 1 && (
-              <div
-                style={{
-                  flex: 1,
-                  height: 2,
-                  marginTop: 12,
-                  marginLeft: -2,
-                  marginRight: -2,
-                  background: isDone ? "rgba(245,227,45,0.4)" : "#2a2a2a",
-                  borderRadius: 1,
-                  transition: "background 0.3s ease",
-                }}
-              />
-            )}
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: isActive ? 800 : 600,
+                color: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.75)" : "#666",
+                fontFamily: FONT,
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {step.label}
+            </span>
           </div>
         );
       })}
