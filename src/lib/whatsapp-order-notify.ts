@@ -68,6 +68,33 @@ function toPhone(phoneRaw: string): string | null {
   return null;
 }
 
+/**
+ * Meta only delivers a free-form card inside 24 hours of the customer's last
+ * reply. An app order never opens that window, and Meta can still answer 200
+ * and then drop the card. The approved template is what actually arrives.
+ */
+async function hasOpenServiceWindow(to: string): Promise<boolean> {
+  const digits = to.replace(/\D/g, "");
+  const keys = [digits, digits.slice(-10)].filter((v, i, a) => v && a.indexOf(v) === i);
+  try {
+    const supabase = createServerSupabase();
+    const { data, error } = await supabase
+      .from("whatsapp_messages")
+      .select("created_at")
+      .eq("direction", "in")
+      .in("phone", keys)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data?.created_at) return false;
+    const at = Date.parse(String(data.created_at));
+    if (!Number.isFinite(at)) return false;
+    return Date.now() - at < 23 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
 type NotifyOrderRow = {
   id: string;
   order_number?: number | null;
@@ -476,6 +503,18 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   };
 
   const card = async (stage: WaOrderStage) => {
+    // App orders never open a WhatsApp chat, so the rich card is dropped and
+    // the customer sees nothing. Send the approved template first in that case.
+    if (!(await hasOpenServiceWindow(to))) {
+      const sent = await sendOrderUpdateTemplate(to, {
+        name: await displayNameForPhone(order.phone_number, "there"),
+        ref: short,
+        line: TEMPLATE_STATUS_LINE[stage],
+        slot: bill.slotLine || "See the app for your slot",
+        url: trackUrl,
+      });
+      if (sent) return;
+    }
     const body = buildOrderStatusWhatsApp(stage, bill, lang);
     // Photo + receipt only on the first confirmation. Later updates stay
     // short — repeating the same header (or the brand logo) made the thread
