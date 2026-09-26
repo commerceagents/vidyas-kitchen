@@ -3291,7 +3291,6 @@ export function MobileHomeScreen({
                               whileTap={{ scale: 0.96 }}
                               onClick={() => {
                                 onSelectSavedPlace?.(place);
-                                setLocationOpen(false);
                               }}
                               style={{
                                 display: "inline-flex",
@@ -3330,8 +3329,16 @@ export function MobileHomeScreen({
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       onClick={() => {
+                        const chosen = savedPlaces.find(
+                          (p) =>
+                            isPlaceSet(p) &&
+                            (location?.placeLabel
+                              ? p.label === location.placeLabel
+                              : displayLabel === p.address),
+                        );
                         setLocationOpen(false);
-                        onChangeLocation();
+                        if (chosen && onEditSavedPlace) onEditSavedPlace(chosen);
+                        else onChangeLocation();
                       }}
                       style={{
                         marginTop: 16,
