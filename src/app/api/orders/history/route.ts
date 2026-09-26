@@ -46,11 +46,17 @@ export async function GET(request: Request) {
         .order("created_at", { ascending: false })
         .limit(MAX_ORDERS);
 
-    let { data, error } = await query(`${BASE_COLUMNS}, payment_status`);
+    let { data, error } = await query(
+      `${BASE_COLUMNS}, payment_status, recipient_name, recipient_phone, delivery_lat, delivery_lng`,
+    );
 
-    // payment_status arrives with the COD migration. Until that has been run,
+    // Optional columns arrive with later migrations. Until those have been run,
     // fall back rather than showing the customer an error for their whole
     // order history.
+    if (error?.code === "42703") {
+      console.warn("[orders/history] optional columns missing — retrying without gift fields");
+      ({ data, error } = await query(`${BASE_COLUMNS}, payment_status`));
+    }
     if (error?.code === "42703") {
       console.warn("[orders/history] payment_status missing — run supabase/migrations-cod-flow.sql");
       ({ data, error } = await query(BASE_COLUMNS));
@@ -81,6 +87,10 @@ export async function GET(request: Request) {
         deliverySlot: (row.delivery_slot as string | null) ?? null,
         deliverySlotKind: (row.delivery_slot_kind as string | null) ?? null,
         deliveryAddress: (row.delivery_address as string | null) ?? null,
+        deliveryLat: row.delivery_lat != null ? Number(row.delivery_lat) : null,
+        deliveryLng: row.delivery_lng != null ? Number(row.delivery_lng) : null,
+        recipientName: (row.recipient_name as string | null) ?? null,
+        recipientPhone: (row.recipient_phone as string | null) ?? null,
         paymentMethod: (row.payment_method as string | null) ?? null,
         paymentStatus: (row.payment_status as string | null) ?? null,
         ratingStars: (row.rating_stars as number | null) ?? null,

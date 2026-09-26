@@ -105,6 +105,71 @@ export function sameSavedPoint(
   return Math.abs(a.lat - b.lat) < 0.0003 && Math.abs(a.lng - b.lng) < 0.0003;
 }
 
+export type PastGiftOrder = {
+  recipientName?: string | null;
+  recipientPhone?: string | null;
+  deliveryAddress?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+};
+
+function normAddr(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function phoneDigits(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : "";
+}
+
+/**
+ * Past gift orders already have the recipient's number. Copy it onto the
+ * matching saved place when that place was saved before we started remembering
+ * the contact, so selecting it fills the phone as well as the name and pin.
+ */
+export function backfillGiftContacts(orders: PastGiftOrder[]): boolean {
+  const places = loadSavedPlaces();
+  let changed = false;
+  const next = places.map((place) => {
+    if (!isPlaceSet(place) || phoneDigits(place.recipientPhone || "").length === 10) return place;
+
+    const hit = orders.find((order) => {
+      const digits = phoneDigits(String(order.recipientPhone || ""));
+      if (digits.length !== 10) return false;
+
+      const lat = Number(order.deliveryLat);
+      const lng = Number(order.deliveryLng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && sameSavedPoint(place, { lat, lng })) {
+        return true;
+      }
+
+      const orderAddr = normAddr(String(order.deliveryAddress || ""));
+      const placeAddr = normAddr(place.address);
+      if (orderAddr && placeAddr && (orderAddr === placeAddr || orderAddr.startsWith(placeAddr) || placeAddr.startsWith(orderAddr))) {
+        return true;
+      }
+
+      if (place.id !== "other") return false;
+      const orderName = normAddr(String(order.recipientName || ""));
+      const label = normAddr(place.label);
+      return Boolean(orderName && label && orderName !== "other" && (orderName === label || label.startsWith(orderName) || orderName.startsWith(label)));
+    });
+    if (!hit) return place;
+
+    const recipientPhone = phoneDigits(String(hit.recipientPhone || ""));
+    const recipientName = String(hit.recipientName || "").trim().slice(0, 40) || place.recipientName;
+    changed = true;
+    return {
+      ...place,
+      ...(recipientName ? { recipientName } : {}),
+      recipientPhone,
+    };
+  });
+
+  if (changed) savePlaces(next);
+  return changed;
+}
+
 /**
  * After a gift order, keep who it was for on that saved place so the next
  * checkout can fill name, phone, and address together.
@@ -203,11 +268,22 @@ export function applyServerSavedPlaces(raw: unknown): SavedPlace[] | null {
   const incoming = normalisePlaces(raw);
   if (!incoming.some(isPlaceSet)) return null;
 
+  const local = loadSavedPlaces();
+  const merged = incoming.map((place) => {
+    const prev = local.find((item) => item.id === place.id && isPlaceSet(item) && sameSavedPoint(item, place));
+    if (!prev) return place;
+    return {
+      ...place,
+      ...(place.recipientName ? {} : prev.recipientName ? { recipientName: prev.recipientName } : {}),
+      ...(place.recipientPhone ? {} : prev.recipientPhone ? { recipientPhone: prev.recipientPhone } : {}),
+    };
+  });
+
   try {
-    localStorage.setItem(VK_SAVED_PLACES_KEY, JSON.stringify(incoming));
+    localStorage.setItem(VK_SAVED_PLACES_KEY, JSON.stringify(merged));
     window.dispatchEvent(new Event("vk_saved_places_updated"));
   } catch {
     /* ignore */
   }
-  return incoming;
+  return merged;
 }

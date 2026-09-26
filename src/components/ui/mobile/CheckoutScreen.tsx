@@ -22,9 +22,10 @@ import {
   Briefcase,
   CircleNotch,
   ArrowClockwise,
+  PencilSimple,
 } from "@phosphor-icons/react";
 
-import { loadSavedPlaces, rememberGiftContact, type SavedPlace } from "@/lib/vk-saved-places";
+import { backfillGiftContacts, loadSavedPlaces, rememberGiftContact, sameSavedPoint, type SavedPlace } from "@/lib/vk-saved-places";
 import {
   type DeliverySlotKind,
   iterDeliveryDateOptions,
@@ -498,6 +499,42 @@ export function CheckoutScreen({
       window.removeEventListener("vk_saved_places_updated", refreshSavedPlaces);
     };
   }, [refreshSavedPlaces]);
+
+  const recipientPhoneRef = useRef(recipientPhone);
+  recipientPhoneRef.current = recipientPhone;
+
+  // Gift orders placed before the contact was stored on the place still have
+  // the number on the order. Copy it across so the selected chip can fill it.
+  useEffect(() => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = await getVkToken();
+        const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { orders?: Parameters<typeof backfillGiftContacts>[0] };
+        if (cancelled || !Array.isArray(data.orders)) return;
+        backfillGiftContacts(data.orders);
+      } catch {
+        /* The chip still fills whatever is already on the saved place. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phone]);
+
+  useEffect(() => {
+    if (!recipientDrop) return;
+    const place = savedPlaces.find((item) => sameSavedPoint(item, recipientDrop));
+    if (!place?.recipientPhone) return;
+    if (recipientPhoneRef.current.replace(/\D/g, "").length >= 10) return;
+    setRecipientPhone(place.recipientPhone);
+  }, [savedPlaces, recipientDrop]);
 
   const cartEntries = useMemo(() => {
     return Object.entries(cart)
@@ -1592,7 +1629,7 @@ export function CheckoutScreen({
                     Tap to edit cart
                   </p>
                 </div>
-                <ArrowRight size={16} weight="bold" color={C.muted} />
+                <PencilSimple size={16} weight="bold" color={C.muted} />
               </button>
 
               {!forSomeoneElse && (
@@ -1833,7 +1870,7 @@ export function CheckoutScreen({
                             Who is eating
                           </span>
                           <span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>
-                            Updated via WhatsApp & SMS
+                            Updated via WhatsApp
                           </span>
                         </div>
 
