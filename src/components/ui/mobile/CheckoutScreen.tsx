@@ -1530,7 +1530,7 @@ export function CheckoutScreen({
                 position: "absolute",
                 inset: 0,
                 overflowY: "auto",
-                padding: `8px ${sp(2.5)}px 150px`,
+                padding: `8px ${sp(2.5)}px max(20px, env(safe-area-inset-bottom))`,
                 WebkitOverflowScrolling: "touch",
               }}
               className="no-scrollbar"
@@ -2172,77 +2172,90 @@ export function CheckoutScreen({
                 </p>
               )}
 
+              <div style={{ marginTop: 22 }}>
+                {checkoutError && (
+                  <div
+                    style={{
+                      margin: "0 0 12px",
+                      padding: checkoutCanRetry ? "10px 10px 10px 14px" : "12px 14px",
+                      borderRadius: 14,
+                      background: "rgba(189,35,32,0.12)",
+                      border: "1px solid rgba(189,35,32,0.28)",
+                      color: C.red,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: 0,
+                        flex: 1,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {checkoutError}
+                    </p>
+                    {checkoutCanRetry && (
+                      <button
+                        type="button"
+                        onClick={() => void handlePlaceOrder()}
+                        disabled={placing}
+                        aria-label="Try again"
+                        style={{
+                          flexShrink: 0,
+                          height: 36,
+                          padding: "0 12px",
+                          borderRadius: 999,
+                          border: "none",
+                          background: C.red,
+                          color: "#fff",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          fontFamily: C.mono,
+                          cursor: placing ? "wait" : "pointer",
+                        }}
+                      >
+                        <ArrowClockwise size={14} weight="bold" />
+                        Try again
+                      </button>
+                    )}
+                  </div>
+                )}
+                <SwipeToPlaceOrder
+                  label={
+                    !isOrderingWindowOpen()
+                      ? "Ordering closed (6 AM – 6 PM)"
+                      : slotKind == null
+                        ? "Pick a meal time"
+                        : (recipientMissing ?? "Place order")
+                  }
+                  disabled={orderCtaDisabled}
+                  loading={placing}
+                  onConfirm={handlePlaceOrder}
+                />
+              </div>
+
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Sticky CTA */}
-      <div
-        style={{
-          padding: "16px 20px max(20px, env(safe-area-inset-bottom))",
-          background: `linear-gradient(to top, ${C.bg} 70%, transparent)`,
-          position: "relative",
-          zIndex: 30,
-          flexShrink: 0,
-        }}
-      >
-        {checkoutError && phase === "schedule" && (
-          <div
-            style={{
-              margin: "0 0 12px",
-              padding: checkoutCanRetry ? "10px 10px 10px 14px" : "12px 14px",
-              borderRadius: 14,
-              background: "rgba(189,35,32,0.12)",
-              border: "1px solid rgba(189,35,32,0.28)",
-              color: C.red,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                flex: 1,
-                fontSize: 13,
-                fontWeight: 600,
-                lineHeight: 1.4,
-              }}
-            >
-              {checkoutError}
-            </p>
-            {checkoutCanRetry && (
-              <button
-                type="button"
-                onClick={() => void handlePlaceOrder()}
-                disabled={placing}
-                aria-label="Try again"
-                style={{
-                  flexShrink: 0,
-                  height: 36,
-                  padding: "0 12px",
-                  borderRadius: 999,
-                  border: "none",
-                  background: C.red,
-                  color: "#fff",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  fontFamily: C.mono,
-                  cursor: placing ? "wait" : "pointer",
-                }}
-              >
-                <ArrowClockwise size={14} weight="bold" />
-                Try again
-              </button>
-            )}
-          </div>
-        )}
-
-        {phase === "cart" ? (
+      {phase === "cart" && (
+        <div
+          style={{
+            padding: "16px 20px max(20px, env(safe-area-inset-bottom))",
+            background: `linear-gradient(to top, ${C.bg} 70%, transparent)`,
+            position: "relative",
+            zIndex: 30,
+            flexShrink: 0,
+          }}
+        >
           <motion.button
             type="button"
             whileTap={{ scale: cartEmpty ? 1 : 0.97 }}
@@ -2268,21 +2281,8 @@ export function CheckoutScreen({
           >
             Checkout
           </motion.button>
-        ) : (
-          <SwipeToPlaceOrder
-            label={
-              !isOrderingWindowOpen()
-                ? "Ordering closed (6 AM – 6 PM)"
-                : slotKind == null
-                  ? "Pick a meal time"
-                  : (recipientMissing ?? "Place order")
-            }
-            disabled={orderCtaDisabled}
-            loading={placing}
-            onConfirm={handlePlaceOrder}
-          />
-        )}
-      </div>
+        </div>
+      )}
 
       {!isOrderingWindowOpen() && (
         <>
