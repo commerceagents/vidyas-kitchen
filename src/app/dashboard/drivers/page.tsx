@@ -504,6 +504,7 @@ export default function DriversPage() {
           {hasUnsavedChanges && (
             <button
               type="button"
+              className="vk-drivers-save"
               onClick={() => void saveAll()}
               disabled={saving}
               style={{
@@ -556,7 +557,7 @@ export default function DriversPage() {
           onOpenNotifications={openNotifications}
         />
         <div
-          className="no-scrollbar"
+          className={hasUnsavedChanges ? "no-scrollbar vk-drivers-scroll-unsaved" : "no-scrollbar"}
           style={{
             flex: 1,
             minHeight: 0,

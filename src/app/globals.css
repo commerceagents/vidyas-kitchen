@@ -263,6 +263,19 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     min-height: auto !important;
     overflow: visible !important;
   }
+  .vk-drivers-save {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    z-index: 46;
+    margin-top: 0 !important;
+    width: auto !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+  .vk-drivers-scroll-unsaved {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 /* PWA Native smooth scrolling without desktop scrollbars */
