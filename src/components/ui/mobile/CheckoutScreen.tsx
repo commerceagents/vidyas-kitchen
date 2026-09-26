@@ -240,7 +240,7 @@ function SwipeToPlaceOrder({
         width: "100%",
         height: 58,
         borderRadius: 20,
-        background: disabled && !loading ? "rgba(0,0,0,0.06)" : `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+        background: disabled && !loading ? "rgba(0,0,0,0.06)" : C.red,
         border: disabled && !loading ? "1.5px solid rgba(0,0,0,0.08)" : "none",
         overflow: "hidden",
         touchAction: "none",
