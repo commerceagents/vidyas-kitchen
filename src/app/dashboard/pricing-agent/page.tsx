@@ -211,7 +211,7 @@ export default function PricingAgentPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingBottom: "calc(140px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16, paddingBottom: "calc(90px + env(safe-area-inset-bottom, 16px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
           {/* Mobile: agent chip + toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>AI Pricing</h2>

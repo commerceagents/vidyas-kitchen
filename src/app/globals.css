@@ -254,7 +254,7 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   align-items: start;
 }
 
-/* Mobile dashboard — fade scroll content under bottom nav */
+/* Mobile dashboard — subtle fade under bottom nav */
 @media (max-width: 1023px) {
   .vk-dash-bottom-vignette {
     display: block;
@@ -262,14 +262,13 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 140px;
+    height: 80px;
     pointer-events: none;
     z-index: 44;
     background: linear-gradient(
       to top,
-      #0d0d0d 0%,
-      rgba(13, 13, 13, 0.95) 35%,
-      rgba(13, 13, 13, 0.6) 70%,
+      rgba(13, 13, 13, 0.9) 0%,
+      rgba(13, 13, 13, 0.4) 50%,
       transparent 100%
     );
   }
@@ -329,7 +328,7 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   .vk-order-card-footer {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 14px;
   }
   .vk-order-card-actions {
     display: grid;

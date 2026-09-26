@@ -1395,40 +1395,45 @@ function OrderStatusRail({ status }: { status: string }) {
   const current = statusToStep(status);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "10px 0 2px", width: "100%" }}>
+    <div style={{
+      display: "flex",
+      alignItems: "flex-start",
+      padding: "14px 4px 6px",
+      width: "100%",
+    }}>
       {RAIL_STEPS.map((step, idx) => {
         const isDone = idx < current;
         const isActive = idx === current;
-        const isFuture = idx > current;
         return (
           <div key={step.key} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flex: "0 0 auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: "0 0 auto", minWidth: 36 }}>
               <div
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 24,
+                  height: 24,
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.3)" : "#2a2a2a",
-                  border: isActive ? `2px solid ${YELLOW}` : isDone ? "2px solid rgba(245,227,45,0.5)" : "2px solid #3a3a3a",
+                  background: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.25)" : "#222",
+                  border: isActive ? `2.5px solid ${YELLOW}` : isDone ? "2px solid rgba(245,227,45,0.45)" : "2px solid #333",
                   transition: "all 0.3s ease",
+                  flexShrink: 0,
                 }}
               >
                 {isDone ? (
-                  <Check size={10} strokeWidth={3} color="#f5e32d" />
+                  <Check size={12} strokeWidth={3} color="#f5e32d" />
                 ) : isActive ? (
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#000" }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#000" }} />
                 ) : null}
               </div>
               <span
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: isActive ? 800 : 600,
                   color: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.7)" : "#555",
                   fontFamily: FONT,
-                  letterSpacing: "0.02em",
+                  letterSpacing: "0.03em",
                   transition: "color 0.3s ease",
                   whiteSpace: "nowrap",
                 }}
@@ -1441,7 +1446,9 @@ function OrderStatusRail({ status }: { status: string }) {
                 style={{
                   flex: 1,
                   height: 2,
-                  marginBottom: 16,
+                  marginTop: 12,
+                  marginLeft: -2,
+                  marginRight: -2,
                   background: isDone ? "rgba(245,227,45,0.4)" : "#2a2a2a",
                   borderRadius: 1,
                   transition: "background 0.3s ease",
@@ -1783,21 +1790,22 @@ function OrderCard({
         className="vk-order-card-footer"
         style={{
           marginTop: mobile ? "16px" : "auto",
-          paddingTop: mobile ? "10px" : "4px",
+          paddingTop: mobile ? "12px" : "4px",
           borderTop: mobile ? "1px solid rgba(255,255,255,0.06)" : undefined,
           display: "flex",
           alignItems: mobile ? undefined : "center",
           justifyContent: mobile ? undefined : "space-between",
+          gap: mobile ? 14 : 12,
           flexShrink: 0,
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="vk-order-card-footer-total">
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <div style={{ lineHeight: 1 }}>
-              <RupeeAmount amount={totalAmount} size={mobile ? 20 : 22} mobile={mobile} cardTotal={!mobile} />
+              <RupeeAmount amount={totalAmount} size={mobile ? 22 : 22} mobile={mobile} cardTotal={!mobile} />
             </div>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#888" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#777", letterSpacing: "0.01em" }}>
               × {items.length} Item{items.length !== 1 ? "s" : ""}
             </span>
           </div>

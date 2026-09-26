@@ -547,7 +547,7 @@ export default function DriversPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", paddingBottom: "calc(140px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", paddingBottom: "calc(90px + env(safe-area-inset-bottom, 16px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
           {content}
         </div>
@@ -614,7 +614,6 @@ export default function DriversPage() {
             padding: "clamp(14px, 1.5vh, 20px)",
             border: "1px solid #222222",
             overflow: "hidden",
-            minHeight: 0,
             boxSizing: "border-box",
           }}
         >

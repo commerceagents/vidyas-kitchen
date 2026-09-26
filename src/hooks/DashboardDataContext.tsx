@@ -491,9 +491,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
     await load();
-    setLoading(false);
   }, [load]);
 
   const newCount = visibleOrders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.PAID).length;
