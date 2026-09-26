@@ -21,6 +21,7 @@ import {
   House,
   Briefcase,
   CircleNotch,
+  ArrowClockwise,
 } from "@phosphor-icons/react";
 
 import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
@@ -358,6 +359,21 @@ interface CheckoutScreenProps {
   onSetRecipientDrop?: (loc: { label: string; lat: number; lng: number; inRange: boolean }) => void;
 }
 
+/** Safari says "Load failed", Chrome "Failed to fetch". Neither means anything at checkout. */
+function checkoutFailureCopy(error: unknown): { text: string; retry: boolean } {
+  const raw = error instanceof Error ? error.message.trim() : "";
+  const unreachable =
+    !raw ||
+    /load failed|failed to fetch|networkerror|network request failed|appears to be offline|aborted/i.test(raw) ||
+    /^checkout failed \(\d+\)$/i.test(raw) ||
+    raw === "Order was not created." ||
+    raw === "No payment URL returned";
+  if (unreachable) {
+    return { text: "Couldn't place the order. Check your connection.", retry: true };
+  }
+  return { text: raw, retry: false };
+}
+
 export function CheckoutScreen({
   onBack,
   cart,
@@ -384,6 +400,11 @@ export function CheckoutScreen({
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [placing, setPlacing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutCanRetry, setCheckoutCanRetry] = useState(false);
+  const showCheckoutError = (message: string | null, retry = false) => {
+    setCheckoutError(message);
+    setCheckoutCanRetry(message != null && retry);
+  };
   const [chargesOpen, setChargesOpen] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
   const dayOptions = useMemo(() => iterDeliveryDateOptions(14), []);
@@ -703,13 +724,13 @@ export function CheckoutScreen({
 
   const goSchedule = () => {
     if (cartEmpty) return;
-    setCheckoutError(null);
+    showCheckoutError(null);
     setPhaseDir(1);
     setPhase("schedule");
   };
 
   const goCart = () => {
-    setCheckoutError(null);
+    showCheckoutError(null);
     setPhaseDir(-1);
     setPhase("cart");
   };
@@ -722,34 +743,34 @@ export function CheckoutScreen({
   const handlePlaceOrder = async () => {
     if (placing) return;
     if (!phone.trim()) {
-      setCheckoutError("Missing phone. Please sign in again.");
+      showCheckoutError("Missing phone. Please sign in again.");
       return;
     }
     if (!slotKind) {
-      setCheckoutError("Choose an available delivery slot.");
+      showCheckoutError("Choose an available delivery slot.");
       return;
     }
     if (!isOrderingWindowOpen()) {
-      setCheckoutError("Ordering is only open between 6 AM and 6 PM IST.");
+      showCheckoutError("Ordering is only open between 6 AM and 6 PM IST.");
       return;
     }
     const recipientNameTrim = recipientName.trim();
     const recipientPhoneDigits = recipientPhone.replace(/\D/g, "");
     if (forSomeoneElse) {
       if (!recipientNameTrim) {
-        setCheckoutError("Enter the recipient's name.");
+        showCheckoutError("Enter the recipient's name.");
         return;
       }
       if (recipientPhoneDigits.length < 10) {
-        setCheckoutError("Enter a valid phone number for the recipient.");
+        showCheckoutError("Enter a valid phone number for the recipient.");
         return;
       }
       if (!recipientDrop?.label || !isInsideDeliveryZone(recipientDrop.lat, recipientDrop.lng)) {
-        setCheckoutError(`Pin ${recipientNameTrim || "their"} address in ${DELIVERY_ZONE.name}.`);
+        showCheckoutError(`Pin ${recipientNameTrim || "their"} address in ${DELIVERY_ZONE.name}.`);
         return;
       }
     } else if (!locationInRange) {
-      setCheckoutError(
+      showCheckoutError(
         `We deliver in ${DELIVERY_ZONE.name}. Pin a drop-off there, or send this to someone else.`,
       );
       return;
@@ -757,7 +778,7 @@ export function CheckoutScreen({
     const dropLabel = forSomeoneElse ? recipientDrop!.label : locationLabel;
     const dropLat = forSomeoneElse ? recipientDrop!.lat : deliveryLat;
     const dropLng = forSomeoneElse ? recipientDrop!.lng : deliveryLng;
-    setCheckoutError(null);
+    showCheckoutError(null);
     setPlacing(true);
     await waitForPaint();
     try {
@@ -829,13 +850,14 @@ export function CheckoutScreen({
       if (!/^https?:\/\//i.test(data.paymentUrl)) {
         setTimeout(() => {
           if (typeof document !== "undefined" && !document.hidden) {
-            setCheckoutError("Couldn't open a payment app on this device. Please try from a phone with GPay/PhonePe installed.");
+            showCheckoutError("Couldn't open a payment app on this device. Please try from a phone with GPay/PhonePe installed.");
             setPlacing(false);
           }
         }, 2200);
       }
     } catch (e) {
-      setCheckoutError(e instanceof Error ? e.message : "Something went wrong");
+      const failure = checkoutFailureCopy(e);
+      showCheckoutError(failure.text, failure.retry);
       setPlacing(false);
     }
   };
@@ -1920,7 +1942,7 @@ export function CheckoutScreen({
                                         lng: place.lng,
                                         inRange: true,
                                       });
-                                      setCheckoutError(null);
+                                      showCheckoutError(null);
                                     }}
                                     style={{
                                       flex: "0 0 auto",
@@ -2166,21 +2188,58 @@ export function CheckoutScreen({
         }}
       >
         {checkoutError && phase === "schedule" && (
-          <p
+          <div
             style={{
               margin: "0 0 12px",
-              padding: "12px 14px",
+              padding: checkoutCanRetry ? "10px 10px 10px 14px" : "12px 14px",
               borderRadius: 14,
               background: "rgba(189,35,32,0.12)",
               border: "1px solid rgba(189,35,32,0.28)",
               color: C.red,
-              fontSize: 13,
-              fontWeight: 600,
-              lineHeight: 1.4,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
             }}
           >
-            {checkoutError}
-          </p>
+            <p
+              style={{
+                margin: 0,
+                flex: 1,
+                fontSize: 13,
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
+            >
+              {checkoutError}
+            </p>
+            {checkoutCanRetry && (
+              <button
+                type="button"
+                onClick={() => void handlePlaceOrder()}
+                disabled={placing}
+                aria-label="Try again"
+                style={{
+                  flexShrink: 0,
+                  height: 36,
+                  padding: "0 12px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: C.red,
+                  color: "#fff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  fontFamily: C.mono,
+                  cursor: placing ? "wait" : "pointer",
+                }}
+              >
+                <ArrowClockwise size={14} weight="bold" />
+                Try again
+              </button>
+            )}
+          </div>
         )}
 
         {phase === "cart" ? (
