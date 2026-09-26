@@ -170,7 +170,7 @@ export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripPro
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "10px 16px 12px",
+        padding: "12px 16px 0",
         overflowX: "auto",
         overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
@@ -184,7 +184,7 @@ export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripPro
         <div
           style={{
             position: "absolute",
-            top: 10,
+            top: 12,
             left: pillStyle.left,
             width: pillStyle.width,
             height: 36,
