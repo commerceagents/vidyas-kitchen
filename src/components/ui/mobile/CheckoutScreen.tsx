@@ -2122,20 +2122,21 @@ export function CheckoutScreen({
                       id: "online",
                       label: "Pay Online",
                       sub: "UPI · Card · more",
-                      icon: <Lightning size={22} weight="fill" color="rgba(0,0,0,0.7)" />,
+                      Icon: Lightning,
                       disabled: false,
                     },
                     {
                       id: "cod",
                       label: "Pay at the door",
                       sub: codBlockedByTotal ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}` : "Cash or UPI",
-                      icon: <Money size={22} weight="regular" color="rgba(0,0,0,0.7)" />,
+                      Icon: Money,
                       disabled: codBlockedByTotal,
                     },
                   ] as const
                 ).map((p) => {
                   const disabled = p.disabled;
                   const on = paymentMethod === p.id;
+                  const active = on && !disabled;
                   return (
                     <button
                       key={p.id}
@@ -2151,13 +2152,31 @@ export function CheckoutScreen({
                         border: `1.5px solid ${on ? C.red : "rgba(0,0,0,0.06)"}`,
                         display: "flex",
                         flexDirection: "column",
-                        gap: 6,
+                        gap: 8,
                         textAlign: "left",
                         cursor: disabled ? "not-allowed" : "pointer",
                         fontFamily: C.mono,
                       }}
                     >
-                      {p.icon}
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 12,
+                          background: active ? C.redFaint : "rgba(0,0,0,0.04)",
+                          border: `1px solid ${active ? "rgba(189,35,32,0.22)" : "rgba(0,0,0,0.05)"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <p.Icon
+                          size={22}
+                          weight={active ? "fill" : "duotone"}
+                          color={disabled ? "rgba(0,0,0,0.28)" : active ? C.red : "rgba(0,0,0,0.55)"}
+                        />
+                      </span>
                       <span style={{ fontSize: 13, fontWeight: 900 }}>{p.label}</span>
                       <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}>{p.sub}</span>
                     </button>
