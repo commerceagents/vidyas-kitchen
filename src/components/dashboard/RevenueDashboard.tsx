@@ -13,7 +13,6 @@ import {
   computeRevenueDayStats,
   computeYearlySalesBars,
   formatDayKeyLabel,
-  todayDayKey,
 } from "@/lib/dashboard/revenue-stats";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -688,6 +687,7 @@ function RevenueCalendar({
           const bg = toneColor(meta?.tone ?? "none", has);
           const isToday = isCurrentMonth(month) && day === todayDate;
           const isSelected = selectedDayKey === key;
+          const showTodayRing = isToday && !isSelected;
           const dayTitle = has
             ? `${formatInr(meta!.revenue)} · ${meta!.orderCount} order(s)`
             : isToday
@@ -710,9 +710,9 @@ function RevenueCalendar({
                 borderRadius: 999,
                 fontSize: 12,
                 fontWeight: 700,
-                color: isToday || has ? "#111" : isSelected ? YELLOW : "#777",
-                background: isToday ? YELLOW : has ? bg : isSelected ? "rgba(245, 227, 45, 0.2)" : "transparent",
-                border: isSelected && !isToday ? "2px solid #fff" : "2px solid transparent",
+                color: isSelected || has ? "#111" : showTodayRing ? YELLOW : "#777",
+                background: isSelected ? YELLOW : has ? bg : "transparent",
+                border: showTodayRing ? `2px solid ${YELLOW}` : "2px solid transparent",
                 boxSizing: "border-box",
                 padding: 0,
                 cursor: "pointer",
@@ -1026,17 +1026,15 @@ type Props = {
 export function RevenueDashboard({ stats, orders, month, onMonthChange }: Props) {
   const [asideTab, setAsideTab] = useState<AsideTab>("calendar");
   const [chartYear, setChartYear] = useState(month.year);
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(() =>
-    isCurrentMonth(month) ? todayDayKey() : null,
-  );
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   useEffect(() => {
     setChartYear(month.year);
   }, [month.year]);
 
   useEffect(() => {
-    setSelectedDayKey(isCurrentMonth(month) ? todayDayKey() : null);
-  }, [month]);
+    setSelectedDayKey(null);
+  }, [month.year, month.month]);
 
   const yearlyBars = useMemo(
     () => computeYearlySalesBars(orders, chartYear),
@@ -1084,6 +1082,24 @@ export function RevenueDashboard({ stats, orders, month, onMonthChange }: Props)
     <div className="vk-revenue-dashboard">
       <div className="vk-revenue-main">
         <div className="vk-revenue-kpi-grid">
+          <p
+            style={{
+              gridColumn: "1 / -1",
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#888",
+              fontFamily: FONT,
+              letterSpacing: "0.01em",
+            }}
+          >
+            {selectedDayKey
+              ? formatDayKeyLabel(selectedDayKey)
+              : new Date(month.year, month.month, 1).toLocaleDateString("en-IN", {
+                  month: "long",
+                  year: "numeric",
+                })}
+          </p>
           <MetricCard featured title="Total Sales" value={formatInr(display.totalSales)} trend={display.trends.totalSales} />
           <MetricCard title="Total Revenue" value={formatInr(display.totalRevenue)} trend={display.trends.totalRevenue} />
           <MetricCard secondary title="Product Sales" value={formatInr(display.productSales)} trend={display.trends.productSales} />
