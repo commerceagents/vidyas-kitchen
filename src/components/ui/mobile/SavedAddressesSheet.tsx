@@ -73,7 +73,9 @@ export function SavedAddressesSheet({
 
   const clearPlace = (id: SavedPlaceId) => {
     commit(
-      places.map((p) => (p.id === id ? { ...p, address: emptyAddressFor(id), lat: 0, lng: 0 } : p)),
+      places.map((p) =>
+        p.id === id ? { id: p.id, label: p.label, address: emptyAddressFor(id), lat: 0, lng: 0 } : p,
+      ),
     );
   };
 

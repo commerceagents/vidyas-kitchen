@@ -24,7 +24,7 @@ import {
   ArrowClockwise,
 } from "@phosphor-icons/react";
 
-import { loadSavedPlaces, type SavedPlace } from "@/lib/vk-saved-places";
+import { loadSavedPlaces, rememberGiftContact, type SavedPlace } from "@/lib/vk-saved-places";
 import {
   type DeliverySlotKind,
   iterDeliveryDateOptions,
@@ -492,7 +492,11 @@ export function CheckoutScreen({
   useEffect(() => {
     refreshSavedPlaces();
     window.addEventListener("focus", refreshSavedPlaces);
-    return () => window.removeEventListener("focus", refreshSavedPlaces);
+    window.addEventListener("vk_saved_places_updated", refreshSavedPlaces);
+    return () => {
+      window.removeEventListener("focus", refreshSavedPlaces);
+      window.removeEventListener("vk_saved_places_updated", refreshSavedPlaces);
+    };
   }, [refreshSavedPlaces]);
 
   const cartEntries = useMemo(() => {
@@ -779,6 +783,9 @@ export function CheckoutScreen({
     const dropLat = forSomeoneElse ? recipientDrop!.lat : deliveryLat;
     const dropLng = forSomeoneElse ? recipientDrop!.lng : deliveryLng;
     showCheckoutError(null);
+    if (forSomeoneElse && recipientDrop) {
+      rememberGiftContact(recipientDrop, recipientNameTrim, recipientPhoneDigits);
+    }
     setPlacing(true);
     await waitForPaint();
     try {
@@ -1841,6 +1848,9 @@ export function CheckoutScreen({
                             placeholder="e.g. Amma"
                             value={recipientName}
                             onChange={(e) => setRecipientName(e.target.value)}
+                            onBlur={() => {
+                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
+                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -1856,6 +1866,9 @@ export function CheckoutScreen({
                             placeholder="10-digit mobile number"
                             value={recipientPhone}
                             onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
+                            onBlur={() => {
+                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
+                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -1942,6 +1955,17 @@ export function CheckoutScreen({
                                         lng: place.lng,
                                         inRange: true,
                                       });
+                                      const savedName =
+                                        place.recipientName?.trim() ||
+                                        (place.id === "other" &&
+                                        place.label.trim() &&
+                                        place.label.trim().toLowerCase() !== "other"
+                                          ? place.label.trim()
+                                          : "");
+                                      if (savedName || !isSelected) setRecipientName(savedName);
+                                      if (place.recipientPhone || !isSelected) {
+                                        setRecipientPhone(place.recipientPhone || "");
+                                      }
                                       showCheckoutError(null);
                                     }}
                                     style={{

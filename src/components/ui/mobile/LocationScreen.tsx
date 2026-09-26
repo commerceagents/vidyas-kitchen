@@ -846,7 +846,7 @@ export function LocationScreen({
     const updated = savedPlaces.map((p) =>
       p.id === place.id
         ? {
-            ...p,
+            id: p.id,
             label: p.id === "other" ? "Other" : p.label,
             address: emptyAddressFor(p.id),
             lat: 0,

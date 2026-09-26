@@ -9,6 +9,9 @@ export interface SavedPlace {
   address: string;
   lat: number;
   lng: number;
+  /** Last person this place was ordered for. Filled after the first gift order. */
+  recipientName?: string;
+  recipientPhone?: string;
 }
 
 export const VK_SAVED_PLACES_KEY = "vk_saved_places";
@@ -78,11 +81,58 @@ export function normalisePlaces(raw: unknown): SavedPlace[] {
     const label = String(found.label || base.label).trim().slice(0, MAX_PLACE_LABEL) || base.label;
     const address = String(found.address || "").trim();
     const usable = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0;
+    const recipientName = String(found.recipientName || "").trim().slice(0, 40);
+    const recipientPhone = String(found.recipientPhone || "").replace(/\D/g, "").slice(-10);
 
-    return usable
-      ? { id: base.id, label, address: address || base.address, lat, lng }
-      : { ...base, label };
+    if (!usable) return { ...base, label };
+    return {
+      id: base.id,
+      label,
+      address: address || base.address,
+      lat,
+      lng,
+      ...(recipientName ? { recipientName } : {}),
+      ...(recipientPhone.length === 10 ? { recipientPhone } : {}),
+    };
   });
+}
+
+/** Same pin, within a few metres. Gift contacts are stored against that pin. */
+export function sameSavedPoint(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): boolean {
+  return Math.abs(a.lat - b.lat) < 0.0003 && Math.abs(a.lng - b.lng) < 0.0003;
+}
+
+/**
+ * After a gift order, keep who it was for on that saved place so the next
+ * checkout can fill name, phone, and address together.
+ */
+export function rememberGiftContact(
+  drop: { lat: number; lng: number },
+  name: string,
+  phone: string,
+) {
+  const trimmed = name.trim().slice(0, 40);
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  if (!trimmed && digits.length !== 10) return;
+
+  const places = loadSavedPlaces();
+  let changed = false;
+  const next = places.map((p) => {
+    if (!isPlaceSet(p) || !sameSavedPoint(p, drop)) return p;
+    const recipientName = trimmed || p.recipientName;
+    const recipientPhone = digits.length === 10 ? digits : p.recipientPhone;
+    if (recipientName === p.recipientName && recipientPhone === p.recipientPhone) return p;
+    changed = true;
+    return {
+      ...p,
+      ...(recipientName ? { recipientName } : {}),
+      ...(recipientPhone ? { recipientPhone } : {}),
+    };
+  });
+  if (changed) savePlaces(next);
 }
 
 export function loadSavedPlaces(): SavedPlace[] {
