@@ -21,6 +21,7 @@ export function ConfirmDialog({
   busy = false,
   error,
   labelledBy = "vk-confirm-title",
+  closeOnBackdrop = true,
 }: {
   open: boolean;
   title: string;
@@ -32,6 +33,8 @@ export function ConfirmDialog({
   busy?: boolean;
   error?: string | null;
   labelledBy?: string;
+  /** When false, only the two buttons decide. Backdrop and Escape do nothing. */
+  closeOnBackdrop?: boolean;
 }) {
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -42,11 +45,11 @@ export function ConfirmDialog({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onDismiss();
+      if (e.key === "Escape" && !busy && closeOnBackdrop) onDismiss();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onDismiss]);
+  }, [open, busy, onDismiss, closeOnBackdrop]);
 
   if (!mounted) return null;
 
@@ -72,7 +75,7 @@ export function ConfirmDialog({
             padding: 24,
           }}
           onClick={() => {
-            if (!busy) onDismiss();
+            if (!busy && closeOnBackdrop) onDismiss();
           }}
         >
           <motion.div

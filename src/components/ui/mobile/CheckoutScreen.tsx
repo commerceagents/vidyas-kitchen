@@ -34,7 +34,15 @@ import {
 } from "@/lib/delivery-slots";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
-import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import {
+  clearPendingOnlinePayment,
+  readPendingOnlinePayment,
+  readUiSession,
+  writePendingOnlinePayment,
+  writeUiSession,
+  type PendingOnlinePayment,
+} from "@/lib/vk-ui-session";
+import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import { COD_MAX_ORDER_VALUE, isCodAllowedForTotal } from "@/lib/cod-policy";
 import { formatFullDishName } from "@/lib/dish-name";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
@@ -400,6 +408,13 @@ export function CheckoutScreen({
   const [phaseDir, setPhaseDir] = useState<1 | -1>(1);
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [placing, setPlacing] = useState(false);
+  const placingRef = useRef(false);
+  placingRef.current = placing;
+  const leaveAttemptRef = useRef(0);
+  const [paymentReturn, setPaymentReturn] = useState<PendingOnlinePayment | null>(null);
+  const [paymentReturnBusy, setPaymentReturnBusy] = useState(false);
+  const [paymentReturnError, setPaymentReturnError] = useState<string | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutCanRetry, setCheckoutCanRetry] = useState(false);
   const showCheckoutError = (message: string | null, retry = false) => {
@@ -820,6 +835,7 @@ export function CheckoutScreen({
     const dropLat = forSomeoneElse ? recipientDrop!.lat : deliveryLat;
     const dropLng = forSomeoneElse ? recipientDrop!.lng : deliveryLng;
     showCheckoutError(null);
+    setPaymentNotice(null);
     if (forSomeoneElse && recipientDrop) {
       rememberGiftContact(recipientDrop, recipientNameTrim, recipientPhoneDigits);
     }
@@ -880,12 +896,13 @@ export function CheckoutScreen({
         window.location.assign(`/?status=success&orderId=${data.orderId}&method=cod`);
         return;
       }
-      if (!data.paymentUrl) throw new Error("No payment URL returned");
+      if (!data.paymentUrl || !data.orderId) throw new Error("No payment URL returned");
       try {
         sessionStorage.setItem("vk_pending_checkout_cart", JSON.stringify({ cart }));
       } catch {
         /* noop */
       }
+      writePendingOnlinePayment({ orderId: data.orderId, paymentUrl: data.paymentUrl });
       window.location.assign(data.paymentUrl);
       // Custom URI schemes (e.g. upi:// fallback when Razorpay isn't configured) fail
       // silently on desktop/devices with no handler app — location.assign won't throw,
@@ -903,6 +920,135 @@ export function CheckoutScreen({
       const failure = checkoutFailureCopy(e);
       showCheckoutError(failure.text, failure.retry);
       setPlacing(false);
+    }
+  };
+
+  const openPaymentReturnPrompt = useCallback(() => {
+    const pending = readPendingOnlinePayment();
+    if (!pending) return;
+    leaveAttemptRef.current += 1;
+    setPlacing(false);
+    setPaymentReturnBusy(false);
+    setPaymentReturnError(null);
+    setPaymentReturn(pending);
+  }, []);
+
+  // Razorpay takes over the tab. The browser back button restores this page
+  // from memory with Place order still spinning, because the redirect never
+  // finished. Ask what to do instead of leaving the loader up.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) openPaymentReturnPrompt();
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !placingRef.current) return;
+      openPaymentReturnPrompt();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    if (!placingRef.current) openPaymentReturnPrompt();
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [openPaymentReturnPrompt]);
+
+  const authToken = useCallback(async () => {
+    // Firebase can sit on getIdToken when there is no session. These calls
+    // only need the phone, so don't leave the dialog spinning on that.
+    return Promise.race([
+      getVkToken().catch(() => null),
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 400)),
+    ]);
+  }, []);
+
+  const orderStatus = useCallback(
+    async (orderId: string) => {
+      const token = await authToken();
+      const res = await fetch(
+        `/api/orders/status?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      const data = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || "Couldn't check the payment");
+      return String(data.status || "").toLowerCase();
+    },
+    [authToken, phone],
+  );
+
+  const keepPaying = async () => {
+    if (!paymentReturn || paymentReturnBusy) return;
+    setPaymentReturnBusy(true);
+    setPaymentReturnError(null);
+    try {
+      const status = await orderStatus(paymentReturn.orderId);
+      if (status && status !== "pending_payment") {
+        clearPendingOnlinePayment();
+        setPaymentReturn(null);
+        if (status !== "cancelled" && status !== "rejected") {
+          window.location.assign(`/?status=success&orderId=${paymentReturn.orderId}`);
+        } else {
+          setPaymentNotice("This payment was already cancelled. You can place the order again.");
+        }
+        return;
+      }
+      const attempt = ++leaveAttemptRef.current;
+      setPlacing(true);
+      window.location.assign(paymentReturn.paymentUrl);
+      window.setTimeout(() => {
+        if (attempt !== leaveAttemptRef.current) return;
+        if (document.visibilityState !== "visible") return;
+        setPlacing(false);
+        setPaymentReturnBusy(false);
+        setPaymentReturnError("Couldn't reopen the payment page. Try again.");
+      }, 1800);
+    } catch (e) {
+      setPaymentReturnError(e instanceof Error ? e.message : "Couldn't reopen the payment page");
+      setPaymentReturnBusy(false);
+    }
+  };
+
+  const cancelUnpaidOrder = async () => {
+    if (!paymentReturn || paymentReturnBusy) return;
+    setPaymentReturnBusy(true);
+    setPaymentReturnError(null);
+    try {
+      const status = await orderStatus(paymentReturn.orderId);
+      if (status && status !== "pending_payment") {
+        clearPendingOnlinePayment();
+        setPaymentReturn(null);
+        setPlacing(false);
+        if (status !== "cancelled" && status !== "rejected") {
+          window.location.assign(`/?status=success&orderId=${paymentReturn.orderId}`);
+        } else {
+          setPaymentNotice("This payment was already cancelled. You can place the order again.");
+        }
+        return;
+      }
+      const token = await authToken();
+      const res = await fetch("/api/orders/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ orderId: paymentReturn.orderId, phone }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Couldn't cancel the payment");
+      clearPendingOnlinePayment();
+      try {
+        sessionStorage.removeItem("vk_pending_checkout_cart");
+      } catch {
+        /* noop */
+      }
+      setPaymentReturn(null);
+      setPlacing(false);
+      setPaymentNotice("Payment cancelled. Nothing was charged. You can place the order again.");
+    } catch (e) {
+      setPaymentReturnError(e instanceof Error ? e.message : "Couldn't cancel the payment");
+    } finally {
+      setPaymentReturnBusy(false);
     }
   };
 
@@ -2307,6 +2453,20 @@ export function CheckoutScreen({
                     )}
                   </div>
                 )}
+                {paymentNotice ? (
+                  <p
+                    style={{
+                      margin: "0 0 12px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      lineHeight: 1.45,
+                      color: C.text,
+                      textAlign: "center",
+                    }}
+                  >
+                    {paymentNotice}
+                  </p>
+                ) : null}
                 <SwipeToPlaceOrder
                   label={
                     !isOrderingWindowOpen()
@@ -2425,6 +2585,19 @@ export function CheckoutScreen({
         loading={promosLoading}
         onClose={() => setPromosOpen(false)}
         onApply={(code) => void applyListedPromo(code)}
+      />
+      <ConfirmDialog
+        open={paymentReturn != null}
+        labelledBy="vk-cancel-payment-title"
+        closeOnBackdrop={false}
+        title="Cancel this payment?"
+        body="Nothing has been charged. Yes cancels it, so you can pay at the door instead. No takes you back to finish paying online."
+        dismissLabel="No, pay online"
+        confirmLabel="Yes, cancel"
+        busy={paymentReturnBusy}
+        error={paymentReturnError}
+        onDismiss={() => void keepPaying()}
+        onConfirm={() => void cancelUnpaidOrder()}
       />
     </div>
   );

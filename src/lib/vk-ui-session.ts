@@ -2,6 +2,39 @@
 
 export const VK_SPLASH_SEEN_KEY = "vk_splash_seen";
 export const VK_UI_SESSION_KEY = "vk_ui_session";
+/** Online checkout that left for Razorpay and may still be unpaid. */
+export const VK_PENDING_ONLINE_PAYMENT_KEY = "vk_pending_online_payment";
+
+export type PendingOnlinePayment = { orderId: string; paymentUrl: string };
+
+export function readPendingOnlinePayment(): PendingOnlinePayment | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(VK_PENDING_ONLINE_PAYMENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingOnlinePayment>;
+    if (!parsed?.orderId || !parsed.paymentUrl) return null;
+    return { orderId: parsed.orderId, paymentUrl: parsed.paymentUrl };
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingOnlinePayment(pending: PendingOnlinePayment) {
+  try {
+    sessionStorage.setItem(VK_PENDING_ONLINE_PAYMENT_KEY, JSON.stringify(pending));
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+export function clearPendingOnlinePayment() {
+  try {
+    sessionStorage.removeItem(VK_PENDING_ONLINE_PAYMENT_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}
 
 export type VkUiSession = {
   step?: "login" | "location" | "location_marked" | "home" | "checkout";

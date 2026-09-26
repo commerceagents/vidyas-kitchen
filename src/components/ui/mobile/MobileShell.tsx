@@ -12,7 +12,7 @@ import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
 import { GraffitiBurstDots } from "@/components/ui/mobile/GraffitiChip";
-import { clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
+import { clearPendingOnlinePayment, clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
 import { isOrderInFlight } from "@/lib/order-status";
 import { disablePush } from "@/lib/push-subscribe";
@@ -322,6 +322,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       localStorage.removeItem(LS_AVATAR);
       sessionStorage.removeItem(SS_TRACK_ORDER);
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+      clearPendingOnlinePayment();
       clearUiSession();
       clearSavedCart();
       window.history.replaceState({}, "", "/");
@@ -337,6 +338,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     const paidOk = payStatus === "success" && !!orderIdParam;
     if (paidOk && orderIdParam) {
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+      clearPendingOnlinePayment();
       sessionStorage.setItem(SS_TRACK_ORDER, orderIdParam);
       // Clear right away — don't wait on the modal's dismiss button. Otherwise a
       // refresh (or navigating away) before tapping "Continue" leaves the old
@@ -359,6 +361,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         /* noop */
       }
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+      clearPendingOnlinePayment();
       setPaymentFeedback({ kind: "error" });
       params.delete("status");
       const rest = params.toString();
@@ -374,6 +377,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         /* noop */
       }
       sessionStorage.removeItem(SS_PENDING_CHECKOUT_CART);
+      clearPendingOnlinePayment();
       setPaymentFeedback({ kind: "cancelled" });
       params.delete("status");
       const rest = params.toString();
