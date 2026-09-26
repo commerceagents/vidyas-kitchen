@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Tag, Ticket, Trash2 } from "lucide-react";
+import { Plus, Tag, Ticket, Trash2, X } from "lucide-react";
 import {
   deleteOfferAction,
   listOffersAction,
@@ -87,6 +87,200 @@ function windowText(o: OfferRow): string {
   return `Until ${o.ends_on}`;
 }
 
+function OfferDrawer({
+  draft,
+  saving,
+  formError,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  draft: Draft;
+  saving: boolean;
+  formError: string;
+  onChange: (next: Draft) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !saving) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose, saving]);
+
+  const isEdit = Boolean(draft.id);
+
+  return (
+    <div className="vk-offer-layer" role="presentation">
+      <button type="button" className="vk-offer-backdrop" aria-label="Close" onClick={onClose} />
+      <aside className="vk-offer-drawer" role="dialog" aria-modal="true" aria-labelledby="vk-offer-drawer-title">
+        <div className="vk-offer-handle" aria-hidden />
+        <header className="vk-offer-head">
+          <div>
+            <h2 id="vk-offer-drawer-title">{isEdit ? "Edit offer" : "New offer"}</h2>
+            <p>{isEdit ? "Change the name, the amount, or the dates." : "A festival discount, or a code the customer types."}</p>
+          </div>
+          <button type="button" className="vk-offer-close" aria-label="Close" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="vk-offer-body no-scrollbar">
+          <div className="vk-offer-kind">
+            {(["auto", "code"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={draft.kind === k}
+                onClick={() => onChange({ ...draft, kind: k })}
+              >
+                <span>{k === "auto" ? "Festival" : "Promo code"}</span>
+                <small>{k === "auto" ? "Applies by itself" : "Customer enters a code"}</small>
+              </button>
+            ))}
+          </div>
+          <p className="vk-offer-hint">
+            {draft.kind === "auto"
+              ? "Every order in the dates below gets this off. Use it for Diwali, Pongal and seasonal pushes."
+              : "Customers see this under View promos in the cart and can apply the code themselves."}
+          </p>
+
+          <Field label="Name customers see">
+            <input
+              style={inputStyle}
+              value={draft.name}
+              placeholder={draft.kind === "auto" ? "Diwali Special" : "Welcome offer"}
+              onChange={(e) => onChange({ ...draft, name: e.target.value })}
+            />
+          </Field>
+
+          {draft.kind === "code" && (
+            <Field label="Code">
+              <input
+                style={{ ...inputStyle, letterSpacing: "0.08em", fontWeight: 700 }}
+                value={draft.code}
+                placeholder="DIWALI50"
+                autoCapitalize="characters"
+                onChange={(e) => onChange({ ...draft, code: e.target.value.toUpperCase() })}
+              />
+            </Field>
+          )}
+
+          <div className="vk-offer-grid">
+            <Field label="Discount">
+              <select
+                style={inputStyle}
+                value={draft.value_type}
+                onChange={(e) => onChange({ ...draft, value_type: e.target.value as Draft["value_type"] })}
+              >
+                <option value="percent">Percent off</option>
+                <option value="flat">Flat ₹ off</option>
+              </select>
+            </Field>
+            <Field label={draft.value_type === "percent" ? "Percent, up to 90" : "Rupees off"}>
+              <input
+                style={inputStyle}
+                type="number"
+                inputMode="numeric"
+                value={String(draft.value)}
+                onChange={(e) => onChange({ ...draft, value: Number(e.target.value) })}
+              />
+            </Field>
+          </div>
+
+          <div className="vk-offer-grid">
+            <Field label="Minimum order ₹">
+              <input
+                style={inputStyle}
+                type="number"
+                inputMode="numeric"
+                value={String(draft.min_order)}
+                placeholder="0"
+                onChange={(e) => onChange({ ...draft, min_order: Number(e.target.value) || 0 })}
+              />
+            </Field>
+            {draft.value_type === "percent" ? (
+              <Field label="Cap the discount at ₹">
+                <input
+                  style={inputStyle}
+                  type="number"
+                  inputMode="numeric"
+                  value={draft.max_discount == null ? "" : String(draft.max_discount)}
+                  placeholder="No cap"
+                  onChange={(e) => onChange({ ...draft, max_discount: numOrNull(e.target.value) })}
+                />
+              </Field>
+            ) : (
+              <div />
+            )}
+          </div>
+
+          <div className="vk-offer-grid">
+            <Field label="Starts">
+              <input
+                style={inputStyle}
+                type="date"
+                value={draft.starts_on ?? ""}
+                onChange={(e) => onChange({ ...draft, starts_on: e.target.value || null })}
+              />
+            </Field>
+            <Field label="Ends">
+              <input
+                style={inputStyle}
+                type="date"
+                value={draft.ends_on ?? ""}
+                onChange={(e) => onChange({ ...draft, ends_on: e.target.value || null })}
+              />
+            </Field>
+          </div>
+
+          <div className="vk-offer-grid">
+            <Field label="Total uses">
+              <input
+                style={inputStyle}
+                type="number"
+                inputMode="numeric"
+                value={draft.usage_limit == null ? "" : String(draft.usage_limit)}
+                placeholder="Unlimited"
+                onChange={(e) => onChange({ ...draft, usage_limit: numOrNull(e.target.value) })}
+              />
+            </Field>
+            <Field label="Uses per customer">
+              <input
+                style={inputStyle}
+                type="number"
+                inputMode="numeric"
+                value={draft.per_customer_limit == null ? "" : String(draft.per_customer_limit)}
+                placeholder="Unlimited"
+                onChange={(e) => onChange({ ...draft, per_customer_limit: numOrNull(e.target.value) })}
+              />
+            </Field>
+          </div>
+        </div>
+
+        <footer className="vk-offer-foot">
+          {formError ? <p className="vk-offer-error">{formError}</p> : null}
+          <div className="vk-offer-actions">
+            <button type="button" className="vk-offer-cancel" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className="vk-offer-save" onClick={onSave} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create offer"}
+            </button>
+          </div>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
 export default function OffersPage() {
   const {
     unreadCount,
@@ -153,206 +347,11 @@ export default function OffersPage() {
 
   const liveCount = useMemo(() => offers.filter((o) => isOfferLive(o)).length, [offers]);
 
-  const editor = draft && (
-    <div
-      style={{
-        background: CARD_BG,
-        border: `1px solid ${YELLOW}40`,
-        borderRadius: 14,
-        padding: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        marginBottom: 14,
-      }}
-    >
-      <div style={{ display: "flex", gap: 8 }}>
-        {(["auto", "code"] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setDraft({ ...draft, kind: k })}
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: `1px solid ${draft.kind === k ? YELLOW : BORDER}`,
-              background: draft.kind === k ? `${YELLOW}18` : "transparent",
-              color: draft.kind === k ? YELLOW : "#aaa",
-              fontSize: 13,
-              fontWeight: 700,
-              fontFamily: FONT,
-              cursor: "pointer",
-            }}
-          >
-            {k === "auto" ? "Festival / seasonal" : "Promo code"}
-          </button>
-        ))}
-      </div>
-      <p style={{ margin: 0, fontSize: 12, color: "#888", fontFamily: FONT, lineHeight: 1.5 }}>
-        {draft.kind === "auto"
-          ? "Applies on its own to every order inside the dates below. Use this for Diwali, Pongal and seasonal pushes."
-          : "Shows under View promos in the cart while this offer is on, so customers can use it without seeing an Instagram post. Turn it off when the festival ends."}
-      </p>
-
-      <Field label="Offer name (customers see this)">
-        <input
-          style={inputStyle}
-          value={draft.name}
-          placeholder={draft.kind === "auto" ? "Diwali Special" : "Welcome offer"}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        />
-      </Field>
-
-      {draft.kind === "code" && (
-        <Field label="Code">
-          <input
-            style={{ ...inputStyle, letterSpacing: "0.08em", fontWeight: 700 }}
-            value={draft.code}
-            placeholder="DIWALI50"
-            onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })}
-          />
-        </Field>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Discount type">
-          <select
-            style={inputStyle}
-            value={draft.value_type}
-            onChange={(e) =>
-              setDraft({ ...draft, value_type: e.target.value as Draft["value_type"] })
-            }
-          >
-            <option value="percent">Percent off</option>
-            <option value="flat">Flat ₹ off</option>
-          </select>
-        </Field>
-        <Field label={draft.value_type === "percent" ? "Percent (max 90)" : "Rupees off"}>
-          <input
-            style={inputStyle}
-            type="number"
-            inputMode="numeric"
-            value={String(draft.value)}
-            onChange={(e) => setDraft({ ...draft, value: Number(e.target.value) })}
-          />
-        </Field>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Minimum order ₹">
-          <input
-            style={inputStyle}
-            type="number"
-            inputMode="numeric"
-            value={String(draft.min_order)}
-            placeholder="0"
-            onChange={(e) => setDraft({ ...draft, min_order: Number(e.target.value) || 0 })}
-          />
-        </Field>
-        {draft.value_type === "percent" && (
-          <Field label="Cap the discount at ₹">
-            <input
-              style={inputStyle}
-              type="number"
-              inputMode="numeric"
-              value={draft.max_discount == null ? "" : String(draft.max_discount)}
-              placeholder="No cap"
-              onChange={(e) => setDraft({ ...draft, max_discount: numOrNull(e.target.value) })}
-            />
-          </Field>
-        )}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Starts on">
-          <input
-            style={inputStyle}
-            type="date"
-            value={draft.starts_on ?? ""}
-            onChange={(e) => setDraft({ ...draft, starts_on: e.target.value || null })}
-          />
-        </Field>
-        <Field label="Ends on">
-          <input
-            style={inputStyle}
-            type="date"
-            value={draft.ends_on ?? ""}
-            onChange={(e) => setDraft({ ...draft, ends_on: e.target.value || null })}
-          />
-        </Field>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Total uses">
-          <input
-            style={inputStyle}
-            type="number"
-            inputMode="numeric"
-            value={draft.usage_limit == null ? "" : String(draft.usage_limit)}
-            placeholder="Unlimited"
-            onChange={(e) => setDraft({ ...draft, usage_limit: numOrNull(e.target.value) })}
-          />
-        </Field>
-        <Field label="Uses per customer">
-          <input
-            style={inputStyle}
-            type="number"
-            inputMode="numeric"
-            value={draft.per_customer_limit == null ? "" : String(draft.per_customer_limit)}
-            placeholder="Unlimited"
-            onChange={(e) => setDraft({ ...draft, per_customer_limit: numOrNull(e.target.value) })}
-          />
-        </Field>
-      </div>
-
-      {formError && (
-        <div style={{ color: "#f87171", fontSize: 13, fontFamily: FONT }}>{formError}</div>
-      )}
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          style={{
-            flex: 1,
-            padding: "11px 16px",
-            borderRadius: 10,
-            border: "none",
-            background: YELLOW,
-            color: "#111",
-            fontSize: 14,
-            fontWeight: 800,
-            fontFamily: FONT,
-            cursor: "pointer",
-          }}
-        >
-          {saving ? "Saving..." : draft.id ? "Save changes" : "Create offer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(null);
-            setFormError("");
-          }}
-          style={{
-            padding: "11px 18px",
-            borderRadius: 10,
-            border: `1px solid ${BORDER}`,
-            background: "transparent",
-            color: "#aaa",
-            fontSize: 14,
-            fontWeight: 700,
-            fontFamily: FONT,
-            cursor: "pointer",
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
+  const closeDrawer = useCallback(() => {
+    if (saving) return;
+    setDraft(null);
+    setFormError("");
+  }, [saving]);
 
   const content = (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -369,8 +368,7 @@ export default function OffersPage() {
         <span style={{ fontSize: 13, color: "#888", fontFamily: FONT }}>
           {liveCount} running now
         </span>
-        {!draft && (
-          <button
+        <button
             type="button"
             onClick={() => {
               setDraft({ ...BLANK });
@@ -394,7 +392,6 @@ export default function OffersPage() {
           >
             <Plus size={14} /> New offer
           </button>
-        )}
       </div>
 
       {loading ? (
@@ -403,8 +400,6 @@ export default function OffersPage() {
         <div
           style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1, minHeight: 0 }}
         >
-          {editor}
-
           {listError && (
             <div
               style={{
@@ -422,7 +417,7 @@ export default function OffersPage() {
             </div>
           )}
 
-          {!listError && offers.length === 0 && !draft && (
+          {!listError && offers.length === 0 && (
             <div
               style={{
                 flex: 1,
@@ -695,6 +690,17 @@ export default function OffersPage() {
         </div>
       </div>
 
+      {draft && (
+        <OfferDrawer
+          draft={draft}
+          saving={saving}
+          formError={formError}
+          onChange={setDraft}
+          onClose={closeDrawer}
+          onSave={() => void save()}
+        />
+      )}
+
       <style jsx global>{`
         @media (max-width: 1023px) {
           .vk-dash-home-mobile {
@@ -710,6 +716,197 @@ export default function OffersPage() {
           }
           .vk-dash-home-desktop {
             display: flex !important;
+          }
+        }
+
+        .vk-offer-layer {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+        }
+        .vk-offer-backdrop {
+          position: absolute;
+          inset: 0;
+          border: none;
+          padding: 0;
+          background: rgba(0, 0, 0, 0.62);
+          cursor: pointer;
+        }
+        .vk-offer-drawer {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          background: #111;
+          color: #fff;
+          font-family: var(--font-outfit), system-ui, sans-serif;
+          animation: vkOfferSheet 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vk-offer-handle {
+          display: none;
+        }
+        .vk-offer-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: calc(16px + env(safe-area-inset-top, 0px)) 18px 8px;
+          flex-shrink: 0;
+        }
+        .vk-offer-head h2 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .vk-offer-head p {
+          margin: 4px 0 0;
+          font-size: 13px;
+          line-height: 1.4;
+          color: #888;
+          font-weight: 600;
+        }
+        .vk-offer-close {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          border: none;
+          background: #2a2a2a;
+          color: #ccc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .vk-offer-body {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 8px 18px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .vk-offer-kind {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        .vk-offer-kind button {
+          text-align: left;
+          border-radius: 12px;
+          border: 1px solid #2a2a2a;
+          background: transparent;
+          color: #aaa;
+          padding: 12px;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .vk-offer-kind button[aria-pressed="true"] {
+          border-color: #f5e32d;
+          background: rgba(245, 227, 45, 0.1);
+          color: #f5e32d;
+        }
+        .vk-offer-kind span {
+          display: block;
+          font-size: 14px;
+          font-weight: 800;
+        }
+        .vk-offer-kind small {
+          display: block;
+          margin-top: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #888;
+        }
+        .vk-offer-kind button[aria-pressed="true"] small {
+          color: rgba(245, 227, 45, 0.75);
+        }
+        .vk-offer-hint {
+          margin: -4px 0 0;
+          font-size: 13px;
+          line-height: 1.45;
+          color: #999;
+          font-weight: 600;
+        }
+        .vk-offer-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .vk-offer-body input,
+        .vk-offer-body select {
+          min-height: 44px;
+          color-scheme: dark;
+        }
+        .vk-offer-foot {
+          flex-shrink: 0;
+          padding: 12px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+          border-top: 1px solid #2a2a2a;
+          background: #141414;
+        }
+        .vk-offer-error {
+          margin: 0 0 10px;
+          color: #f87171;
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .vk-offer-actions {
+          display: flex;
+          gap: 10px;
+        }
+        .vk-offer-cancel,
+        .vk-offer-save {
+          height: 48px;
+          border-radius: 12px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .vk-offer-cancel {
+          padding: 0 16px;
+          border: 1px solid #2a2a2a;
+          background: transparent;
+          color: #aaa;
+        }
+        .vk-offer-save {
+          flex: 1;
+          border: none;
+          background: #f5e32d;
+          color: #111;
+        }
+        .vk-offer-cancel:disabled,
+        .vk-offer-save:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+        @keyframes vkOfferSheet {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes vkOfferSide {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        @media (min-width: 1024px) {
+          .vk-offer-drawer {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: auto;
+            width: min(440px, 100vw);
+            background: #141414;
+            border-left: 1px solid #2a2a2a;
+            box-shadow: -18px 0 50px rgba(0, 0, 0, 0.45);
+            animation-name: vkOfferSide;
+          }
+          .vk-offer-handle {
+            display: none;
+          }
+          .vk-offer-foot {
+            padding-bottom: 16px;
           }
         }
       `}</style>
