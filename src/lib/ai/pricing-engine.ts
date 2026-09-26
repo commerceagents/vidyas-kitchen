@@ -58,15 +58,24 @@ export class PricingAgent {
     const mealStats = computeMealPerformance(orders, this.config.lowPerformerDays, now);
     const upcomingFestivals = detectUpcomingFestivals(festivals, this.config.festivalAdvanceDays, now);
 
-    for (const dish of dishPerformances) {
+    // Quietest dishes first, so the menu-wide discount cap keeps the ones that need an offer.
+    const ranked = [...dishPerformances].sort((a, b) => {
+      if (a.totalOrders !== b.totalOrders) return a.totalOrders - b.totalOrders;
+      return (a.avgRating ?? 5) - (b.avgRating ?? 5);
+    });
+
+    let projectedDiscounted = currentDiscountedCount;
+
+    for (const dish of ranked) {
       const currentRow = discountMap.get(dish.dishId);
       const currentPct = currentRow?.discount_type === "percentage" ? (currentRow.discount_value ?? null) : null;
 
       const lowDecision = lowPerformerRule(dish, categoryStats, this.config, currentPct);
       if (lowDecision) {
-        const validation = validateDecision(lowDecision, this.config, currentDiscountedCount, totalMenuItems);
+        const validation = validateDecision(lowDecision, this.config, projectedDiscounted, totalMenuItems);
         if (validation.valid) {
           decisions.push(lowDecision);
+          projectedDiscounted += 1;
         } else {
           rejected.push({ ...lowDecision, reasoning: `${lowDecision.reasoning} [REJECTED: ${validation.reason}]` });
         }
@@ -81,9 +90,10 @@ export class PricingAgent {
 
       const mealDecision = mealTimeRule(dish, mealStats, this.config, currentPct);
       if (mealDecision) {
-        const validation = validateDecision(mealDecision, this.config, currentDiscountedCount, totalMenuItems);
+        const validation = validateDecision(mealDecision, this.config, projectedDiscounted, totalMenuItems);
         if (validation.valid) {
           decisions.push(mealDecision);
+          projectedDiscounted += 1;
         } else {
           rejected.push({ ...mealDecision, reasoning: `${mealDecision.reasoning} [REJECTED: ${validation.reason}]` });
         }

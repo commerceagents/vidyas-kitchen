@@ -75,6 +75,8 @@ function mapOrderRow(row: Record<string, unknown>): DashboardOrder {
     payment_method: (row.payment_method as string | null) ?? null,
     payment_status: (row.payment_status as string | null) ?? null,
     cod_failure_reason: (row.cod_failure_reason as string | null) ?? null,
+    rating_stars: row.rating_stars != null ? Number(row.rating_stars) : null,
+    rating_comment: (row.rating_comment as string | null) ?? null,
     refund_status: null,
     refund_amount: null,
     driver_last_lat: null,
@@ -92,7 +94,7 @@ async function loadOrders(supabase: ReturnType<typeof createServerSupabase>): Pr
     .select(
       `
       id, order_number, status, phone_number, total_amount, created_at,
-      delivery_slot, delivery_slot_kind,
+      delivery_slot, delivery_slot_kind, rating_stars, rating_comment,
       order_items ( quantity, unit_price, menu_item_id, menu_items ( name, image_url ) )
     `,
     )
@@ -174,6 +176,11 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
     loadDiscountSettings(supabase),
   ]);
 
+  // Always the last 7 kitchen days, and festivals a week ahead. A stored
+  // 14-day window was why yesterday's card never matched this morning.
+  config.lowPerformerDays = 7;
+  config.festivalAdvanceDays = 7;
+
   if (!config.agentEnabled) {
     return {
       message: "Agent is disabled",
@@ -189,44 +196,53 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const agent = new PricingAgent(config);
   const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems);
 
-  // Auto-expire stale pending festival_activate decisions whose festival has already ended
-  const now = new Date();
-  const festivalById = new Map(festivals.map((f) => [f.id, f]));
-  const { data: stalePending } = await supabase
+  const { data: existingPending } = await supabase
     .from("ai_pricing_decisions")
-    .select("id, dish_id")
-    .eq("status", "pending")
-    .eq("decision_type", "festival_activate");
+    .select("id, dish_id, decision_type")
+    .eq("status", "pending");
 
-  for (const row of stalePending ?? []) {
-    const festivalId = String(row.dish_id).replace("festival:", "");
-    const festival = festivalById.get(festivalId);
-    if (festival) {
-      const end = new Date(`${festival.date_end}T23:59:59Z`);
-      if (end < now) {
-        await supabase
-          .from("ai_pricing_decisions")
-          .update({ status: "expired" })
-          .eq("id", row.id);
-      }
+  const freshKeys = new Set(
+    result.decisions
+      .filter((d) => !d.autoApply)
+      .map((d) => `${d.dishId}::${d.decisionType}`),
+  );
+
+  for (const row of existingPending ?? []) {
+    const key = `${row.dish_id}::${row.decision_type}`;
+    if (!freshKeys.has(key)) {
+      await supabase.from("ai_pricing_decisions").update({ status: "expired" }).eq("id", row.id);
     }
   }
 
-  // Load existing pending decisions so we can skip duplicates
-  const { data: existingPending } = await supabase
-    .from("ai_pricing_decisions")
-    .select("dish_id, decision_type")
-    .eq("status", "pending");
-
   const pendingSet = new Set(
-    (existingPending ?? []).map((r: { dish_id: string; decision_type: string }) => `${r.dish_id}::${r.decision_type}`),
+    (existingPending ?? [])
+      .filter((r: { dish_id: string; decision_type: string }) =>
+        freshKeys.has(`${r.dish_id}::${r.decision_type}`),
+      )
+      .map((r: { dish_id: string; decision_type: string }) => `${r.dish_id}::${r.decision_type}`),
   );
 
   for (const decision of result.decisions) {
     const key = `${decision.dishId}::${decision.decisionType}`;
 
-    // Skip if a pending decision for this dish+type already exists
-    if (!decision.autoApply && pendingSet.has(key)) continue;
+    if (!decision.autoApply && pendingSet.has(key)) {
+      const refreshed =
+        decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
+          ? decision.newDiscount
+          : roundToDiscountPreset(decision.newDiscount);
+      await supabase
+        .from("ai_pricing_decisions")
+        .update({
+          old_discount: decision.oldDiscount,
+          new_discount: refreshed,
+          reasoning: decision.reasoning,
+          decided_at: result.timestamp,
+        })
+        .eq("dish_id", decision.dishId)
+        .eq("decision_type", decision.decisionType)
+        .eq("status", "pending");
+      continue;
+    }
 
     const status = decision.autoApply ? "auto_applied" : "pending";
     const newDiscount =

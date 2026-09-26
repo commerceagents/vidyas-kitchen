@@ -1,7 +1,7 @@
 import { type DashboardOrder, type DashboardOrderItem } from "@/lib/dashboard/orders";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { getOrderRevenueAmount } from "@/lib/order-pricing";
-import { type FestivalRow, isWithinSeasonalWindow } from "@/lib/menu/discount-pricing";
+import { type FestivalRow } from "@/lib/menu/discount-pricing";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { variantIdToDishIdMap } from "@/lib/menu/best-selling";
 
@@ -17,6 +17,11 @@ export type DishPerformance = {
   daysSinceLastOrder: number | null;
   trendPct: number | null;
   mealBreakdown: { breakfast: number; lunch: number; dinner: number };
+  /** Mean stars on orders that included this dish (last 60 days loaded). */
+  avgRating: number | null;
+  ratingCount: number;
+  /** Newest written complaint (3 stars or below), when there is one. */
+  lowReview: string | null;
 };
 
 export type CategoryStats = {
@@ -49,8 +54,49 @@ function mealSlotOf(order: DashboardOrder): "breakfast" | "lunch" | "dinner" {
   return "lunch";
 }
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+const KITCHEN_TZ = "Asia/Kolkata";
+
+/** Calendar day in the kitchen, as YYYY-MM-DD. UTC midnight is still the previous evening in Sivakasi. */
+export function kitchenDateKey(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: KITCHEN_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Whole days from the kitchen's today to a YYYY-MM-DD date. Negative when that date has passed. */
+export function daysFromKitchenToday(ymd: string, now = new Date()): number {
+  const today = Date.parse(`${kitchenDateKey(now)}T12:00:00Z`);
+  const target = Date.parse(`${ymd.slice(0, 10)}T12:00:00Z`);
+  if (!Number.isFinite(today) || !Number.isFinite(target)) return 0;
+  return Math.round((target - today) / 86_400_000);
+}
+
+function shiftDateKey(ymd: string, days: number): string {
+  const t = Date.parse(`${ymd}T12:00:00Z`) + days * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+function orderKitchenDay(order: DashboardOrder): string {
+  const slot = order.delivery_slot ? new Date(order.delivery_slot) : null;
+  const created = new Date(order.created_at);
+  const when = slot && !Number.isNaN(slot.getTime()) ? slot : created;
+  if (Number.isNaN(when.getTime())) return kitchenDateKey();
+  return kitchenDateKey(when);
+}
+
+function orderCountsForSales(order: DashboardOrder): boolean {
+  const s = normalizeOrderStatus(order.status);
+  return (
+    s === OrderStatus.PAID ||
+    s === OrderStatus.CONFIRMED ||
+    s === OrderStatus.PREPARING ||
+    s === OrderStatus.READY ||
+    s === OrderStatus.OUT_FOR_DELIVERY ||
+    s === OrderStatus.DELIVERED
+  );
 }
 
 function menuLookup() {
@@ -85,59 +131,101 @@ function resolveDishMeta(item: DashboardOrderItem) {
 
 // ─── Dish Performance ────────────────────────────────────────────────────────
 
+type DishBucket = {
+  name: string;
+  category: string | null;
+  orders: number;
+  revenue: number;
+  lastOrderDay: string | null;
+  meals: { breakfast: number; lunch: number; dinner: number };
+  ratingSum: number;
+  ratingCount: number;
+  ratedOrders: Set<string>;
+  lowReview: string | null;
+  lowReviewAt: string | null;
+};
+
+function emptyBucket(name: string, category: string | null): DishBucket {
+  return {
+    name,
+    category,
+    orders: 0,
+    revenue: 0,
+    lastOrderDay: null,
+    meals: { breakfast: 0, lunch: 0, dinner: 0 },
+    ratingSum: 0,
+    ratingCount: 0,
+    ratedOrders: new Set(),
+    lowReview: null,
+    lowReviewAt: null,
+  };
+}
+
 export function computeDishPerformance(
   orders: DashboardOrder[],
-  days: number = 14,
+  days: number = 7,
   now = new Date(),
 ): DishPerformance[] {
-  const cutoff = new Date(now.getTime() - days * 86_400_000);
-  const prevCutoff = new Date(cutoff.getTime() - days * 86_400_000);
+  const today = kitchenDateKey(now);
+  const cutoff = shiftDateKey(today, -(days - 1));
+  const prevCutoff = shiftDateKey(cutoff, -days);
 
   const currentOrders = orders.filter((o) => {
-    const date = new Date(o.delivery_slot || o.created_at);
-    return date >= cutoff && normalizeOrderStatus(o.status) === OrderStatus.DELIVERED;
+    const day = orderKitchenDay(o);
+    return day >= cutoff && day <= today && orderCountsForSales(o);
   });
 
   const prevOrders = orders.filter((o) => {
-    const date = new Date(o.delivery_slot || o.created_at);
-    return date >= prevCutoff && date < cutoff && normalizeOrderStatus(o.status) === OrderStatus.DELIVERED;
+    const day = orderKitchenDay(o);
+    return day >= prevCutoff && day < cutoff && orderCountsForSales(o);
   });
 
-  const dishMap = new Map<
-    string,
-    {
-      name: string;
-      category: string | null;
-      orders: number;
-      revenue: number;
-      lastOrderDate: Date | null;
-      meals: { breakfast: number; lunch: number; dinner: number };
-    }
-  >();
+  const dishMap = new Map<string, DishBucket>();
+
+  for (const dish of Object.values(MENU_BY_CATEGORY).flat()) {
+    dishMap.set(dish.id, emptyBucket(dish.name, dish.category ?? null));
+  }
 
   const prevDishMap = new Map<string, { orders: number; revenue: number }>();
 
   for (const order of currentOrders) {
     const meal = mealSlotOf(order);
-    const orderDate = new Date(order.delivery_slot || order.created_at);
+    const day = orderKitchenDay(order);
     for (const item of order.items) {
       const meta = resolveDishMeta(item);
       const key = meta.dishId;
-      const entry = dishMap.get(key) ?? {
-        name: meta.dishName,
-        category: meta.category,
-        orders: 0,
-        revenue: 0,
-        lastOrderDate: null,
-        meals: { breakfast: 0, lunch: 0, dinner: 0 },
-      };
+      const entry = dishMap.get(key) ?? emptyBucket(meta.dishName, meta.category);
+      entry.name = meta.dishName;
+      entry.category = meta.category ?? entry.category;
       entry.orders += item.quantity;
       entry.revenue += (item.unit_price ?? 0) * item.quantity;
       entry.meals[meal] += item.quantity;
-      if (!entry.lastOrderDate || orderDate > entry.lastOrderDate) {
-        entry.lastOrderDate = orderDate;
-      }
+      if (!entry.lastOrderDay || day > entry.lastOrderDay) entry.lastOrderDay = day;
       dishMap.set(key, entry);
+    }
+  }
+
+  // Ratings and written reviews cover the whole loaded history, not only the sales week.
+  for (const order of orders) {
+    if (!orderCountsForSales(order)) continue;
+    const stars = order.rating_stars;
+    if (typeof stars !== "number" || stars < 1 || stars > 5) continue;
+    const day = orderKitchenDay(order);
+    const comment = (order.rating_comment || "").trim();
+    for (const item of order.items) {
+      const meta = resolveDishMeta(item);
+      const entry = dishMap.get(meta.dishId) ?? emptyBucket(meta.dishName, meta.category);
+      entry.name = meta.dishName;
+      entry.category = meta.category ?? entry.category;
+      if (entry.ratedOrders.has(order.id)) continue;
+      entry.ratedOrders.add(order.id);
+      entry.ratingSum += stars;
+      entry.ratingCount += 1;
+      if (stars <= 3 && comment && (!entry.lowReviewAt || day >= entry.lowReviewAt)) {
+        entry.lowReview = comment;
+        entry.lowReviewAt = day;
+      }
+      dishMap.set(meta.dishId, entry);
     }
   }
 
@@ -167,9 +255,12 @@ export function computeDishPerformance(
       totalOrders: data.orders,
       totalRevenue: data.revenue,
       avgRevenuePerOrder: data.orders > 0 ? Math.round(data.revenue / data.orders) : 0,
-      daysSinceLastOrder: data.lastOrderDate ? daysBetween(data.lastOrderDate, now) : null,
+      daysSinceLastOrder: data.lastOrderDay ? daysFromKitchenToday(data.lastOrderDay, now) * -1 : null,
       trendPct,
       mealBreakdown: data.meals,
+      avgRating: data.ratingCount > 0 ? Math.round((data.ratingSum / data.ratingCount) * 10) / 10 : null,
+      ratingCount: data.ratingCount,
+      lowReview: data.lowReview,
     });
   }
 
@@ -182,6 +273,8 @@ export function computeCategoryStats(dishPerformances: DishPerformance[]): Categ
   const catMap = new Map<string, { totalOrders: number; totalRevenue: number; count: number }>();
 
   for (const dp of dishPerformances) {
+    // Unsold dishes stay in the list, but they must not pull the category average down to zero.
+    if (dp.totalOrders <= 0) continue;
     const cat = dp.category ?? "uncategorized";
     const entry = catMap.get(cat) ?? { totalOrders: 0, totalRevenue: 0, count: 0 };
     entry.totalOrders += dp.totalOrders;
@@ -202,10 +295,10 @@ export function computeCategoryStats(dishPerformances: DishPerformance[]): Categ
 
 export function computeMealPerformance(
   orders: DashboardOrder[],
-  days: number = 14,
+  days: number = 7,
   now = new Date(),
 ): MealPerformance[] {
-  const cutoff = new Date(now.getTime() - days * 86_400_000);
+  const cutoff = shiftDateKey(kitchenDateKey(now), -(days - 1));
 
   const meals: Record<"breakfast" | "lunch" | "dinner", { revenue: number; count: number }> = {
     breakfast: { revenue: 0, count: 0 },
@@ -214,9 +307,8 @@ export function computeMealPerformance(
   };
 
   for (const order of orders) {
-    const date = new Date(order.delivery_slot || order.created_at);
-    if (date < cutoff) continue;
-    if (normalizeOrderStatus(order.status) !== OrderStatus.DELIVERED) continue;
+    if (orderKitchenDay(order) < cutoff) continue;
+    if (!orderCountsForSales(order)) continue;
 
     const meal = mealSlotOf(order);
     const amt = getOrderRevenueAmount(order);
@@ -246,12 +338,12 @@ export function detectUpcomingFestivals(
     const end = new Date(`${f.date_end}T12:00:00Z`);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
 
-    const daysUntilStart = daysBetween(now, start);
-    const daysUntilEnd = daysBetween(now, end);
+    const daysUntilStart = daysFromKitchenToday(f.date_start, now);
+    const daysUntilEnd = daysFromKitchenToday(f.date_end, now);
 
-    const isLive = isWithinSeasonalWindow(f.date_start, f.date_end, now);
-    const shouldActivate = !f.active && daysUntilStart <= advanceDays && daysUntilStart >= 0;
-    const shouldDeactivate = f.active && daysUntilEnd < -3;
+    // A week before the first day, through the last day. The morning after it ends, turn it off.
+    const shouldActivate = !f.active && daysUntilStart <= advanceDays && daysUntilEnd >= 0;
+    const shouldDeactivate = f.active && daysUntilEnd < 0;
 
     results.push({
       ...f,
@@ -262,7 +354,7 @@ export function detectUpcomingFestivals(
     });
   }
 
-  return results.filter((f) => f.shouldActivate || f.shouldDeactivate || (f.daysUntilStart <= advanceDays && f.daysUntilEnd >= -3));
+  return results.filter((f) => f.shouldActivate || f.shouldDeactivate);
 }
 
 // ─── Identify Low/High Performers ───────────────────────────────────────────

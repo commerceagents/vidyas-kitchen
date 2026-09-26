@@ -37,6 +37,9 @@ export type DashboardOrder = {
   discount_amount?: number | null;
   offer_code?: string | null;
   offer_label?: string | null;
+  /** Customer rating after delivery, when they left one. */
+  rating_stars?: number | null;
+  rating_comment?: string | null;
   items: DashboardOrderItem[];
 };
 

@@ -41,7 +41,7 @@ export const DEFAULT_CONFIG: AgentConfig = {
   minMarginPct: 20,
   maxMenuDiscountRatio: 0.6,
   autoApplyThresholdPct: 25,
-  lowPerformerDays: 14,
+  lowPerformerDays: 7,
   lowPerformerThreshold: 0.3,
   festivalAdvanceDays: 7,
 };
@@ -57,21 +57,35 @@ export function lowPerformerRule(
   const cat = categoryStats.find((c) => c.category === (dish.category ?? "uncategorized"));
   if (!cat || cat.avgOrders === 0) return null;
 
-  const ratio = dish.totalOrders / cat.avgOrders;
-  if (ratio >= config.lowPerformerThreshold) return null;
+  const ratio = cat.avgOrders > 0 ? dish.totalOrders / cat.avgOrders : 1;
+  const quiet = dish.totalOrders === 0 || ratio < config.lowPerformerThreshold;
+  const poorlyRated =
+    dish.ratingCount >= 2 && dish.avgRating != null && dish.avgRating <= 3;
+  if (!quiet && !poorlyRated) return null;
 
   let newDiscount: number;
   let reasoning: string;
+  const window = `last ${config.lowPerformerDays} days`;
+  const ratingBit =
+    dish.ratingCount > 0 && dish.avgRating != null
+      ? ` Rating ${dish.avgRating}/5 from ${dish.ratingCount} review${dish.ratingCount === 1 ? "" : "s"}${dish.lowReview ? ` (“${dish.lowReview.slice(0, 80)}”)` : ""}.`
+      : "";
 
-  if (dish.daysSinceLastOrder != null && dish.daysSinceLastOrder >= 7) {
+  if (dish.totalOrders === 0) {
+    newDiscount = 20;
+    reasoning = `Nobody ordered this in the ${window}. The rest of ${cat.category} averaged ${cat.avgOrders}. Suggest ${newDiscount}% off.`;
+  } else if (poorlyRated && !quiet) {
+    newDiscount = 20;
+    reasoning = `Selling, but rated ${dish.avgRating}/5 from ${dish.ratingCount} reviews.${dish.lowReview ? ` Latest: “${dish.lowReview.slice(0, 80)}”.` : ""} Suggest ${newDiscount}% off while that is looked at.`;
+  } else if (dish.daysSinceLastOrder != null && dish.daysSinceLastOrder >= 7) {
     newDiscount = 30;
-    reasoning = `No orders in ${dish.daysSinceLastOrder} days. Category avg: ${cat.avgOrders} orders/${config.lowPerformerDays}d. Suggest ${newDiscount}% off.`;
+    reasoning = `No orders in ${dish.daysSinceLastOrder} days. Category avg: ${cat.avgOrders} in the ${window}.${ratingBit} Suggest ${newDiscount}% off.`;
   } else if (ratio < 0.15) {
     newDiscount = 25;
-    reasoning = `Very low sales (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%. Suggest ${newDiscount}% off.`;
+    reasoning = `Very low sales (${dish.totalOrders} vs category avg ${cat.avgOrders} in the ${window}).${ratingBit} Suggest ${newDiscount}% off.`;
   } else {
     newDiscount = 15;
-    reasoning = `Below threshold (${dish.totalOrders} orders vs category avg ${cat.avgOrders}). Ratio: ${(ratio * 100).toFixed(0)}%. Suggest ${newDiscount}% off.`;
+    reasoning = `Below the rest of ${cat.category} (${dish.totalOrders} vs avg ${cat.avgOrders} in the ${window}).${ratingBit} Suggest ${newDiscount}% off.`;
   }
 
   newDiscount = Math.min(roundToDiscountPreset(newDiscount), config.maxDiscountPct);
@@ -101,7 +115,14 @@ export function highPerformerRule(
   if (!cat || cat.avgOrders === 0) return null;
 
   const ratio = dish.totalOrders / cat.avgOrders;
-  if (ratio < 5) return null;
+  const loved =
+    dish.ratingCount >= 3 && dish.avgRating != null && dish.avgRating >= 4.5;
+  if (ratio < 2 && !loved) return null;
+
+  const ratingBit =
+    dish.avgRating != null
+      ? ` Rated ${dish.avgRating}/5 from ${dish.ratingCount} reviews.`
+      : "";
 
   return {
     dishId: dish.dishId,
@@ -109,7 +130,7 @@ export function highPerformerRule(
     decisionType: "remove_discount",
     oldDiscount: currentDiscount,
     newDiscount: 0,
-    reasoning: `Top performer (${dish.totalOrders} orders, ${ratio.toFixed(1)}x category avg). Discount not needed.`,
+    reasoning: `Selling well (${dish.totalOrders} orders, ${ratio.toFixed(1)}x the category).${ratingBit} The discount is not needed.`,
     autoApply: false,
   };
 }
@@ -153,17 +174,31 @@ export function mealTimeRule(
   };
 }
 
+function festivalDayLabel(ymd: string): string {
+  const d = new Date(`${ymd.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("en-IN", { timeZone: "UTC", day: "numeric", month: "short" });
+}
+
 export function festivalRule(festival: UpcomingFestival): PricingDecision | null {
   const suggested = suggestFestivalDiscountPct(festival.discount_override, festival.name);
+  const from = festivalDayLabel(festival.date_start);
+  const to = festivalDayLabel(festival.date_end);
 
   if (festival.shouldActivate) {
+    const when =
+      festival.daysUntilStart > 0
+        ? `starts in ${festival.daysUntilStart} day${festival.daysUntilStart === 1 ? "" : "s"} (${from} – ${to})`
+        : festival.daysUntilStart === 0
+          ? `starts today and runs until ${to}`
+          : `is on now, until ${to}`;
     return {
       dishId: `festival:${festival.id}`,
       dishName: festival.name,
       decisionType: "festival_activate",
-      oldDiscount: null, // festival is currently OFF — no active discount to show
+      oldDiscount: null,
       newDiscount: suggested,
-      reasoning: `Festival "${festival.name}" starts in ${festival.daysUntilStart} day(s). AI suggests ${suggested}% offer — pick a % and approve to go live.`,
+      reasoning: `Festival "${festival.name}" ${when}. Suggested offer ${suggested}%. This is the week-ahead look — approve it to go live.`,
       autoApply: false,
     };
   }
@@ -175,7 +210,7 @@ export function festivalRule(festival: UpcomingFestival): PricingDecision | null
       decisionType: "festival_deactivate",
       oldDiscount: Number(festival.discount_override) || null,
       newDiscount: 0,
-      reasoning: `Festival "${festival.name}" ended ${Math.abs(festival.daysUntilEnd)} day(s) ago. Turning offer off.`,
+      reasoning: `Festival "${festival.name}" ended on ${to}. Turning the offer off.`,
       autoApply: true,
     };
   }
