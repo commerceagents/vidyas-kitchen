@@ -186,7 +186,7 @@ export default function DriversPage() {
     });
 
   const content = (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+    <div className="vk-drivers-content" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 16, flexShrink: 0 }}>
         <button
           type="button"
@@ -538,7 +538,15 @@ export default function DriversPage() {
       {/* Mobile */}
       <div
         className="vk-dash-home-mobile"
-        style={{ display: "none", flexDirection: "column", height: "100%", minHeight: "100dvh", background: "#0d0d0d" }}
+        style={{
+          display: "none",
+          flexDirection: "column",
+          height: "100dvh",
+          minHeight: "100dvh",
+          background: "#0d0d0d",
+          overscrollBehavior: "none",
+          overflow: "hidden",
+        }}
       >
         <DashboardMobileHeader
           newCount={newCount}
@@ -547,7 +555,17 @@ export default function DriversPage() {
           unreadCount={unreadCount}
           onOpenNotifications={openNotifications}
         />
-        <div style={{ padding: 16, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", paddingBottom: "calc(90px + env(safe-area-inset-bottom, 16px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+        <div
+          className="no-scrollbar"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+            padding: "16px 16px calc(96px + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
           {content}
         </div>

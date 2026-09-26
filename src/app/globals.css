@@ -254,29 +254,14 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   align-items: start;
 }
 
-/* Mobile dashboard — subtle fade under bottom nav */
+/* Phone: driver cards scroll with the page, same as Orders and Revenue.
+   Desktop keeps the list as its own scroll inside the panel. */
 @media (max-width: 1023px) {
-  .vk-dash-bottom-vignette {
-    display: block;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 80px;
-    pointer-events: none;
-    z-index: 44;
-    background: linear-gradient(
-      to top,
-      rgba(13, 13, 13, 0.9) 0%,
-      rgba(13, 13, 13, 0.4) 50%,
-      transparent 100%
-    );
-  }
-}
-
-@media (min-width: 1024px) {
-  .vk-dash-bottom-vignette {
-    display: none;
+  .vk-drivers-content,
+  .vk-drivers-content .vk-driver-grid {
+    flex: none !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 }
 

@@ -37,7 +37,6 @@ export function DashboardMobileNav() {
 
   return (
     <>
-      <div className="vk-dash-bottom-vignette" aria-hidden />
       <nav
         className="vk-dash-bottom-nav"
         style={{
