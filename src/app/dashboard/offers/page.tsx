@@ -16,7 +16,7 @@ import {
   DashboardMobileHeader,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
-import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
+import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -625,7 +625,7 @@ export default function OffersPage() {
           </h2>
           {content}
         </div>
-        <DashboardMobileSubNav />
+        <DashboardMobileNav />
       </div>
 
       {/* Desktop */}

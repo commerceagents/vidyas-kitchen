@@ -11,7 +11,7 @@ import {
 import { DashboardOrderBoard } from "@/components/dashboard/DashboardOrderBoard";
 import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
 import { DashboardDayStats } from "@/components/dashboard/DashboardSkeleton";
-import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
+import { DashboardMobileNav, StatusChipStrip } from "@/components/dashboard/DashboardMobileNav";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
 export default function DashboardHome() {
@@ -71,6 +71,11 @@ export default function DashboardHome() {
         ) : (
           <>
             <DashboardDayStats stats={mobileStats} variant="mobile" />
+            <StatusChipStrip
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              counts={tabCounts}
+            />
             <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
               <DashboardOrderBoard
                 orders={orders}
@@ -86,11 +91,7 @@ export default function DashboardHome() {
             </div>
           </>
         )}
-        <DashboardMobileNav
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          counts={tabCounts}
-        />
+        <DashboardMobileNav />
       </div>
 
       {/* ── Desktop: layout ── */}

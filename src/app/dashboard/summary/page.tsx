@@ -9,7 +9,7 @@ import {
 import { RevenueDashboard } from "@/components/dashboard/RevenueDashboard";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { computeRevenueDashboardStats } from "@/lib/dashboard/revenue-stats";
-import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
+import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 export default function DaySummaryPage() {
   const {
@@ -58,7 +58,7 @@ export default function DaySummaryPage() {
           onOpenNotifications={openNotifications}
         />
         <div style={{ padding: "16px", overflowY: "auto", flex: 1, paddingBottom: "calc(130px + env(safe-area-inset-bottom, 24px))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>{content}</div>
-        <DashboardMobileSubNav />
+        <DashboardMobileNav />
       </div>
 
       {/* ── Desktop Layout ── */}

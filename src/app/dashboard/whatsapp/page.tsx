@@ -17,7 +17,7 @@ import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
 } from "@/components/dashboard/DashboardChrome";
-import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
+import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const CARD_BG = "#1a1a1a";
@@ -749,7 +749,7 @@ function WhatsAppHealthPageInner() {
         )}
       </div>
 
-      <DashboardMobileSubNav />
+      <DashboardMobileNav />
     </div>
   );
 }

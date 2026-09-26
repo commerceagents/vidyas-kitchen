@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -12,12 +10,6 @@ import {
   Volume2,
   VolumeX,
   X,
-  Menu,
-  LayoutDashboard,
-  TrendingUp,
-  Bot,
-  Tag,
-  Truck,
   Smartphone,
 } from "lucide-react";
 import {
@@ -39,14 +31,6 @@ import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { DashboardConfirmDialog, rejectConfirmCopy } from "@/components/dashboard/DashboardConfirmDialog";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
-
-const MOBILE_NAV_ITEMS = [
-  { href: "/dashboard", label: "Orders", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/summary", label: "Revenue", icon: TrendingUp, exact: false },
-  { href: "/dashboard/pricing-agent", label: "AI Pricing", icon: Bot, exact: false },
-  { href: "/dashboard/offers", label: "Offers", icon: Tag, exact: false },
-  { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
-] as const;
 
 const iconBtnStyle: React.CSSProperties = {
   display: "flex",
@@ -178,10 +162,8 @@ export function DashboardMobileHeader({
   unreadCount = 0,
   onOpenNotifications,
 }: MobileHeaderProps) {
-  const pathname = usePathname();
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
-  const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
 
   return (
     <>
@@ -212,14 +194,6 @@ export function DashboardMobileHeader({
             </button>
             <button
               type="button"
-              onClick={() => setMenuDrawerOpen(true)}
-              aria-label="Menu"
-              style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", color: menuDrawerOpen ? "#f5e32d" : "#fff" }}
-            >
-              <Menu size={18} />
-            </button>
-            <button
-              type="button"
               onClick={() => setLogoutConfirmOpen(true)}
               aria-label="Log Out"
               style={{ ...iconBtnStyle, width: "38px", height: "38px", borderRadius: "10px", color: "#ef4444" }}
@@ -241,165 +215,6 @@ export function DashboardMobileHeader({
           }
         `}</style>
       </header>
-
-      {/* Mobile Navigation Drawer */}
-      <AnimatePresence>
-        {menuDrawerOpen && (
-          <>
-            <motion.div
-              key="vk-menu-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setMenuDrawerOpen(false)}
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,0.7)",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                zIndex: 998,
-              }}
-            />
-            <motion.div
-              key="vk-menu-drawer"
-              initial={{ y: "-100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "-100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 999,
-                background: "#141414",
-                borderBottom: "1px solid #2a2a2a",
-                borderRadius: "0 0 24px 24px",
-                padding: "max(18px, env(safe-area-inset-top, 0px)) 20px 24px",
-                boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
-                fontFamily: FONT,
-                maxHeight: "85vh",
-                overflowY: "auto",
-              }}
-            >
-              {/* Drawer Header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", border: "1px solid rgba(245,197,24,0.25)", background: "#0a0b0f" }}>
-                    <img src="/dashboard-logo-circle.png" alt="VK" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>Vidya's Kitchen</h3>
-                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#888", fontWeight: 600 }}>Admin Dashboard</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMenuDrawerOpen(false)}
-                  aria-label="Close menu"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    border: "1px solid #2a2a2a",
-                    background: "#222",
-                    color: "#aaa",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                  }}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Navigation Links */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {MOBILE_NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
-                  const active = exact ? pathname === href : (pathname === href || pathname?.startsWith(`${href}/`));
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      onClick={() => setMenuDrawerOpen(false)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "14px 16px",
-                        borderRadius: 14,
-                        background: active ? "rgba(245, 227, 45, 0.12)" : "#1c1c1c",
-                        border: active ? "1px solid rgba(245, 227, 45, 0.3)" : "1px solid #282828",
-                        textDecoration: "none",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div
-                          style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 10,
-                            background: active ? "#f5e32d" : "#242424",
-                            color: active ? "#111" : "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Icon size={20} strokeWidth={2.2} />
-                        </div>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: active ? "#f5e32d" : "#fff", display: "block" }}>
-                          {label}
-                        </span>
-                      </div>
-                      {active && (
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#f5e32d", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                          Active
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-
-              {/* Log Out inside Drawer */}
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #252525" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuDrawerOpen(false);
-                    setLogoutConfirmOpen(true);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: 46,
-                    borderRadius: 12,
-                    border: "1px solid rgba(239, 68, 68, 0.25)",
-                    background: "rgba(239, 68, 68, 0.08)",
-                    color: "#ef4444",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    fontFamily: FONT,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    cursor: "pointer",
-                  }}
-                >
-                  <LogOut size={16} />
-                  <span>Log Out</span>
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* Custom Logout Confirmation Dialog */}
       <DashboardConfirmDialog

@@ -327,12 +327,24 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
 
 @media (max-width: 1023px) {
   .vk-order-card-footer {
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
   .vk-order-card-actions {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
+    width: 100%;
+  }
+  .vk-order-card-actions .vk-order-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none;
+    flex: none;
+  }
+  .vk-order-card-actions--single {
+    grid-template-columns: 1fr;
   }
 }
 

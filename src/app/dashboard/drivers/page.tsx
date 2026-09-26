@@ -16,7 +16,7 @@ import {
   DashboardMobileHeader,
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
-import { DashboardMobileSubNav } from "@/components/dashboard/DashboardMobileSubNav";
+import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 import { useToast } from "@/components/dashboard/DashboardToast";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -551,7 +551,7 @@ export default function DriversPage() {
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
           {content}
         </div>
-        <DashboardMobileSubNav />
+        <DashboardMobileNav />
       </div>
 
       {/* Desktop */}

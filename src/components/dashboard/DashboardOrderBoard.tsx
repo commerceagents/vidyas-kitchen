@@ -1347,6 +1347,114 @@ function StatusActionButton({
   );
 }
 
+const RAIL_STEPS = [
+  { label: "New", key: "new" },
+  { label: "Cooking", key: "cooking" },
+  { label: "Ready", key: "ready" },
+  { label: "Out", key: "out" },
+  { label: "Done", key: "done" },
+] as const;
+
+function statusToStep(status: string): number {
+  const s = normalizeOrderStatus(status);
+  if (s === OrderStatus.PAID || s === OrderStatus.CONFIRMED) return 0;
+  if (s === OrderStatus.PREPARING) return 1;
+  if (s === OrderStatus.READY) return 2;
+  if (s === OrderStatus.OUT_FOR_DELIVERY) return 3;
+  if (s === OrderStatus.DELIVERED) return 4;
+  return -1;
+}
+
+function OrderStatusRail({ status }: { status: string }) {
+  const s = normalizeOrderStatus(status);
+  const isCancelled = s === OrderStatus.CANCELLED || s === OrderStatus.REJECTED;
+  const isUndelivered = s === OrderStatus.UNDELIVERED;
+
+  if (isCancelled) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 0 2px" }}>
+        <X size={13} strokeWidth={3} color="#F87171" />
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#F87171", fontFamily: FONT }}>
+          {s === OrderStatus.REJECTED ? "Rejected" : "Cancelled"}
+        </span>
+      </div>
+    );
+  }
+
+  if (isUndelivered) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 0 2px" }}>
+        <X size={13} strokeWidth={3} color="#FBBF24" />
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#FBBF24", fontFamily: FONT }}>
+          Not Delivered
+        </span>
+      </div>
+    );
+  }
+
+  const current = statusToStep(status);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "10px 0 2px", width: "100%" }}>
+      {RAIL_STEPS.map((step, idx) => {
+        const isDone = idx < current;
+        const isActive = idx === current;
+        const isFuture = idx > current;
+        return (
+          <div key={step.key} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flex: "0 0 auto" }}>
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.3)" : "#2a2a2a",
+                  border: isActive ? `2px solid ${YELLOW}` : isDone ? "2px solid rgba(245,227,45,0.5)" : "2px solid #3a3a3a",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                {isDone ? (
+                  <Check size={10} strokeWidth={3} color="#f5e32d" />
+                ) : isActive ? (
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#000" }} />
+                ) : null}
+              </div>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: isActive ? 800 : 600,
+                  color: isActive ? YELLOW : isDone ? "rgba(245,227,45,0.7)" : "#555",
+                  fontFamily: FONT,
+                  letterSpacing: "0.02em",
+                  transition: "color 0.3s ease",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {step.label}
+              </span>
+            </div>
+            {idx < RAIL_STEPS.length - 1 && (
+              <div
+                style={{
+                  flex: 1,
+                  height: 2,
+                  marginBottom: 16,
+                  background: isDone ? "rgba(245,227,45,0.4)" : "#2a2a2a",
+                  borderRadius: 1,
+                  transition: "background 0.3s ease",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OrderCard({
   order,
   highlighted,
@@ -1430,12 +1538,9 @@ function OrderCard({
             onClick={onReject}
             className="vk-order-btn vk-order-btn-reject"
             style={{
-              height: "44px",
+              height: mobile ? "48px" : "44px",
               padding: mobile ? "0 18px" : "0 14px",
-              // Sized for the busy label so swapping "Reject" → spinner +
-              // "Rejecting" cannot widen the button and shove the row into
-              // the price beside it.
-              minWidth: mobile ? 124 : 112,
+              minWidth: mobile ? 0 : 112,
               borderRadius: "12px",
               border: "1.5px solid rgba(239,68,68,0.35)",
               background: "rgba(239,68,68,0.08)",
@@ -1464,9 +1569,9 @@ function OrderCard({
             onClick={onAccept}
             className="vk-order-btn vk-order-btn-accept"
             style={{
-              height: "44px",
+              height: mobile ? "48px" : "44px",
               padding: mobile ? "0 22px" : "0 18px",
-              minWidth: mobile ? 130 : 118,
+              minWidth: mobile ? 0 : 118,
               borderRadius: "12px",
               border: "none",
               background: YELLOW,
@@ -1529,16 +1634,16 @@ function OrderCard({
     if (!singleAction) return null;
 
     return (
-      <div className="vk-order-card-actions">
+      <div className="vk-order-card-actions vk-order-card-actions--single">
         <button
           type="button"
           disabled={busy}
           onClick={singleAction.onClick}
           className="vk-order-btn vk-order-btn-yellow"
           style={{
-            height: "44px",
+            height: mobile ? "48px" : "44px",
             padding: mobile ? "0 22px" : "0 16px",
-            minWidth: mobile ? 138 : 126,
+            minWidth: mobile ? 0 : 126,
             borderRadius: "12px",
             border: "none",
             background: YELLOW,
@@ -1668,10 +1773,12 @@ function OrderCard({
         )}
       </div>
 
+      {mobile && <OrderStatusRail status={order.status} />}
+
       {isDispatched && (order.driver_arrived_at || driverFixForOrder(order)) ? <DriverTrackRow order={order} /> : null}
       {isUndelivered ? <CodBlockRow order={order} /> : null}
 
-      {/* Footer — totals left, actions right */}
+      {/* Footer — totals top, actions below on mobile; side-by-side on desktop */}
       <div
         className="vk-order-card-footer"
         style={{
@@ -1679,18 +1786,20 @@ function OrderCard({
           paddingTop: mobile ? "10px" : "4px",
           borderTop: mobile ? "1px solid rgba(255,255,255,0.06)" : undefined,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          alignItems: mobile ? undefined : "center",
+          justifyContent: mobile ? undefined : "space-between",
           flexShrink: 0,
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="vk-order-card-footer-total">
-          <div style={{ fontSize: "12px", fontWeight: 600, color: "#888", marginBottom: "4px" }}>
-            × {items.length} Item{items.length !== 1 ? "s" : ""}
-          </div>
-          <div style={{ lineHeight: 1 }}>
-            <RupeeAmount amount={totalAmount} size={22} mobile={mobile} cardTotal={!mobile} />
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <div style={{ lineHeight: 1 }}>
+              <RupeeAmount amount={totalAmount} size={mobile ? 20 : 22} mobile={mobile} cardTotal={!mobile} />
+            </div>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#888" }}>
+              × {items.length} Item{items.length !== 1 ? "s" : ""}
+            </span>
           </div>
         </div>
         {footerActions}
