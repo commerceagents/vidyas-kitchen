@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import {
   type DashboardOrder,
@@ -129,33 +130,90 @@ function MetricCard({
   );
 }
 
+type MenuBox = {
+  top?: number;
+  bottom?: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+};
+
 function RevenueDropdown<T extends string | number>({
   value,
   options,
   onChange,
   ariaLabel,
   minWidth = 72,
-  menuUp = false,
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
   ariaLabel: string;
   minWidth?: number;
-  menuUp?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<MenuBox | null>(null);
   const selected = options.find((o) => o.value === value);
+
+  const placeMenu = () => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 6;
+    const margin = 12;
+    const navReserve = window.innerWidth < 1024 ? 100 : margin;
+    const width = Math.max(rect.width, 148);
+    let left = rect.left;
+    if (left + width > window.innerWidth - margin) left = window.innerWidth - margin - width;
+    if (left < margin) left = margin;
+
+    const spaceBelow = window.innerHeight - rect.bottom - gap - navReserve;
+    const spaceAbove = rect.top - gap - margin;
+    const openBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(120, Math.min(280, openBelow ? spaceBelow : spaceAbove));
+
+    setBox(
+      openBelow
+        ? { top: rect.bottom + gap, left, width, maxHeight }
+        : { bottom: window.innerHeight - rect.top + gap, left, width, maxHeight },
+    );
+  };
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    placeMenu();
+    const onDoc = (e: Event) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", placeMenu);
+    window.addEventListener("scroll", placeMenu, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", placeMenu);
+      window.removeEventListener("scroll", placeMenu, true);
+    };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !box) return;
+    const frame = requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLElement>("[aria-selected='true']")?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, box]);
 
   return (
     <div ref={ref} className="vk-revenue-dropdown" style={{ position: "relative", display: "inline-flex" }}>
@@ -166,9 +224,9 @@ function RevenueDropdown<T extends string | number>({
         aria-haspopup="listbox"
         onClick={() => setOpen((o) => !o)}
         style={{
-          border: `1px solid ${BORDER}`,
+          border: `1px solid ${open ? YELLOW : BORDER}`,
           background: "#222",
-          color: "#ccc",
+          color: "#fff",
           borderRadius: 10,
           padding: "8px 32px 8px 12px",
           fontSize: 13,
@@ -194,60 +252,64 @@ function RevenueDropdown<T extends string | number>({
           transition: "transform 0.15s ease",
         }}
       />
-      {open && (
-        <div
-          role="listbox"
-          aria-label={ariaLabel}
-          className="vk-revenue-dropdown-menu"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            ...(menuUp
-              ? { bottom: "calc(100% + 4px)", top: "auto" }
-              : { top: "calc(100% + 4px)" }),
-            background: "#222",
-            border: `1px solid ${BORDER}`,
-            borderRadius: 10,
-            overflow: "hidden",
-            zIndex: 30,
-            maxHeight: 220,
-            overflowY: "auto",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
-          }}
-        >
-          {options.map((opt) => {
-            const active = opt.value === value;
-            return (
-              <button
-                key={String(opt.value)}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  border: "none",
-                  background: active ? "rgba(245, 227, 45, 0.14)" : "transparent",
-                  color: active ? YELLOW : "#ccc",
-                  padding: "8px 12px",
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontFamily: FONT,
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {open &&
+        box &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            aria-label={ariaLabel}
+            className="vk-revenue-dropdown-menu"
+            style={{
+              position: "fixed",
+              top: box.top,
+              bottom: box.bottom,
+              left: box.left,
+              width: box.width,
+              background: "#1c1c1c",
+              border: `1px solid #3a3a3a`,
+              borderRadius: 12,
+              zIndex: 80,
+              maxHeight: box.maxHeight,
+              overflowY: "auto",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.55)",
+              padding: 4,
+            }}
+          >
+            {options.map((opt) => {
+              const active = opt.value === value;
+              return (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    border: "none",
+                    borderRadius: 8,
+                    background: active ? "rgba(245, 227, 45, 0.16)" : "transparent",
+                    color: active ? YELLOW : "#eee",
+                    padding: "12px 14px",
+                    fontSize: 15,
+                    fontWeight: active ? 700 : 500,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontFamily: FONT,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -279,18 +341,16 @@ function YearPicker({
 function MonthYearPicker({
   month,
   onMonthChange,
-  menuUp = false,
 }: {
   month: MonthKey;
   onMonthChange: (m: MonthKey) => void;
-  menuUp?: boolean;
 }) {
   const years = useMemo(() => availableYears(), []);
   const monthKeys = useMemo(() => monthsForYear(month.year), [month.year]);
 
   const monthOptions = monthKeys.map((m) => ({
     value: m.month,
-    label: new Date(m.year, m.month, 1).toLocaleDateString("en-IN", { month: "short" }),
+    label: new Date(m.year, m.month, 1).toLocaleDateString("en-IN", { month: "long" }),
   }));
 
   const yearOptions = years.map((y) => ({
@@ -299,14 +359,13 @@ function MonthYearPicker({
   }));
 
   return (
-    <div className="vk-revenue-month-year-picker" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div className="vk-revenue-month-year-picker" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
       <RevenueDropdown
         value={month.month}
         options={monthOptions}
         onChange={(m) => onMonthChange({ year: month.year, month: m })}
         ariaLabel="Select month"
-        minWidth={72}
-        menuUp={menuUp}
+        minWidth={128}
       />
       <RevenueDropdown
         value={month.year}
@@ -314,7 +373,6 @@ function MonthYearPicker({
         onChange={(y) => onMonthChange(clampMonthToYear(month, y))}
         ariaLabel="Select year"
         minWidth={76}
-        menuUp={menuUp}
       />
     </div>
   );
@@ -663,7 +721,7 @@ function RevenueCalendar({
             flexShrink: 0,
           }}
         >
-          <MonthYearPicker month={month} onMonthChange={onMonthChange} menuUp={hideTitle} />
+          <MonthYearPicker month={month} onMonthChange={onMonthChange} />
         </div>
       </div>
       <p className="vk-revenue-cal-summary" style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#888", lineHeight: 1.4 }}>
