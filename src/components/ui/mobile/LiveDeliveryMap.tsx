@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import Map, { Layer, Marker, Source, type MapRef } from "react-map-gl/mapbox";
 import along from "@turf/along";
 import { lineString, point } from "@turf/helpers";
@@ -90,22 +91,35 @@ function tailFromRider(coords: [number, number][], here: LatLng | null): [number
 }
 
 /**
- * Classic teardrop. The head is a circle; the tail is two straight lines to a
- * tip on the vertical centre. Nothing here rotates — bearing only turns the rider.
- * The route ends on this tip, so the line meets the door.
+ * Door mark: a still dot the route meets, and a dark circle above it.
+ * Only the circle springs in. The house is an outline, not a solid stamp.
  */
 function HomePin() {
   return (
-    <svg width="32" height="45" viewBox="0 0 40 56" aria-hidden style={{ display: "block", transform: "none" }}>
-      <circle cx="20" cy="19.6" r="19.6" fill={C.red} stroke="none" />
-      <path fill={C.red} stroke="none" d="M20 56 L3.48 30.15 L36.52 30.15 Z" />
-      <path
-        fill="#fff"
-        stroke="none"
-        fillRule="evenodd"
-        d="M20 12.2 L11.6 19.2 V26.2 H28.4 V19.2 Z M18.15 26.2 V22.2 H21.85 V26.2 Z"
-      />
-    </svg>
+    <div aria-hidden style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 40, pointerEvents: "none" }}>
+      <motion.div
+        initial={{ scale: 0.35, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 140, damping: 12, mass: 0.9 }}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: "#1C1C1E",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transformOrigin: "50% 50%",
+        }}
+      >
+        <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden>
+          <path d="M2 7.2 9 1.4 16 7.2" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3.4 6.8V14.2H7.1V9.6H10.9V14.2H14.6V6.8" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      </motion.div>
+      <div style={{ width: 2, height: 6, background: "#1C1C1E" }} />
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#1C1C1E" }} />
+    </div>
   );
 }
 
