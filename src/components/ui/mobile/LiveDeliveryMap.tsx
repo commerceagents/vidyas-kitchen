@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Map, { Layer, Marker, Source, type MapRef } from "react-map-gl/mapbox";
-import { Motorcycle } from "@phosphor-icons/react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { haversineMeters } from "@/lib/geo";
@@ -24,6 +23,17 @@ const ROUTE_MAX_AGE_MS = 45_000;
 type LatLng = { lat: number; lng: number };
 type Route = { coords: [number, number][]; distanceM: number; durationS: number };
 
+/** Scooter art faces east. Bearing 0 is north, so the marker is turned by bearing − 90. */
+const FACING_OFFSET_DEG = -90;
+
+/** Shortest turn, kept unwrapped so CSS doesn't spin the long way around. */
+function nextRotation(current: number | null, bearing: number): number {
+  const target = bearing + FACING_OFFSET_DEG;
+  if (current == null) return target;
+  const delta = ((target - current + 540) % 360) - 180;
+  return current + delta;
+}
+
 function bearingBetween(from: LatLng, to: LatLng): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
@@ -31,6 +41,25 @@ function bearingBetween(from: LatLng, to: LatLng): number {
     Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) -
     Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Top-down scooter and helmet, nose pointing east so map rotation can turn it. */
+function RiderScooter() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden>
+      <circle cx="13" cy="33" r="8" fill="#141414" />
+      <circle cx="13" cy="33" r="3.2" fill="#ECECEC" />
+      <circle cx="52" cy="33" r="7" fill="#141414" />
+      <circle cx="52" cy="33" r="2.6" fill="#ECECEC" />
+      <path d="M18 30.5h22c2.2 0 3.5 1.4 3.5 3s-1.3 3-3.5 3H18c-1.6 0-2.6-1.2-2.6-3s1-3 2.6-3z" fill="#1C1C1E" />
+      <path d="M22 32.4h11" stroke="#E8492D" strokeWidth="2" strokeLinecap="round" />
+      <ellipse cx="29" cy="31" rx="8.5" ry="6.5" fill="#242426" />
+      <circle cx="41" cy="30" r="7.2" fill="#F7F4EE" />
+      <path d="M41 24.6a5.2 5.2 0 0 1 4.8 3.4H36.2A5.2 5.2 0 0 1 41 24.6z" fill="#1A1A1A" />
+      <path d="M43.4 28.6h5.4a1.8 1.8 0 0 1 0 3.5h-5.4z" fill="#141414" />
+      <path d="M46 25.5h8M50 23.2v8.6" stroke="#3A3A3C" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function minutesAgo(at: string | null | undefined): number | null {
@@ -62,11 +91,13 @@ export function LiveDeliveryMap({
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [shown, setShown] = useState<LatLng | null>(null);
-  const [heading, setHeading] = useState(0);
+  const [rotation, setRotation] = useState(0);
+  const [turnReady, setTurnReady] = useState(false);
   const [route, setRoute] = useState<Route | null>(null);
   const [userMoved, setUserMoved] = useState(false);
   const frame = useRef(0);
   const shownRef = useRef<LatLng | null>(null);
+  const rotationRef = useRef<number | null>(null);
   const routeReqRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
 
   useEffect(() => {
@@ -89,7 +120,10 @@ export function LiveDeliveryMap({
     const step = (now: number) => {
       if (first) {
         first = false;
-        setHeading(bearingBetween(from, to));
+        const next = nextRotation(rotationRef.current, bearingBetween(from, to));
+        rotationRef.current = next;
+        setRotation(next);
+        setTurnReady(true);
       }
       // Linear: a bike covering ground at a steady speed, not one that sprints
       // and then crawls into place.
@@ -200,7 +234,7 @@ export function LiveDeliveryMap({
         [minLng, minLat],
         [maxLng, maxLat],
       ],
-      { padding: { top: 54, bottom: 76, left: 44, right: 44 }, maxZoom: 15.5, duration: 1200 },
+      { padding: { top: 72, bottom: 88, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
     );
   }, [driverLat, driverLng, customerLat, customerLng, route, userMoved]);
 
@@ -284,50 +318,30 @@ export function LiveDeliveryMap({
 
         {shown ? (
           <Marker longitude={shown.lng} latitude={shown.lat} anchor="center">
-            <span
+            <div
               style={{
-                position: "relative",
+                width: 64,
+                height: 64,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 44,
-                height: 44,
                 opacity: driverStale ? 0.55 : 1,
+                pointerEvents: "none",
               }}
             >
-              {driverStale ? null : (
-                <span
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "50%",
-                    background: "rgba(189,35,32,0.18)",
-                    animation: "vkBikePulse 1.8s ease-out infinite",
-                  }}
-                />
-              )}
-              <span
+              <div
                 style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 34,
-                  height: 34,
-                  borderRadius: "50%",
-                  background: driverStale ? "#7A7A7A" : "#1A1A1A",
-                  border: "2.5px solid #fff",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.3)",
-                  // The icon draws a bike facing right, so heading west just
-                  // mirrors it. Rotating a full 360° would ride it upside down.
-                  transform: heading > 180 ? "scaleX(-1)" : "none",
-                  transition: "transform 0.5s ease",
+                  width: 64,
+                  height: 64,
+                  transform: `rotate(${rotation}deg)`,
+                  transformOrigin: "center center",
+                  transition: turnReady ? "transform 0.4s ease-out" : "none",
+                  filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.38))",
                 }}
               >
-                <Motorcycle size={19} weight="fill" color="#fff" />
-              </span>
-            </span>
+                <RiderScooter />
+              </div>
+            </div>
           </Marker>
         ) : null}
       </Map>
@@ -391,10 +405,6 @@ export function LiveDeliveryMap({
       ) : null}
 
       <style>{`
-        @keyframes vkBikePulse {
-          0% { transform: scale(0.55); opacity: 0.85; }
-          100% { transform: scale(1.5); opacity: 0; }
-        }
         @keyframes vkBikeBlink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.25; }
