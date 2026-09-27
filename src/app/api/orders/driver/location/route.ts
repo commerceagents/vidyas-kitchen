@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { notifyWhatsAppDriverLocation } from "@/lib/whatsapp-order-notify";
 
@@ -60,6 +60,20 @@ export async function POST(request: Request) {
   if (up) {
     console.error("[driver/location]", up);
     return NextResponse.json({ error: up.message }, { status: 500 });
+  }
+
+  // Orders dispatched before the name columns existed have a blank driver.
+  // The phone that is actually sharing this trip fills that in, without
+  // overwriting a name the dashboard already saved.
+  const driverName = auth.driver.name?.trim() || "";
+  const driverPhone = normalizeDriverPhone(auth.driver.phone);
+  if (driverName && driverPhone) {
+    const { error: named } = await supabase
+      .from("orders")
+      .update({ driver_name: driverName, driver_phone: driverPhone })
+      .eq("id", orderId)
+      .is("driver_name", null);
+    if (named) console.error("[driver/location] driver name", named.message);
   }
 
   // Best-effort, and heavily throttled inside. The driver app polls often, so

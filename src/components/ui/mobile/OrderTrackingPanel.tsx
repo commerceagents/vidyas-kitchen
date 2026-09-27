@@ -925,9 +925,15 @@ export function OrderTrackingPanel({
   // Arrival is a moment inside out_for_delivery rather than its own status, so
   // it overrides the hero copy instead of moving the stage rail forward.
   const driverArrived = outForDelivery && Boolean(trackSnap?.driverArrivedAt);
+  const driverWho = trackSnap?.driverName?.trim() || "";
   const hero = driverArrived
-    ? { headline: "Your driver has arrived", sub: "They're at your door with your order" }
-    : heroCopy(trackSnap?.status ?? "");
+    ? {
+        headline: "Your driver has arrived",
+        sub: driverWho ? `${driverWho} is at your door` : "They're at your door with your order",
+      }
+    : driverWho && outForDelivery
+      ? { headline: "On the way", sub: `${driverWho} is on the way to deliver your order` }
+      : heroCopy(trackSnap?.status ?? "");
   const eta = etaParts(trackSnap?.deliverySlot);
   const undelivered = n === "undelivered";
   // Prefer the address the order was actually placed against; the `location`

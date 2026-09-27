@@ -7,3 +7,5 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_phone TEXT;
 
 COMMENT ON COLUMN orders.driver_name IS 'Driver chosen in the dashboard when the order was dispatched.';
 COMMENT ON COLUMN orders.driver_phone IS 'That driver''s phone, last 10 digits. Shown to the customer only after they tap call.';
+
+NOTIFY pgrst, 'reload schema';
