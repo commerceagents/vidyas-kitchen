@@ -185,8 +185,13 @@ export default function DriversPage() {
       return !saved || saved.name !== d.name || saved.phone !== d.phone;
     });
 
+  const driversEmpty = !loading && drivers.length === 0 && !listError;
+
   const content = (
-    <div className="vk-drivers-content" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+    <div
+      className={`vk-drivers-content${driversEmpty ? " vk-drivers-empty" : ""}`}
+      style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 16, flexShrink: 0 }}>
         <button
           type="button"
@@ -572,9 +577,10 @@ export default function DriversPage() {
             WebkitOverflowScrolling: "touch",
             overscrollBehavior: "contain",
             padding: "16px 16px calc(96px + env(safe-area-inset-bottom, 0px))",
+            ...(driversEmpty ? { display: "flex", flexDirection: "column" } : {}),
           }}
         >
-          <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>Drivers</h2>
+          <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT, flexShrink: 0 }}>Drivers</h2>
           {content}
         </div>
         <DashboardMobileNav />

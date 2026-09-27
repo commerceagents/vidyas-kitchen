@@ -263,6 +263,11 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     min-height: auto !important;
     overflow: visible !important;
   }
+  /* Empty list fills the screen under the title, same as the orders board. */
+  .vk-drivers-content.vk-drivers-empty {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
   .vk-drivers-save {
     position: fixed;
     left: 16px;
