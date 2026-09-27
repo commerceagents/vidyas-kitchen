@@ -90,39 +90,9 @@ function tailFromRider(coords: [number, number][], here: LatLng | null): [number
 }
 
 /**
- * How far (in screen pixels) the route stops short of the door. The line's
- * round end was merging with the tip and reading as a tail bent along the road.
- * This parks that end under the round head so the triangle hangs straight down.
- */
-const PIN_TIP_CLEAR_PX = 22;
-
-/** Drop the last few pixels of a line so it ends under the pin head, not beside the tip. */
-function trimTipPx(map: MapRef, coords: [number, number][], px: number): [number, number][] {
-  if (coords.length < 2 || px <= 0) return coords;
-  try {
-    const end = coords[coords.length - 1];
-    let prev = map.project({ lng: end[0], lat: end[1] });
-    let walked = 0;
-    for (let i = coords.length - 2; i >= 0; i--) {
-      const p = map.project({ lng: coords[i][0], lat: coords[i][1] });
-      const seg = Math.hypot(p.x - prev.x, p.y - prev.y);
-      if (seg > 0 && walked + seg >= px) {
-        const t = (px - walked) / seg;
-        const at = map.unproject([prev.x + (p.x - prev.x) * t, prev.y + (p.y - prev.y) * t]);
-        return [...coords.slice(0, i + 1), [at.lng, at.lat]];
-      }
-      walked += seg;
-      prev = p;
-    }
-  } catch {
-    return coords;
-  }
-  return coords;
-}
-
-/**
  * Classic teardrop. The head is a circle; the tail is two straight lines to a
  * tip on the vertical centre. Nothing here rotates — bearing only turns the rider.
+ * The route ends on this tip, so the line meets the door.
  */
 function HomePin() {
   return (
@@ -177,8 +147,6 @@ export function LiveDeliveryMap({
   /** The polyline the scooter is actually riding, which can lag one GPS ping behind the latest fetch. */
   const [roadCoords, setRoadCoords] = useState<[number, number][] | null>(null);
   const [userMoved, setUserMoved] = useState(false);
-  /** Bumps when the camera settles so the route can be trimmed in screen pixels. */
-  const [camTick, setCamTick] = useState(0);
   const frame = useRef(0);
   const shownRef = useRef<LatLng | null>(null);
   const onEtaRef = useRef(onEta);
@@ -405,11 +373,8 @@ export function LiveDeliveryMap({
   // Without a road route we still draw driver → door, just dashed, so it reads
   // as "roughly this way" rather than "ride through these buildings".
   const pathFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
-    const map = mapRef.current;
-    const finish = (coords: [number, number][]) =>
-      map ? trimTipPx(map, coords, PIN_TIP_CLEAR_PX) : coords;
     if (roadCoords && roadCoords.length >= 2) {
-      const coords = finish(tailFromRider(roadCoords, shown));
+      const coords = tailFromRider(roadCoords, shown);
       if (coords.length < 2) return null;
       return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
     }
@@ -419,15 +384,13 @@ export function LiveDeliveryMap({
       properties: {},
       geometry: {
         type: "LineString",
-        coordinates: finish([
+        coordinates: [
           [driverLng, driverLat],
           [customerLng, customerLat],
-        ]),
+        ],
       },
     };
-    // camTick retrims after the camera moves; the map ref itself is not a dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roadCoords, shown, driverLat, driverLng, customerLat, customerLng, camTick]);
+  }, [roadCoords, shown, driverLat, driverLng, customerLat, customerLng]);
 
   const onRoad = Boolean(route?.coords?.length);
 
@@ -498,8 +461,6 @@ export function LiveDeliveryMap({
         dragRotate={false}
         pitchWithRotate={false}
         touchZoomRotate={false}
-        onLoad={() => setCamTick((n) => n + 1)}
-        onMoveEnd={() => setCamTick((n) => n + 1)}
         onDragStart={(e) => {
           // Only a real gesture counts; our own fitBounds fires the same event
           // without an originalEvent, and typings don't carry the field.
