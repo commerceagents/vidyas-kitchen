@@ -605,6 +605,123 @@ function WhatsAppBrandIcon({ size = 22 }: { size?: number }) {
   );
 }
 
+function rideSeenLabel(at: string | null): string {
+  if (!at) return "Waiting for a fresh location";
+  const t = new Date(at).getTime();
+  if (!Number.isFinite(t)) return "Waiting for a fresh location";
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return mins < 1 ? "Last seen just now" : `Last seen ${mins} min ago`;
+}
+
+/** Driver and live minutes, sitting under the map so the route stays visible. */
+function RideStatusCard({
+  arrived,
+  driverOnMap,
+  fresh,
+  eta,
+  slot,
+  orderRef,
+  fixAt,
+}: {
+  arrived: boolean;
+  driverOnMap: boolean;
+  fresh: boolean;
+  eta: { minutes: number; metres: number } | null;
+  slot: { date: string; time: string } | null;
+  orderRef: string;
+  fixAt: string | null;
+}) {
+  const here = arrived || (eta != null && eta.metres < 80);
+  const title = here ? "At your door" : "Out for delivery";
+  const sub = here
+    ? "Your driver is here with your order"
+    : !driverOnMap
+      ? "Your driver will appear once they start sharing their location"
+      : !fresh
+        ? rideSeenLabel(fixAt)
+        : "Your driver is on the way to deliver your order";
+  const timerMain = here ? "Here" : eta ? String(eta.minutes) : "–";
+  const timerUnit = here || !eta ? "" : eta.minutes === 1 ? "min" : "mins";
+
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        background: C.white,
+        borderRadius: 22,
+        border: `1px solid ${C.border}`,
+        boxShadow: "0 10px 28px rgba(0,0,0,0.06)",
+        padding: "14px 14px 12px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span
+          aria-hidden
+          style={{
+            width: 54,
+            height: 54,
+            flexShrink: 0,
+            borderRadius: 16,
+            background: "#F6F3EE",
+            border: "1px solid rgba(0,0,0,0.05)",
+            backgroundImage: "url(/rider-topdown.png)",
+            backgroundSize: "72%",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
+            {title}
+          </p>
+          <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.35 }}>
+            {sub}
+          </p>
+        </div>
+        <div
+          aria-label={here ? "Driver is here" : eta ? `${eta.minutes} minutes away` : "Estimating arrival"}
+          style={{
+            width: 58,
+            height: 58,
+            flexShrink: 0,
+            borderRadius: 16,
+            background: "linear-gradient(180deg, #3CBF6E 0%, #1C9A4C 100%)",
+            color: "#fff",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 6px 14px rgba(28,154,76,0.28)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: here ? 15 : 22,
+              fontWeight: 800,
+              fontFamily: fontUi,
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            {timerMain}
+          </span>
+          {timerUnit ? (
+            <span style={{ marginTop: 1, fontSize: 11, fontWeight: 700, fontFamily: fontUi, opacity: 0.92 }}>{timerUnit}</span>
+          ) : null}
+        </div>
+      </div>
+      {slot ? (
+        <p style={{ margin: "10px 2px 0", fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.38)", fontFamily: fontUi }}>
+          {slot.date} · {slot.time}
+        </p>
+      ) : null}
+      <p style={{ margin: "4px 2px 0", fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.28)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
+        ORDER {orderRef}
+      </p>
+    </div>
+  );
+}
+
 export function OrderTrackingPanel({
   trackingOrderId,
   preview = false,
@@ -638,10 +755,12 @@ export function OrderTrackingPanel({
   ratingSending: boolean;
   submitOrderRating: (n: number) => void;
 }) {
+  const [rideEta, setRideEta] = useState<{ minutes: number; metres: number } | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [pickedStars, setPickedStars] = useState<number | null>(null);
   useEffect(() => {
     setPickedStars(null);
+    setRideEta(null);
   }, [trackingOrderId]);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
@@ -879,16 +998,30 @@ export function OrderTrackingPanel({
                       driverLat={driverLat ?? null}
                       driverLng={driverLng ?? null}
                       driverStale={driverLat != null && !driverFixFresh}
-                      driverFixAt={trackSnap?.driverLocationAt ?? null}
                       height={preview ? 360 : 280}
+                      onEta={setRideEta}
                     />
                   ) : null}
                 </div>
 
+                {showLiveMap ? (
+                  <>
+                  {trackingOrderId ? <StageChangeBurst orderId={trackingOrderId} stage={stage} /> : null}
+                  <RideStatusCard
+                    arrived={driverArrived}
+                    driverOnMap={driverLat != null}
+                    fresh={driverFixFresh}
+                    eta={rideEta}
+                    slot={eta}
+                    orderRef={formatOrderRef(trackSnap?.orderNumber, trackingOrderId)}
+                    fixAt={trackSnap?.driverLocationAt ?? null}
+                  />
+                  </>
+                ) : (
                 <div
                   style={{
                     position: "relative",
-                    marginTop: showLiveMap ? 12 : -108,
+                    marginTop: -108,
                     marginLeft: 16,
                     marginRight: 16,
                     background: C.white,
@@ -974,6 +1107,7 @@ export function OrderTrackingPanel({
                     </p>
                   </div>
                 </div>
+                )}
               </div>
               )}
 
@@ -1435,7 +1569,7 @@ export function OrderTrackingPanel({
                 </div>
               ) : null}
 
-              {showLiveMap ? (
+              {showLiveMap && preview ? (
                 <p
                   style={{
                     margin: "-4px 0 14px",
@@ -1446,13 +1580,7 @@ export function OrderTrackingPanel({
                     textAlign: "center",
                   }}
                 >
-                  {preview
-                    ? "Preview. The bike glides along a sample route in Sivakasi. On a real order it follows the driver’s phone."
-                    : driverLat == null
-                      ? "Your driver will appear on the map once they start sharing their location."
-                      : driverFixFresh
-                        ? "The bike is your driver, following the red route to your pin."
-                        : "This is where your driver was last seen — the bike moves again as soon as their phone reports in."}
+                  Preview. The scooter follows a sample route in Sivakasi.
                 </p>
               ) : null}
 

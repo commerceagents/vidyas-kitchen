@@ -23,8 +23,8 @@ const ROUTE_MAX_AGE_MS = 45_000;
 type LatLng = { lat: number; lng: number };
 type Route = { coords: [number, number][]; distanceM: number; durationS: number };
 
-/** Scooter art faces east. Bearing 0 is north, so the marker is turned by bearing − 90. */
-const FACING_OFFSET_DEG = -90;
+/** The scooter art already faces north, so bearing 0° is rotate(0). */
+const FACING_OFFSET_DEG = 0;
 
 /** Shortest turn, kept unwrapped so CSS doesn't spin the long way around. */
 function nextRotation(current: number | null, bearing: number): number {
@@ -43,32 +43,6 @@ function bearingBetween(from: LatLng, to: LatLng): number {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-/** Top-down scooter and helmet, nose pointing east so map rotation can turn it. */
-function RiderScooter() {
-  return (
-    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden>
-      <circle cx="13" cy="33" r="8" fill="#141414" />
-      <circle cx="13" cy="33" r="3.2" fill="#ECECEC" />
-      <circle cx="52" cy="33" r="7" fill="#141414" />
-      <circle cx="52" cy="33" r="2.6" fill="#ECECEC" />
-      <path d="M18 30.5h22c2.2 0 3.5 1.4 3.5 3s-1.3 3-3.5 3H18c-1.6 0-2.6-1.2-2.6-3s1-3 2.6-3z" fill="#1C1C1E" />
-      <path d="M22 32.4h11" stroke="#E8492D" strokeWidth="2" strokeLinecap="round" />
-      <ellipse cx="29" cy="31" rx="8.5" ry="6.5" fill="#242426" />
-      <circle cx="41" cy="30" r="7.2" fill="#F7F4EE" />
-      <path d="M41 24.6a5.2 5.2 0 0 1 4.8 3.4H36.2A5.2 5.2 0 0 1 41 24.6z" fill="#1A1A1A" />
-      <path d="M43.4 28.6h5.4a1.8 1.8 0 0 1 0 3.5h-5.4z" fill="#141414" />
-      <path d="M46 25.5h8M50 23.2v8.6" stroke="#3A3A3C" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function minutesAgo(at: string | null | undefined): number | null {
-  if (!at) return null;
-  const t = new Date(at).getTime();
-  if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.round((Date.now() - t) / 60000));
-}
-
 export function LiveDeliveryMap({
   token,
   customerLat,
@@ -77,8 +51,8 @@ export function LiveDeliveryMap({
   driverLng,
   /** True when the last GPS fix is old enough that the bike is a memory, not a live position. */
   driverStale = false,
-  driverFixAt = null,
   height,
+  onEta,
 }: {
   token: string;
   customerLat: number;
@@ -86,8 +60,9 @@ export function LiveDeliveryMap({
   driverLat: number | null;
   driverLng: number | null;
   driverStale?: boolean;
-  driverFixAt?: string | null;
   height: number;
+  /** Live road time, so the card under the map can show it without covering the route. */
+  onEta?: (eta: { minutes: number; metres: number } | null) => void;
 }) {
   const mapRef = useRef<MapRef | null>(null);
   const [shown, setShown] = useState<LatLng | null>(null);
@@ -97,6 +72,8 @@ export function LiveDeliveryMap({
   const [userMoved, setUserMoved] = useState(false);
   const frame = useRef(0);
   const shownRef = useRef<LatLng | null>(null);
+  const onEtaRef = useRef(onEta);
+  onEtaRef.current = onEta;
   const rotationRef = useRef<number | null>(null);
   const routeReqRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
 
@@ -246,28 +223,22 @@ export function LiveDeliveryMap({
         [minLng, minLat],
         [maxLng, maxLat],
       ],
-      { padding: { top: 72, bottom: 88, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
+      { padding: { top: 56, bottom: 56, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
     );
   }, [driverLat, driverLng, customerLat, customerLng, route, userMoved]);
 
-  const etaMin = route ? Math.max(1, Math.round(route.durationS / 60)) : null;
-  const awayText = route
-    ? route.distanceM < 950
-      ? `${Math.round(route.distanceM / 10) * 10} m away`
-      : `${(route.distanceM / 1000).toFixed(1)} km away`
-    : null;
-  const staleMin = driverStale ? minutesAgo(driverFixAt) : null;
-
-  const badge =
-    driverLat == null
-      ? null
-      : driverStale
-        ? staleMin != null
-          ? `Last seen ${staleMin < 1 ? "just now" : `${staleMin} min ago`}`
-          : "Last known position"
-        : etaMin != null
-          ? `${etaMin} min away · ${awayText}`
-          : "Driver on the move";
+  useEffect(() => {
+    const cb = onEtaRef.current;
+    if (!cb) return;
+    if (!route) {
+      cb(null);
+      return;
+    }
+    cb({
+      minutes: Math.max(1, Math.round(route.durationS / 60)),
+      metres: Math.max(0, Math.round(route.distanceM)),
+    });
+  }, [route]);
 
   return (
     <div style={{ width: "100%", height, position: "relative" }}>
@@ -332,67 +303,24 @@ export function LiveDeliveryMap({
         {shown ? (
           <Marker longitude={shown.lng} latitude={shown.lat} anchor="center" style={{ zIndex: 3 }}>
             <div
+              aria-hidden
               style={{
-                width: 64,
-                height: 64,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                width: 56,
+                height: 56,
+                backgroundImage: "url(/rider-topdown.png)",
+                backgroundSize: "contain",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin: "50% 50%",
+                transition: turnReady ? "transform 0.4s ease-out" : "none",
                 opacity: driverStale ? 0.55 : 1,
                 pointerEvents: "none",
               }}
-            >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  transform: `rotate(${rotation}deg)`,
-                  transformOrigin: "center center",
-                  transition: turnReady ? "transform 0.4s ease-out" : "none",
-                  filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.38))",
-                }}
-              >
-                <RiderScooter />
-              </div>
-            </div>
+            />
           </Marker>
         ) : null}
       </Map>
-
-      {badge ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 12,
-            bottom: 12,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "7px 12px",
-            borderRadius: 999,
-            background: "rgba(255,255,255,0.96)",
-            border: `1px solid ${C.border}`,
-            boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-            fontSize: 12,
-            fontWeight: 800,
-            color: C.text,
-            letterSpacing: "-0.01em",
-            pointerEvents: "none",
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: driverStale ? "#9A9A9A" : C.red,
-              animation: driverStale ? undefined : "vkBikeBlink 1.4s ease-in-out infinite",
-            }}
-          />
-          {badge}
-        </div>
-      ) : null}
 
       {userMoved ? (
         <button
@@ -401,7 +329,7 @@ export function LiveDeliveryMap({
           style={{
             position: "absolute",
             right: 12,
-            bottom: 12,
+            top: 12,
             padding: "7px 12px",
             borderRadius: 999,
             border: `1px solid ${C.border}`,
@@ -416,13 +344,6 @@ export function LiveDeliveryMap({
           Recentre
         </button>
       ) : null}
-
-      <style>{`
-        @keyframes vkBikeBlink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.25; }
-        }
-      `}</style>
     </div>
   );
 }
