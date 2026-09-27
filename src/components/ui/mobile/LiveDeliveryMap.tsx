@@ -84,7 +84,9 @@ function tailFromRider(coords: [number, number][], here: LatLng | null): [number
     if (Math.abs(c[0] - at.lng) < 1e-7 && Math.abs(c[1] - at.lat) < 1e-7) continue;
     tail.push(c);
   }
-  return tail.length >= 2 ? tail : coords;
+  // At the door the road ahead is gone. Drawing the whole line again paints
+  // the street already ridden, which reads as a route pointing the wrong way.
+  return tail.length >= 2 ? tail : [];
 }
 
 /** Red map pin with a white home stamped in the head. The tip is the anchor. */
@@ -206,6 +208,23 @@ export function LiveDeliveryMap({
       return () => cancelAnimationFrame(frame.current);
     }
 
+    // The sample (and a driver who heads back out) can jump from the door to
+    // the kitchen in one fix. Gliding that on the old road rides it in reverse.
+    const fartherFromDoor =
+      haversineMeters(to.lat, to.lng, customerLat, customerLng) >
+      haversineMeters(from.lat, from.lng, customerLat, customerLng) + 80;
+    if (fartherFromDoor) {
+      roadRef.current = null;
+      setRoadCoords(null);
+      alongKmRef.current = 0;
+      shownRef.current = to;
+      setShown(to);
+      const next = nextRotation(rotationRef.current, bearingBetween(to, { lat: customerLat, lng: customerLng }));
+      rotationRef.current = next;
+      setRotation(next);
+      return;
+    }
+
     if (line) {
       const snap = snapAlong(line, to.lng, to.lat);
       if (snap) {
@@ -280,8 +299,15 @@ export function LiveDeliveryMap({
     roadRef.current = line;
     setRoadCoords(route.coords);
     const here = shownRef.current;
-    const lng = here?.lng ?? driverLng;
-    const lat = here?.lat ?? driverLat;
+    // After a restart the marker can still be sitting on the door while the
+    // new fix is back at the kitchen. Follow the fix, not the stale marker.
+    const jumped =
+      here != null &&
+      driverLat != null &&
+      driverLng != null &&
+      haversineMeters(here.lat, here.lng, driverLat, driverLng) > 80;
+    const lng = jumped ? driverLng : here?.lng ?? driverLng;
+    const lat = jumped ? driverLat : here?.lat ?? driverLat;
     if (lng == null || lat == null) return;
     const snap = snapAlong(line, lng, lat);
     if (!snap) return;

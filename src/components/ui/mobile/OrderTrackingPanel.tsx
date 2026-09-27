@@ -1737,7 +1737,7 @@ export function OrderTrackingPanel({
                     textAlign: "center",
                   }}
                 >
-                  Preview. The scooter follows a sample route in Sivakasi.
+                  Preview. The scooter leaves the kitchen and rides to the door.
                 </p>
               ) : null}
 

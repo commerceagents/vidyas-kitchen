@@ -9,6 +9,7 @@ import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X,
 import { supabase } from "@/lib/supabase";
 import { readFavoriteIds, writeFavoriteIds, VK_FAVORITES_UPDATED } from "@/lib/vk-favorites";
 import { isOrderingWindowOpen } from "@/lib/delivery-slots";
+import { DELIVERY_ZONE } from "@/lib/delivery-zone";
 import { OrderTrackingPanel } from "@/components/ui/mobile/OrderTrackingPanel";
 import { OrderHistoryPanel } from "@/components/ui/mobile/OrderHistoryPanel";
 import { AccountTabPanel } from "@/components/ui/mobile/AccountTabPanel";
@@ -1903,7 +1904,7 @@ export function MobileHomeScreen({
     openedOrdersForTrack.current = true;
 
     const drop = { lat: 9.4635, lng: 77.8155 };
-    const start = { lat: 9.4472, lng: 77.7938 };
+    const start = { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
     const steps = 10;
     let step = 0;
     let hold = 0;
