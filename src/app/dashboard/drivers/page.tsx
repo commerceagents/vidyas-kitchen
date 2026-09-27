@@ -235,16 +235,24 @@ export default function DriversPage() {
             {drivers.length === 0 && !listError ? (
               <div
                 style={{
-                  padding: "28px 18px",
+                  flex: 1,
+                  minHeight: 240,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 24,
                   textAlign: "center",
-                  color: "#888",
-                  fontSize: 13,
-                  fontFamily: FONT,
-                  border: `1px dashed ${BORDER}`,
-                  borderRadius: 14,
+                  boxSizing: "border-box",
                 }}
               >
-                No drivers yet. Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
+                <Truck size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+                  No drivers yet
+                </p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+                  Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
+                </p>
               </div>
             ) : null}
             {drivers.map((d) => {
