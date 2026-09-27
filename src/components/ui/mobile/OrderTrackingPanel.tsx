@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood, Phone } from "@phosphor-icons/react";
+import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood, Phone, User } from "@phosphor-icons/react";
 import { createPortal } from "react-dom";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
@@ -762,8 +762,101 @@ function RideStatusCard({
         : who
           ? `${who} is on the way to deliver your order`
           : "Your driver is on the way to deliver your order";
-  const timerMain = here ? "Here" : eta ? String(eta.minutes) : "–";
-  const timerUnit = here || !eta ? "" : eta.minutes === 1 ? "min" : "mins";
+  const timerMain = eta ? String(eta.minutes) : "–";
+  const timerUnit = !eta ? "" : eta.minutes === 1 ? "min" : "mins";
+  const initial = who ? who.trim().charAt(0).toUpperCase() : "";
+
+  if (here) {
+    return (
+      <div
+        style={{
+          marginTop: 12,
+          background: C.white,
+          borderRadius: 20,
+          border: `1px solid ${C.border}`,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+          padding: "16px 16px 14px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 48,
+              height: 48,
+              flexShrink: 0,
+              borderRadius: "50%",
+              background: C.redFaint,
+              color: C.red,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 18,
+              fontWeight: 800,
+              fontFamily: fontUi,
+            }}
+          >
+            {initial || <User size={22} weight="fill" />}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
+              {who || "Your driver"}
+            </p>
+            <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi }}>
+              Your delivery partner
+            </p>
+          </div>
+        </div>
+        <p style={{ margin: "14px 0 0", fontSize: 19, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
+          At your door
+        </p>
+        <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.35 }}>
+          Your order has arrived
+        </p>
+        {phone ? (
+          <button
+            type="button"
+            onClick={() => setCallOpen(true)}
+            style={{
+              marginTop: 14,
+              width: "100%",
+              height: 48,
+              border: "none",
+              borderRadius: 14,
+              background: C.red,
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: 800,
+              fontFamily: fontUi,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              cursor: "pointer",
+            }}
+          >
+            <Phone size={18} weight="fill" />
+            Contact Driver
+          </button>
+        ) : null}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+          {slot ? (
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.38)", fontFamily: fontUi }}>
+              {slot.date} · {slot.time}
+            </p>
+          ) : null}
+          <p style={{ margin: slot ? "4px 0 0" : 0, fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.28)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
+            ORDER {orderRef}
+          </p>
+        </div>
+        <AnimatePresence>
+          {callOpen && phone ? (
+            <DriverCallSheet name={who || "Your driver"} phone={phone} onClose={() => setCallOpen(false)} />
+          ) : null}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div
