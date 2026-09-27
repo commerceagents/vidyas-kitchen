@@ -189,7 +189,7 @@ export function LiveDeliveryMap({
   // as "roughly this way" rather than "ride through these buildings".
   const pathFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
     const coords: [number, number][] = route?.coords?.length
-      ? route.coords
+      ? [...route.coords]
       : driverLat != null && driverLng != null
         ? [
             [driverLng, driverLat],
@@ -197,8 +197,16 @@ export function LiveDeliveryMap({
           ]
         : [];
     if (coords.length < 2) return null;
+    // The road is fetched from the latest ping. The scooter is still gliding
+    // toward it, so the line has to start at the scooter or it looks detached.
+    if (shown) {
+      const [lng, lat] = coords[0];
+      if (Math.abs(lng - shown.lng) > 1e-6 || Math.abs(lat - shown.lat) > 1e-6) {
+        coords.unshift([shown.lng, shown.lat]);
+      }
+    }
     return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
-  }, [route, driverLat, driverLng, customerLat, customerLng]);
+  }, [route, driverLat, driverLng, customerLat, customerLng, shown]);
 
   const onRoad = Boolean(route?.coords?.length);
 
@@ -214,11 +222,15 @@ export function LiveDeliveryMap({
     // Fit the whole road line, not just the endpoints: a route that swings wide
     // would otherwise spill outside the frame.
     const pts: [number, number][] = route?.coords?.length
-      ? route.coords
+      ? [...route.coords]
       : [
           [driverLng, driverLat],
           [customerLng, customerLat],
         ];
+    // The scooter is still gliding toward this fix. Leave it in the frame,
+    // otherwise the camera jumps to the new ping and the rider slides off-screen.
+    const riding = shownRef.current;
+    if (riding) pts.push([riding.lng, riding.lat]);
     let minLng = Infinity;
     let minLat = Infinity;
     let maxLng = -Infinity;
@@ -317,7 +329,7 @@ export function LiveDeliveryMap({
         </Marker>
 
         {shown ? (
-          <Marker longitude={shown.lng} latitude={shown.lat} anchor="center">
+          <Marker longitude={shown.lng} latitude={shown.lat} anchor="center" style={{ zIndex: 3 }}>
             <div
               style={{
                 width: 64,
