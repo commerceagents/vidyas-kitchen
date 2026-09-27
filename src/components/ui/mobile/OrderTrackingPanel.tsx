@@ -6,7 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
-import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood } from "@phosphor-icons/react";
+import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood, Phone } from "@phosphor-icons/react";
+import { createPortal } from "react-dom";
 import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mobile/EmptyState";
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
@@ -68,6 +69,8 @@ export type OrderTrackSnap = {
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
   driverArrivedAt?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
   cancellationDeadline?: string | null;
   paymentLinkId?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
@@ -613,6 +616,110 @@ function rideSeenLabel(at: string | null): string {
   return mins < 1 ? "Last seen just now" : `Last seen ${mins} min ago`;
 }
 
+/** Last 10 digits, shown as +91 XXXXX XXXXX. Null when it isn't a real mobile. */
+function driverPhoneParts(raw: string | null | undefined): { display: string; tel: string } | null {
+  const ten = String(raw || "").replace(/\D/g, "").slice(-10);
+  if (ten.length !== 10) return null;
+  return { display: `+91 ${ten.slice(0, 5)} ${ten.slice(5)}`, tel: `tel:+91${ten}` };
+}
+
+function DriverCallSheet({
+  name,
+  phone,
+  onClose,
+}: {
+  name: string;
+  phone: { display: string; tel: string };
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 12000,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <motion.div
+        role="dialog"
+        aria-label="Driver phone number"
+        onClick={(e) => e.stopPropagation()}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 24, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        style={{
+          width: "min(420px, 100%)",
+          margin: "0 12px 18px",
+          padding: "22px 20px 18px",
+          borderRadius: 24,
+          background: C.white,
+          boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
+          fontFamily: fontUi,
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C_TEXT_MUTED }}>{name}</p>
+        <p style={{ margin: "8px 0 0", fontSize: 28, fontWeight: 800, color: C.text, letterSpacing: "-0.03em" }}>{phone.display}</p>
+        <a
+          href={phone.tel}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            marginTop: 16,
+            height: 48,
+            borderRadius: 14,
+            background: C.red,
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 800,
+            textDecoration: "none",
+          }}
+        >
+          <Phone size={18} weight="fill" />
+          Call
+        </a>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            height: 44,
+            borderRadius: 14,
+            border: `1px solid ${C.border}`,
+            background: "transparent",
+            color: C.text,
+            fontSize: 15,
+            fontWeight: 700,
+            fontFamily: fontUi,
+            cursor: "pointer",
+          }}
+        >
+          Close
+        </button>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+}
+
 /** Driver and live minutes, sitting under the map so the route stays visible. */
 function RideStatusCard({
   arrived,
@@ -622,6 +729,8 @@ function RideStatusCard({
   slot,
   orderRef,
   fixAt,
+  driverName,
+  driverPhone,
 }: {
   arrived: boolean;
   driverOnMap: boolean;
@@ -630,16 +739,29 @@ function RideStatusCard({
   slot: { date: string; time: string } | null;
   orderRef: string;
   fixAt: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
 }) {
+  const [callOpen, setCallOpen] = useState(false);
+  const phone = driverPhoneParts(driverPhone);
+  const who = driverName?.trim() || "";
   const here = arrived || (eta != null && eta.metres < 80);
   const title = here ? "At your door" : "Out for delivery";
   const sub = here
-    ? "Your driver is here with your order"
+    ? who
+      ? `${who} is here with your order`
+      : "Your driver is here with your order"
     : !driverOnMap
-      ? "Your driver will appear once they start sharing their location"
+      ? who
+        ? `${who} is on the way to deliver your order`
+        : "Your driver will appear once they start sharing their location"
       : !fresh
-        ? rideSeenLabel(fixAt)
-        : "Your driver is on the way to deliver your order";
+        ? who
+          ? `${who} · ${rideSeenLabel(fixAt)}`
+          : rideSeenLabel(fixAt)
+        : who
+          ? `${who} is on the way to deliver your order`
+          : "Your driver is on the way to deliver your order";
   const timerMain = here ? "Here" : eta ? String(eta.minutes) : "–";
   const timerUnit = here || !eta ? "" : eta.minutes === 1 ? "min" : "mins";
 
@@ -678,6 +800,28 @@ function RideStatusCard({
             {sub}
           </p>
         </div>
+        {phone ? (
+          <button
+            type="button"
+            aria-label={`Show ${who || "driver"}'s phone number`}
+            onClick={() => setCallOpen(true)}
+            style={{
+              width: 40,
+              height: 40,
+              flexShrink: 0,
+              borderRadius: "50%",
+              border: "none",
+              background: C.redFaint,
+              color: C.red,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <Phone size={18} weight="fill" />
+          </button>
+        ) : null}
         <div
           aria-label={here ? "Driver is here" : eta ? `${eta.minutes} minutes away` : "Estimating arrival"}
           style={{
@@ -718,6 +862,11 @@ function RideStatusCard({
       <p style={{ margin: "4px 2px 0", fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.28)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
         ORDER {orderRef}
       </p>
+      <AnimatePresence>
+        {callOpen && phone ? (
+          <DriverCallSheet name={who || "Your driver"} phone={phone} onClose={() => setCallOpen(false)} />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1015,6 +1164,8 @@ export function OrderTrackingPanel({
                     slot={eta}
                     orderRef={formatOrderRef(trackSnap?.orderNumber, trackingOrderId)}
                     fixAt={trackSnap?.driverLocationAt ?? null}
+                    driverName={trackSnap?.driverName ?? null}
+                    driverPhone={trackSnap?.driverPhone ?? null}
                   />
                   </>
                 ) : (

@@ -66,6 +66,17 @@ export async function POST(req: NextRequest) {
     const driver = (drivers ?? []).find(
       (d: { id: string; phone: string }) => normalizeDriverPhone(d.phone) === phoneKey,
     );
+    const driverName = driver?.name?.trim() || null;
+    const driverPhoneSaved = phoneKey || null;
+    // Best-effort: a missing column must not block the WhatsApp or the dispatch.
+    const { error: saveDriver } = await supabaseAdmin
+      .from("orders")
+      .update({ driver_name: driverName, driver_phone: driverPhoneSaved })
+      .eq("id", orderId);
+    if (saveDriver) {
+      console.error("[assign-driver] could not store driver on the order", saveDriver.message);
+    }
+
     if (!driver) {
       console.error("[assign-driver] no driver row for phone", phoneKey);
     } else {

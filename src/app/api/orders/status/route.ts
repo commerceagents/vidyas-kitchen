@@ -96,6 +96,22 @@ export async function GET(request: Request) {
     const totalAmount = Number.isFinite(storedTotal) ? storedTotal : breakdown.computedTotal;
     const adjustment = Math.round((totalAmount - breakdown.computedTotal) * 100) / 100;
 
+    // Separate from the main select so a database that hasn't got these columns
+    // yet still returns the rest of the order.
+    let driverName: string | null = null;
+    let driverPhone: string | null = null;
+    const { data: assigned, error: assignedErr } = await supabase
+      .from("orders")
+      .select("driver_name, driver_phone")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!assignedErr && assigned) {
+      const named = String((assigned as { driver_name?: string | null }).driver_name || "").trim();
+      const phone = String((assigned as { driver_phone?: string | null }).driver_phone || "").replace(/\D/g, "").slice(-10);
+      driverName = named || null;
+      driverPhone = phone.length === 10 ? phone : null;
+    }
+
     return NextResponse.json({
       orderId: row.id,
       orderNumber: (row as { order_number?: number | null }).order_number ?? null,
@@ -116,6 +132,8 @@ export async function GET(request: Request) {
       driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
       driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
       driverArrivedAt: (row as { driver_arrived_at?: string | null }).driver_arrived_at ?? null,
+      driverName,
+      driverPhone,
       cancellationDeadline: (row as { cancellation_deadline?: string | null }).cancellation_deadline ?? null,
       refundStatus: (row as { refund_status?: string | null }).refund_status ?? null,
       refundAmount: (row as { refund_amount?: number | null }).refund_amount ?? null,

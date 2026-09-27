@@ -1698,6 +1698,8 @@ type TrackSnapshot = {
   driverLastLng?: number | null;
   driverLocationAt?: string | null;
   driverArrivedAt?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
   cancellationDeadline?: string | null;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
@@ -1736,6 +1738,8 @@ function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
     driverLastLng: num(raw.driverLastLng),
     driverLocationAt: str(raw.driverLocationAt),
     driverArrivedAt: str(raw.driverArrivedAt),
+    driverName: str(raw.driverName),
+    driverPhone: str(raw.driverPhone),
     cancellationDeadline: str(raw.cancellationDeadline),
     paymentMethod: str(raw.paymentMethod),
     paymentStatus: str(raw.paymentStatus),
