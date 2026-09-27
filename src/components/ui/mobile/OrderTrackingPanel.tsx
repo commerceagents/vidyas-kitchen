@@ -685,13 +685,13 @@ function RideStatusCard({
             height: 58,
             flexShrink: 0,
             borderRadius: 16,
-            background: "linear-gradient(180deg, #3CBF6E 0%, #1C9A4C 100%)",
+            background: `linear-gradient(180deg, #D44845 0%, ${C.red} 100%)`,
             color: "#fff",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 6px 14px rgba(28,154,76,0.28)",
+            boxShadow: "0 6px 14px rgba(189,35,32,0.28)",
           }}
         >
           <span
