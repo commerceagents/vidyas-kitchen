@@ -213,6 +213,28 @@ export default function DriversPage() {
 
       {loading ? (
         <DashboardSpinner minHeight="100%" />
+      ) : drivers.length === 0 && !listError ? (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 240,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            textAlign: "center",
+            boxSizing: "border-box",
+          }}
+        >
+          <Truck size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
+            No drivers yet
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
+            Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
+          </p>
+        </div>
       ) : (
         <>
           <div
@@ -231,29 +253,6 @@ export default function DriversPage() {
           >
             {listError ? (
               <div style={{ color: "#f87171", fontSize: 13, fontFamily: FONT, padding: "8px 2px" }}>{listError}</div>
-            ) : null}
-            {drivers.length === 0 && !listError ? (
-              <div
-                style={{
-                  flex: 1,
-                  minHeight: 240,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 24,
-                  textAlign: "center",
-                  boxSizing: "border-box",
-                }}
-              >
-                <Truck size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
-                <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
-                  No drivers yet
-                </p>
-                <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
-                  Tap Add Driver, fill name, phone and a 4–6 digit PIN, then Save Drivers.
-                </p>
-              </div>
             ) : null}
             {drivers.map((d) => {
               const unsaved = d.id.startsWith("new-");
