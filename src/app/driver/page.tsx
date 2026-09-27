@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Clock,
   Banknote,
-  User,
   Bike,
   CheckCircle2,
   AlertCircle,
@@ -19,7 +18,7 @@ import {
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
-import { D, RADIUS } from "./driver-theme";
+import { D } from "./driver-theme";
 import { DriverAuthShell, DriverLogoutButton, useSignedInDriver } from "./driver-auth-gate";
 import { DriverAlerts } from "./driver-alerts";
 
@@ -41,16 +40,6 @@ type Row = {
 
 function toTitleCase(s: string): string {
   return s.toLowerCase().replace(/(?:^|\s|[-/])\S/g, (c) => c.toUpperCase());
-}
-
-function itemsSummary(order: Row): string {
-  const items = order.order_items || [];
-  if (items.length === 0) return "Order";
-  const first = items[0];
-  const name = toTitleCase(first?.menu_items?.name || "Item");
-  const q = Math.max(1, Math.floor(Number(first?.quantity) || 1));
-  if (items.length === 1) return `${q}× ${name}`;
-  return `${q}× ${name} +${items.length - 1} more`;
 }
 
 function firstImage(order: Row): string | null {
@@ -319,7 +308,7 @@ function DriverHubInner() {
                 count={enRoute.length}
                 accent={D.green}
               >
-                {enRoute.map((o, i) => <OrderCard key={o.id} order={o} isEnRoute index={i} />)}
+                {enRoute.map((o, i) => <OrderCard key={o.id} order={o} index={i} />)}
               </Section>
             )}
           </div>
@@ -452,24 +441,23 @@ function Section({
   );
 }
 
-function OrderCard({ order, isEnRoute, index = 0 }: { order: Row; isEnRoute?: boolean; index?: number }) {
+function OrderCard({ order, index = 0 }: { order: Row; index?: number }) {
   const customerName =
     order.recipient_name?.trim() ||
     order.users?.full_name?.trim() ||
     (order.recipient_phone || order.users?.phone_number || order.phone_number || "").trim() ||
     "Customer";
   const hasRecipient = Boolean(order.recipient_name?.trim() || order.recipient_phone?.trim());
-  const summary = itemsSummary(order);
+  const items = order.order_items || [];
+  const first = items[0];
+  const itemName = toTitleCase(first?.menu_items?.name || "Item");
+  const itemQty = Math.max(1, Math.floor(Number(first?.quantity) || 1));
+  const extraItems = Math.max(0, items.length - 1);
   const img = firstImage(order);
   const slotLine = formatSlotLineForCustomer(order.delivery_slot ?? undefined, order.delivery_slot_kind ?? undefined);
   const amount = order.total_amount != null ? `₹${Math.round(order.total_amount).toLocaleString("en-IN")}` : "";
   const collectCash = codOutstanding(order);
-
-  const borderColor = isEnRoute
-    ? "rgba(18,131,63,0.3)"
-    : collectCash
-      ? "rgba(189,35,32,0.25)"
-      : "#1e1e1e";
+  const showTags = collectCash || hasRecipient;
 
   return (
     <motion.div
@@ -478,155 +466,151 @@ function OrderCard({ order, isEnRoute, index = 0 }: { order: Row; isEnRoute?: bo
       transition={{ type: "spring", stiffness: 420, damping: 32, delay: Math.min(index, 6) * 0.045 }}
       whileTap={{ scale: 0.985 }}
     >
-    <Link
-      href={`/driver/order/${order.id}`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: 12,
-        background: "#1C1C1E",
-        borderRadius: 18,
-        border: `1px solid ${borderColor}`,
-        textDecoration: "none",
-        color: D.text,
-      }}
-    >
-      <div
+      <Link
+        href={`/driver/order/${order.id}`}
         style={{
-          width: 76,
-          height: 76,
-          borderRadius: 16,
-          overflow: "hidden",
-          flexShrink: 0,
-          background: "#2A2A2C",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          padding: 16,
+          background: "#1C1C1E",
+          borderRadius: 18,
+          textDecoration: "none",
+          color: D.text,
         }}
       >
-        {img ? (
-          <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Package size={22} strokeWidth={1.6} style={{ color: "#8E8E93" }} />
-          </div>
-        )}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <p
             style={{
               margin: 0,
-              fontSize: 17,
+              fontSize: 18,
               fontWeight: 800,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
               letterSpacing: "-0.02em",
+              lineHeight: 1.25,
               color: "#fff",
             }}
           >
             {toTitleCase(customerName)}
           </p>
           {amount && (
-            <span style={{ fontSize: 16, fontWeight: 800, flexShrink: 0, letterSpacing: "-0.02em", color: collectCash ? "#F5A623" : "#fff" }}>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                flexShrink: 0,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.25,
+                color: collectCash ? "#F5A623" : "#fff",
+              }}
+            >
               {amount}
             </span>
           )}
         </div>
 
-        <p
-          style={{
-            margin: "4px 0 0",
-            fontSize: 14,
-            color: "#E5E5EA",
-            fontWeight: 600,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {summary}
-        </p>
+        {items.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 14,
+                overflow: "hidden",
+                flexShrink: 0,
+                background: "#2A2A2C",
+              }}
+            >
+              {img ? (
+                <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Package size={20} strokeWidth={1.6} style={{ color: "#8E8E93" }} />
+                </div>
+              )}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "#E5E5EA",
+                  lineHeight: 1.35,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {itemQty}× {itemName}
+              </p>
+              {extraItems > 0 && (
+                <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 700, color: "#8E8E93" }}>
+                  + {extraItems} more
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
-          <MapPin size={12} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <MapPin size={15} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
           <p
             style={{
               margin: 0,
-              fontSize: 13,
+              flex: 1,
+              minWidth: 0,
+              fontSize: 14,
               color: "#AEAEB2",
+              fontWeight: 600,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              fontWeight: 600,
             }}
           >
-            {order.delivery_address || "—"}
+            {order.delivery_address || "No address"}
           </p>
+          <ChevronRight size={18} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
         </div>
 
-        {(slotLine || collectCash || hasRecipient) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {showTags && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {collectCash && (
-              <Chip tone="red" icon={<Banknote size={10} strokeWidth={2.2} />}>
-                Pay at door
-              </Chip>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(245,166,35,0.45)",
+                  background: "transparent",
+                  color: "#F5A623",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                PAY AT DOOR
+              </span>
             )}
             {hasRecipient && (
-              <Chip tone="plain" icon={<User size={10} strokeWidth={2.2} />}>
-                Recipient
-              </Chip>
-            )}
-            {slotLine && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <Clock size={11} strokeWidth={2.2} style={{ color: "#8E8E93" }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#C7C7CC" }}>{slotLine}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", color: "#8E8E93" }}>
+                RECIPIENT
               </span>
             )}
           </div>
         )}
-      </div>
 
-      <ChevronRight size={18} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
-    </Link>
+        {slotLine && (
+          <div>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 12 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={13} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#8E8E93", lineHeight: 1.35 }}>{slotLine}</span>
+            </div>
+          </div>
+        )}
+      </Link>
     </motion.div>
-  );
-}
-
-function Chip({
-  tone,
-  icon,
-  children,
-}: {
-  tone: "red" | "green" | "plain";
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const palette =
-    tone === "red"
-      ? { bg: "rgba(189,35,32,0.12)", fg: D.red, border: "rgba(189,35,32,0.2)" }
-      : tone === "green"
-        ? { bg: "rgba(18,131,63,0.12)", fg: D.green, border: "rgba(18,131,63,0.2)" }
-        : { bg: "rgba(255,255,255,0.06)", fg: "#C7C7CC", border: "rgba(255,255,255,0.1)" };
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "3px 7px",
-        borderRadius: 6,
-        background: palette.bg,
-        border: `1px solid ${palette.border}`,
-        color: palette.fg,
-        fontSize: 9.5,
-        fontWeight: 800,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-      }}
-    >
-      {icon}
-      {children}
-    </span>
   );
 }
