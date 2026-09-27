@@ -137,13 +137,13 @@ function SwipeAction({
         position: "relative",
         height: 60,
         borderRadius: RADIUS.control,
-        background: completed ? D.green : "rgba(0,0,0,0.05)",
-        border: `1px solid ${completed ? D.green : D.border}`,
+        background: completed ? D.green : disabled ? "#2C2C2E" : "#E8492D",
+        border: "none",
         overflow: "hidden",
         touchAction: "none",
         userSelect: "none",
-        opacity: disabled ? 0.45 : 1,
-        transition: "background 0.3s ease, border 0.3s ease",
+        opacity: 1,
+        transition: "background 0.3s ease",
       }}
       onTouchStart={(e) => handleStart(e.touches[0].clientX)}
       onTouchMove={(e) => handleMove(e.touches[0].clientX)}
@@ -163,7 +163,7 @@ function SwipeAction({
           fontSize: 15,
           fontWeight: 800,
           fontFamily: D.font,
-          color: completed ? "#fff" : D.muted,
+          color: completed || !disabled ? "#fff" : "#8E8E93",
           opacity: completed ? 1 : 1 - progress * 0.8,
           letterSpacing: "-0.01em",
           pointerEvents: "none",
@@ -180,7 +180,7 @@ function SwipeAction({
           width: HANDLE,
           height: HANDLE,
           borderRadius: 12,
-          background: completed ? "#fff" : D.red,
+          background: completed ? "#fff" : disabled ? "#3A3A3C" : "#fff",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -194,7 +194,7 @@ function SwipeAction({
           height="19"
           viewBox="0 0 24 24"
           fill="none"
-          stroke={completed ? D.green : "#fff"}
+          stroke={completed ? D.green : disabled ? "#8E8E93" : "#E8492D"}
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -633,61 +633,55 @@ function DriverOrderDetailInner() {
   return (
     <div
       style={{
-        // The sheet is taller than the viewport on most phones once the swipe
-        // action and warnings are in play, so the page owns the scroll.
         height: "100dvh",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
-        overscrollBehaviorY: "contain",
-        background: D.bg,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#121212",
         fontFamily: D.font,
         color: D.text,
       }}
     >
-      {/* Header — turn-by-turn lives in Google Maps, so this screen stays a
-          one-thumb job card rather than a second map to babysit. */}
+      {/* Header — the one saturated red on this screen is the Navigate pill. */}
       <div
         style={{
-          position: "sticky",
-          top: 0,
+          flexShrink: 0,
           zIndex: 20,
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "max(14px, env(safe-area-inset-top, 12px)) 16px 12px",
-          background: D.bg,
-          borderBottom: `1px solid ${D.border}`,
+          padding: "max(12px, env(safe-area-inset-top, 10px)) 14px 12px",
+          background: "linear-gradient(180deg, #9B2A1C 0%, #6E1A12 100%)",
         }}
       >
         <Link
           href="/driver"
+          aria-label="Back to queue"
           style={{
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             flexShrink: 0,
-            borderRadius: 12,
-            background: D.surface,
-            border: `1px solid ${D.border}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: D.text,
+            color: "#fff",
             textDecoration: "none",
           }}
         >
-          <ArrowLeft size={19} strokeWidth={2.2} />
+          <ArrowLeft size={20} strokeWidth={2.4} />
         </Link>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: D.faint }}>
+          <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: "rgba(255,255,255,0.72)" }}>
             {isOut ? "ON THE WAY" : isReady ? "READY FOR PICKUP" : "ORDER"}
           </p>
           <p
             style={{
-              margin: "1px 0 0",
-              fontSize: 14.5,
+              margin: "2px 0 0",
+              fontSize: 17,
               fontWeight: 800,
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
+              color: "#fff",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -707,110 +701,87 @@ function DriverOrderDetailInner() {
               alignItems: "center",
               gap: 6,
               flexShrink: 0,
-              padding: "10px 13px",
-              borderRadius: 12,
-              background: D.red,
+              padding: "10px 14px",
+              borderRadius: 999,
+              background: "#E8492D",
               color: "#fff",
               fontSize: 13,
               fontWeight: 800,
               textDecoration: "none",
+              boxShadow: "0 6px 16px rgba(0,0,0,0.28)",
             }}
           >
-            <Navigation size={15} strokeWidth={2.3} />
+            <Navigation size={15} strokeWidth={2.4} />
             Navigate
           </a>
         )}
       </div>
 
-      {/* Sheet */}
       <div
+        className="no-scrollbar"
         style={{
-          background: D.bg,
-          position: "relative",
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorY: "contain",
           display: "flex",
           flexDirection: "column",
-          padding: "12px 18px 0",
-          paddingBottom: "max(22px, env(safe-area-inset-bottom, 16px))",
+          padding: "14px 16px 18px",
           gap: 12,
         }}
       >
-
-        {/* Customer */}
-        <div style={{ background: D.surface, borderRadius: RADIUS.card, border: `1px solid ${D.border}`, padding: 15, display: "flex", flexDirection: "column", gap: 13 }}>
+        <div style={{ background: "#1C1C1E", borderRadius: 16, padding: "16px 16px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", overflowWrap: "anywhere" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", overflowWrap: "anywhere" }}>
                 {toTitleCase(customerName)}
               </h2>
               {hasRecipient && (
-                <span style={{ padding: "2px 7px", borderRadius: 6, background: "rgba(0,0,0,0.05)", color: D.muted, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em" }}>
+                <span style={{ color: "#8E8E93", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }}>
                   RECIPIENT
                 </span>
               )}
             </div>
-            <p style={{ margin: "3px 0 0", fontSize: 12, color: D.muted, fontWeight: 600 }}>
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#8E8E93", fontWeight: 600 }}>
               {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
               {formatOrderRef(order.order_number, orderId)}
             </p>
             {slotLine && (
-              <span
-                style={{
-                  display: "inline-block",
-                  marginTop: 8,
-                  padding: "5px 10px",
-                  borderRadius: 9,
-                  background: "rgba(0,0,0,0.05)",
-                  color: D.text,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
+              <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 700, color: "#fff" }}>
                 {slotLine}
-              </span>
+              </p>
             )}
           </div>
 
-          {cashOutstanding && amount != null && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 11,
-                padding: "13px 14px",
-                borderRadius: 12,
-                background: D.redFaint,
-                border: `1px solid rgba(189,35,32,0.2)`,
-              }}
-            >
-              <Banknote size={22} strokeWidth={1.9} style={{ color: D.red, flexShrink: 0 }} />
-              <div>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: D.red, letterSpacing: "0.08em" }}>COLLECT — CASH OR UPI</p>
-                <p style={{ margin: "1px 0 0", fontSize: 20, fontWeight: 800, color: D.red, letterSpacing: "-0.02em" }}>
-                  ₹{amount.toLocaleString("en-IN")}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {isCod && !cashOutstanding && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: D.greenFaint }}>
-              <Check size={16} strokeWidth={2.6} style={{ color: D.green }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: D.green }}>Payment already collected</span>
-            </div>
-          )}
-
-          <Row icon={<MapPin size={15} strokeWidth={2} style={{ color: D.faint }} />}>
+          <Row icon={<MapPin size={16} strokeWidth={2} style={{ color: "#8E8E93" }} />}>
             {order.delivery_address || "No address provided"}
           </Row>
 
           {items.length > 0 && (
-            <Row icon={<Package size={15} strokeWidth={2} style={{ color: D.faint }} />}>
+            <Row icon={<Package size={16} strokeWidth={2} style={{ color: "#8E8E93" }} />}>
               {items
                 .map((it) => `${Math.max(1, Math.floor(Number(it.quantity) || 1))}× ${toTitleCase(it.menu_items?.name || "Item")}`)
                 .join(", ")}
             </Row>
           )}
         </div>
+
+        {cashOutstanding && amount != null && (
+          <div style={{ background: "rgba(245,166,35,0.12)", borderRadius: 16, padding: "14px 16px" }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#F5A623", letterSpacing: "0.08em" }}>COLLECT — CASH OR UPI</p>
+            <p style={{ margin: "4px 0 0", fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em" }}>
+              ₹{amount.toLocaleString("en-IN")}
+            </p>
+          </div>
+        )}
+
+        {isCod && !cashOutstanding && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: 14, background: "#1C1C1E" }}>
+            <span style={{ width: 8, height: 8, borderRadius: 99, background: D.green, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#8E8E93" }}>Payment already collected</span>
+          </div>
+        )}
 
         {/* Call / Navigate */}
         <div style={{ display: "flex", gap: 10 }}>
@@ -825,16 +796,6 @@ function DriverOrderDetailInner() {
             </SecondaryLink>
           )}
         </div>
-
-        {mapsUrl && (
-          <p style={{ margin: "-4px 0 0", fontSize: 11.5, color: D.faint, fontWeight: 600, textAlign: "center" }}>
-            {hasDropPin
-              ? "Navigate opens Google Maps at the exact pin the customer dropped."
-              : "No pin on this order, so Navigate searches Google Maps for the address — check it before you ride."}
-          </p>
-        )}
-
-        <div style={{ height: 4 }} />
 
         {actionErr && (
           <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: D.red, background: D.redFaint, padding: "10px 12px", borderRadius: 11 }}>
@@ -872,81 +833,64 @@ function DriverOrderDetailInner() {
         {isOut && (
           <>
             {hasFix && !geoErr ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: RADIUS.control, background: D.greenFaint }}>
-                <Navigation size={15} strokeWidth={2.3} style={{ color: D.green, flexShrink: 0 }} />
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: D.green }}>
-                  Sharing your live location — the kitchen and customer can see you moving.
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", borderRadius: 14, background: "#1C1C1E" }}>
+                <span style={{ width: 8, height: 8, borderRadius: 99, background: D.green, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#8E8E93", lineHeight: 1.35 }}>
+                  Sharing location{hasArrived ? ` · ${toTitleCase(customerName)} notified` : ""}
                 </span>
               </div>
             ) : (
-              <div
+              <button
+                type="button"
+                onClick={enableLocation}
+                disabled={geoAsking}
                 style={{
-                  padding: "12px 13px",
-                  borderRadius: RADIUS.control,
-                  background: D.amberFaint,
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  border: "none",
+                  background: "rgba(245,166,35,0.12)",
+                  color: "#F5A623",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: D.font,
+                  textAlign: "left",
+                  cursor: geoAsking ? "wait" : "pointer",
                 }}
               >
-                <p style={{ fontSize: 12.5, color: D.amber, margin: 0, fontWeight: 600, lineHeight: 1.45 }}>
-                  {geoErr || "Turn on location so the kitchen and the customer can watch you approach."}
-                </p>
-                <button
-                  type="button"
-                  onClick={enableLocation}
-                  disabled={geoAsking}
-                  style={{
-                    width: "100%",
-                    height: 44,
-                    borderRadius: 11,
-                    border: "none",
-                    background: D.amber,
-                    color: "#fff",
-                    fontSize: 14,
-                    fontWeight: 800,
-                    fontFamily: D.font,
-                    cursor: geoAsking ? "wait" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  {geoAsking ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <MapPin size={16} strokeWidth={2.3} />}
-                  {geoAsking ? "Checking…" : geoBlocked ? "Try location again" : "Turn on location"}
-                </button>
-              </div>
+                <span style={{ lineHeight: 1.4 }}>
+                  {geoErr || "Location is off. The kitchen can’t see you moving."}
+                </span>
+                <span style={{ flexShrink: 0, fontWeight: 800 }}>
+                  {geoAsking ? "…" : geoBlocked ? "Retry" : "Turn on"}
+                </span>
+              </button>
             )}
 
-            {hasArrived ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 13px", borderRadius: RADIUS.control, background: D.greenFaint }}>
-                <BellRing size={17} strokeWidth={2.2} style={{ color: D.green, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: D.green, lineHeight: 1.4 }}>
-                  {toTitleCase(customerName)} and the kitchen have been told you&apos;re here.
-                </span>
-              </div>
-            ) : (
+            {!hasArrived && (
               <button
                 type="button"
                 disabled={arriving}
                 onClick={() => void handleArrived()}
                 style={{
                   width: "100%",
-                  minHeight: 56,
-                  borderRadius: RADIUS.control,
-                  border: `1px solid ${D.borderStrong}`,
-                  background: D.surface,
-                  color: D.text,
-                  fontSize: 15.5,
+                  minHeight: 50,
+                  borderRadius: 14,
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: 15,
                   fontWeight: 800,
                   fontFamily: D.font,
                   cursor: arriving ? "wait" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 9,
-                  padding: "10px 14px",
+                  gap: 8,
                 }}
               >
                 {arriving ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <BellRing size={18} strokeWidth={2.1} />}
@@ -958,15 +902,14 @@ function DriverOrderDetailInner() {
               <div
                 style={{
                   padding: "14px",
-                  borderRadius: RADIUS.control,
-                  background: D.surface,
-                  border: `1px solid ${D.border}`,
+                  borderRadius: 16,
+                  background: "#1C1C1E",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 11,
+                  gap: 12,
                 }}
               >
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: D.text, lineHeight: 1.4 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.4 }}>
                   Collect ₹{amount.toLocaleString("en-IN")} — cash, or let them scan UPI if they have no change.
                 </p>
 
@@ -978,10 +921,10 @@ function DriverOrderDetailInner() {
                       flex: 1,
                       padding: "13px 10px",
                       borderRadius: 12,
-                      border: `1.5px solid ${collectVia === "cash" ? "rgba(18,131,63,0.45)" : D.border}`,
-                      background: collectVia === "cash" ? D.greenFaint : D.bg,
-                      color: collectVia === "cash" ? D.green : D.text,
-                      fontSize: 13.5,
+                      border: `1px solid ${collectVia === "cash" ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.16)"}`,
+                      background: "transparent",
+                      color: "#fff",
+                      fontSize: 14,
                       fontWeight: 800,
                       fontFamily: D.font,
                       cursor: "pointer",
@@ -1004,10 +947,10 @@ function DriverOrderDetailInner() {
                       flex: 1,
                       padding: "13px 10px",
                       borderRadius: 12,
-                      border: `1.5px solid ${collectVia === "upi" ? "rgba(18,131,63,0.45)" : D.border}`,
-                      background: collectVia === "upi" ? D.greenFaint : D.bg,
-                      color: collectVia === "upi" ? D.green : D.text,
-                      fontSize: 13.5,
+                      border: `1px solid ${collectVia === "upi" ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.16)"}`,
+                      background: "transparent",
+                      color: "#fff",
+                      fontSize: 14,
                       fontWeight: 800,
                       fontFamily: D.font,
                       cursor: "pointer",
@@ -1023,47 +966,39 @@ function DriverOrderDetailInner() {
                 </div>
 
                 {collectVia && (
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: D.green, textAlign: "center" }}>
-                    ₹{amount.toLocaleString("en-IN")} marked as collected by {collectVia === "cash" ? "cash" : "UPI"}. Swipe below to finish.
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#8E8E93", textAlign: "center" }}>
+                    ₹{amount.toLocaleString("en-IN")} marked as {collectVia === "cash" ? "cash" : "UPI"}. Swipe below to finish.
                   </p>
                 )}
               </div>
             )}
 
             {deliverBlock && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <p style={{ fontSize: 12.5, color: D.muted, margin: 0, textAlign: "center", fontWeight: 700, lineHeight: 1.45 }}>
-                  {deliverBlock}
-                </p>
-                {!withinRange && (
-                  <button
-                    type="button"
-                    onClick={() => setGpsOverride(true)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: D.red,
-                      fontSize: 12.5,
-                      fontWeight: 800,
-                      fontFamily: D.font,
-                      padding: "2px 0",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      textUnderlineOffset: 3,
-                    }}
-                  >
-                    GPS is wrong — I&apos;m at the door
-                  </button>
-                )}
-              </div>
+              <p style={{ fontSize: 13, color: "#8E8E93", margin: 0, textAlign: "center", fontWeight: 600, lineHeight: 1.45 }}>
+                {deliverBlock}
+              </p>
             )}
 
-            <SwipeAction
-              label={deliverBlock ? "Swipe blocked — see above" : "Swipe to mark delivered"}
-              doneLabel="Delivered"
-              disabled={!canMarkDelivered}
-              onSwipe={handleComplete}
-            />
+            {!withinRange && (
+              <button
+                type="button"
+                onClick={() => setGpsOverride(true)}
+                style={{
+                  width: "100%",
+                  minHeight: 48,
+                  borderRadius: 14,
+                  border: "1.5px solid #E8492D",
+                  background: "transparent",
+                  color: "#E8492D",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  fontFamily: D.font,
+                  cursor: "pointer",
+                }}
+              >
+                GPS is wrong — I&apos;m at the door
+              </button>
+            )}
 
             <button
               type="button"
@@ -1071,14 +1006,12 @@ function DriverOrderDetailInner() {
               style={{
                 background: "none",
                 border: "none",
-                color: D.muted,
-                fontSize: 13.5,
+                color: "#8E8E93",
+                fontSize: 13,
                 fontWeight: 700,
                 fontFamily: D.font,
-                padding: "6px 0",
+                padding: "4px 0 2px",
                 cursor: "pointer",
-                textDecoration: "underline",
-                textUnderlineOffset: 3,
               }}
             >
               Couldn&apos;t deliver this order
@@ -1095,6 +1028,24 @@ function DriverOrderDetailInner() {
           </div>
         )}
       </div>
+
+      {isOut && (
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "10px 16px max(14px, env(safe-area-inset-bottom, 12px))",
+            background: "#121212",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <SwipeAction
+            label={deliverBlock ? "Swipe blocked — see above" : "Swipe to mark delivered"}
+            doneLabel="Delivered"
+            disabled={!canMarkDelivered}
+            onSwipe={handleComplete}
+          />
+        </div>
+      )}
 
       {upiOpen && amount != null && (
         <UpiSheet
@@ -1159,7 +1110,7 @@ function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactN
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
       <span style={{ flexShrink: 0, marginTop: 2 }}>{icon}</span>
-      <p style={{ margin: 0, fontSize: 13.5, color: D.muted, lineHeight: 1.45, fontWeight: 600 }}>{children}</p>
+      <p style={{ margin: 0, fontSize: 14.5, color: "rgba(255,255,255,0.88)", lineHeight: 1.5, fontWeight: 600 }}>{children}</p>
     </div>
   );
 }
@@ -1182,9 +1133,9 @@ function SecondaryLink({
       style={{
         flex: 1,
         height: 50,
-        borderRadius: RADIUS.control,
-        background: D.surface,
-        border: `1px solid ${D.border}`,
+        borderRadius: 14,
+        background: "transparent",
+        border: "1px solid rgba(255,255,255,0.18)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
