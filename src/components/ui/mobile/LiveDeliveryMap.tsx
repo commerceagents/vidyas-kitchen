@@ -89,18 +89,24 @@ function tailFromRider(coords: [number, number][], here: LatLng | null): [number
   return tail.length >= 2 ? tail : [];
 }
 
-/** Red map pin with a white home stamped in the head. The tip is the anchor. */
+/**
+ * Classic teardrop: a circle whose diameter is 70% of the height, then straight
+ * sides to a sharp tip. The tip is the bottom of the viewBox so anchor="bottom"
+ * sits on the door. Same red as the route, no stroke.
+ */
 function HomePin() {
   return (
-    <svg width="34" height="44" viewBox="0 0 34 44" aria-hidden style={{ display: "block", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.28))" }}>
+    <svg width="32" height="45" viewBox="0 0 40 56" aria-hidden style={{ display: "block" }}>
       <path
         fill={C.red}
-        d="M17 1C8.7 1 2 7.6 2 16c0 10.4 15 26.6 15 26.6S32 26.4 32 16C32 7.6 25.3 1 17 1z"
+        stroke="none"
+        d="M20 56 L3.48 30.15 A19.6 19.6 0 1 1 36.52 30.15 Z"
       />
       <path
         fill="#fff"
+        stroke="none"
         fillRule="evenodd"
-        d="M17 8.4 9 14.6V23h16v-8.4L17 8.4zm-1.6 14.6v-4h3.2v4h-3.2z"
+        d="M20 12.2 L11.6 19.2 V26.2 H28.4 V19.2 Z M18.15 26.2 V22.2 H21.85 V26.2 Z"
       />
     </svg>
   );
@@ -490,7 +496,7 @@ export function LiveDeliveryMap({
           </Source>
         ) : null}
 
-        <Marker longitude={customerLng} latitude={customerLat} anchor="bottom">
+        <Marker longitude={customerLng} latitude={customerLat} anchor="bottom" style={{ background: "transparent", border: "none", lineHeight: 0 }}>
           <HomePin />
         </Marker>
 
