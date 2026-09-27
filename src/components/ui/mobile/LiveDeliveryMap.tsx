@@ -87,6 +87,23 @@ function tailFromRider(coords: [number, number][], here: LatLng | null): [number
   return tail.length >= 2 ? tail : coords;
 }
 
+/** Red map pin with a white home stamped in the head. The tip is the anchor. */
+function HomePin() {
+  return (
+    <svg width="34" height="44" viewBox="0 0 34 44" aria-hidden style={{ display: "block", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.28))" }}>
+      <path
+        fill={C.red}
+        d="M17 1C8.7 1 2 7.6 2 16c0 10.4 15 26.6 15 26.6S32 26.4 32 16C32 7.6 25.3 1 17 1z"
+      />
+      <path
+        fill="#fff"
+        fillRule="evenodd"
+        d="M17 8.4 9 14.6V23h16v-8.4L17 8.4zm-1.6 14.6v-4h3.2v4h-3.2z"
+      />
+    </svg>
+  );
+}
+
 function bearingBetween(from: LatLng, to: LatLng): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
@@ -386,7 +403,7 @@ export function LiveDeliveryMap({
         [minLng, minLat],
         [maxLng, maxLat],
       ],
-      { padding: { top: 56, bottom: 56, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
+      { padding: { top: 72, bottom: 64, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
     );
   }, [driverLat, driverLng, customerLat, customerLng, route, roadCoords, userMoved]);
 
@@ -448,18 +465,7 @@ export function LiveDeliveryMap({
         ) : null}
 
         <Marker longitude={customerLng} latitude={customerLat} anchor="bottom">
-          <span
-            style={{
-              display: "flex",
-              width: 26,
-              height: 26,
-              borderRadius: "50%",
-              background: C.red,
-              border: "3px solid #fff",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-            }}
-            aria-hidden
-          />
+          <HomePin />
         </Marker>
 
         {shown ? (
