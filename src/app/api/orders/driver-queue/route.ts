@@ -17,7 +17,7 @@ export async function GET() {
         id, order_number, status, total_amount, delivery_address, delivery_slot, delivery_slot_kind, created_at,
         phone_number, recipient_name, recipient_phone, payment_method, payment_status,
         users:customer_id ( full_name, phone_number ),
-        order_items ( quantity, menu_items ( name, image_url ) )
+        order_items ( quantity, menu_item_id, menu_items ( name, image_url ) )
       `,
       )
       .in("status", [OrderStatus.READY, OrderStatus.OUT_FOR_DELIVERY, "out"])

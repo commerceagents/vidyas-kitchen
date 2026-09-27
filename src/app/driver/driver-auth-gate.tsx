@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
@@ -558,6 +559,7 @@ export function DriverLoginScreen({
                     />
                     <input
                       ref={pinInputRef}
+                      className="vk-driver-pin"
                       type="password"
                       inputMode="numeric"
                       autoComplete="one-time-code"
@@ -582,7 +584,7 @@ export function DriverLoginScreen({
                         fontWeight: 800,
                         color: D.text,
                         fontFamily: D.font,
-                        letterSpacing: "0.15em",
+                        letterSpacing: pin ? "0.22em" : "0",
                       }}
                     />
                   </div>
@@ -674,7 +676,18 @@ export function DriverLoginScreen({
           Need help? Ask the kitchen manager to verify your PIN.
         </p>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .vk-driver-pin::placeholder,
+        .vk-driver-pin::-webkit-input-placeholder {
+          font-family: var(--font-outfit), system-ui, sans-serif;
+          font-size: 15px;
+          font-weight: 600;
+          letter-spacing: 0;
+          color: rgba(255,255,255,0.38);
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 }
@@ -727,27 +740,145 @@ export function useSignedInDriver() {
 
 export function DriverLogoutButton() {
   const { logout } = useSignedInDriver();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, busy]);
+
   return (
-    <button
-      type="button"
-      onClick={() => void logout()}
-      aria-label="Sign out"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        background: "none",
-        border: "none",
-        color: D.muted,
-        fontSize: 12,
-        fontWeight: 700,
-        fontFamily: D.font,
-        cursor: "pointer",
-        padding: "4px 0",
-      }}
-    >
-      <LogOut size={13} strokeWidth={2.2} />
-      Sign out
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Sign out"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "none",
+          border: "none",
+          color: D.muted,
+          fontSize: 12,
+          fontWeight: 700,
+          fontFamily: D.font,
+          cursor: "pointer",
+          padding: "4px 0",
+        }}
+      >
+        <LogOut size={13} strokeWidth={2.2} />
+        Sign out
+      </button>
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key="driver-signout"
+                role="presentation"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  if (!busy) setOpen(false);
+                }}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 11000,
+                  background: "rgba(12,12,12,0.55)",
+                  backdropFilter: "blur(14px) saturate(140%)",
+                  WebkitBackdropFilter: "blur(14px) saturate(140%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 24,
+                  fontFamily: D.font,
+                }}
+              >
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="vk-driver-signout-title"
+                  initial={{ opacity: 0, y: 28, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 18, scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "min(360px, 100%)",
+                    background: "#1C1C1E",
+                    color: "#fff",
+                    borderRadius: 22,
+                    padding: "22px 20px 18px",
+                    boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  <h2 id="vk-driver-signout-title" style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em" }}>
+                    Log out?
+                  </h2>
+                  <p style={{ margin: "8px 0 0", fontSize: 14.5, lineHeight: 1.45, fontWeight: 600, color: "rgba(255,255,255,0.62)" }}>
+                    You&apos;ll need your phone and PIN to sign back in. Orders already with you stay on this phone until you do.
+                  </p>
+                  <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setOpen(false)}
+                      style={{
+                        flex: 1,
+                        minHeight: 48,
+                        borderRadius: 14,
+                        border: "1px solid rgba(255,255,255,0.14)",
+                        background: "transparent",
+                        color: "#fff",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        fontFamily: D.font,
+                        cursor: busy ? "wait" : "pointer",
+                      }}
+                    >
+                      Stay
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setBusy(true);
+                        void logout().finally(() => {
+                          setBusy(false);
+                          setOpen(false);
+                        });
+                      }}
+                      style={{
+                        flex: 1,
+                        minHeight: 48,
+                        borderRadius: 14,
+                        border: "none",
+                        background: D.red,
+                        color: "#fff",
+                        fontSize: 15,
+                        fontWeight: 800,
+                        fontFamily: D.font,
+                        cursor: busy ? "wait" : "pointer",
+                        opacity: busy ? 0.7 : 1,
+                      }}
+                    >
+                      {busy ? "Logging out" : "Log out"}
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
   );
 }

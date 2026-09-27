@@ -1,8 +1,9 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   Loader2,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { haversineMeters } from "@/lib/geo";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus, COD_FAILURE_REASONS, formatOrderRef } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
 import { D, RADIUS } from "../../driver-theme";
@@ -26,7 +28,7 @@ import { DriverAuthShell, useSignedInDriver } from "../../driver-auth-gate";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 type MenuRef = { name?: string | null; image_url?: string | null } | null;
-type ItemRow = { quantity?: number | null; menu_items?: MenuRef };
+type ItemRow = { quantity?: number | null; menu_item_id?: string | null; menu_items?: MenuRef };
 type UserRef = { full_name?: string | null; phone_number?: string | null } | null;
 
 type DriverOrder = {
@@ -731,41 +733,74 @@ function DriverOrderDetailInner() {
           gap: 12,
         }}
       >
-        <div style={{ background: "#1C1C1E", borderRadius: 16, padding: "16px 16px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", overflowWrap: "anywhere" }}>
-                {toTitleCase(customerName)}
-              </h2>
-              {hasRecipient && (
-                <span style={{ color: "#8E8E93", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }}>
-                  RECIPIENT
-                </span>
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 420, damping: 32 }}
+          style={{ background: "#1C1C1E", borderRadius: 18, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", overflowWrap: "anywhere" }}>
+                  {toTitleCase(customerName)}
+                </h2>
+                {hasRecipient && (
+                  <span style={{ background: "rgba(255,255,255,0.08)", color: "#E5E5EA", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", borderRadius: 999, padding: "4px 8px" }}>
+                    RECIPIENT
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "#AEAEB2", fontWeight: 600 }}>
+                {formatOrderRef(order.order_number, orderId)}
+                {hasRecipient ? ` · Ordered by ${toTitleCase(orderedByName)}` : ""}
+              </p>
+              {slotLine && (
+                <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 800, color: "#fff" }}>
+                  {slotLine}
+                </p>
               )}
             </div>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#8E8E93", fontWeight: 600 }}>
-              {hasRecipient ? `Ordered by ${toTitleCase(orderedByName)} · ` : ""}
-              {formatOrderRef(order.order_number, orderId)}
-            </p>
-            {slotLine && (
-              <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 700, color: "#fff" }}>
-                {slotLine}
-              </p>
-            )}
           </div>
 
-          <Row icon={<MapPin size={16} strokeWidth={2} style={{ color: "#8E8E93" }} />}>
-            {order.delivery_address || "No address provided"}
-          </Row>
-
           {items.length > 0 && (
-            <Row icon={<Package size={16} strokeWidth={2} style={{ color: "#8E8E93" }} />}>
-              {items
-                .map((it) => `${Math.max(1, Math.floor(Number(it.quantity) || 1))}× ${toTitleCase(it.menu_items?.name || "Item")}`)
-                .join(", ")}
-            </Row>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {items.map((it, i) => {
+                const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
+                const name = toTitleCase(it.menu_items?.name || "Item");
+                const img = resolveOrderItemImageUrl({
+                  name: it.menu_items?.name || "Item",
+                  imageUrl: it.menu_items?.image_url,
+                  menuItemId: it.menu_item_id,
+                });
+                return (
+                  <div key={`${name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, background: "#121212", borderRadius: 14, padding: 8 }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "#2A2A2C" }}>
+                      {img ? (
+                        <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Package size={18} strokeWidth={1.7} style={{ color: "#8E8E93" }} />
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>{name}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 700, color: "#AEAEB2" }}>{qty}×</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-        </div>
+
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <MapPin size={16} strokeWidth={2.2} style={{ color: "#8E8E93", marginTop: 2, flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.45, fontWeight: 600, color: "#E5E5EA" }}>
+              {order.delivery_address || "No address provided"}
+            </p>
+          </div>
+        </motion.div>
 
         {cashOutstanding && amount != null && (
           <div style={{ background: "rgba(245,166,35,0.12)", borderRadius: 16, padding: "14px 16px" }}>
@@ -1006,7 +1041,7 @@ function DriverOrderDetailInner() {
               style={{
                 background: "none",
                 border: "none",
-                color: "#8E8E93",
+                color: "#E8492D",
                 fontSize: 13,
                 fontWeight: 700,
                 fontFamily: D.font,
@@ -1047,9 +1082,9 @@ function DriverOrderDetailInner() {
         </div>
       )}
 
-      {upiOpen && amount != null && (
-        <UpiSheet
-          amount={amount}
+      <UpiSheet
+          open={upiOpen && amount != null}
+          amount={amount ?? 0}
           vpa={order.collectUpi?.vpa || null}
           link={order.collectUpi?.link || null}
           copied={upiCopied}
@@ -1069,16 +1104,14 @@ function DriverOrderDetailInner() {
           }}
           onClose={() => setUpiOpen(false)}
         />
-      )}
 
-      {failOpen && (
-        <FailSheet
+      <FailSheet
+          open={failOpen}
           busy={failing}
           isCod={isCod}
           onClose={() => setFailOpen(false)}
           onPick={(reason) => void handleFailed(reason)}
         />
-      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -1106,12 +1139,56 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function SpringDrawer({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-      <span style={{ flexShrink: 0, marginTop: 2 }}>{icon}</span>
-      <p style={{ margin: 0, fontSize: 14.5, color: "rgba(255,255,255,0.88)", lineHeight: 1.5, fontWeight: 600 }}>{children}</p>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="driver-drawer"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "flex-end",
+            fontFamily: D.font,
+          }}
+        >
+          <motion.div
+            initial={{ y: "110%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "110%" }}
+            transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.82 }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxHeight: "92dvh",
+              overflowY: "auto",
+              background: "#1C1C1E",
+              borderRadius: "22px 22px 0 0",
+              padding: "14px 18px max(22px, env(safe-area-inset-bottom, 16px))",
+            }}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.22)", margin: "0 auto 14px" }} />
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1155,6 +1232,7 @@ function SecondaryLink({
 
 /** Door-step UPI: a QR the customer scans, plus the ID they can type instead. */
 function UpiSheet({
+  open,
   amount,
   vpa,
   link,
@@ -1163,6 +1241,7 @@ function UpiSheet({
   onConfirm,
   onClose,
 }: {
+  open: boolean;
   amount: number;
   vpa: string | null;
   link: string | null;
@@ -1172,35 +1251,8 @@ function UpiSheet({
   onClose: () => void;
 }) {
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "flex-end",
-        fontFamily: D.font,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxHeight: "92dvh",
-          overflowY: "auto",
-          background: D.surface,
-          borderRadius: "22px 22px 0 0",
-          padding: "18px 18px max(22px, env(safe-area-inset-bottom, 16px))",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 13,
-        }}
-      >
-        <div style={{ width: 34, height: 4, borderRadius: 4, background: "rgba(0,0,0,0.14)" }} />
-
+    <SpringDrawer open={open} onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 13 }}>
         <div style={{ textAlign: "center" }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>Ask them to scan</h3>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: D.muted, fontWeight: 600 }}>
@@ -1309,46 +1361,26 @@ function UpiSheet({
           Not yet
         </button>
       </div>
-    </div>
+    </SpringDrawer>
   );
 }
 
 function FailSheet({
+  open,
   busy,
   isCod,
   onClose,
   onPick,
 }: {
+  open: boolean;
   busy: boolean;
   isCod: boolean;
   onClose: () => void;
   onPick: (reason: string) => void;
 }) {
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "flex-end",
-        fontFamily: D.font,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          background: D.surface,
-          borderRadius: "22px 22px 0 0",
-          padding: "18px 18px max(22px, env(safe-area-inset-bottom, 16px))",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
-      >
+    <SpringDrawer open={open} onClose={busy ? () => {} : onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>What went wrong?</h3>
@@ -1367,7 +1399,7 @@ function FailSheet({
               height: 32,
               borderRadius: 10,
               border: "none",
-              background: "rgba(0,0,0,0.05)",
+              background: "rgba(255,255,255,0.08)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1406,6 +1438,6 @@ function FailSheet({
           ))}
         </div>
       </div>
-    </div>
+    </SpringDrawer>
   );
 }

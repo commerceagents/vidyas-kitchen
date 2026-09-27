@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         phone_number, recipient_name, recipient_phone,
         payment_method, payment_status, cod_collected_at, total_amount,
         users:customer_id ( full_name, phone_number ),
-        order_items ( quantity, menu_items ( name, image_url ) )
+        order_items ( quantity, menu_item_id, menu_items ( name, image_url ) )
       `,
       )
       .eq("id", id)

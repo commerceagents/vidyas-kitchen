@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   MapPin,
   Package,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
+import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { D, RADIUS } from "./driver-theme";
 import { DriverAuthShell, DriverLogoutButton, useSignedInDriver } from "./driver-auth-gate";
 import { DriverAlerts } from "./driver-alerts";
@@ -34,7 +36,7 @@ type Row = {
   payment_method?: string | null;
   payment_status?: string | null;
   users?: { full_name?: string | null; phone_number?: string | null } | null;
-  order_items?: { quantity?: number | null; menu_items?: { name?: string | null; image_url?: string | null } | null }[] | null;
+  order_items?: { quantity?: number | null; menu_item_id?: string | null; menu_items?: { name?: string | null; image_url?: string | null } | null }[] | null;
 };
 
 function toTitleCase(s: string): string {
@@ -52,12 +54,15 @@ function itemsSummary(order: Row): string {
 }
 
 function firstImage(order: Row): string | null {
-  const items = order.order_items || [];
-  const url = items[0]?.menu_items?.image_url;
-  if (!url) return null;
-  const match = url.match(/\/menu-images\/(.+)$/);
-  if (match) return `/menu-images/${match[1].replace(/\.png$/i, ".jpg")}`;
-  return url;
+  for (const it of order.order_items || []) {
+    const url = resolveOrderItemImageUrl({
+      name: it.menu_items?.name || "Item",
+      imageUrl: it.menu_items?.image_url,
+      menuItemId: it.menu_item_id,
+    });
+    if (url) return url;
+  }
+  return null;
 }
 
 function codOutstanding(order: { payment_method?: string | null; payment_status?: string | null }): boolean {
@@ -163,7 +168,7 @@ function DriverHubInner() {
               <img src="/vk_logo_full.png" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <div>
-              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#444", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#8E8E93", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Vidya&apos;s Kitchen
               </p>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" }}>
@@ -239,7 +244,7 @@ function DriverHubInner() {
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#141414", border: "1px solid #222", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Loader2 size={22} style={{ color: "#444", animation: "spin 1s linear infinite" }} />
             </div>
-            <p style={{ color: "#555", fontSize: 14, margin: 0, fontWeight: 600 }}>Loading deliveries…</p>
+            <p style={{ color: "#AEAEB2", fontSize: 14, margin: 0, fontWeight: 600 }}>Loading deliveries…</p>
           </CenteredState>
         ) : loadError ? (
           <CenteredState>
@@ -247,7 +252,7 @@ function DriverHubInner() {
               <AlertCircle size={22} style={{ color: D.red }} />
             </div>
             <p style={{ color: "#fff", fontSize: 15, fontWeight: 800, margin: 0 }}>Couldn&apos;t load deliveries</p>
-            <p style={{ color: "#555", fontSize: 13, margin: 0, textAlign: "center", maxWidth: 240, lineHeight: 1.5 }}>{loadError}</p>
+            <p style={{ color: "#AEAEB2", fontSize: 13, margin: 0, textAlign: "center", maxWidth: 240, lineHeight: 1.5 }}>{loadError}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
@@ -290,9 +295,9 @@ function DriverHubInner() {
               <CheckCircle2 size={30} strokeWidth={1.5} style={{ color: D.green, opacity: 0.8 }} />
             </div>
             <p style={{ color: "#fff", fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>All clear!</p>
-            <p style={{ color: "#444", fontSize: 13, margin: 0, lineHeight: 1.5 }}>New orders appear here automatically</p>
+            <p style={{ color: "#AEAEB2", fontSize: 14, margin: 0, lineHeight: 1.5 }}>New orders appear here automatically</p>
             {lastRefresh && (
-              <p style={{ color: "#333", fontSize: 11, margin: "4px 0 0", fontWeight: 600 }}>
+              <p style={{ color: "#8E8E93", fontSize: 12, margin: "4px 0 0", fontWeight: 600 }}>
                 Updated {lastRefresh.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
@@ -305,7 +310,7 @@ function DriverHubInner() {
                 count={pickup.length}
                 accent="#f5e32d"
               >
-                {pickup.map((o) => <OrderCard key={o.id} order={o} />)}
+                {pickup.map((o, i) => <OrderCard key={o.id} order={o} index={i} />)}
               </Section>
             )}
             {enRoute.length > 0 && (
@@ -314,7 +319,7 @@ function DriverHubInner() {
                 count={enRoute.length}
                 accent={D.green}
               >
-                {enRoute.map((o) => <OrderCard key={o.id} order={o} isEnRoute />)}
+                {enRoute.map((o, i) => <OrderCard key={o.id} order={o} isEnRoute index={i} />)}
               </Section>
             )}
           </div>
@@ -352,7 +357,7 @@ function StatTile({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 5, color: accent ?? "#444" }}>
         {icon}
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#444", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#AEAEB2", letterSpacing: "0.04em", textTransform: "uppercase" }}>
           {label}
         </span>
       </div>
@@ -417,7 +422,7 @@ function Section({
             margin: 0,
             fontSize: 11,
             fontWeight: 800,
-            color: "#555",
+            color: "#C7C7CC",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
           }}
@@ -447,7 +452,7 @@ function Section({
   );
 }
 
-function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
+function OrderCard({ order, isEnRoute, index = 0 }: { order: Row; isEnRoute?: boolean; index?: number }) {
   const customerName =
     order.recipient_name?.trim() ||
     order.users?.full_name?.trim() ||
@@ -467,53 +472,51 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
       : "#1e1e1e";
 
   return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 420, damping: 32, delay: Math.min(index, 6) * 0.045 }}
+      whileTap={{ scale: 0.985 }}
+    >
     <Link
       href={`/driver/order/${order.id}`}
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 13,
-        padding: "13px 14px",
-        background: "#141414",
-        borderRadius: 16,
+        gap: 14,
+        padding: 12,
+        background: "#1C1C1E",
+        borderRadius: 18,
         border: `1px solid ${borderColor}`,
         textDecoration: "none",
         color: D.text,
-        boxShadow: isEnRoute
-          ? "0 2px 12px rgba(18,131,63,0.08)"
-          : "0 2px 8px rgba(0,0,0,0.3)",
-        transition: "transform 0.15s ease",
       }}
     >
-      {/* Food image */}
       <div
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 12,
+          width: 76,
+          height: 76,
+          borderRadius: 16,
           overflow: "hidden",
           flexShrink: 0,
-          background: "#1a1a1a",
-          border: "1px solid #222",
+          background: "#2A2A2C",
         }}
       >
         {img ? (
           <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Package size={18} strokeWidth={1.6} style={{ color: "#333" }} />
+            <Package size={22} strokeWidth={1.6} style={{ color: "#8E8E93" }} />
           </div>
         )}
       </div>
 
-      {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Name + amount */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <p
             style={{
               margin: 0,
-              fontSize: 15,
+              fontSize: 17,
               fontWeight: 800,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -525,18 +528,17 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
             {toTitleCase(customerName)}
           </p>
           {amount && (
-            <span style={{ fontSize: 14, fontWeight: 800, flexShrink: 0, letterSpacing: "-0.01em", color: "#fff" }}>
+            <span style={{ fontSize: 16, fontWeight: 800, flexShrink: 0, letterSpacing: "-0.02em", color: collectCash ? "#F5A623" : "#fff" }}>
               {amount}
             </span>
           )}
         </div>
 
-        {/* Item summary */}
         <p
           style={{
-            margin: "3px 0 0",
-            fontSize: 12.5,
-            color: "#555",
+            margin: "4px 0 0",
+            fontSize: 14,
+            color: "#E5E5EA",
             fontWeight: 600,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -546,49 +548,48 @@ function OrderCard({ order, isEnRoute }: { order: Row; isEnRoute?: boolean }) {
           {summary}
         </p>
 
-        {/* Address */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 5 }}>
-          <MapPin size={10} strokeWidth={2.2} style={{ color: "#333", flexShrink: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
+          <MapPin size={12} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
           <p
             style={{
               margin: 0,
-              fontSize: 11.5,
-              color: "#444",
+              fontSize: 13,
+              color: "#AEAEB2",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              fontWeight: 500,
+              fontWeight: 600,
             }}
           >
             {order.delivery_address || "—"}
           </p>
         </div>
 
-        {/* Chips row */}
         {(slotLine || collectCash || hasRecipient) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {collectCash && (
-              <Chip tone="red" icon={<Banknote size={9} strokeWidth={2.2} />}>
+              <Chip tone="red" icon={<Banknote size={10} strokeWidth={2.2} />}>
                 Pay at door
               </Chip>
             )}
             {hasRecipient && (
-              <Chip tone="plain" icon={<User size={9} strokeWidth={2.2} />}>
+              <Chip tone="plain" icon={<User size={10} strokeWidth={2.2} />}>
                 Recipient
               </Chip>
             )}
             {slotLine && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <Clock size={9} strokeWidth={2.2} style={{ color: "#444" }} />
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: "#555" }}>{slotLine}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <Clock size={11} strokeWidth={2.2} style={{ color: "#8E8E93" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#C7C7CC" }}>{slotLine}</span>
               </span>
             )}
           </div>
         )}
       </div>
 
-      <ChevronRight size={16} strokeWidth={2} style={{ color: "#2a2a2a", flexShrink: 0 }} />
+      <ChevronRight size={18} strokeWidth={2.2} style={{ color: "#8E8E93", flexShrink: 0 }} />
     </Link>
+    </motion.div>
   );
 }
 
@@ -606,7 +607,7 @@ function Chip({
       ? { bg: "rgba(189,35,32,0.12)", fg: D.red, border: "rgba(189,35,32,0.2)" }
       : tone === "green"
         ? { bg: "rgba(18,131,63,0.12)", fg: D.green, border: "rgba(18,131,63,0.2)" }
-        : { bg: "rgba(255,255,255,0.05)", fg: "#555", border: "rgba(255,255,255,0.06)" };
+        : { bg: "rgba(255,255,255,0.06)", fg: "#C7C7CC", border: "rgba(255,255,255,0.1)" };
   return (
     <span
       style={{
