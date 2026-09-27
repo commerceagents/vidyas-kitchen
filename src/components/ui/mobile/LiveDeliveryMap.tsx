@@ -302,7 +302,7 @@ export function LiveDeliveryMap({
     };
     frame.current = requestAnimationFrame(step);
     return stop;
-  }, [driverLat, driverLng]);
+  }, [driverLat, driverLng, customerLat, customerLng]);
 
   // Once a glide finishes, or as soon as the first road arrives, lock the
   // scooter onto that polyline. A glide already in flight keeps its road so
