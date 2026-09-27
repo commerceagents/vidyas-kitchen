@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Map, { Layer, Marker, Source, type MapRef } from "react-map-gl/mapbox";
+import along from "@turf/along";
+import { lineString, point } from "@turf/helpers";
+import nearestPointOnLine from "@turf/nearest-point-on-line";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import { haversineMeters } from "@/lib/geo";
@@ -32,6 +35,56 @@ function nextRotation(current: number | null, bearing: number): number {
   if (current == null) return target;
   const delta = ((target - current + 540) % 360) - 180;
   return current + delta;
+}
+
+type RoadLine = GeoJSON.Feature<GeoJSON.LineString>;
+
+const ALONG = { units: "kilometers" as const };
+/** Two samples this far apart give a stable nose heading through a bend. */
+const HEADING_STEP_KM = 0.01;
+
+function roadLine(coords: [number, number][]): RoadLine | null {
+  if (coords.length < 2) return null;
+  return lineString(coords);
+}
+
+/** Distance along the road, in kilometres. GPS is only used to pick this spot. */
+function snapAlong(line: RoadLine, lng: number, lat: number): { km: number; index: number } | null {
+  const snapped = nearestPointOnLine(line, point([lng, lat]), ALONG);
+  const km = snapped.properties?.location;
+  const index = snapped.properties?.index;
+  if (typeof km !== "number" || !Number.isFinite(km)) return null;
+  return { km, index: typeof index === "number" ? index : 0 };
+}
+
+function pointAtKm(line: RoadLine, km: number): LatLng {
+  const [lng, lat] = along(line, Math.max(0, km), ALONG).geometry.coordinates;
+  return { lng, lat };
+}
+
+function headingAtKm(line: RoadLine, km: number): number {
+  const a = pointAtKm(line, km);
+  const ahead = pointAtKm(line, km + HEADING_STEP_KM);
+  if (haversineMeters(a.lat, a.lng, ahead.lat, ahead.lng) >= 3) return bearingBetween(a, ahead);
+  const behind = pointAtKm(line, Math.max(0, km - HEADING_STEP_KM));
+  if (haversineMeters(behind.lat, behind.lng, a.lat, a.lng) < 3) return 0;
+  return bearingBetween(behind, a);
+}
+
+/** Red line from the scooter forward, staying on the polyline instead of a chord. */
+function tailFromRider(coords: [number, number][], here: LatLng | null): [number, number][] {
+  if (!here) return coords;
+  const line = roadLine(coords);
+  if (!line) return coords;
+  const snap = snapAlong(line, here.lng, here.lat);
+  if (!snap) return coords;
+  const at = pointAtKm(line, snap.km);
+  const tail: [number, number][] = [[at.lng, at.lat]];
+  for (const c of coords.slice(snap.index + 1)) {
+    if (Math.abs(c[0] - at.lng) < 1e-7 && Math.abs(c[1] - at.lat) < 1e-7) continue;
+    tail.push(c);
+  }
+  return tail.length >= 2 ? tail : coords;
 }
 
 function bearingBetween(from: LatLng, to: LatLng): number {
@@ -69,6 +122,8 @@ export function LiveDeliveryMap({
   const [rotation, setRotation] = useState(0);
   const [turnReady, setTurnReady] = useState(false);
   const [route, setRoute] = useState<Route | null>(null);
+  /** The polyline the scooter is actually riding, which can lag one GPS ping behind the latest fetch. */
+  const [roadCoords, setRoadCoords] = useState<[number, number][] | null>(null);
   const [userMoved, setUserMoved] = useState(false);
   const frame = useRef(0);
   const shownRef = useRef<LatLng | null>(null);
@@ -76,22 +131,98 @@ export function LiveDeliveryMap({
   onEtaRef.current = onEta;
   const rotationRef = useRef<number | null>(null);
   const routeReqRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const roadRef = useRef<RoadLine | null>(null);
+  const alongKmRef = useRef(0);
+  const glidingRef = useRef(false);
+  const routeRef = useRef<Route | null>(null);
 
   useEffect(() => {
     shownRef.current = shown;
   }, [shown]);
 
+  const settleOnLatestRoute = () => {
+    const latest = routeRef.current;
+    if (!latest || latest.coords.length < 2) return;
+    const line = roadLine(latest.coords);
+    if (!line) return;
+    roadRef.current = line;
+    setRoadCoords(latest.coords);
+    const here = shownRef.current;
+    if (!here) return;
+    const snap = snapAlong(line, here.lng, here.lat);
+    if (!snap) return;
+    alongKmRef.current = snap.km;
+    const p = pointAtKm(line, snap.km);
+    shownRef.current = p;
+    setShown(p);
+    const next = nextRotation(rotationRef.current, headingAtKm(line, snap.km));
+    rotationRef.current = next;
+    setRotation(next);
+  };
+
   useEffect(() => {
     if (driverLat == null || driverLng == null) return;
     const to = { lat: driverLat, lng: driverLng };
     const from = shownRef.current;
+    const line = roadRef.current;
+
+    const stop = () => {
+      cancelAnimationFrame(frame.current);
+      glidingRef.current = false;
+    };
+
     if (!from) {
-      // First fix has nowhere to glide from, so drop the bike straight onto it.
+      if (line) {
+        const snap = snapAlong(line, to.lng, to.lat);
+        if (snap) {
+          alongKmRef.current = snap.km;
+          const p = pointAtKm(line, snap.km);
+          shownRef.current = p;
+          setShown(p);
+          const next = nextRotation(null, headingAtKm(line, snap.km));
+          rotationRef.current = next;
+          setRotation(next);
+          return;
+        }
+      }
       frame.current = requestAnimationFrame(() => setShown(to));
       return () => cancelAnimationFrame(frame.current);
     }
-    if (from.lat === to.lat && from.lng === to.lng) return;
 
+    if (line) {
+      const snap = snapAlong(line, to.lng, to.lat);
+      if (snap) {
+        if (Math.abs(snap.km - alongKmRef.current) < 0.008) return;
+        const fromKm = alongKmRef.current;
+        const toKm = snap.km;
+        glidingRef.current = true;
+        const start = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / GLIDE_MS);
+          const km = fromKm + (toKm - fromKm) * t;
+          alongKmRef.current = km;
+          const active = roadRef.current ?? line;
+          const p = pointAtKm(active, km);
+          shownRef.current = p;
+          setShown(p);
+          const next = nextRotation(rotationRef.current, headingAtKm(active, km));
+          rotationRef.current = next;
+          setRotation(next);
+          setTurnReady(true);
+          if (t < 1) {
+            frame.current = requestAnimationFrame(step);
+            return;
+          }
+          glidingRef.current = false;
+          settleOnLatestRoute();
+        };
+        frame.current = requestAnimationFrame(step);
+        return stop;
+      }
+    }
+
+    if (from.lat === to.lat && from.lng === to.lng) return;
+    glidingRef.current = true;
     const start = performance.now();
     let first = true;
     const step = (now: number) => {
@@ -102,18 +233,49 @@ export function LiveDeliveryMap({
         setRotation(next);
         setTurnReady(true);
       }
-      // Linear: a bike covering ground at a steady speed, not one that sprints
-      // and then crawls into place.
       const t = Math.min(1, (now - start) / GLIDE_MS);
-      setShown({
+      const p = {
         lat: from.lat + (to.lat - from.lat) * t,
         lng: from.lng + (to.lng - from.lng) * t,
-      });
-      if (t < 1) frame.current = requestAnimationFrame(step);
+      };
+      shownRef.current = p;
+      setShown(p);
+      if (t < 1) {
+        frame.current = requestAnimationFrame(step);
+        return;
+      }
+      glidingRef.current = false;
+      settleOnLatestRoute();
     };
     frame.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame.current);
+    return stop;
   }, [driverLat, driverLng]);
+
+  // Once a glide finishes, or as soon as the first road arrives, lock the
+  // scooter onto that polyline. A glide already in flight keeps its road so
+  // the distance it's animating stays meaningful.
+  useEffect(() => {
+    routeRef.current = route;
+    if (glidingRef.current) return;
+    if (!route?.coords || route.coords.length < 2) return;
+    const line = roadLine(route.coords);
+    if (!line) return;
+    roadRef.current = line;
+    setRoadCoords(route.coords);
+    const here = shownRef.current;
+    const lng = here?.lng ?? driverLng;
+    const lat = here?.lat ?? driverLat;
+    if (lng == null || lat == null) return;
+    const snap = snapAlong(line, lng, lat);
+    if (!snap) return;
+    alongKmRef.current = snap.km;
+    const p = pointAtKm(line, snap.km);
+    shownRef.current = p;
+    setShown(p);
+    const next = nextRotation(rotationRef.current, headingAtKm(line, snap.km));
+    rotationRef.current = next;
+    setRotation(next);
+  }, [route, driverLat, driverLng]);
 
   // The road the driver is actually going to ride. A straight line between two
   // dots tells the customer nothing about how far away the food really is —
@@ -165,25 +327,24 @@ export function LiveDeliveryMap({
   // Without a road route we still draw driver → door, just dashed, so it reads
   // as "roughly this way" rather than "ride through these buildings".
   const pathFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
-    const coords: [number, number][] = route?.coords?.length
-      ? [...route.coords]
-      : driverLat != null && driverLng != null
-        ? [
-            [driverLng, driverLat],
-            [customerLng, customerLat],
-          ]
-        : [];
-    if (coords.length < 2) return null;
-    // The road is fetched from the latest ping. The scooter is still gliding
-    // toward it, so the line has to start at the scooter or it looks detached.
-    if (shown) {
-      const [lng, lat] = coords[0];
-      if (Math.abs(lng - shown.lng) > 1e-6 || Math.abs(lat - shown.lat) > 1e-6) {
-        coords.unshift([shown.lng, shown.lat]);
-      }
+    if (roadCoords && roadCoords.length >= 2) {
+      const coords = tailFromRider(roadCoords, shown);
+      if (coords.length < 2) return null;
+      return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
     }
-    return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
-  }, [route, driverLat, driverLng, customerLat, customerLng, shown]);
+    if (driverLat == null || driverLng == null) return null;
+    return {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [driverLng, driverLat],
+          [customerLng, customerLat],
+        ],
+      },
+    };
+  }, [roadCoords, shown, driverLat, driverLng, customerLat, customerLng]);
 
   const onRoad = Boolean(route?.coords?.length);
 
@@ -198,12 +359,14 @@ export function LiveDeliveryMap({
     }
     // Fit the whole road line, not just the endpoints: a route that swings wide
     // would otherwise spill outside the frame.
-    const pts: [number, number][] = route?.coords?.length
-      ? [...route.coords]
-      : [
-          [driverLng, driverLat],
-          [customerLng, customerLat],
-        ];
+    const pts: [number, number][] = roadCoords?.length
+      ? [...roadCoords]
+      : route?.coords?.length
+        ? [...route.coords]
+        : [
+            [driverLng, driverLat],
+            [customerLng, customerLat],
+          ];
     // The scooter is still gliding toward this fix. Leave it in the frame,
     // otherwise the camera jumps to the new ping and the rider slides off-screen.
     const riding = shownRef.current;
@@ -225,7 +388,7 @@ export function LiveDeliveryMap({
       ],
       { padding: { top: 56, bottom: 56, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
     );
-  }, [driverLat, driverLng, customerLat, customerLng, route, userMoved]);
+  }, [driverLat, driverLng, customerLat, customerLng, route, roadCoords, userMoved]);
 
   useEffect(() => {
     const cb = onEtaRef.current;
@@ -241,14 +404,13 @@ export function LiveDeliveryMap({
   }, [route]);
 
   return (
-    <div style={{ width: "100%", height, position: "relative" }}>
+    <div className="vk-live-map" style={{ width: "100%", height, position: "relative" }}>
       <Map
         ref={mapRef}
         mapboxAccessToken={token}
         mapStyle={MAP_STYLE}
         initialViewState={{ longitude: customerLng, latitude: customerLat, zoom: 14 }}
         style={{ width: "100%", height: "100%" }}
-        attributionControl={false}
         logoPosition="bottom-right"
         dragRotate={false}
         pitchWithRotate={false}
@@ -313,7 +475,7 @@ export function LiveDeliveryMap({
                 backgroundPosition: "center",
                 transform: `rotate(${rotation}deg)`,
                 transformOrigin: "50% 50%",
-                transition: turnReady ? "transform 0.4s ease-out" : "none",
+                transition: roadCoords ? "none" : turnReady ? "transform 0.4s ease-out" : "none",
                 opacity: driverStale ? 0.55 : 1,
                 pointerEvents: "none",
               }}
@@ -344,6 +506,22 @@ export function LiveDeliveryMap({
           Recentre
         </button>
       ) : null}
+      <style>{`
+        .vk-live-map .mapboxgl-ctrl-bottom-left {
+          transform: scale(0.75);
+          transform-origin: bottom left;
+          opacity: 0.6;
+        }
+        .vk-live-map .mapboxgl-ctrl-bottom-right {
+          transform: scale(0.75);
+          transform-origin: bottom right;
+          opacity: 0.6;
+        }
+        .vk-live-map .mapboxgl-ctrl-attrib {
+          background: transparent !important;
+          font-size: 10px;
+        }
+      `}</style>
     </div>
   );
 }
