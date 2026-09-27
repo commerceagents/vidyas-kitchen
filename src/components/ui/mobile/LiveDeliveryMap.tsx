@@ -278,6 +278,7 @@ export function LiveDeliveryMap({
         initialViewState={{ longitude: customerLng, latitude: customerLat, zoom: 14 }}
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
+        logoPosition="bottom-right"
         dragRotate={false}
         pitchWithRotate={false}
         touchZoomRotate={false}
