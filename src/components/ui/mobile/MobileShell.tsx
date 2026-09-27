@@ -482,6 +482,11 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       setStep("home");
     }
 
+    // Sample ride for the kitchen. Open the map even if this phone is already signed in.
+    if (deepTrack === "preview" || sessionStorage.getItem(SS_TRACK_ORDER) === "preview") {
+      setStep("home");
+    }
+
     const track = sessionStorage.getItem(SS_TRACK_ORDER);
     if (track) setTrackingOrderId(track);
 
