@@ -312,14 +312,15 @@ function DriverOrderDetailInner() {
   const hasArrived = Boolean(order?.driver_arrived_at);
   const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
-  // A dimmed bar that won't move is the most frustrating thing on this screen,
-  // so always be able to say out loud why it isn't moving.
-  const deliverBlock: string | null =
-    cashOutstanding && collectVia == null
-      ? "Mark the money collected first — cash or UPI"
-      : !withinRange
-        ? `You're ${distanceM != null ? `${Math.round(distanceM)} m` : "too far"} from the drop — move within ${PROXIMITY_UNLOCK_M} m`
-        : null;
+  const moneyMarked = !cashOutstanding || collectVia != null;
+  // Cash or UPI is the unlock on a pay-at-the-door order. A GPS reading that
+  // still says "too far" must not keep the swipe gray once the money is in
+  // hand — phones in Sivakasi often sit hundreds of metres off between buildings.
+  const deliverBlock: string | null = !moneyMarked
+    ? "Mark the money collected first — cash or UPI"
+    : !withinRange && !cashOutstanding
+      ? `You're ${distanceM != null ? `${Math.round(distanceM)} m` : "too far"} from the drop — move within ${PROXIMITY_UNLOCK_M} m`
+      : null;
   const canMarkDelivered = deliverBlock == null;
 
   // GPS tracking while en route
@@ -537,7 +538,7 @@ function DriverOrderDetailInner() {
           ...(geoLat != null && geoLng != null ? { lat: geoLat, lng: geoLng } : {}),
           // Sent so the server logs the real distance rather than the driver
           // simply withholding their position to slip past the check.
-          ...(gpsOverride ? { proximityOverride: true } : {}),
+          ...((gpsOverride || (cashOutstanding && !withinRange)) ? { proximityOverride: true } : {}),
           codCollected: cashOutstanding ? true : undefined,
           codVia: cashOutstanding ? collectVia || "cash" : undefined,
         }),
@@ -1014,7 +1015,7 @@ function DriverOrderDetailInner() {
               </p>
             )}
 
-            {!withinRange && (
+            {!withinRange && !canMarkDelivered && (
               <button
                 type="button"
                 onClick={() => setGpsOverride(true)}
