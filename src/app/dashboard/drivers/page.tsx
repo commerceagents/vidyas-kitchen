@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Save, Trash2, Truck, AlertTriangle } from "lucide-react";
+import { Plus, Save, Trash2, Truck, Bike, AlertTriangle } from "lucide-react";
 import {
   createDriver,
   deleteDriver,
@@ -227,7 +227,7 @@ export default function DriversPage() {
             boxSizing: "border-box",
           }}
         >
-          <Truck size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
+          <Bike size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
             No drivers yet
           </p>
