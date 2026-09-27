@@ -388,7 +388,7 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const deepTrack = params.get("track");
     const giftParam = params.get("gift") || "";
-    if (deepTrack && uuidRe.test(deepTrack)) {
+    if (deepTrack === "preview" || (deepTrack && uuidRe.test(deepTrack))) {
       sessionStorage.setItem(SS_TRACK_ORDER, deepTrack);
       setTrackingOrderId(deepTrack);
       if (giftParam) {

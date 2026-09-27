@@ -607,6 +607,7 @@ function WhatsAppBrandIcon({ size = 22 }: { size?: number }) {
 
 export function OrderTrackingPanel({
   trackingOrderId,
+  preview = false,
   customerPhone,
   trackSnap,
   trackErr,
@@ -621,6 +622,8 @@ export function OrderTrackingPanel({
   submitOrderRating,
 }: {
   trackingOrderId: string | null;
+  /** Sample ride so the kitchen can watch the bike move without a live GPS fix. */
+  preview?: boolean;
   customerPhone: string;
   trackSnap: OrderTrackSnap | null;
   trackErr: string | null;
@@ -680,6 +683,7 @@ export function OrderTrackingPanel({
   const canEditAddress =
     !!onEditAddress && !!trackSnap && (normalizeTrackStatus(trackSnap.status) === "paid" || normalizeTrackStatus(trackSnap.status) === "pending_payment");
   const canCancelOrder =
+    !preview &&
     !!trackingOrderId &&
     !!trackSnap &&
     customerPhone.trim().replace(/\D/g, "").length >= 10 &&
@@ -861,7 +865,7 @@ export function OrderTrackingPanel({
                     borderRadius: 22,
                     overflow: "hidden",
                     border: `1px solid ${C.border}`,
-                    height: showLiveMap ? 280 : 150,
+                    height: showLiveMap ? (preview ? 360 : 280) : 150,
                     background: showLiveMap
                       ? undefined
                       : "linear-gradient(140deg, rgba(189,35,32,0.10) 0%, rgba(189,35,32,0.03) 60%, rgba(0,0,0,0.02) 100%)",
@@ -876,7 +880,7 @@ export function OrderTrackingPanel({
                       driverLng={driverLng ?? null}
                       driverStale={driverLat != null && !driverFixFresh}
                       driverFixAt={trackSnap?.driverLocationAt ?? null}
-                      height={280}
+                      height={preview ? 360 : 280}
                     />
                   ) : null}
                 </div>
@@ -1442,11 +1446,13 @@ export function OrderTrackingPanel({
                     textAlign: "center",
                   }}
                 >
-                  {driverLat == null
-                    ? "Your driver will appear on the map once they start sharing their location."
-                    : driverFixFresh
-                      ? "The bike is your driver, following the red route to your pin."
-                      : "This is where your driver was last seen — the bike moves again as soon as their phone reports in."}
+                  {preview
+                    ? "Preview. The bike glides along a sample route in Sivakasi. On a real order it follows the driver’s phone."
+                    : driverLat == null
+                      ? "Your driver will appear on the map once they start sharing their location."
+                      : driverFixFresh
+                        ? "The bike is your driver, following the red route to your pin."
+                        : "This is where your driver was last seen — the bike moves again as soon as their phone reports in."}
                 </p>
               ) : null}
 

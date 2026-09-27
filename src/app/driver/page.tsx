@@ -113,6 +113,39 @@ function DriverHubInner() {
 
   const pickup = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.READY);
   const enRoute = orders.filter((o) => normalizeOrderStatus(o.status) === OrderStatus.OUT_FOR_DELIVERY);
+  const enRouteIds = enRoute.map((o) => o.id).join(",");
+
+  // The customer map only moves while this phone reports a fix. That used to
+  // happen only on the open order screen, so sitting on this list froze the bike.
+  useEffect(() => {
+    const ids = enRouteIds.split(",").filter(Boolean);
+    if (ids.length === 0 || typeof navigator === "undefined" || !navigator.geolocation) return;
+    let last: { lat: number; lng: number } | null = null;
+    const watch = navigator.geolocation.watchPosition(
+      (p) => {
+        last = { lat: p.coords.latitude, lng: p.coords.longitude };
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    const post = () => {
+      if (!last) return;
+      for (const orderId of ids) {
+        void fetch("/api/orders/driver/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, lat: last.lat, lng: last.lng }),
+        }).catch(() => {});
+      }
+    };
+    const once = window.setTimeout(post, 2000);
+    const timer = window.setInterval(post, 12_000);
+    return () => {
+      navigator.geolocation.clearWatch(watch);
+      window.clearTimeout(once);
+      window.clearInterval(timer);
+    };
+  }, [enRouteIds]);
   const cashToCollect = orders.reduce(
     (sum, o) => (codOutstanding(o) ? sum + Math.round(Number(o.total_amount) || 0) : sum),
     0,

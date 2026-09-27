@@ -1892,12 +1892,63 @@ export function MobileHomeScreen({
 
 
   useEffect(() => {
-    if (!trackingOrderId) {
-      setTrackSnap(null);
-      setTrackErr(null);
-      setTrackBanner(null);
-      prevTrackStatus.current = null;
-      openedOrdersForTrack.current = false;
+    if (trackingOrderId !== "preview") return;
+    setActiveNav("orders");
+    setOrdersView("track");
+    setTrackErr(null);
+    openedOrdersForTrack.current = true;
+
+    const drop = { lat: 9.4635, lng: 77.8155 };
+    const start = { lat: 9.4472, lng: 77.7938 };
+    const steps = 10;
+    let step = 0;
+    let hold = 0;
+
+    const tick = () => {
+      if (hold > 0) {
+        hold -= 1;
+        return;
+      }
+      const t = Math.min(1, step / steps);
+      const arrived = t >= 1;
+      setTrackSnap({
+        status: "out_for_delivery",
+        orderNumber: 16,
+        deliveryAddress: "264-A, Thiruthangal Road, Sivakasi",
+        deliverySlot: new Date(Date.now() + 18 * 60 * 1000).toISOString(),
+        totalAmount: 525,
+        paymentMethod: "cod",
+        paymentStatus: "pending",
+        deliveryLat: drop.lat,
+        deliveryLng: drop.lng,
+        driverLastLat: start.lat + (drop.lat - start.lat) * t,
+        driverLastLng: start.lng + (drop.lng - start.lng) * t,
+        driverLocationAt: new Date().toISOString(),
+        driverArrivedAt: arrived ? new Date().toISOString() : null,
+        lines: [{ name: "Mom's Recipe - Chicken Gravy", quantity: 1, unitPrice: 470 }],
+      });
+      if (arrived) {
+        step = 0;
+        hold = 1;
+      } else {
+        step += 1;
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 8000);
+    return () => window.clearInterval(timer);
+  }, [trackingOrderId]);
+
+  useEffect(() => {
+    if (!trackingOrderId || trackingOrderId === "preview") {
+      if (!trackingOrderId) {
+        setTrackSnap(null);
+        setTrackErr(null);
+        setTrackBanner(null);
+        prevTrackStatus.current = null;
+        openedOrdersForTrack.current = false;
+      }
       return;
     }
     const phone = customerPhone.trim();
@@ -2787,6 +2838,7 @@ export function MobileHomeScreen({
             {ordersView === "track" ? (
               <OrderTrackingPanel
                 trackingOrderId={trackingOrderId}
+                preview={trackingOrderId === "preview"}
                 customerPhone={customerPhone}
                 trackSnap={trackSnap}
                 trackErr={trackErr}
