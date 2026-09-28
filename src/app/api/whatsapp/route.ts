@@ -1996,9 +1996,20 @@ async function showVariantPicker(from: string, item: MenuItem) {
 async function applyVariant(from: string, variant: PackSize) {
   const session = await getSession(from);
   const stored = readStoredDraft(session.recent_turns);
-  if (stored || (session.state === "ai_chat" && session.selected_item_id)) {
-    const menu = await getMenu();
-    const selected = menu.find((m) => m.id === session.selected_item_id);
+  const menu = await getMenu();
+  const selected = session.selected_item_id
+    ? menu.find((m) => m.id === session.selected_item_id)
+    : undefined;
+
+  // The size buttons sit on a dish card. A leftover draft (an earlier wings
+  // order, still holding its date and address) must not keep that other dish.
+  if (session.state === "picking_variant" && selected) {
+    const draft: ProposalDraft = {
+      ...(stored || {}),
+      items: [{ dish: selected.name, size: variant, quantity: 1 }],
+    };
+    if (stored) return await presentProposal(from, draft);
+  } else if (stored || (session.state === "ai_chat" && selected)) {
     const items = (stored?.items || []).map((item) => ({
       ...item,
       size: parsePackSize(String(item.size || "")) ?? variant,

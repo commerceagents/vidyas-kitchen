@@ -21,6 +21,7 @@ import { computeOrderBreakdownFromItemSubtotal } from "./order-pricing";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 import { formatInr, packPriceLine } from "./menu/dish-pricing";
+import { formatFullDishName } from "./dish-name";
 import { COD_MAX_ORDER_VALUE } from "./cod-policy";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
@@ -142,6 +143,43 @@ function totalLines(cart: CartItem[], lang?: WaLang, offer?: { label: string; am
     `GST ${money(gst)}`,
     "",
     `*Total ${money(total)}*`,
+  ];
+}
+
+/**
+ * The confirm card. Dish name bold, size italic, fees on dotted leaders,
+ * a rule, then a bold total. Same shape as the bill sent after the order lands.
+ */
+function invoiceLines(
+  cart: CartItem[],
+  lang: WaLang | undefined,
+  offer: { label: string; amount: number } | null | undefined,
+  footer: string[],
+): string[] {
+  const b = cartBreakdown(cart);
+  const discount = offer ? Math.min(b.itemsSubtotal, Math.max(0, Math.round(offer.amount))) : 0;
+  const priced = discount > 0 ? computeOrderBreakdownFromItemSubtotal(b.itemsSubtotal - discount) : null;
+  const packaging = priced ? priced.packaging : b.packaging;
+  const delivery = priced ? priced.delivery : b.delivery;
+  const gst = priced ? priced.gst : b.gst;
+  const total = priced ? Math.round(priced.computedTotal) : cartGrandTotal(cart);
+  const items = cart.flatMap((item) => {
+    const qty = Math.max(1, item.quantity);
+    const name = formatFullDishName(item.name);
+    return [`*${name}*`, `_${item.variant} × ${qty}_ · ${money(item.unit_price * qty)}`];
+  });
+  return [
+    ...items,
+    "",
+    `_${dottedRow(pickLang(lang, "Items", "Items"), money(b.itemsSubtotal))}_`,
+    ...(discount > 0 ? [`_${dottedRow(offer!.label, `-${money(discount)}`)}_`] : []),
+    `_${dottedRow(pickLang(lang, "Packaging", "Packing"), money(packaging))}_`,
+    `_${dottedRow("Delivery", money(delivery))}_`,
+    `_${dottedRow("GST", money(gst))}_`,
+    RULE,
+    `*${dottedRow("Total", money(total))}*`,
+    "",
+    ...footer.filter(Boolean).map((line) => `_${line}_`),
   ];
 }
 
@@ -559,13 +597,10 @@ export function buildOrderSummaryMessage(
 ): string {
   return msg({
     title: pickLang(lang, "Does this look right?", "Idhu sari-ya iruka?"),
-    lines: [
-      ...cart.map(cartLine),
-      ...totalLines(cart, lang, offer),
-      "",
+    lines: invoiceLines(cart, lang, offer, [
       `${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}`,
       address,
-    ],
+    ]),
   });
 }
 
@@ -587,14 +622,7 @@ export function buildProposalMessage(
 ): string {
   return msg({
     title: pickLang(lang, "Here's what I've got", "Naan puinjukittadhu idhu"),
-    lines: [
-      ...cart.map(cartLine),
-      ...totalLines(cart, lang, offer),
-      "",
-      `${dateStr} · ${slotLabel}`,
-      address,
-      paymentLabel,
-    ],
+    lines: invoiceLines(cart, lang, offer, [`${dateStr} · ${slotLabel}`, address, paymentLabel]),
     note: pickLang(
       lang,
       "Nothing is booked until you tap Confirm order.",
