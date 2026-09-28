@@ -90,6 +90,16 @@ export function dishQueryCategory(query: string): "chicken" | "mutton" | "egg" |
  * True when the words that are not just a category actually appear on a dish.
  * "chicken wings" is known. "chicken tandoori" and "biryani" are not.
  */
+/** A real menu dish is named in the sentence, even if a day or a quantity is there too. */
+export function mentionsKnownDish(menu: MenuItem[], query: string): boolean {
+  const q = tokens(query);
+  if (q.length === 0) return false;
+  return searchMenuDishes(menu, query).some((item) => {
+    const nameWords = tokens(item.name).filter((w) => !CATEGORY_WORDS.has(w));
+    return nameWords.length > 0 && nameWords.every((w) => q.some((t) => t.startsWith(w) || w.startsWith(t)));
+  });
+}
+
 export function isKnownDishQuery(menu: MenuItem[], query: string): boolean {
   const words = tokens(query).filter((w) => !CATEGORY_WORDS.has(w));
   if (words.length === 0) return dishQueryCategory(query) != null;

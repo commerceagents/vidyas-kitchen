@@ -120,6 +120,7 @@ import {
   dishQueryCategory,
   fillDraftFromReply,
   isKnownDishQuery,
+  mentionsKnownDish,
   isProposalStillValid,
   listDraftGaps,
   looksLikeCompoundOrder,
@@ -703,7 +704,7 @@ export async function POST(req: Request) {
         return await handleIdle(from, text, session, profileName);
 
       case "browsing_category":
-        return await handleBrowsingCategory(from, text);
+        return await handleBrowsingCategory(from, text, profileName);
 
       case "picking_item":
         return await handlePickingItem(from, text);
@@ -939,21 +940,19 @@ async function handleIdle(from: string, text: string, session: { cart: CartItem[
   return await handleAiChat(from, text, profileName);
 }
 
-async function handleBrowsingCategory(from: string, text: string) {
+function categoryChoice(text: string): "chicken" | "mutton" | "egg" | null {
   const lower = text.toLowerCase().trim();
   const num = parseInt(text, 10);
+  if (num === 1 || lower === "chicken") return "chicken";
+  if (num === 2 || lower === "mutton") return "mutton";
+  if (num === 3 || lower === "egg") return "egg";
+  return null;
+}
 
-  let cat: string | null = null;
-  if (num === 1 || /chicken/i.test(lower)) cat = "chicken";
-  else if (num === 2 || /mutton/i.test(lower)) cat = "mutton";
-  else if (num === 3 || /egg/i.test(lower)) cat = "egg";
-
-  if (cat) {
-    return await showCategoryItems(from, cat);
-  }
-
-  await sendText(from, buildCategoryMessage(langOf(from)));
-  return ack();
+async function handleBrowsingCategory(from: string, text: string, profileName: string) {
+  const cat = categoryChoice(text);
+  if (cat) return await showCategoryItems(from, cat);
+  return await handleIdle(from, text, { cart: [] }, profileName);
 }
 
 async function handlePickingItem(from: string, text: string) {
@@ -1204,6 +1203,14 @@ function understoodOrderLines(draft: ProposalDraft): string[] {
 }
 
 async function handleAiChat(from: string, text: string, profileName: string) {
+  const menu = await getMenu();
+  const askingForFood = /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
+  if (askingForFood && !mentionsKnownDish(menu, text) && !categoryChoice(text)) {
+    await updateSession(from, { state: "ai_chat" });
+    await sendLookalikeCarousel(from, text);
+    return ack();
+  }
+
   const session = await getSession(from);
   const history = session.recent_turns || [];
   const stored = readStoredDraft(history);
