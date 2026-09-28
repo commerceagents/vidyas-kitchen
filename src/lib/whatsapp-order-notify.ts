@@ -1,7 +1,7 @@
 import { publicSiteOrigin } from "@/lib/site-url";
-import { formatSlotLineForCustomer } from "@/lib/delivery-slots";
+import { formatSlotLineForCustomer, slotWindowEnded } from "@/lib/delivery-slots";
 import { OrderStatus, codFailureLabel, formatOrderRef, normalizeOrderStatus } from "@/lib/order-status";
-import { sendText, sendCtaUrl, sendCarousel, type WaSendOutcome } from "@/lib/whatsapp-send";
+import { sendText, sendButtons, sendCtaUrl, sendCarousel, type WaSendOutcome } from "@/lib/whatsapp-send";
 import {
   sendGiftOrderTemplate,
   sendOrderUpdateTemplate,
@@ -16,8 +16,12 @@ import {
   notifyDriverArrived,
   giftRecipientWhatsApp,
   giftRecipientSms,
+  olderOrderAskReply,
+  olderOrderButtons,
+  olderOrderTemplateLine,
   BTN,
   type GiftNotifyKind,
+  type OlderOrderKind,
   type WaOrderBill,
   type WaOrderStage,
 } from "@/lib/whatsapp-copy";
@@ -285,6 +289,40 @@ async function displayNameForPhone(
   return fallback;
 }
 
+function olderKindForLiveStage(stage: WaOrderStage): OlderOrderKind | null {
+  if (stage === "dispatched") return "unfinished_trip";
+  if (stage === "accepted" || stage === "preparing" || stage === "packed") return "not_sent";
+  return null;
+}
+
+async function sendOlderOrderNotice(
+  to: string,
+  order: NotifyOrderRow,
+  ref: string,
+  kind: OlderOrderKind,
+  trackUrl: string,
+): Promise<void> {
+  const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind) || "the booked time";
+  const text = olderOrderAskReply(ref, slotLine, kind);
+  const buttons = olderOrderButtons(kind);
+  try {
+    await updateSession(to, { pending_options: buttons });
+  } catch (e) {
+    console.error("[whatsapp-order-notify] store older-order buttons", e);
+  }
+  if (await hasOpenServiceWindow(to)) {
+    const outcome = await sendButtons(to, text, buttons);
+    if (outcome.ok) return;
+  }
+  await sendOrderUpdateTemplate(to, {
+    name: await displayNameForPhone(order.phone_number, "there"),
+    ref,
+    line: olderOrderTemplateLine(kind),
+    slot: slotLine,
+    url: trackUrl,
+  });
+}
+
 /** Template wording for the updates that follow the first gift message. */
 const GIFT_TEMPLATE_LINE: Record<Exclude<GiftNotifyKind, "placed">, string> = {
   dispatched: "The driver has left the kitchen with your food.",
@@ -321,14 +359,24 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
           : `${bill.items[0].name} +${bill.items.length - 1} more`;
     const url = giftTrackUrl(order.id, recPhone);
     const isCod = String(order.payment_method || "").toLowerCase() === "cod";
-    const waBody = giftRecipientWhatsApp(kind, {
+    const giftStale =
+      (kind === "dispatched" || kind === "arrived") && slotWindowEnded(order.delivery_slot);
+    const waBody = giftStale
+      ? olderOrderAskReply(
+          bill.ref,
+          bill.slotLine || "the booked time",
+          "unfinished_trip",
+        )
+      : giftRecipientWhatsApp(kind, {
       sender,
       itemsLine,
       slotLine: bill.slotLine,
       isCod,
       amount: bill.amount,
     });
-    const smsBody = giftRecipientSms(kind, {
+    const smsBody = giftStale
+      ? olderOrderAskReply(bill.ref, bill.slotLine || "the booked time", "unfinished_trip")
+      : giftRecipientSms(kind, {
       sender,
       url,
       itemsLine,
@@ -391,7 +439,9 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
         // from tapping the track link), fall back to template if rejected.
         let freeFormError: string | null = null;
         try {
-          const outcome = await sendCtaUrl(waTo, waBody, url, BTN.track);
+          const outcome = giftStale
+            ? await sendText(waTo, waBody)
+            : await sendCtaUrl(waTo, waBody, url, BTN.track);
           delivered = outcome.ok;
           if (!outcome.ok) freeFormError = outcome.error ?? "Meta rejected free-form";
         } catch (e) {
@@ -411,7 +461,7 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
           delivered = await sendOrderUpdateTemplate(waTo, {
             name: recipientName,
             ref: bill.ref,
-            line: GIFT_TEMPLATE_LINE[kind],
+            line: giftStale ? olderOrderTemplateLine("unfinished_trip") : GIFT_TEMPLATE_LINE[kind],
             slot: bill.slotLine || "See the tracking link",
             url,
           });
@@ -503,6 +553,11 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   };
 
   const card = async (stage: WaOrderStage) => {
+    const olderKind = olderKindForLiveStage(stage);
+    if (olderKind && slotWindowEnded(order.delivery_slot)) {
+      await sendOlderOrderNotice(to, order, short, olderKind, trackUrl);
+      return;
+    }
     // App orders never open a WhatsApp chat, so the rich card is dropped and
     // the customer sees nothing. Send the approved template first in that case.
     if (!(await hasOpenServiceWindow(to))) {
@@ -618,7 +673,7 @@ export async function notifyWhatsAppDriverLocation(
 
   const { data, error } = await supabase
     .from("orders")
-    .select("id, phone_number, status, driver_pin_sent_at")
+    .select("id, phone_number, status, driver_pin_sent_at, delivery_slot")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -628,8 +683,10 @@ export async function notifyWhatsAppDriverLocation(
     phone_number?: string | null;
     status?: string | null;
     driver_pin_sent_at?: string | null;
+    delivery_slot?: string | null;
   };
   if (String(row.status || "").toLowerCase() !== OrderStatus.OUT_FOR_DELIVERY) return;
+  if (slotWindowEnded(row.delivery_slot)) return;
 
   const to = row.phone_number ? toPhone(row.phone_number) : null;
   if (!to) return;
@@ -664,7 +721,7 @@ export async function notifyWhatsAppDriverArrived(
 ): Promise<void> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, phone_number, status, payment_method, payment_status, total_amount")
+    .select("id, phone_number, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, order_number")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -676,8 +733,32 @@ export async function notifyWhatsAppDriverArrived(
     payment_method?: string | null;
     payment_status?: string | null;
     total_amount?: number | null;
+    delivery_slot?: string | null;
+    delivery_slot_kind?: string | null;
+    order_number?: number | null;
   };
   if (normalizeOrderStatus(String(row.status || "")) !== OrderStatus.OUT_FOR_DELIVERY) return;
+
+  if (slotWindowEnded(row.delivery_slot)) {
+    const toStale = row.phone_number ? toPhone(row.phone_number) : null;
+    if (!toStale) return;
+    const ref = formatOrderRef(row.order_number, orderId).replace(/^#/, "");
+    await sendOlderOrderNotice(
+      toStale,
+      {
+        id: orderId,
+        status: OrderStatus.OUT_FOR_DELIVERY,
+        phone_number: row.phone_number,
+        delivery_slot: row.delivery_slot,
+        delivery_slot_kind: row.delivery_slot_kind,
+        order_number: row.order_number,
+      },
+      ref,
+      "unfinished_trip",
+      `${publicSiteOrigin()}/?track=${orderId}`,
+    );
+    return;
+  }
 
   await notifyGiftRecipient(
     {

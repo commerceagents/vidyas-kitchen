@@ -66,6 +66,17 @@ export function isSlotBookable(slotStartIso: string, nowMs: number = Date.now())
   return start - nowMs >= MS_24H;
 }
 
+/** Breakfast, lunch, and dinner each run for two hours from the start time. */
+const SLOT_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+/** True once the booked window is over, so a status must not read as a live trip. */
+export function slotWindowEnded(slotStartIso: string | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!slotStartIso) return false;
+  const start = new Date(slotStartIso).getTime();
+  if (!Number.isFinite(start)) return false;
+  return nowMs > start + SLOT_WINDOW_MS;
+}
+
 export function hoursUntilSlotStart(slotStartIso: string, nowMs: number = Date.now()): number {
   return (new Date(slotStartIso).getTime() - nowMs) / (1000 * 60 * 60);
 }

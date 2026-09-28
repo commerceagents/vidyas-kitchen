@@ -13,6 +13,8 @@ import {
   isSlotBookable,
   isValidSlotKind,
   isOrderingWindowOpen,
+  formatSlotLineForCustomer,
+  slotWindowEnded,
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
@@ -70,6 +72,10 @@ import {
   buildPwaPromoBody,
   buildCodPlacedMessage,
   complaintPrompt,
+  olderOrderAskReply,
+  olderOrderArrivedReply,
+  olderOrderButtons,
+  type OlderOrderKind,
   helpAndSupportReply,
   callUsDialReply,
   languageSetReply,
@@ -345,6 +351,15 @@ const STATUS_DETAIL: Record<string, string> = {
   undelivered: "couldn't be handed over — we'll be in touch.",
 };
 
+/** Past the booked window, an open order is no longer a live trip. */
+function olderKindForAskedOrder(status: string, slotStartIso: string | null | undefined): OlderOrderKind | null {
+  if (!slotWindowEnded(slotStartIso)) return null;
+  if (["delivered", "cancelled", "rejected", "undelivered"].includes(status)) return null;
+  if (status === "out_for_delivery") return "unfinished_trip";
+  if (status === "pending_payment") return "unpaid";
+  return "not_sent";
+}
+
 /**
  * Look up a specific order by its 5-digit reference number and phone, then
  * reply with its current status and a track link. Called when the message
@@ -392,19 +407,19 @@ async function showSpecificOrderStatus(from: string, refNum: string, profileName
     delivery_slot_kind?: string | null;
   };
   const ref = shortRef(row.id, row.order_number);
-  const statusPhrase = STATUS_DETAIL[row.status] ?? `status: ${row.status.replace(/_/g, " ")}`;
-  const slotLine = row.delivery_slot
-    ? `\n\nDelivery: ${new Date(row.delivery_slot).toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
-    : "";
+  const slotLine = formatSlotLineForCustomer(row.delivery_slot, row.delivery_slot_kind);
+  const olderKind = olderKindForAskedOrder(row.status, row.delivery_slot);
+  if (olderKind) {
+    const buttons = olderOrderButtons(olderKind);
+    await storeOptions(from, buttons);
+    await sendButtons(from, olderOrderAskReply(ref, slotLine, olderKind), buttons);
+    return ack();
+  }
 
-  const body = `*Order #${ref}* is ${statusPhrase}${slotLine}\n\nTap below to follow it live or share your location with the driver.`;
+  const statusPhrase = STATUS_DETAIL[row.status] ?? `status: ${row.status.replace(/_/g, " ")}`;
+  const slotSuffix = slotLine ? `\n\nDelivery: ${slotLine}` : "";
+
+  const body = `*Order #${ref}* is ${statusPhrase}${slotSuffix}\n\nTap below to follow it live or share your location with the driver.`;
   await sendCtaUrl(from, body, `${trackBase}${row.id}`, BTN.track);
   return ack();
 }
@@ -868,6 +883,21 @@ async function handleResolvedId(
       return await showOrderHistory(from);
     case "hs_payments":
       return await showPaymentsSummary(from);
+    case "stale_issue":
+    case "stale_missing":
+      await updateSession(from, { state: "ai_chat" });
+      await sendText(from, complaintPrompt(langOf(from)));
+      return ack();
+    case "stale_latest":
+      return await showTrackOrder(from);
+    case "stale_again":
+      return await showQuickReorder(from);
+    case "stale_arrived":
+      await sendText(from, olderOrderArrivedReply());
+      return ack();
+    case "stale_call":
+      await sendText(from, callUsDialReply(langOf(from)));
+      return ack();
     case "rating_skip":
       await updateSession(from, { state: "idle", rating_order_id: null });
       await sendText(from, ratingThanksReply(langOf(from)));

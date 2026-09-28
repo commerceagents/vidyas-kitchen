@@ -1313,6 +1313,50 @@ export function escalateHumanReply(lang?: WaLang): string {
   );
 }
 
+export type OlderOrderKind = "not_sent" | "unpaid" | "unfinished_trip";
+
+/** Asked about, or nudged on, an order whose breakfast/lunch/dinner window is over. */
+export function olderOrderAskReply(ref: string, slotLine: string, kind: OlderOrderKind): string {
+  const booked = slotLine ? `booked for ${slotLine}` : "from an earlier delivery time";
+  if (kind === "unfinished_trip") {
+    return `Order #${ref} was ${booked}. That time has passed, and there is no delivered update.\n\nDid it reach you, or should the kitchen look into it?`;
+  }
+  if (kind === "unpaid") {
+    return `Order #${ref} is an older order, ${booked}. That time has passed, and payment was never completed, so it was not sent out.\n\nAre you having a problem with this order, or were you looking for a newer one?`;
+  }
+  return `Order #${ref} is an older order, ${booked}. That time has passed, and it was not sent out.\n\nAre you having a problem with this order, or were you looking for a newer one?`;
+}
+
+/** One plain line for the approved order_update template. */
+export function olderOrderTemplateLine(kind: OlderOrderKind): string {
+  if (kind === "unfinished_trip") {
+    return "This order's delivery time has passed, and there is no delivered update. Reply here if it never arrived.";
+  }
+  if (kind === "unpaid") {
+    return "This is an older order. Payment was not completed and the booked time has passed, so it was not sent out.";
+  }
+  return "This is an older order. The booked time has passed and it was not sent out. Reply here if you are having a problem with it.";
+}
+
+export function olderOrderButtons(kind: OlderOrderKind): { id: string; title: string }[] {
+  if (kind === "unfinished_trip") {
+    return [
+      { id: "stale_arrived", title: "It arrived" },
+      { id: "stale_missing", title: "It never came" },
+      { id: "stale_call", title: "Call us" },
+    ];
+  }
+  return [
+    { id: "stale_issue", title: "Something wrong" },
+    { id: "stale_latest", title: "Latest order" },
+    { id: "stale_again", title: "Order again" },
+  ];
+}
+
+export function olderOrderArrivedReply(): string {
+  return "Glad it reached you. Enjoy.";
+}
+
 export function complaintPrompt(lang?: WaLang): string {
   return pickLang(
     lang,
