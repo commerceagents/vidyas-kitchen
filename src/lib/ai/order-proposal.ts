@@ -53,7 +53,7 @@ export type MissingField = "dish" | "size" | "date" | "slot" | "address" | "paym
 export type ProposalResult =
   | { ok: true; proposal: OrderProposal }
   | { ok: false; kind: "missing"; field: MissingField; dishOptions?: MenuItem[] }
-  | { ok: false; kind: "rejected"; reason: string };
+  | { ok: false; kind: "rejected"; reason: string; code?: "too_soon" };
 
 // ─── Dish matching ───────────────────────────────────────────────────────────
 
@@ -75,6 +75,30 @@ function tokens(text: string): string[] {
  * substring test: "chicken gravy" has to be able to surface all five chicken
  * gravies so we can ask which one rather than silently pick.
  */
+const CATEGORY_WORDS = new Set(["chicken", "mutton", "egg"]);
+
+/** chicken / mutton / egg when the sentence names a category, even if the dish is not on the menu. */
+export function dishQueryCategory(query: string): "chicken" | "mutton" | "egg" | null {
+  const t = String(query || "").toLowerCase();
+  if (/\bchicken\b/.test(t)) return "chicken";
+  if (/\bmutton\b/.test(t)) return "mutton";
+  if (/\begg\b/.test(t)) return "egg";
+  return null;
+}
+
+/**
+ * True when the words that are not just a category actually appear on a dish.
+ * "chicken wings" is known. "chicken tandoori" and "biryani" are not.
+ */
+export function isKnownDishQuery(menu: MenuItem[], query: string): boolean {
+  const words = tokens(query).filter((w) => !CATEGORY_WORDS.has(w));
+  if (words.length === 0) return dishQueryCategory(query) != null;
+  return searchMenuDishes(menu, words.join(" ")).some((item) => {
+    const name = tokens(item.name);
+    return words.every((w) => name.some((n) => n.startsWith(w) || w.startsWith(n)));
+  });
+}
+
 export function searchMenuDishes(menu: MenuItem[], query: string, limit = 10): MenuItem[] {
   const q = tokens(query);
   if (q.length === 0) return [];
@@ -397,10 +421,19 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
   const slotStartIso = slotStartIsoFor(deliveryDate, slotKind);
   if (!isSlotBookable(slotStartIso)) {
     const def = DELIVERY_SLOT_DEFS[slotKind];
+    const when = new Date(`${deliveryDate}T12:00:00+05:30`).toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "Asia/Kolkata",
+    });
     return {
       ok: false,
       kind: "rejected",
-      reason: `${def.label} on that day is inside our 24-hour window. Everything is cooked to order, so pick a later day.`,
+      code: "too_soon",
+      reason:
+        `We cook every order fresh, so it has to be placed at least 24 hours before the slot. ` +
+        `${def.label} on ${when} (${def.rangeLabel}) is too soon. Pick a later time below.`,
     };
   }
 

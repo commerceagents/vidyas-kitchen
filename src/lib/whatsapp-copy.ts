@@ -146,7 +146,7 @@ function totalLines(cart: CartItem[], lang?: WaLang, offer?: { label: string; am
 }
 
 export const ORDER_CUTOFF_REMINDER =
-  "_Everything is cooked to order, so we need 24 hours. No rush orders._";
+  "_We cook every order fresh, so it has to be placed at least 24 hours before the delivery slot._";
 
 export function buildAppNudgeFooter(lang?: WaLang): string {
   return pickLang(
@@ -374,7 +374,7 @@ export function buildVariantMessage(
     msg({
       title: itemName,
       lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
-      note: "Which size?",
+      note: "Pick a size. It is added after this.",
     }),
     msg({
       title: itemName,

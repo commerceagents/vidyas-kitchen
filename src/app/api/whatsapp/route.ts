@@ -15,6 +15,7 @@ import {
   isOrderingWindowOpen,
   formatSlotLineForCustomer,
   slotWindowEnded,
+  iterDeliveryDateOptions,
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
@@ -24,7 +25,6 @@ import {
   sendCtaUrl,
   sendList,
   sendCarousel,
-  sendProductList,
 } from "@/lib/whatsapp-send";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
 import {
@@ -113,10 +113,13 @@ import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
 import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
-import { unitPriceFor, packPricesFor, packPriceLine, formatInr, type PackSize } from "@/lib/menu/dish-pricing";
+import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
+import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
   buildProposal,
+  dishQueryCategory,
   fillDraftFromReply,
+  isKnownDishQuery,
   isProposalStillValid,
   listDraftGaps,
   looksLikeCompoundOrder,
@@ -130,10 +133,7 @@ import {
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
 import {
-  whatsappCatalogId,
-  catalogProductIdsForRetailer,
-  catalogMenuSections,
-  catalogSectionForCategory,
+  MENU_SECTION_ORDER,
   categoryDisplayLabel,
   parseCatalogProductId,
   retailerIdForCsvPrefix,
@@ -784,6 +784,13 @@ async function handleResolvedId(
   if (id.startsWith("date_")) {
     return await applyDeliveryDate(from, id.replace(/^date_/, ""));
   }
+  const booked = id.match(/^book_(\d{4}-\d{2}-\d{2})_(breakfast|lunch|dinner)$/);
+  if (booked) {
+    return await applyBookedSlot(from, booked[1], booked[2] as DeliverySlotKind);
+  }
+  if (id.startsWith("add_")) {
+    return await addDishByRetailer(from, id.slice(4));
+  }
   if (id.startsWith("qty_")) {
     const qty = parseInt(id.slice(4), 10);
     if (qty >= 1 && qty <= 10) return await addSelectedItemToCart(from, session, qty);
@@ -1280,6 +1287,10 @@ async function presentProposal(
   });
 
   if (!result.ok && result.kind === "rejected") {
+    if (result.code === "too_soon") {
+      await updateSession(from, { state: "ai_chat", proposal: null, recent_turns: turns });
+      return await showBookableSlots(from, result.reason);
+    }
     await updateSession(from, { state: "idle", proposal: null });
     await sendText(from, result.reason);
     return await showFullMenu(from);
@@ -1318,6 +1329,14 @@ async function presentProposal(
       await storeOptions(from, buttons);
       await sendButtons(from, ask, buttons);
       return ack();
+    }
+
+    if (result.field === "dish") {
+      const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
+      if (!isKnownDishQuery(menu, query)) {
+        await sendLookalikeCarousel(from, query);
+        return ack();
+      }
     }
 
     if (result.field === "dish" && result.dishOptions?.length) {
@@ -1574,25 +1593,151 @@ async function showInstallApp(from: string, profileName: string) {
  * chain below degrades one step at a time and always ends in something
  * readable: catalog → category carousel → interactive list → numbered text.
  */
-async function showFullMenu(from: string) {
-  const lang = langOf(from);
-  await updateSession(from, { state: "browsing_category" });
+function dishCards(dishes: DishPricing[]): { id: string; title: string; body: string; imageUrl: string; buttonTitle: string }[] {
+  return dishes.map((dish) => {
+    const name = formatFullDishName(dish.name);
+    return {
+      id: `add_${dish.retailerId}`,
+      title: name,
+      body: `${name}\n500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 160),
+      imageUrl: publicDishImageUrl({ image_url: dish.imagePath, retailer_id: dish.retailerId }),
+      buttonTitle: "Add",
+    };
+  });
+}
 
-  const catalogId = whatsappCatalogId();
-  if (catalogId) {
-    const { sections, truncated } = catalogMenuSections();
-    const sent = await sendProductList(
-      from,
-      catalogId,
-      buildMenuHeader(lang),
-      buildFullMenuBody(lang, { truncated }),
-      sections,
-      "Vidya's Kitchen, Sivakasi",
-    );
-    if (sent) return ack();
-    console.error("[WA] product_list failed for the full menu — falling back to categories.");
+function dishesInCategory(category: string): DishPricing[] {
+  return allDishPricing().filter((dish) => dish.category === category);
+}
+
+function lookalikeDishes(query: string): DishPricing[] {
+  const category = dishQueryCategory(query);
+  const pool = category ? dishesInCategory(category) : allDishPricing();
+  const rank = (dish: DishPricing) => {
+    const index = KITCHEN_PICK_DISH_IDS.indexOf(dish.dishId);
+    return index < 0 ? 99 : index;
+  };
+  return pool.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, 5);
+}
+
+async function sendCategoryDishCarousel(from: string, category: string, heading: string): Promise<boolean> {
+  const dishes = dishesInCategory(category);
+  if (dishes.length < 2) return false;
+  return sendCarousel(from, `${heading}\nTap Add, then pick 500gm or 1kg.`, dishCards(dishes));
+}
+
+async function sendPartitionedMenu(from: string): Promise<boolean> {
+  let sent = false;
+  for (const category of MENU_SECTION_ORDER) {
+    const label = categoryDisplayLabel(category);
+    const ok = await sendCategoryDishCarousel(from, category, label);
+    if (ok) sent = true;
   }
+  if (sent) return true;
 
+  const sections = MENU_SECTION_ORDER.map((category) => ({
+    title: categoryDisplayLabel(category),
+    rows: dishesInCategory(category).slice(0, 10).map((dish) => ({
+      id: `add_${dish.retailerId}`,
+      title: formatFullDishName(dish.name).slice(0, 24),
+      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
+    })),
+  })).filter((section) => section.rows.length > 0);
+
+  if (sections.length === 0) return false;
+  await sendList(
+    from,
+    "Chicken, mutton, and egg. Tap a dish, then pick 500gm or 1kg.",
+    "View menu",
+    sections,
+  );
+  return true;
+}
+
+async function sendLookalikeCarousel(from: string, query: string): Promise<void> {
+  const category = dishQueryCategory(query);
+  const dishes = lookalikeDishes(query);
+  const heading = category
+    ? `We don't cook that. Here are the ${category} dishes people order most. Tap Add, then pick a size.`
+    : "We don't cook that. Here are the dishes people order most. Tap Add, then pick a size.";
+  if (dishes.length >= 2 && (await sendCarousel(from, heading, dishCards(dishes)))) return;
+  if (dishes.length === 0) {
+    await sendText(from, heading);
+    return;
+  }
+  await sendList(from, heading, "See dishes", [
+    {
+      title: category ? categoryDisplayLabel(category) : "House favourites",
+      rows: dishes.map((dish) => ({
+        id: `add_${dish.retailerId}`,
+        title: formatFullDishName(dish.name).slice(0, 24),
+        description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
+      })),
+    },
+  ]);
+}
+
+function bookableSlotRows(): { id: string; title: string; description: string }[] {
+  const rows: { id: string; title: string; description: string }[] = [];
+  for (const day of iterDeliveryDateOptions(6)) {
+    for (const card of day.cards) {
+      if (!card.available) continue;
+      rows.push({
+        id: `book_${day.istYmd}_${card.kind}`,
+        title: card.label.slice(0, 24),
+        description: `${day.weekendLabel} · ${card.rangeLabel}`.slice(0, 72),
+      });
+      if (rows.length >= 9) return rows;
+    }
+  }
+  return rows;
+}
+
+async function showBookableSlots(from: string, reason: string) {
+  const rows = bookableSlotRows();
+  if (rows.length === 0) {
+    await sendText(from, reason);
+    return ack();
+  }
+  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  await sendList(from, reason, "Pick a slot", [{ title: "Open slots", rows }]);
+  return ack();
+}
+
+async function applyBookedSlot(from: string, ymd: string, kind: DeliverySlotKind) {
+  const session = await getSession(from);
+  const draft = readStoredDraft(session.recent_turns);
+  if (draft) {
+    return await presentProposal(from, { ...draft, date: ymd, slot: kind });
+  }
+  await updateSession(from, { delivery_date: ymd, delivery_slot_kind: kind });
+  return await applySlot(from, { ...(await getSession(from)), delivery_date: ymd, delivery_slot_kind: kind }, kind);
+}
+
+async function addDishByRetailer(from: string, retailerId: string) {
+  const pricing = dishPricingForRetailerId(retailerId);
+  if (!pricing) {
+    await sendText(from, notUnderstoodReply(langOf(from)));
+    return await showFullMenu(from);
+  }
+  const menu = await getMenu();
+  const item =
+    menu.find((m) => m.id === pricing.dishId || m.retailer_id === pricing.retailerId) ||
+    ({
+      id: pricing.dishId,
+      retailer_id: pricing.retailerId,
+      name: pricing.name,
+      price: pricing.prices["1kg"],
+      category: pricing.category,
+      image_url: pricing.imagePath,
+    } satisfies MenuItem);
+  return await showVariantPicker(from, item);
+}
+
+async function showFullMenu(from: string) {
+  await updateSession(from, { state: "browsing_category" });
+  const sent = await sendPartitionedMenu(from);
+  if (sent) return ack();
   return await showCategoryBrowser(from);
 }
 
@@ -1649,9 +1794,12 @@ async function showCategoryBrowser(from: string) {
 }
 
 async function showCategoryItems(from: string, cat: string) {
-  const items = await getMenuByCategory(cat);
   const lang = langOf(from);
   const catLabel = categoryDisplayLabel(cat);
+  const asCards = await sendCategoryDishCarousel(from, cat, catLabel);
+  if (asCards) return ack();
+
+  const items = await getMenuByCategory(cat);
 
   if (items.length === 0) {
     await sendText(from, buildCategoryMessage(lang));
@@ -1661,16 +1809,6 @@ async function showCategoryItems(from: string, cat: string) {
   const slice = items.slice(0, 10);
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
-
-  const catalogId = whatsappCatalogId();
-  if (catalogId) {
-    const section = catalogSectionForCategory(cat);
-    if (section) {
-      const sent = await sendProductList(from, catalogId, catLabel, buildDishListBody(catLabel, lang), [section]);
-      if (sent) return ack();
-      console.error(`[WA] product_list failed for ${cat} — trying the carousel.`);
-    }
-  }
 
   if (slice.length >= 2) {
     const cards = slice.map((m) => {
@@ -1874,8 +2012,11 @@ async function applySlot(from: string, session: WhatsAppSession, slotKind: Deliv
   if (date) {
     const slotIso = slotStartIsoFor(date, slotKind);
     if (!isSlotBookable(slotIso)) {
-      await sendText(from, ORDER_CUTOFF_REMINDER);
-      return await showDatePicker(from);
+      const def = DELIVERY_SLOT_DEFS[slotKind];
+      return await showBookableSlots(
+        from,
+        `We cook every order fresh, so it has to be placed at least 24 hours before the slot. ${def.label} on ${dateLabel(date)} (${def.rangeLabel}) is too soon. Pick a later time below.`,
+      );
     }
   }
 
