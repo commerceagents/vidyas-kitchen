@@ -62,6 +62,7 @@ import {
   buildReuseLastPrompt,
   buildReuseAddressPrompt,
   buildProposalMessage,
+  buildInstantGapMessage,
   buildProposalAskMessage,
   buildProposalExpiredMessage,
   buildRatingCommentPrompt,
@@ -115,10 +116,16 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, type PackSize } from "@/lib/menu/dish-pricing";
 import {
   buildProposal,
+  fillDraftFromReply,
   isProposalStillValid,
+  listDraftGaps,
   looksLikeCompoundOrder,
+  parseDateText,
+  parseHour,
   parsePackSize,
+  parseSlotWord,
   repriceProposal,
+  slotKindForHour,
   type OrderProposal,
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
@@ -1167,12 +1174,38 @@ async function handleAwaitingPayment(from: string, text: string, session: WhatsA
 
 // ─── Conversational ordering ───────────────────────────────────────────────
 
+function understoodOrderLines(draft: ProposalDraft): string[] {
+  const lines: string[] = [];
+  for (const item of draft.items || []) {
+    const dish = String(item.dish || "").trim();
+    if (!dish) continue;
+    const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+    const size = parsePackSize(String(item.size || "")) || parsePackSize(dish);
+    lines.push(`${dish} × ${qty}${size ? ` (${size})` : ""}`);
+  }
+  const date = parseDateText(String(draft.date || "")) || parseDateText(String(draft.time || ""));
+  const slot =
+    parseSlotWord(String(draft.slot || "")) ||
+    parseSlotWord(String(draft.time || "")) ||
+    (() => {
+      const hour = parseHour(String(draft.time || ""));
+      return hour == null ? null : slotKindForHour(hour);
+    })();
+  const when = [slot ? slotLabel(slot) : null, date ? dateLabel(date) : null].filter(Boolean).join(" · ");
+  if (when) lines.push(when);
+  return lines;
+}
+
 async function handleAiChat(from: string, text: string, profileName: string) {
   const session = await getSession(from);
   const history = session.recent_turns || [];
-  const typedSize = parsePackSize(text);
-  if (typedSize && (readStoredDraft(history) || session.selected_item_id)) {
-    return await applyVariant(from, typedSize);
+  const stored = readStoredDraft(history);
+  if (stored) {
+    const last = await fetchLastAddressAndSlot(from);
+    const filled = fillDraftFromReply(stored, text, last.address || session.delivery_address);
+    if (filled.changed) return await presentProposal(from, filled.draft, text);
+  } else if (parsePackSize(text) && session.selected_item_id) {
+    return await applyVariant(from, parsePackSize(text)!);
   }
 
   const agent = new VidyaAgent();
@@ -1255,6 +1288,22 @@ async function presentProposal(
   if (!result.ok) {
     // Keep the draft so a size/date/slot tap can finish this order, not restart checkout.
     await updateSession(from, { state: "ai_chat", proposal: null, recent_turns: turns });
+    const savedAddress = last.address || session.delivery_address;
+    const gaps = listDraftGaps(draft, {
+      lastAddress: savedAddress,
+      lastSlotKind: (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null,
+    });
+    if (result.field !== "dish" && gaps.length > 1) {
+      await sendText(
+        from,
+        buildInstantGapMessage(
+        understoodOrderLines(draft),
+        gaps.filter((g): g is "size" | "date" | "slot" | "address" | "payment" => g !== "dish"),
+        Boolean(savedAddress),
+      ),
+      );
+      return ack();
+    }
     const ask = buildProposalAskMessage(result.field, lang);
 
     if (result.field === "size") {

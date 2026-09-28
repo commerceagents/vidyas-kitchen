@@ -185,6 +185,115 @@ export function parsePaymentMethod(text: string): ProposalPaymentMethod | null {
   return null;
 }
 
+function draftHasSlot(draft: ProposalDraft, lastSlotKind?: DeliverySlotKind | null): boolean {
+  if (parseSlotWord(String(draft.slot || ""))) return true;
+  if (parseHour(String(draft.time || "")) != null) return true;
+  if (parseSlotWord(String(draft.time || ""))) return true;
+  return Boolean(lastSlotKind && isValidSlotKind(lastSlotKind));
+}
+
+function draftHasDate(draft: ProposalDraft): boolean {
+  return Boolean(parseDateText(String(draft.date || "")) || parseDateText(String(draft.time || "")));
+}
+
+function itemHasSize(item: { dish?: string; size?: string }): boolean {
+  return Boolean(parsePackSize(String(item.size || "")) || parsePackSize(String(item.dish || "")));
+}
+
+/** Every gap still open on a draft, in the order we would have asked them. */
+export function listDraftGaps(
+  draft: ProposalDraft,
+  hints?: { lastAddress?: string | null; lastSlotKind?: DeliverySlotKind | null },
+): MissingField[] {
+  const items = (draft.items || []).filter((i) => String(i?.dish || "").trim());
+  if (items.length === 0) return ["dish"];
+
+  const gaps: MissingField[] = [];
+  if (items.some((item) => !itemHasSize(item))) gaps.push("size");
+  if (!draftHasSlot(draft, hints?.lastSlotKind)) gaps.push("slot");
+  if (!draftHasDate(draft)) gaps.push("date");
+  const address = String(draft.address || "").trim() || String(hints?.lastAddress || "").trim();
+  if (address.length < 5) gaps.push("address");
+  if (!parsePaymentMethod(String(draft.payment || ""))) gaps.push("payment");
+  return gaps;
+}
+
+function addressClause(text: string): string | null {
+  const parts = text.split(/,|\band\b/i).map((s) => s.trim()).filter(Boolean);
+  for (const part of parts) {
+    if (parsePackSize(part) || parsePaymentMethod(part) || parseDateText(part)) continue;
+    if (parseSlotWord(part) || parseHour(part) != null) continue;
+    if (/\b(same|usual)\b/i.test(part)) continue;
+    if (part.length >= 8 && /[0-9]|\broad\b|\bstreet\b|\bnagar\b|\blane\b|\bflat\b|\bapartment\b/i.test(part)) {
+      return part;
+    }
+  }
+  return null;
+}
+
+/**
+ * One reply can fill every open gap: "1kg, same, cash".
+ * Returns the same draft when the line didn't add anything.
+ */
+export function fillDraftFromReply(
+  draft: ProposalDraft,
+  text: string,
+  lastAddress?: string | null,
+): { draft: ProposalDraft; changed: boolean } {
+  const next: ProposalDraft = {
+    ...draft,
+    items: (draft.items || []).map((item) => ({ ...item })),
+  };
+  let changed = false;
+
+  const size = parsePackSize(text);
+  if (size && (next.items || []).some((item) => !itemHasSize(item))) {
+    next.items = (next.items || []).map((item) => (itemHasSize(item) ? item : { ...item, size }));
+    changed = true;
+  }
+
+  const pay = parsePaymentMethod(text);
+  if (pay && !parsePaymentMethod(String(next.payment || ""))) {
+    next.payment = pay;
+    changed = true;
+  }
+
+  if (!draftHasDate(next)) {
+    const date = parseDateText(text);
+    if (date) {
+      next.date = date;
+      changed = true;
+    }
+  }
+
+  if (!draftHasSlot(next)) {
+    const slot = parseSlotWord(text);
+    const hour = parseHour(text);
+    if (slot) {
+      next.slot = slot;
+      changed = true;
+    } else if (hour != null) {
+      next.time = text;
+      changed = true;
+    }
+  }
+
+  if (String(next.address || "").trim().length < 5) {
+    if (/\b(same|usual|last address|same address|same place)\b/i.test(text) && lastAddress && lastAddress.trim().length >= 5) {
+      next.address = lastAddress.trim();
+      changed = true;
+    } else {
+      const addr = addressClause(text);
+      if (addr) {
+        next.address = addr;
+        changed = true;
+      }
+    }
+  }
+
+  return { draft: next, changed };
+}
+
 // ─── Building the proposal ───────────────────────────────────────────────────
 
 export type BuildProposalInput = {

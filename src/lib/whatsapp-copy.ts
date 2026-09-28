@@ -578,6 +578,48 @@ export function buildProposalMessage(
   });
 }
 
+const GAP_LINE: Record<"size" | "date" | "slot" | "address" | "payment", string> = {
+  size: "Size — 500gm or 1kg",
+  date: "Day — tomorrow, or a weekday",
+  slot: "Time — breakfast, lunch, or dinner",
+  address: "Address — “same”, or the door address",
+  payment: "Pay — cash or online",
+};
+
+/** One message for every gap, so a single reply can finish the order. */
+export function buildInstantGapMessage(
+  known: string[],
+  missing: ("size" | "date" | "slot" | "address" | "payment")[],
+  hasSavedAddress: boolean,
+): string {
+  const lines = missing.map((field) => {
+    if (field === "address" && hasSavedAddress) return "Address — reply “same” to use the last one, or send a new door address";
+    return GAP_LINE[field];
+  });
+  const example = missing
+    .map((field) => {
+      if (field === "size") return "1kg";
+      if (field === "date") return "tomorrow";
+      if (field === "slot") return "dinner";
+      if (field === "address") return hasSavedAddress ? "same" : "12 Temple Road";
+      return "cash";
+    })
+    .join(", ");
+
+  return msg({
+    title: "One reply finishes this",
+    lines: [
+      ...known,
+      "",
+      "Still need:",
+      ...lines.map((line) => `• ${line}`),
+      "",
+      `Reply in one line, like: ${example}`,
+    ],
+    note: "Then tap Confirm order and it's booked.",
+  });
+}
+
 export function buildProposalAskMessage(
   field: "dish" | "size" | "date" | "slot" | "address" | "payment",
   lang?: WaLang,
