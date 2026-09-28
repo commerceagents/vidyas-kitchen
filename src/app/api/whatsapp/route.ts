@@ -63,6 +63,7 @@ import {
   buildReuseAddressPrompt,
   buildProposalMessage,
   buildInstantGapMessage,
+  lookalikeOfferBody,
   buildProposalAskMessage,
   buildProposalExpiredMessage,
   buildRatingCommentPrompt,
@@ -459,6 +460,76 @@ function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalD
   return [...kept, { role: "assistant" as const, content: `${VK_DRAFT_PREFIX}${JSON.stringify(draft)}` }].slice(-8);
 }
 
+const BOT_REPLY_ID =
+  /^(add_|var_|book_|cat_|qty_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
+
+function isBotReplyId(value: string): boolean {
+  return BOT_REPLY_ID.test(value);
+}
+
+/** Pull a button or list id out of whatever shape Meta used for the tap. */
+function findReplyId(value: unknown, depth = 0): string | null {
+  if (depth > 6 || value == null) return null;
+  if (typeof value === "string") return isBotReplyId(value) ? value : null;
+  if (typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findReplyId(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = value as Record<string, unknown>;
+  for (const key of ["id", "payload", "button_reply", "list_reply", "button"]) {
+    if (key in obj) {
+      const found = findReplyId(obj[key], depth + 1);
+      if (found) return found;
+    }
+  }
+  for (const nested of Object.values(obj)) {
+    const found = findReplyId(nested, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * A card tap that never included a button id. Offer the same dishes as a list,
+ * which WhatsApp does deliver back to us.
+ */
+async function replyUnreadableTap(from: string): Promise<void> {
+  const session = await getSession(from);
+  const dishes = (session.pending_options || []).filter((option) => option.id.startsWith("add_"));
+  if (dishes.length > 0) {
+    await sendList(
+      from,
+      "Oops — that tap stayed on your phone and never reached the kitchen. Pick the dish here, and I'll ask 500gm or 1kg.",
+      "Pick a dish",
+      [
+        {
+          title: "On the cards",
+          rows: dishes.slice(0, 10).map((option) => {
+            const pricing = dishPricingForRetailerId(option.id.slice(4));
+            const name = pricing ? formatFullDishName(pricing.name) : option.title;
+            return {
+              id: option.id,
+              title: name.slice(0, 24),
+              description: pricing
+                ? `500gm ${formatInr(pricing.prices["500gm"])} · 1kg ${formatInr(pricing.prices["1kg"])}`.slice(0, 72)
+                : undefined,
+            };
+          }),
+        },
+      ],
+    );
+    return;
+  }
+  await sendText(
+    from,
+    "Oops — that didn't come through as text. Type the dish name, or send hi and I'll start again.",
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -504,16 +575,47 @@ export async function POST(req: Request) {
             interactiveReplyId = null;
             body = interactive.nfm_reply?.body || "";
           } else {
-            // Meta documents no webhook shape for a carousel card tap. It is
-            // expected to arrive as button_reply above; if a new shape shows
-            // up, this is the only record of what it looked like.
+            const replyId = findReplyId(message);
             console.error(
               `[WA] unrecognised interactive type "${interactive?.type}": ${JSON.stringify(interactive)}`,
             );
+            if (replyId) {
+              interactiveReplyId = replyId;
+              body = replyId;
+              inboundKind = "button";
+            } else {
+              await logWhatsAppMessage({
+                phone: from,
+                direction: "in",
+                kind: "button",
+                body: `[interactive:${interactive?.type || "unknown"}]`,
+                payload: { type: message.type, interactiveType: interactive?.type || null },
+                provider: "meta",
+                waMessageId: message.id || null,
+              });
+              await replyUnreadableTap(from);
+              return ack();
+            }
           }
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
           console.log(`[Meta WA Interactive] From=${from} Id=${interactiveReplyId} Body="${body}"`);
+        } else if (message && message.type === "button") {
+          // Template and some carousel quick replies arrive here, not as
+          // interactive.button_reply. The id is button.payload.
+          from = fromMetaWebhook(message.from);
+          const button = message.button as { payload?: string; text?: string } | undefined;
+          const payload = button?.payload || "";
+          interactiveReplyId = isBotReplyId(payload) ? payload : findReplyId(message);
+          body = button?.text || interactiveReplyId || "";
+          inboundKind = "button";
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          console.log(`[Meta WA Button] From=${from} Id=${interactiveReplyId} Body="${body}"`);
+          if (!interactiveReplyId) {
+            await replyUnreadableTap(from);
+            return ack();
+          }
         } else if (message && message.type === "order") {
           from = fromMetaWebhook(message.from);
           const products = (message.order?.product_items || []) as CatalogOrderItem[];
@@ -546,22 +648,30 @@ export async function POST(req: Request) {
           from = fromMetaWebhook(message.from);
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
-          inboundKind = message.type === "image" ? "image" : "media";
-          body = `[${message.type}]`;
-          await logWhatsAppMessage({
-            phone: from,
-            direction: "in",
-            kind: inboundKind,
-            body,
-            payload: { type: message.type, profileName: profileName || undefined },
-            provider: "meta",
-            waMessageId: messageId || null,
-          });
-          await sendText(
-            from,
-            "I can only read text and location pins. Type what you'd like, or send hi to start an order.",
-          );
-          return ack();
+          const replyId = findReplyId(message);
+          if (replyId) {
+            interactiveReplyId = replyId;
+            body = replyId;
+            inboundKind = "button";
+            console.log(`[WA] salvaged reply ${replyId} from type "${message.type}"`);
+          } else {
+            inboundKind = message.type === "image" ? "image" : "media";
+            body = `[${message.type}]`;
+            console.error(
+              `[WA] unreadable inbound type "${message.type}" keys=${Object.keys(message).join(",")}`,
+            );
+            await logWhatsAppMessage({
+              phone: from,
+              direction: "in",
+              kind: inboundKind,
+              body,
+              payload: { type: message.type, profileName: profileName || undefined },
+              provider: "meta",
+              waMessageId: messageId || null,
+            });
+            await replyUnreadableTap(from);
+            return ack();
+          }
         } else {
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
         }
@@ -1627,19 +1737,40 @@ function lookalikeDishes(query: string): DishPricing[] {
   return pool.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, 5);
 }
 
-async function sendCategoryDishCarousel(from: string, category: string, heading: string): Promise<boolean> {
+async function rememberDishCards(from: string, dishes: DishPricing[]): Promise<void> {
+  await storeOptions(
+    from,
+    dishes.map((dish) => ({
+      id: `add_${dish.retailerId}`,
+      title: formatFullDishName(dish.name),
+    })),
+  );
+}
+
+async function sendCategoryDishCarousel(
+  from: string,
+  category: string,
+  heading: string,
+  remember = true,
+): Promise<boolean> {
   const dishes = dishesInCategory(category);
   if (dishes.length < 2) return false;
+  if (remember) await rememberDishCards(from, dishes);
   return sendCarousel(from, `${heading}\nTap Add, then pick 500gm or 1kg.`, dishCards(dishes));
 }
 
 async function sendPartitionedMenu(from: string): Promise<boolean> {
+  const shown: DishPricing[] = [];
   let sent = false;
   for (const category of MENU_SECTION_ORDER) {
     const label = categoryDisplayLabel(category);
-    const ok = await sendCategoryDishCarousel(from, category, label);
-    if (ok) sent = true;
+    const ok = await sendCategoryDishCarousel(from, category, label, false);
+    if (ok) {
+      sent = true;
+      shown.push(...dishesInCategory(category));
+    }
   }
+  if (sent) await rememberDishCards(from, shown.slice(0, 10));
   if (sent) return true;
 
   const sections = MENU_SECTION_ORDER.map((category) => ({
@@ -1664,9 +1795,8 @@ async function sendPartitionedMenu(from: string): Promise<boolean> {
 async function sendLookalikeCarousel(from: string, query: string): Promise<void> {
   const category = dishQueryCategory(query);
   const dishes = lookalikeDishes(query);
-  const heading = category
-    ? `We don't cook that. Here are the ${category} dishes people order most. Tap Add, then pick a size.`
-    : "We don't cook that. Here are the dishes people order most. Tap Add, then pick a size.";
+  const heading = lookalikeOfferBody(query, category);
+  if (dishes.length > 0) await rememberDishCards(from, dishes);
   if (dishes.length >= 2 && (await sendCarousel(from, heading, dishCards(dishes)))) return;
   if (dishes.length === 0) {
     await sendText(from, heading);

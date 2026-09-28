@@ -148,6 +148,31 @@ function totalLines(cart: CartItem[], lang?: WaLang, offer?: { label: string; am
 export const ORDER_CUTOFF_REMINDER =
   "_We cook every order fresh, so it has to be placed at least 24 hours before the delivery slot._";
 
+/**
+ * Someone asked for a dish we don't make. Name it, own the gap, then offer
+ * what the kitchen actually cooks. Short enough to sit above a carousel.
+ */
+export function lookalikeOfferBody(query: string, category: string | null): string {
+  const asked = dishAskLabel(query);
+  const lead = asked ? `${asked}? We wish we made that.` : "We wish we made that.";
+  const favourites = category
+    ? `the ${category} dishes people keep coming back for`
+    : "the dishes people keep coming back for";
+  return `${lead} We're a small home kitchen, so we only cook what we can do properly — and these are ${favourites}. Tap Add, then pick a size.`;
+}
+
+function dishAskLabel(query: string): string | null {
+  const filler =
+    /\b(i|i'm|im|want|wanna|need|needs|order|ordering|get|got|me|a|an|the|please|pls|some|for|of|tomorrow|today|tonight|tomo|naalai|morning|evening|night|kg|gm|gms|gram|grams|pm|am|quantity|qty|and|with|at|on|to|my)\b/gi;
+  const left = String(query || "")
+    .replace(filler, " ")
+    .replace(/[^a-zA-Z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!left || left.length > 42) return null;
+  return left.charAt(0).toUpperCase() + left.slice(1);
+}
+
 export function buildAppNudgeFooter(lang?: WaLang): string {
   return pickLang(
     lang,
