@@ -17,8 +17,6 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
-import { BannerQueue } from "@/components/dashboard/BannerQueue";
-
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
 const CARD_BG = "#1a1a1a";
@@ -360,7 +358,6 @@ export default function OffersPage() {
 
   const content = (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <BannerQueue />
       <div
         style={{
           display: "flex",

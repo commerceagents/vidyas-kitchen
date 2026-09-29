@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/expire-pending-payments",
       "schedule": "30 3 * * *"
-    },
-    {
-      "path": "/api/cron/banner-broadcast",
-      "schedule": "0 2 * * *"
     }
   ]
 }

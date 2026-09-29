@@ -1,9 +1,9 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { kitchenDateKey } from "@/lib/ai/dish-analytics";
 import { endedFestivalDecisionIds } from "@/lib/ai/festival-decisions";
-import { draftFestivalPosters, runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
+import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -52,10 +52,7 @@ export async function GET() {
       // A run that only bumped last_run_at and left the old Navaratri row is stale too.
       if (lastDay !== today || pendingIsStale) {
         try {
-          await runPricingAgentCore({ posters: false });
-          after(() => {
-            void draftFestivalPosters().catch((err) => console.error("[banner draft]", err));
-          });
+          await runPricingAgentCore();
         } catch (err) {
           console.error("[pricing-agent-state] refresh failed", err);
         }
