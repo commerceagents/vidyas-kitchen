@@ -62,16 +62,19 @@ export async function randomFoodPhoto(): Promise<string | null> {
   if (!process.env.OPENAI_API_KEY) return randomMenuPhoto();
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const result = await openai.images.generate({
-      model: "dall-e-3",
-      size: "1024x1024",
-      response_format: "b64_json",
-      prompt: [
-        `Professional food photograph, ${angle}: ${scene}.`,
-        "Small South Indian home kitchen. Warm light. Subject centered.",
-        "No words, no letters, no numbers, no logos, no watermark, no border.",
-      ].join(" "),
-    });
+    const result = await openai.images.generate(
+      {
+        model: "dall-e-3",
+        size: "1024x1024",
+        response_format: "b64_json",
+        prompt: [
+          `Professional food photograph, ${angle}: ${scene}.`,
+          "Small South Indian home kitchen. Warm light. Subject centered.",
+          "No words, no letters, no numbers, no logos, no watermark, no border.",
+        ].join(" "),
+      },
+      { signal: AbortSignal.timeout(20000) },
+    );
     const b64 = result.data?.[0]?.b64_json;
     if (!b64) return randomMenuPhoto();
     return `data:image/png;base64,${b64}`;

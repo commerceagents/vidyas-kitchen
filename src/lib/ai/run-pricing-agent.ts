@@ -168,10 +168,25 @@ async function applyDecision(
   }
 }
 
-/**
- * Run the pricing agent in-process (no HTTP self-fetch — avoids "fetch failed" on localhost).
- */
-export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
+/** Poster art is slow. The dashboard asks for the cards without waiting on it. */
+export async function draftFestivalPosters(
+  festivals?: Awaited<ReturnType<typeof loadFestivals>>,
+): Promise<void> {
+  const rows = festivals ?? (await loadFestivals(createServerSupabase()));
+  const upcoming = detectUpcomingFestivals(rows, 7);
+  await ensureFestivalBanners(
+    upcoming.map((festival) => ({
+      id: festival.id,
+      name: festival.name,
+      date_start: festival.date_start,
+      date_end: festival.date_end,
+      discount_override: Number(festival.discount_override) || 0,
+      shouldActivate: festival.shouldActivate,
+    })),
+  );
+}
+
+export async function runPricingAgentCore(opts?: { posters?: boolean }): Promise<PricingAgentRunSummary> {
   const supabase = createServerSupabase();
   const [config, orders, festivals, discountSettings] = await Promise.all([
     loadConfig(supabase),
@@ -230,20 +245,12 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
     { onConflict: "key" },
   );
 
-  try {
-    const upcoming = detectUpcomingFestivals(festivals, config.festivalAdvanceDays);
-    await ensureFestivalBanners(
-      upcoming.map((festival) => ({
-        id: festival.id,
-        name: festival.name,
-        date_start: festival.date_start,
-        date_end: festival.date_end,
-        discount_override: Number(festival.discount_override) || 0,
-        shouldActivate: festival.shouldActivate,
-      })),
-    );
-  } catch (err) {
-    console.error("[banner draft]", err);
+  if (opts?.posters !== false) {
+    try {
+      await draftFestivalPosters(festivals);
+    } catch (err) {
+      console.error("[banner draft]", err);
+    }
   }
 
   const { data: existingPending } = await supabase

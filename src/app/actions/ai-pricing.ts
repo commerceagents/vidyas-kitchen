@@ -1,9 +1,10 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
-import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
+import { draftFestivalPosters, runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 
 export async function approvePricingDecisionAction(
@@ -198,7 +199,10 @@ export async function runAgentManuallyAction(): Promise<{
   if (denied) return denied;
 
   try {
-    const result = await runPricingAgentCore();
+    const result = await runPricingAgentCore({ posters: false });
+    after(() => {
+      void draftFestivalPosters().catch((err) => console.error("[banner draft]", err));
+    });
     revalidatePath("/dashboard/pricing-agent");
     revalidatePath("/dashboard/dishes");
     return { ok: true, result };

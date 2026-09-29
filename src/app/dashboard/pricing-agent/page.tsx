@@ -95,8 +95,10 @@ export default function PricingAgentPage() {
   const msgTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 25000);
     try {
-      const res = await fetch("/api/ai/pricing-agent-state", { cache: "no-store" });
+      const res = await fetch("/api/ai/pricing-agent-state", { cache: "no-store", signal: ctrl.signal });
       if (res.ok) {
         const data = await res.json();
         const decisions = Array.isArray(data.decisions) ? data.decisions : [];
@@ -109,6 +111,8 @@ export default function PricingAgentPage() {
       }
     } catch {
       setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
+    } finally {
+      window.clearTimeout(timer);
     }
   }, []);
 
@@ -153,9 +157,18 @@ export default function PricingAgentPage() {
 
   const handleApprove = async (id: string, pct?: number | null) => {
     if (id.startsWith("demo-")) return;
+    setState((s) => {
+      const decisions = s.decisions.map((d) => (d.id === id ? { ...d, status: "applied" } : d));
+      return {
+        ...s,
+        decisions,
+        pendingCount: decisions.filter((d) => d.status === "pending").length,
+      };
+    });
+    flashMsg("Approved.");
     const r = await approvePricingDecisionAction(id, pct);
-    if (r.ok) void load();
-    else setMsg(r.error ?? "Approve failed");
+    if (!r.ok) flashMsg(r.error ?? "Approve failed");
+    void load();
   };
 
   const handleReject = async (id: string) => {
