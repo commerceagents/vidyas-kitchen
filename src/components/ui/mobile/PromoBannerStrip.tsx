@@ -8,11 +8,12 @@ type PromoBanner = {
   imageUrl: string | null;
   message: string;
   discountPct: number;
+  composed?: boolean;
 };
 
 const ROTATE_MS = 4500;
 
-/** Confirmed banners whose dates include today. Text sits on top of the photo. */
+/** Confirmed banners whose dates include today. A composed poster already has its type. */
 export function PromoBannerStrip() {
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [index, setIndex] = useState(0);
@@ -59,26 +60,30 @@ export function PromoBannerStrip() {
         {banner.imageUrl && (
           <img
             src={banner.imageUrl}
-            alt=""
+            alt={banner.title}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
         )}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.05) 55%)",
-          }}
-        />
-        <div style={{ position: "absolute", left: 16, right: 16, bottom: 14, color: "#fff" }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>
-            {Math.round(banner.discountPct)}% OFF
-          </p>
-          <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, lineHeight: 1.15 }}>{banner.title}</p>
-          <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.35, color: "rgba(255,255,255,0.88)" }}>
-            {banner.message}
-          </p>
-        </div>
+        {!banner.composed && (
+          <>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.05) 55%)",
+              }}
+            />
+            <div style={{ position: "absolute", left: 16, right: 16, bottom: 14, color: "#fff" }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" }}>
+                {Math.round(banner.discountPct)}% OFF
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, lineHeight: 1.15 }}>{banner.title}</p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.35, color: "rgba(255,255,255,0.88)" }}>
+                {banner.message}
+              </p>
+            </div>
+          </>
+        )}
       </div>
       {banners.length > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>

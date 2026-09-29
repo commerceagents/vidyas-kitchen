@@ -1,13 +1,15 @@
 /**
  * One pending banner per festival, created when the pricing run sees the
  * festival inside the 7-day window. The percent is the festival's own offer.
- * The picture, when it is generated, has no words baked in.
+ * The poster is a fixed layout filled with menu photos and menu prices.
  */
 
 import OpenAI from "openai";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { suggestFestivalDiscountPct } from "@/lib/menu/discount-presets";
 import { reasonKeepsDiscount } from "@/lib/ai/promo-copy";
+import { renderFestivalPoster } from "@/lib/posters/render";
+import { templateForFestival } from "@/lib/posters/templates";
 
 export type FestivalBannerSeed = {
   id: string;
@@ -24,11 +26,12 @@ function dayLabel(ymd: string): string {
   return d.toLocaleDateString("en-IN", { timeZone: "UTC", day: "numeric", month: "short" });
 }
 
-export function bannerCopy(seed: FestivalBannerSeed): { title: string; message: string; discount: number } {
+export function bannerCopy(seed: FestivalBannerSeed): { title: string; message: string; discount: number; dates: string } {
   const discount = suggestFestivalDiscountPct(seed.discount_override, seed.name);
   const title = seed.name.replace(/\s+20\d{2}$/, "");
-  const message = `${title} — ${discount}% off, ${dayLabel(seed.date_start)}–${dayLabel(seed.date_end)}.`;
-  return { title, message, discount };
+  const dates = `${dayLabel(seed.date_start)} – ${dayLabel(seed.date_end)}`;
+  const message = `${title} — ${discount}% off, ${dates}.`;
+  return { title, message, discount, dates };
 }
 
 async function phraseBanner(seed: FestivalBannerSeed, discount: number, fallback: string): Promise<string> {
@@ -66,31 +69,36 @@ async function phraseBanner(seed: FestivalBannerSeed, discount: number, fallback
   }
 }
 
-async function generateBannerImage(eventName: string): Promise<Buffer | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+async function phraseHeadline(event: string, fallback: string): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) return fallback;
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const result = await openai.images.generate({
-      model: "dall-e-3",
-      size: "1792x1024",
-      response_format: "b64_json",
-      prompt: [
-        `Festive food photograph for ${eventName} at a small South Indian home kitchen.`,
-        "Warm yellow and deep red palette, brass vessels, gravies and rice, soft window light.",
-        "Wide 16:9 composition. Empty space along the bottom third for a caption to be added later.",
-        "No words, no letters, no numbers, no logos, no watermark.",
-      ].join(" "),
-    });
-    const b64 = result.data?.[0]?.b64_json;
-    if (!b64) return null;
-    return Buffer.from(b64, "base64");
+    const response = await openai.chat.completions.create(
+      {
+        model: "gpt-4o-mini",
+        temperature: 0.4,
+        max_tokens: 24,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Write a poster headline of at most four words for Vidya's Kitchen in Sivakasi. No numbers. No percent sign. No emoji. No hashtags.",
+          },
+          { role: "user", content: event },
+        ],
+      },
+      { signal: AbortSignal.timeout(2500) },
+    );
+    const text = (response.choices[0]?.message?.content || "").replace(/^["']|["']$/g, "").trim();
+    if (text.length < 4 || text.length > 42 || /\d/.test(text)) return fallback;
+    return text;
   } catch (err) {
-    console.error("[banner image]", err);
-    return null;
+    console.error("[banner headline]", err);
+    return fallback;
   }
 }
 
-async function storeBannerImage(id: string, bytes: Buffer): Promise<string | null> {
+export async function uploadBannerPng(id: string, bytes: Buffer): Promise<string | null> {
   const db = createServerSupabase();
   const path = `${id}.png`;
   const upload = await db.storage.from("banners").upload(path, bytes, {
@@ -105,7 +113,7 @@ async function storeBannerImage(id: string, bytes: Buffer): Promise<string | nul
   return db.storage.from("banners").getPublicUrl(path).data.publicUrl || null;
 }
 
-/** Creates missing pending banners. At most one new picture per run. */
+/** Creates missing pending banners. Each one is a composed poster, waiting for approval. */
 export async function ensureFestivalBanners(seeds: FestivalBannerSeed[]): Promise<number> {
   const seen = new Set<string>();
   const due = seeds
@@ -131,22 +139,31 @@ export async function ensureFestivalBanners(seeds: FestivalBannerSeed[]): Promis
   const titles = new Set(
     open.map((row) => String((row as { title?: string }).title || "").trim().toLowerCase()),
   );
-  let imagesLeft = 1;
   let created = 0;
   for (const seed of due) {
     const copy = bannerCopy(seed);
     if (have.has(seed.id) || titles.has(copy.title.trim().toLowerCase())) continue;
-    const message = await phraseBanner(seed, copy.discount, copy.message);
+    const [message, headline] = await Promise.all([
+      phraseBanner(seed, copy.discount, copy.message),
+      phraseHeadline(seed.name, copy.title),
+    ]);
+    const template = templateForFestival(seed.name);
     const id = crypto.randomUUID();
     let imageUrl: string | null = null;
-    if (imagesLeft > 0) {
-      const bytes = await generateBannerImage(copy.title);
-      imagesLeft -= 1;
-      if (bytes) imageUrl = await storeBannerImage(id, bytes);
+    try {
+      const png = await renderFestivalPoster({
+        template,
+        headline,
+        discount: copy.discount,
+        dates: copy.dates,
+      });
+      imageUrl = await uploadBannerPng(id, png);
+    } catch (err) {
+      console.error("[banner poster]", err);
     }
     const { error: insertError } = await db.from("banners").insert({
       id,
-      title: copy.title,
+      title: headline,
       image_url: imageUrl,
       message_text: message,
       discount_pct: copy.discount,
@@ -155,6 +172,7 @@ export async function ensureFestivalBanners(seeds: FestivalBannerSeed[]): Promis
       source: "ai_generated",
       approval: "pending_approval",
       festival_id: seed.id,
+      template,
       whatsapp_sent: false,
     });
     if (insertError) {

@@ -17,6 +17,7 @@ export type BannerRow = {
   source: BannerSource;
   approval: BannerApproval;
   festival_id: string | null;
+  template: string | null;
   whatsapp_sent: boolean;
   created_at: string;
 };
@@ -62,6 +63,7 @@ export function parseBannerRow(raw: Record<string, unknown>): BannerRow | null {
     source,
     approval,
     festival_id: typeof raw.festival_id === "string" ? raw.festival_id : null,
+    template: typeof raw.template === "string" && raw.template ? raw.template : null,
     whatsapp_sent: Boolean(raw.whatsapp_sent),
     created_at: String(raw.created_at || ""),
   };

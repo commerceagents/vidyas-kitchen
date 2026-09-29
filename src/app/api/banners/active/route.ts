@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const { data, error } = await createServerSupabase()
       .from("banners")
-      .select("id, title, image_url, message_text, discount_pct, start_date, end_date, approval, source, festival_id, whatsapp_sent, created_at")
+      .select("id, title, image_url, message_text, discount_pct, start_date, end_date, approval, source, festival_id, template, whatsapp_sent, created_at")
       .eq("approval", "approved")
       .order("start_date", { ascending: true });
     if (error) {
@@ -24,6 +24,7 @@ export async function GET() {
         imageUrl: row.image_url,
         message: row.message_text,
         discountPct: row.discount_pct,
+        composed: Boolean(row.template),
       }));
     return NextResponse.json(
       { banners },

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { listBannersAction, setBannerApprovalAction, type BannerListItem } from "@/app/actions/banners";
+import { listBannersAction, redrawBannerAction, setBannerApprovalAction, type BannerListItem } from "@/app/actions/banners";
+import { BANNER_TEMPLATES } from "@/lib/posters/templates";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -12,8 +13,10 @@ type Preview = {
   discount: string;
   start: string;
   end: string;
-  file: File;
+  template: string;
+  file: File | null;
   url: string;
+  composed: boolean;
 };
 
 export function BannerQueue() {
@@ -39,30 +42,44 @@ export function BannerQueue() {
     void load();
   }, [load]);
 
-  const onFile = (file: File | null, form: HTMLFormElement) => {
-    if (!file) return;
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const ratio = img.width / img.height;
-      if (ratio < 1.4 || ratio > 2.2) {
-        setError("Use a wide photo, about 16:9.");
-        URL.revokeObjectURL(url);
-        return;
-      }
-      const data = new FormData(form);
-      setError(null);
-      setPreview({
-        title: String(data.get("title") || ""),
-        message: String(data.get("message") || ""),
-        discount: String(data.get("discount") || ""),
-        start: String(data.get("start") || ""),
-        end: String(data.get("end") || ""),
-        file,
-        url,
-      });
+  const onPreview = async (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    const file = (form.elements.namedItem("image") as HTMLInputElement).files?.[0] ?? null;
+    const fields = {
+      title: String(data.get("title") || ""),
+      message: String(data.get("message") || ""),
+      discount: String(data.get("discount") || ""),
+      start: String(data.get("start") || ""),
+      end: String(data.get("end") || ""),
+      template: String(data.get("template") || "festive"),
     };
-    img.src = url;
+    if (file) {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const ratio = img.width / img.height;
+        if (ratio < 1.4 || ratio > 2.2) {
+          setError("Use a wide photo, about 16:9.");
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setError(null);
+        setPreview({ ...fields, file, url, composed: false });
+      };
+      img.src = url;
+      return;
+    }
+    setBusy(true);
+    const res = await fetch("/api/dashboard/banners/preview", { method: "POST", body: data });
+    setBusy(false);
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(json.error || "Could not draw that poster.");
+      return;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    setError(null);
+    setPreview({ ...fields, file: null, url, composed: true });
   };
 
   const confirm = async () => {
@@ -74,7 +91,8 @@ export function BannerQueue() {
     body.set("discount", preview.discount);
     body.set("start", preview.start);
     body.set("end", preview.end);
-    body.set("image", preview.file);
+    body.set("template", preview.template);
+    if (preview.file) body.set("image", preview.file);
     const res = await fetch("/api/dashboard/banners", { method: "POST", body });
     const json = (await res.json().catch(() => ({}))) as { error?: string; broadcast?: string };
     setBusy(false);
@@ -86,6 +104,18 @@ export function BannerQueue() {
     setPreview(null);
     setOpen(false);
     setNote(json.broadcast || "Banner is confirmed. It shows on the homepage while its dates are open.");
+    await load();
+  };
+
+  const redraw = async (id: string, template: string) => {
+    setBusy(true);
+    const res = await redrawBannerAction(id, template);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setNote("Poster redrawn.");
     await load();
   };
 
@@ -131,18 +161,21 @@ export function BannerQueue() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            const form = event.currentTarget;
-            const file = (form.elements.namedItem("image") as HTMLInputElement).files?.[0] ?? null;
-            onFile(file, form);
+            void onPreview(event.currentTarget);
           }}
           style={{ display: "grid", gap: 8, marginBottom: 12 }}
         >
+          <select name="template" aria-label="Poster layout" defaultValue="festive" style={field}>
+            {BANNER_TEMPLATES.map((theme) => (
+              <option key={theme.id} value={theme.id}>{theme.label}</option>
+            ))}
+          </select>
           <input name="title" required aria-label="Title" placeholder="Title" style={field} />
           <input name="message" required aria-label="Message" placeholder="Line under the title" style={field} />
           <input name="discount" required aria-label="Discount percent" type="number" min={1} max={90} placeholder="Discount %" style={field} />
           <input name="start" required aria-label="Start date" type="date" style={field} />
           <input name="end" required aria-label="End date" type="date" style={field} />
-          <input name="image" required type="file" accept="image/jpeg,image/png,image/webp" style={{ color: "#ccc" }} />
+          <input name="image" aria-label="Your own photo, optional" type="file" accept="image/jpeg,image/png,image/webp" style={{ color: "#ccc" }} />
           <button type="submit" style={primary}>Preview</button>
         </form>
       )}
@@ -151,11 +184,13 @@ export function BannerQueue() {
         <div style={{ marginBottom: 12 }}>
           <div style={{ position: "relative", aspectRatio: "16 / 9", borderRadius: 12, overflow: "hidden", background: "#222" }}>
             <img src={preview.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            <div style={{ position: "absolute", left: 12, right: 12, bottom: 12, color: "#fff" }}>
-              <strong>{preview.discount}% off</strong>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>{preview.title}</div>
-              <div style={{ fontSize: 13 }}>{preview.message}</div>
-            </div>
+            {!preview.composed && (
+              <div style={{ position: "absolute", left: 12, right: 12, bottom: 12, color: "#fff" }}>
+                <strong>{preview.discount}% off</strong>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{preview.title}</div>
+                <div style={{ fontSize: 13 }}>{preview.message}</div>
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button type="button" disabled={busy} onClick={() => void confirm()} style={primary}>
@@ -179,6 +214,30 @@ export function BannerQueue() {
             <p style={{ margin: 0, color: "#777", fontSize: 12 }}>
               {banner.discount_pct}% · {banner.start_date} → {banner.end_date} · {banner.source === "ai_generated" ? "Generated" : "Uploaded"}
             </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <select
+                aria-label={`Layout for ${banner.title}`}
+                key={`${banner.id}-${banner.template || "festive"}`}
+                defaultValue={banner.template || "festive"}
+                id={`layout-${banner.id}`}
+                style={{ ...field, flex: 1 }}
+              >
+                {BANNER_TEMPLATES.map((theme) => (
+                  <option key={theme.id} value={theme.id}>{theme.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={busy}
+                style={ghost}
+                onClick={() => {
+                  const picked = (document.getElementById(`layout-${banner.id}`) as HTMLSelectElement | null)?.value;
+                  if (picked) void redraw(banner.id, picked);
+                }}
+              >
+                Redraw
+              </button>
+            </div>
             {banner.approval === "pending_approval" && (
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button type="button" disabled={busy} onClick={() => void decide(banner.id, "approved")} style={primary}>Approve</button>

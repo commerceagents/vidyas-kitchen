@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS banners (
     CONSTRAINT banners_window CHECK (start_date <= end_date)
 );
 
+-- Which poster layout was used. Null means the kitchen uploaded their own photo.
+ALTER TABLE banners ADD COLUMN IF NOT EXISTS template TEXT;
+
 CREATE INDEX IF NOT EXISTS banners_festival_idx ON banners (festival_id);
 CREATE INDEX IF NOT EXISTS banners_window_idx ON banners (start_date, end_date);
 
