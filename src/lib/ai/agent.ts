@@ -10,7 +10,9 @@ import {
 import {
   buildWelcomeMessage,
   callUsDialReply,
+  dishAskLabel,
   helpAndSupportReply,
+  lookalikeOfferBody,
   menuContextFooter,
   welcomeLogoImageUrl,
 } from "../whatsapp-copy";
@@ -1070,6 +1072,61 @@ ${context}`;
         headerImage: undefined,
       };
     }
+  }
+
+  /**
+   * One fresh line above the lookalike cards. The model writes it. A varied
+   * handwritten line covers a quiet API, so two people never have to hear
+   * the same script.
+   */
+  async writeMissingDishLine(query: string, category: "chicken" | "mutton" | "egg" | null): Promise<string> {
+    const asked = dishAskLabel(query);
+    const moods = ["warm", "playful", "shy", "cheeky", "gentle", "sunny"];
+    const mood = moods[Math.floor(Math.random() * moods.length)];
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 1,
+        max_tokens: 180,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You write one short WhatsApp message for Vidya's Kitchen, a small home kitchen in Sivakasi.",
+              "The customer asked for something this kitchen does not cook. We only make chicken gravies, mutton gravies, and egg dishes.",
+              "Photo cards of real dishes appear under your message. Each card has an Add button.",
+              "Voice: friendly, humble, a little funny, cool. Never rude, never corporate, never sarcastic.",
+              "2 or 3 sentences. Under 320 characters.",
+              "Weave in 2 to 4 emojis inside the sentences. Do not open with a row of emojis.",
+              "Name what they asked for, in their words. Do not repeat their whole sentence.",
+              "If category is chicken, mutton, or egg, we do cook that family, just not this dish.",
+              "If category is null, we don't make it at all. Point them at the cards.",
+              "Never mention a price, a rupee amount, or a dish outside chicken, mutton, and egg.",
+              "Never say we will try to cook it, or that it is coming soon.",
+              "End by inviting them to tap Add, then pick 500gm or 1kg.",
+              "Sound different every time. Do not start with \"We wish we made that\" or \"We don't cook that.\"",
+              "Plain text. No markdown, no bullet list, no quotes around the reply.",
+            ].join("\n"),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              said: query,
+              asked: asked || null,
+              category,
+              mood,
+            }),
+          },
+        ],
+      });
+      const text = (response.choices[0]?.message?.content || "").replace(/^["']|["']$/g, "").trim();
+      if (text.length >= 40 && text.length <= 450 && !/₹|\brs\.?\s*\d/i.test(text) && /\badd\b/i.test(text)) {
+        return text;
+      }
+    } catch (err) {
+      console.error("[WA] missing-dish line:", err);
+    }
+    return lookalikeOfferBody(query, category);
   }
 
   async upsertCustomer(phoneNumber: string, name: string = "WhatsApp User") {

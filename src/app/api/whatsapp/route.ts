@@ -64,7 +64,6 @@ import {
   buildReuseAddressPrompt,
   buildProposalMessage,
   buildInstantGapMessage,
-  lookalikeOfferBody,
   buildProposalAskMessage,
   buildProposalExpiredMessage,
   buildRatingCommentPrompt,
@@ -1829,7 +1828,7 @@ async function sendPartitionedMenu(from: string): Promise<boolean> {
 async function sendLookalikeCarousel(from: string, query: string): Promise<void> {
   const category = dishQueryCategory(query);
   const dishes = lookalikeDishes(query);
-  const heading = lookalikeOfferBody(query, category);
+  const heading = await new VidyaAgent().writeMissingDishLine(query, category);
   if (dishes.length > 0) await rememberDishCards(from, dishes);
   if (dishes.length >= 2 && (await sendCarousel(from, heading, dishCards(dishes)))) return;
   if (dishes.length === 0) {

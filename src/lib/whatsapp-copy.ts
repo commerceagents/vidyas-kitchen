@@ -7,7 +7,8 @@
  *  - Money: always `formatInr` — "₹399", "₹2,099". Never "Rs", never a bare number.
  *  - Bold: the title, the total, and nothing else. It stops meaning anything
  *    when every second word has stars around it.
- *  - No emojis. Anywhere. The tone comes from the words.
+ *  - Emojis stay off buttons, bills, and system notes. The missing-dish
+ *    line is the exception: a few, woven into the sentence.
  *  - Button labels: `BTN`, kept under WhatsApp's 20 characters, and the same
  *    label always means the same thing.
  *  - English only. Tanglish variants in this file are unused leftovers.
@@ -188,21 +189,12 @@ export const ORDER_CUTOFF_REMINDER =
   "_We cook every order fresh, so it has to be placed at least 24 hours before the delivery slot._";
 
 /**
- * Someone asked for a dish we don't make. Name it, own the gap, then offer
- * what the kitchen actually cooks. Short enough to sit above a carousel.
+ * What they actually asked for. "I would like to order veg meals for lunch"
+ * becomes "Veg meals", not the leftover filler words.
  */
-export function lookalikeOfferBody(query: string, category: string | null): string {
-  const asked = dishAskLabel(query);
-  const lead = asked ? `${asked}? We wish we made that.` : "We wish we made that.";
-  const favourites = category
-    ? `the ${category} dishes people keep coming back for`
-    : "the dishes people keep coming back for";
-  return `${lead} We're a small home kitchen, so we only cook what we can do properly — and these are ${favourites}. Tap Add, then pick a size.`;
-}
-
-function dishAskLabel(query: string): string | null {
+export function dishAskLabel(query: string): string | null {
   const filler =
-    /\b(i|i'm|im|want|wanna|need|needs|order|ordering|get|got|me|a|an|the|please|pls|some|for|of|tomorrow|today|tonight|tomo|naalai|morning|evening|night|kg|gm|gms|gram|grams|pm|am|quantity|qty|and|with|at|on|to|my)\b/gi;
+    /\b(i|i'm|im|i'd|id|would|like|liked|love|want|wanna|wants|need|needs|order|ordering|ordered|get|got|give|me|a|an|the|please|pls|some|just|really|can|could|you|your|we|us|for|of|tomorrow|today|tonight|tomo|naalai|morning|afternoon|evening|night|lunch|breakfast|dinner|kg|gm|gms|gram|grams|pm|am|quantity|qty|quantities|and|with|at|on|to|my|hi|hello|hey|thanks|thank)\b/gi;
   const left = String(query || "")
     .replace(filler, " ")
     .replace(/[^a-zA-Z\s]/g, " ")
@@ -210,6 +202,25 @@ function dishAskLabel(query: string): string | null {
     .trim();
   if (!left || left.length > 42) return null;
   return left.charAt(0).toUpperCase() + left.slice(1);
+}
+
+/**
+ * Offline stand-in when the model is quiet. Still a different line each time,
+ * never the one script for every dish.
+ */
+export function lookalikeOfferBody(query: string, category: string | null): string {
+  const asked = dishAskLabel(query);
+  const name = asked || "That one";
+  const cards = category ? `the ${category} dishes on these cards` : "the dishes on these cards";
+  const lines = [
+    `${name}? 😊 Our little stove doesn't make that, and we'd rather say so than send the wrong plate. Have a peek at ${cards} 🍲 Tap Add, then pick a size.`,
+    `Ahh, ${name.toLowerCase()}. 🥹 Not in our pots — we're a small home kitchen and we stick to what we can cook properly. ${cards[0].toUpperCase()}${cards.slice(1)} are the ones people come back for. Tap Add 👆`,
+    `${name} sounds lovely. 🙏 We just don't cook it here. Humble kitchen, honest menu. Swipe ${cards} and tap Add when one feels right.`,
+    `We'd love to say yes to ${name.toLowerCase()}. 😅 We can't, not without pretending. These are the plates we do know by heart 🍛 Tap Add, then 500gm or 1kg.`,
+    `${name} isn't on our stove, and that's on us. 🏠 A home kitchen only stretches so far. ${cards[0].toUpperCase()}${cards.slice(1)} are what regulars keep ordering. Tap Add when you're ready.`,
+    `Oh, ${name.toLowerCase()}! 😌 We admire it from over here. Our pots are full of home gravies, so have a look at ${cards}. Tap Add, then pick a size ✨`,
+  ];
+  return lines[Math.floor(Math.random() * lines.length)];
 }
 
 export function buildAppNudgeFooter(lang?: WaLang): string {
