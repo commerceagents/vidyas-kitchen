@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Hourly. A confirmed banner whose dates have opened, and which has not been
- * sent, goes out on the approved festival_offer template. If Meta has not
- * approved that template yet, nothing is sent and the row stays unsent.
+ * Once a morning (7:30 AM IST). A confirmed banner whose dates have opened,
+ * and which has not been sent, goes out on the approved festival_offer
+ * template. Approving one that is already in its dates sends immediately.
+ * If Meta has not approved that template yet, nothing is sent.
  */
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
