@@ -31,6 +31,7 @@ import {
   getSession,
   updateSession,
   resetSession,
+  type SessionState,
   type WhatsAppSession,
 } from "@/lib/whatsapp-session";
 import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
@@ -79,6 +80,12 @@ import {
   buildPwaPromoBody,
   buildCodPlacedMessage,
   complaintPrompt,
+  escalateHumanReply,
+  interruptCancelledMessage,
+  interruptClarifyMessage,
+  interruptMenuAside,
+  interruptStatusMessage,
+  interruptStillOpenMessage,
   olderOrderAskReply,
   olderOrderArrivedReply,
   olderOrderButtons,
@@ -147,9 +154,22 @@ import {
   cartLineButtonTitle,
   looksLikeCartEdit,
   matchCartLines,
+  planScopedCartEdit,
   removeLines,
   setLineQty,
+  type ScopedCartEdit,
 } from "@/lib/whatsapp-cart-ops";
+import { classifyTurnWithModel } from "@/lib/ai/turn-intent";
+import {
+  classifyTurn,
+  isPendingState,
+  pendingResume,
+  readInterrupt,
+  routeTurn,
+  VK_INTERRUPT_PREFIX,
+  withInterrupt,
+  type TurnClassification,
+} from "@/lib/whatsapp-turn";
 import {
   MENU_SECTION_ORDER,
   categoryDisplayLabel,
@@ -454,11 +474,21 @@ const VK_DRAFT_PREFIX = "__vk_draft__:";
 type SessionTurns = NonNullable<WhatsAppSession["recent_turns"]>;
 
 function turnsForAgent(turns: WhatsAppSession["recent_turns"]): Message[] {
-  return (turns || []).filter((t) => !t.content.startsWith(VK_DRAFT_PREFIX));
+  return (turns || []).filter(
+    (t) => !t.content.startsWith(VK_DRAFT_PREFIX) && !t.content.startsWith(VK_INTERRUPT_PREFIX),
+  );
 }
 
 function chatTurns(turns: WhatsAppSession["recent_turns"]): SessionTurns {
-  return (turns || []).filter((t) => !t.content.startsWith(VK_DRAFT_PREFIX));
+  return (turns || []).filter(
+    (t) => !t.content.startsWith(VK_DRAFT_PREFIX) && !t.content.startsWith(VK_INTERRUPT_PREFIX),
+  );
+}
+
+function sessionNotes(turns: WhatsAppSession["recent_turns"]): SessionTurns {
+  return (turns || []).filter(
+    (t) => t.content.startsWith(VK_DRAFT_PREFIX) || t.content.startsWith(VK_INTERRUPT_PREFIX),
+  );
 }
 
 function readStoredDraft(turns: WhatsAppSession["recent_turns"]): ProposalDraft | null {
@@ -473,7 +503,12 @@ function readStoredDraft(turns: WhatsAppSession["recent_turns"]): ProposalDraft 
 
 function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalDraft): SessionTurns {
   const kept = chatTurns(turns);
-  return [...kept, { role: "assistant" as const, content: `${VK_DRAFT_PREFIX}${JSON.stringify(draft)}` }].slice(-8);
+  const interrupt = (turns || []).filter((t) => t.content.startsWith(VK_INTERRUPT_PREFIX));
+  return [
+    ...kept,
+    ...interrupt,
+    { role: "assistant" as const, content: `${VK_DRAFT_PREFIX}${JSON.stringify(draft)}` },
+  ].slice(-10);
 }
 
 const BOT_REPLY_ID =
@@ -800,6 +835,11 @@ export async function POST(req: Request) {
     if (resolvedId) {
       const handled = await handleResolvedId(from, resolvedId, session, profileName);
       if (handled) return handled;
+    }
+
+    if (isPendingState(session.state) && !interactiveReplyId && !resolvedId) {
+      const diverted = await handleInterrupt(from, text, session, profileName);
+      if (diverted) return diverted;
     }
 
     if (isMenuCmd) {
@@ -1165,7 +1205,7 @@ async function dropCartDraft(from: string, session: WhatsAppSession, cart: CartI
     cart,
     proposal: null,
     state: cart.length > 0 ? "cart_review" : "idle",
-    recent_turns: chatTurns(session.recent_turns).slice(-8),
+    recent_turns: [...chatTurns(session.recent_turns).slice(-8), ...sessionNotes(session.recent_turns)],
     selected_item_id: null,
     selected_variant: null,
     pending_options: null,
@@ -1183,6 +1223,7 @@ async function removeMatchedLine(from: string, menuItemId: string, variant: stri
   await dropCartDraft(from, session, next);
   await sendText(from, buildLineRemovedMessage(hit.name, hit.variant));
   if (next.length === 0) {
+    await updateSession(from, { recent_turns: withInterrupt(session.recent_turns, session.state, 0) });
     await sendText(from, buildCartMessage([], langOf(from)));
     return ack();
   }
@@ -1248,10 +1289,14 @@ async function applySpokenCartEdit(
     }
   }
 
+  const scoped = planScopedCartEdit(text);
+  if (scoped) return await applyScopedCartEdit(from, session, scoped);
+
   const intent = await resolveCartIntent(text, session.cart);
   if (intent.action === "checkout") return await afterCartReady(from, session);
   if (intent.action === "clear_cart") {
     await dropCartDraft(from, session, []);
+    await updateSession(from, { recent_turns: withInterrupt(session.recent_turns, session.state, 0) });
     await sendText(from, buildCartMessage([], langOf(from)));
     return ack();
   }
@@ -1283,6 +1328,249 @@ async function applySpokenCartEdit(
     return await showCart(from, session.cart);
   }
   return null;
+}
+
+async function applyScopedCartEdit(
+  from: string,
+  session: WhatsAppSession,
+  plan: ScopedCartEdit,
+): Promise<Response> {
+  const pool = plan.removeSize
+    ? session.cart.filter((line) => parsePackSize(line.variant) === plan.removeSize)
+    : session.cart;
+  const match = matchCartLines(pool, plan.itemReference || "");
+  if (match.hits.length === 0) {
+    await sendText(from, buildNotInCartMessage());
+    return await showCart(from, session.cart);
+  }
+  if (match.ambiguous) return await askWhichLine(from, match.hits, "remove");
+
+  const hit = match.hits[0];
+  let next = removeLines(session.cart, [hit]);
+  const notes = [buildLineRemovedMessage(hit.name, hit.variant)];
+  if (plan.keep) {
+    const keepLine = next.find(
+      (line) => line.menu_item_id === hit.menu_item_id && parsePackSize(line.variant) === plan.keep?.size,
+    );
+    if (keepLine) {
+      next = setLineQty(next, keepLine, plan.keep.quantity);
+      notes.push(buildLineUpdatedMessage(keepLine.name, keepLine.variant, plan.keep.quantity));
+    }
+  }
+
+  await dropCartDraft(from, session, next);
+  for (const note of notes) await sendText(from, note);
+  if (next.length === 0) {
+    await updateSession(from, { recent_turns: withInterrupt(session.recent_turns, session.state, 0) });
+    await sendText(from, buildCartMessage([], langOf(from)));
+    return ack();
+  }
+  return await showCart(from, next);
+}
+
+function pendingQuestion(state: SessionState): string {
+  switch (state) {
+    case "picking_date":
+      return "When would you like it?";
+    case "picking_slot":
+      return "Breakfast, lunch, or dinner?";
+    case "picking_address":
+      return "What's the delivery address?";
+    case "picking_pay_method":
+      return "Pay online or cash?";
+    case "awaiting_payment":
+      return "The payment link is still open.";
+    case "confirming_last":
+      return "Same as last time?";
+    case "confirming_proposal":
+      return "Confirm this order?";
+    case "picking_variant":
+      return "500gm or 1kg?";
+    case "picking_qty":
+      return "How many?";
+    default:
+      return "";
+  }
+}
+
+async function rememberInterrupt(from: string, session: WhatsAppSession, count: number) {
+  await updateSession(from, {
+    recent_turns: withInterrupt(session.recent_turns, session.state, count),
+  });
+}
+
+/**
+ * Classify first. A day answer falls through to the state handler. A cart
+ * edit, a menu question, or anything else is handled, then the pending
+ * question is asked again. The third interruption on the same question
+ * stops the loop and hands the chat to a person.
+ */
+async function handleInterrupt(
+  from: string,
+  text: string,
+  session: WhatsAppSession,
+  _profileName: string,
+): Promise<Response | null> {
+  if (!isPendingState(session.state)) return null;
+
+  let classification: TurnClassification = classifyTurn(text, session.state);
+  if (classification.intent === "unclear" && text.trim().split(/\s+/).length >= 3) {
+    const modeled = await classifyTurnWithModel({
+      text,
+      state: session.state,
+      pendingQuestion: pendingQuestion(session.state),
+      cart: session.cart,
+    });
+    if (modeled && modeled.intent !== "unclear") classification = modeled;
+  }
+
+  const decision = routeTurn(session.state, classification, readInterrupt(session.recent_turns, session.state));
+
+  if (decision.action === "accept_answer") {
+    await rememberInterrupt(from, session, 0);
+    if (session.state === "picking_date") {
+      const date = parseDateInput(text) || parseDateText(classification.extracted_value || "");
+      if (date && !parseDateInput(text)) return await applyDeliveryDate(from, date);
+    }
+    return null;
+  }
+
+  if (decision.action === "escalate") {
+    try {
+      await createServerSupabase().from("customer_complaints").insert({
+        phone_number: from,
+        body: `Stuck during ${session.state} after repeated side messages. Last: ${text.slice(0, 500)}`,
+      });
+    } catch (err) {
+      console.error("[WA] interrupt escalate", err);
+    }
+    await updateSession(from, {
+      state: "idle",
+      pending_options: null,
+      recent_turns: withInterrupt(session.recent_turns, session.state, 0),
+    });
+    await sendText(from, escalateHumanReply(langOf(from)));
+    return ack();
+  }
+
+  if (decision.action === "cancel") {
+    await updateSession(from, {
+      state: "idle",
+      cart: [],
+      proposal: null,
+      pending_options: null,
+      delivery_date: null,
+      delivery_slot_kind: null,
+      selected_item_id: null,
+      selected_variant: null,
+      recent_turns: withInterrupt(session.recent_turns, session.state, 0),
+    });
+    await sendText(from, interruptCancelledMessage());
+    return ack();
+  }
+
+  if (decision.action === "complaint") {
+    await updateSession(from, {
+      state: "ai_chat",
+      pending_options: null,
+      recent_turns: withInterrupt(session.recent_turns, session.state, 0),
+    });
+    try {
+      await createServerSupabase()
+        .from("users")
+        .upsert({ phone_number: from, whatsapp_pending_action: "complaint" }, { onConflict: "phone_number" });
+    } catch (err) {
+      console.error("[WA] interrupt complaint", err);
+    }
+    await sendText(from, complaintPrompt(langOf(from)));
+    return ack();
+  }
+
+  await rememberInterrupt(from, session, decision.nextInterruptCount);
+
+  if (decision.action === "mutate_cart_then_reask") {
+    const fresh = await getSession(from);
+    const edited = await applySpokenCartEdit(from, text, fresh);
+    if (edited) return edited;
+    if (classification.intent === "add_item") {
+      const menu = await getMenu();
+      const matched = findItemByName(menu, text);
+      if (matched && !looksLikeCompoundOrder(text)) return await showVariantPicker(from, matched);
+    }
+    await sendText(from, interruptClarifyMessage(text));
+    return reaskPending(from, session.state);
+  }
+
+  if (decision.action === "answer_menu_then_reask") {
+    await sendText(from, interruptMenuAside());
+    return reaskPending(from, session.state);
+  }
+
+  if (decision.action === "answer_status_then_reask") {
+    const { data: orders } = await createServerSupabase()
+      .from("orders")
+      .select("id, order_number, status")
+      .in("phone_number", phoneVariants(from))
+      .order("created_at", { ascending: false })
+      .limit(3);
+    const lines = ((orders || []) as { id: string; order_number?: number | null; status?: string }[])
+      .filter((row) => row.status && !["delivered", "cancelled", "rejected"].includes(row.status))
+      .map((row) => `${formatOrderRef(row.order_number, row.id)} · ${(row.status || "").replace(/_/g, " ")}`);
+    await sendText(from, interruptStatusMessage(lines));
+    return reaskPending(from, session.state);
+  }
+
+  if (decision.action === "reask" && classification.intent !== "small_talk") {
+    await sendText(from, interruptStillOpenMessage());
+  } else if (decision.action === "clarify") {
+    await sendText(from, interruptClarifyMessage(text));
+  }
+  return reaskPending(from, session.state);
+}
+
+async function reaskPending(from: string, state: SessionState): Promise<Response> {
+  const session = await getSession(from);
+  if (state === "picking_date") return await showDatePicker(from);
+  if (state === "picking_slot") {
+    if (!session.delivery_date) return await showDatePicker(from);
+    const buttons = [
+      { id: "slot_breakfast", title: BTN.breakfast },
+      { id: "slot_lunch", title: BTN.lunch },
+      { id: "slot_dinner", title: BTN.dinner },
+    ];
+    await updateSession(from, { state: "picking_slot" });
+    await storeOptions(from, buttons);
+    await sendButtons(from, buildSlotPickerMessage(dateLabel(session.delivery_date), langOf(from)), buttons);
+    return ack();
+  }
+  if (state === "picking_address") {
+    await updateSession(from, { state: "picking_address" });
+    await sendText(from, buildAddressPrompt(langOf(from)));
+    return ack();
+  }
+  if (state === "picking_pay_method") return await offerPayOrConfirm(from, session);
+  if (state === "awaiting_payment") {
+    await updateSession(from, { state: "awaiting_payment" });
+    await sendText(from, "The payment link is still open. Say pay when it's done, or tell me what to change.");
+    return ack();
+  }
+  if (state === "confirming_last") return await afterCartReady(from, session);
+  if (state === "confirming_proposal") {
+    await updateSession(from, { state: "confirming_proposal" });
+    await sendText(from, "Tap Confirm when the order looks right.");
+    return ack();
+  }
+  if (state === "picking_qty") {
+    await updateSession(from, { state: "picking_qty" });
+    await sendText(from, buildQtyMessage(session.selected_variant || "500gm", langOf(from)));
+    return ack();
+  }
+  if (state === "picking_variant" && session.selected_item_id) {
+    const menu = await getMenu();
+    const item = menu.find((row) => row.id === session.selected_item_id);
+    if (item) return await showVariantPicker(from, item);
+  }
+  return await showDatePicker(from);
 }
 
 async function handleCartReview(from: string, text: string, session: WhatsAppSession, profileName: string) {
@@ -2373,6 +2661,13 @@ async function addSelectedItemToCart(from: string, session: WhatsAppSession, qty
 
 async function showCart(from: string, cart: CartItem[]) {
   const lang = langOf(from);
+  const live = await getSession(from);
+  const resume = pendingResume(live.recent_turns);
+  // A cart edit that interrupted a question comes back to that question.
+  // The confirmation was already sent by the edit itself.
+  if (resume && cart.length > 0) {
+    return reaskPending(from, resume);
+  }
   await updateSession(from, { state: "cart_review" });
   const buttons = [
     { id: "checkout", title: BTN.checkout },
@@ -2428,7 +2723,12 @@ async function applyDeliveryDate(from: string, ymd: string) {
     { id: "slot_lunch", title: BTN.lunch },
     { id: "slot_dinner", title: BTN.dinner },
   ];
-  await updateSession(from, { delivery_date: ymd, state: "picking_slot" });
+  const prior = await getSession(from);
+  await updateSession(from, {
+    delivery_date: ymd,
+    state: "picking_slot",
+    recent_turns: withInterrupt(prior.recent_turns, "picking_date", 0),
+  });
   await storeOptions(from, buttons);
   await sendButtons(from, buildSlotPickerMessage(dateLabel(ymd), langOf(from)), buttons);
   return ack();

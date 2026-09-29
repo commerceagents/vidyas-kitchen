@@ -200,8 +200,62 @@ export function localCartIntent(text: string): CartIntent | null {
 export function looksLikeCartEdit(text: string): boolean {
   return (
     localCartIntent(text) != null ||
+    planScopedCartEdit(text) != null ||
     /\b(minus|without|no more|leave out|hold the)\b/i.test(text)
   );
+}
+
+const SIZE_SRC = "1\\s*kg|500\\s*g(?:m|ms|rams?)?|half\\s*kg";
+
+export type ScopedCartEdit = {
+  itemReference: string;
+  removeSize: "500gm" | "1kg" | null;
+  keep: { size: "500gm" | "1kg"; quantity: number } | null;
+};
+
+function sizeToken(raw: string): "500gm" | "1kg" | null {
+  const t = raw.toLowerCase().replace(/\s+/g, "");
+  if (t.includes("500") || t === "halfkg") return "500gm";
+  if (t.includes("1kg")) return "1kg";
+  return null;
+}
+
+/**
+ * "Remove the 1kg and keep 3 of the 500gm" is two edits in one sentence.
+ * A plain remove leaves both sizes in the match, so this splits them first.
+ */
+export function planScopedCartEdit(text: string): ScopedCartEdit | null {
+  const raw = String(text || "").trim();
+  if (!REMOVE_RE.test(raw)) return null;
+
+  const removeMatch = raw.match(
+    new RegExp(`\\b(?:remov\\w*|delet\\w*|drop\\w*|take)\\b[\\s\\S]{0,90}?\\b(${SIZE_SRC})\\b`, "i"),
+  );
+  const keepQtySize = raw.match(new RegExp(`\\bkeep\\b[\\s\\S]{0,40}?\\b(\\d{1,2})\\s*(${SIZE_SRC})\\b`, "i"));
+  const keepSizeQty = raw.match(
+    new RegExp(`\\bkeep\\b[\\s\\S]{0,40}?\\b(${SIZE_SRC})\\s*(?:x|×)?\\s*(\\d{1,2})\\b`, "i"),
+  );
+
+  let keep: ScopedCartEdit["keep"] = null;
+  if (keepQtySize) {
+    const size = sizeToken(keepQtySize[2]);
+    const quantity = parseInt(keepQtySize[1], 10);
+    if (size && quantity >= 1 && quantity <= 10) keep = { size, quantity };
+  } else if (keepSizeQty) {
+    const size = sizeToken(keepSizeQty[1]);
+    const quantity = parseInt(keepSizeQty[2], 10);
+    if (size && quantity >= 1 && quantity <= 10) keep = { size, quantity };
+  }
+
+  const removeSize = removeMatch ? sizeToken(removeMatch[1]) : null;
+  if (!removeSize && !keep) return null;
+
+  const itemReference = stripReference(
+    raw
+      .replace(/\bkeep\b[\s\S]*$/i, " ")
+      .replace(new RegExp(`\\b(?:${SIZE_SRC})\\b`, "gi"), " "),
+  );
+  return { itemReference, removeSize, keep };
 }
 
 export function parseModelIntent(raw: unknown): CartIntent {

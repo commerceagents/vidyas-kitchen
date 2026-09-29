@@ -1727,6 +1727,44 @@ export function marketingOptOutReply(lang?: WaLang): string {
   );
 }
 
+export function interruptClarifyMessage(heard: string): string {
+  const clip = heard.replace(/\s+/g, " ").trim().slice(0, 90);
+  return msg({
+    title: "I didn't follow that",
+    lines: [`"${clip}"`],
+    note: "Say it another way. The question under this is still open.",
+  });
+}
+
+export function interruptMenuAside(): string {
+  return msg({
+    title: "On the menu",
+    lines: ["Chicken, mutton, and egg gravies. Pepper, Mom's, Sister's, Wings, and the rest sit in those."],
+    note: "Name a dish if you want it added.",
+  });
+}
+
+export function interruptStatusMessage(lines: string[]): string {
+  return msg({
+    title: "Your orders",
+    lines: lines.length > 0 ? lines : ["No open order right now."],
+  });
+}
+
+export function interruptCancelledMessage(): string {
+  return msg({
+    title: "Cleared",
+    lines: ["Nothing was sent to the kitchen. The cart is empty."],
+  });
+}
+
+export function interruptStillOpenMessage(): string {
+  return msg({
+    title: "Still on this order",
+    lines: ["That doesn't place it yet. I still need the answer under this."],
+  });
+}
+
 export function notUnderstoodReply(lang?: WaLang): string {
   return pickLang(
     lang,
