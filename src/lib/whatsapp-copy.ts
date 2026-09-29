@@ -485,6 +485,41 @@ export function buildQtyMessage(variant: string, lang?: WaLang): string {
 
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
+export function buildLineRemovedMessage(name: string, variant: string): string {
+  return msg({
+    title: "Taken off",
+    lines: [`${formatFullDishName(name)} _(${variant})_`],
+  });
+}
+
+export function buildLineUpdatedMessage(name: string, variant: string, qty: number): string {
+  return msg({
+    title: "Quantity updated",
+    lines: [`${formatFullDishName(name)} _(${variant})_ × ${qty}`],
+  });
+}
+
+export function buildWhichCartLineMessage(): string {
+  return msg({
+    title: "Which one?",
+    lines: ["More than one dish matches. Tap the one you mean."],
+  });
+}
+
+export function buildNotInCartMessage(): string {
+  return msg({
+    title: "Not in this cart",
+    lines: ["I only take off a dish that's already in it."],
+  });
+}
+
+export function buildCartUnchangedMessage(): string {
+  return msg({
+    title: "Cart unchanged",
+    lines: ["I kept what's already in it. Name the dish to take off, or tap Add More."],
+  });
+}
+
 export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   if (cart.length === 0) {
     return pickLang(

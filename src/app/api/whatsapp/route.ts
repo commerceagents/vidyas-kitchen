@@ -47,6 +47,11 @@ import {
   buildQtyMessage,
   buildCartMessage,
   buildCartLimitMessage,
+  buildLineRemovedMessage,
+  buildLineUpdatedMessage,
+  buildWhichCartLineMessage,
+  buildNotInCartMessage,
+  buildCartUnchangedMessage,
   buildItemAddedMessage,
   buildItemsAddedMessage,
   buildDatePickerMessage,
@@ -136,6 +141,14 @@ import {
   type OrderProposal,
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
+import { resolveCartIntent } from "@/lib/ai/cart-intent";
+import {
+  cartLineButtonTitle,
+  looksLikeCartEdit,
+  matchCartLines,
+  removeLines,
+  setLineQty,
+} from "@/lib/whatsapp-cart-ops";
 import {
   MENU_SECTION_ORDER,
   categoryDisplayLabel,
@@ -463,7 +476,7 @@ function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalD
 }
 
 const BOT_REPLY_ID =
-  /^(add_|var_|book_|cat_|qty_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
+  /^(add_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
 
 function isBotReplyId(value: string): boolean {
   return BOT_REPLY_ID.test(value);
@@ -908,6 +921,11 @@ async function handleResolvedId(
     const qty = parseInt(id.slice(4), 10);
     if (qty >= 1 && qty <= 10) return await addSelectedItemToCart(from, session, qty);
   }
+  const cartLine = parseCartLineId(id);
+  if (cartLine?.kind === "rm") return await removeMatchedLine(from, cartLine.menuId, cartLine.variant);
+  if (cartLine?.kind === "uq" && cartLine.qty) {
+    return await updateMatchedLine(from, cartLine.menuId, cartLine.variant, cartLine.qty);
+  }
   if (id.startsWith("order_")) {
     return await handleMarketingOrderTap(from, id.slice("order_".length));
   }
@@ -961,7 +979,7 @@ async function handleResolvedId(
     case "add_more":
       return await showCategoryBrowser(from);
     case "clear_cart":
-      await updateSession(from, { cart: [], state: "idle" });
+      await dropCartDraft(from, session, []);
       await sendText(from, buildCartMessage([], langOf(from)));
       return ack();
     case "reuse_last":
@@ -1127,10 +1145,157 @@ async function handlePickingQty(from: string, text: string, session: WhatsAppSes
   return await addSelectedItemToCart(from, session, qty);
 }
 
+type CartLineTarget = { kind: "rm" | "uq"; qty: number | null; menuId: string; variant: string };
+
+function parseCartLineId(id: string): CartLineTarget | null {
+  const removed = id.match(/^rm_(.+)_(500gm|1kg)$/);
+  if (removed) return { kind: "rm", qty: null, menuId: removed[1], variant: removed[2] };
+  const updated = id.match(/^uq_(\d+)_(.+)_(500gm|1kg)$/);
+  if (updated) {
+    return { kind: "uq", qty: parseInt(updated[1], 10), menuId: updated[2], variant: updated[3] };
+  }
+  return null;
+}
+
+/** Drop a stored proposal draft so it cannot be shown as the cart. */
+async function dropCartDraft(from: string, session: WhatsAppSession, cart: CartItem[]) {
+  await updateSession(from, {
+    cart,
+    proposal: null,
+    state: cart.length > 0 ? "cart_review" : "idle",
+    recent_turns: chatTurns(session.recent_turns).slice(-8),
+    selected_item_id: null,
+    selected_variant: null,
+    pending_options: null,
+  });
+}
+
+async function removeMatchedLine(from: string, menuItemId: string, variant: string) {
+  const session = await getSession(from);
+  const hit = session.cart.find((line) => line.menu_item_id === menuItemId && line.variant === variant);
+  if (!hit) {
+    await sendText(from, buildNotInCartMessage());
+    return await showCart(from, session.cart);
+  }
+  const next = removeLines(session.cart, [hit]);
+  await dropCartDraft(from, session, next);
+  await sendText(from, buildLineRemovedMessage(hit.name, hit.variant));
+  if (next.length === 0) {
+    await sendText(from, buildCartMessage([], langOf(from)));
+    return ack();
+  }
+  return await showCart(from, next);
+}
+
+async function updateMatchedLine(from: string, menuItemId: string, variant: string, qty: number) {
+  const session = await getSession(from);
+  const hit = session.cart.find((line) => line.menu_item_id === menuItemId && line.variant === variant);
+  if (!hit || qty < 1 || qty > 10) {
+    await sendText(from, buildNotInCartMessage());
+    return await showCart(from, session.cart);
+  }
+  const next = setLineQty(session.cart, hit, qty);
+  await dropCartDraft(from, session, next);
+  await sendText(from, buildLineUpdatedMessage(hit.name, hit.variant, qty));
+  return await showCart(from, next);
+}
+
+async function askWhichLine(from: string, hits: CartItem[], kind: "remove" | "update", qty?: number) {
+  const bases = hits.map((hit) => cartLineButtonTitle(hit.name));
+  const duplicated = bases.some((title, index) => bases.indexOf(title) !== index);
+  const buttons = hits.slice(0, 3).map((hit) => {
+    const base = cartLineButtonTitle(hit.name);
+    const title = duplicated ? `${base.replace(/ gravy$/i, "")} ${hit.variant}`.slice(0, 20) : base;
+    return {
+      id: kind === "remove" ? `rm_${hit.menu_item_id}_${hit.variant}` : `uq_${qty}_${hit.menu_item_id}_${hit.variant}`,
+      title,
+    };
+  });
+  await updateSession(from, { state: "cart_review" });
+  await storeOptions(from, buttons);
+  await sendButtons(from, buildWhichCartLineMessage(), buttons);
+  return ack();
+}
+
+/**
+ * A cart edit names an action. The session cart is what changes, and the
+ * summary sent afterwards is read back from that cart.
+ */
+async function applySpokenCartEdit(
+  from: string,
+  text: string,
+  session: WhatsAppSession,
+): Promise<Response | null> {
+  if (session.cart.length === 0) return null;
+
+  const pending = (session.pending_options || [])
+    .map((option) => parseCartLineId(option.id))
+    .filter((row): row is CartLineTarget => row != null);
+  if (pending.length > 0 && !looksLikeCartEdit(text)) {
+    const lines = session.cart.filter((line) =>
+      pending.some((row) => row.menuId === line.menu_item_id && row.variant === line.variant),
+    );
+    const named = matchCartLines(lines, text);
+    if (!named.ambiguous && named.hits.length === 1) {
+      const hit = named.hits[0];
+      const target = pending.find((row) => row.menuId === hit.menu_item_id && row.variant === hit.variant);
+      if (target?.kind === "rm") return await removeMatchedLine(from, target.menuId, target.variant);
+      if (target?.kind === "uq" && target.qty) {
+        return await updateMatchedLine(from, target.menuId, target.variant, target.qty);
+      }
+    }
+  }
+
+  const intent = await resolveCartIntent(text, session.cart);
+  if (intent.action === "checkout") return await afterCartReady(from, session);
+  if (intent.action === "clear_cart") {
+    await dropCartDraft(from, session, []);
+    await sendText(from, buildCartMessage([], langOf(from)));
+    return ack();
+  }
+  if (intent.action === "remove_item") {
+    const match = matchCartLines(session.cart, intent.item_reference);
+    if (match.hits.length === 0) {
+      await sendText(from, buildNotInCartMessage());
+      return await showCart(from, session.cart);
+    }
+    if (match.ambiguous) return await askWhichLine(from, match.hits, "remove");
+    return await removeMatchedLine(from, match.hits[0].menu_item_id, match.hits[0].variant);
+  }
+  if (intent.action === "update_qty") {
+    const qty = intent.quantity ?? parseSpokenQuantity(text);
+    if (qty == null || qty < 1 || qty > 10) {
+      await sendText(from, buildWhichCartLineMessage());
+      return await showCart(from, session.cart);
+    }
+    const match = matchCartLines(session.cart, intent.item_reference);
+    if (match.hits.length === 0) {
+      await sendText(from, buildNotInCartMessage());
+      return await showCart(from, session.cart);
+    }
+    if (match.ambiguous) return await askWhichLine(from, match.hits, "update", qty);
+    return await updateMatchedLine(from, match.hits[0].menu_item_id, match.hits[0].variant, qty);
+  }
+  if (intent.action === "unclear" && looksLikeCartEdit(text)) {
+    await sendText(from, buildWhichCartLineMessage());
+    return await showCart(from, session.cart);
+  }
+  return null;
+}
+
 async function handleCartReview(from: string, text: string, session: WhatsAppSession, profileName: string) {
+  const resolvedEarly = await resolveNumbered(from, text);
+  const earlyLine = resolvedEarly ? parseCartLineId(resolvedEarly) : null;
+  if (earlyLine?.kind === "rm") return await removeMatchedLine(from, earlyLine.menuId, earlyLine.variant);
+  if (earlyLine?.kind === "uq" && earlyLine.qty) {
+    return await updateMatchedLine(from, earlyLine.menuId, earlyLine.variant, earlyLine.qty);
+  }
+
   const bare = text.trim();
   const isMenuNumber = /^(1|2|3)$/.test(bare);
   if (!isMenuNumber) {
+    const edited = await applySpokenCartEdit(from, text, session);
+    if (edited) return edited;
     const packs = parsePackQuantities(text);
     const itemId = session.selected_item_id || session.cart[session.cart.length - 1]?.menu_item_id;
     if (packs.length > 0 && itemId) {
@@ -1163,7 +1328,7 @@ async function handleCartReview(from: string, text: string, session: WhatsAppSes
     return await showCategoryBrowser(from);
   }
   if (resolved === "clear_cart" || num === 3) {
-    await updateSession(from, { cart: [], state: "idle" });
+    await dropCartDraft(from, session, []);
     await sendText(from, buildCartMessage([], langOf(from)));
     return ack();
   }
@@ -1346,6 +1511,12 @@ function understoodOrderLines(draft: ProposalDraft): string[] {
 }
 
 async function handleAiChat(from: string, text: string, profileName: string) {
+  const session = await getSession(from);
+  if (session.cart.length > 0) {
+    const edited = await applySpokenCartEdit(from, text, session);
+    if (edited) return edited;
+  }
+
   const menu = await getMenu();
   const askingForFood = /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
   if (askingForFood && !mentionsKnownDish(menu, text) && !categoryChoice(text)) {
@@ -1354,9 +1525,9 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     return ack();
   }
 
-  const session = await getSession(from);
   const history = session.recent_turns || [];
-  const stored = readStoredDraft(history);
+  // An open cart is the order. A leftover draft must not redraw it.
+  const stored = session.cart.length > 0 ? null : readStoredDraft(history);
   if (stored) {
     const last = await fetchLastAddressAndSlot(from);
     const filled = fillDraftFromReply(stored, text, last.address || session.delivery_address);
@@ -1373,6 +1544,13 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     { role: "user" as const, content: text },
     ...(result.reply ? [{ role: "assistant" as const, content: result.reply }] : []),
   ].slice(-16);
+
+  // A model draft is not allowed to replace a cart that already has dishes.
+  if (result.proposalDraft && session.cart.length > 0) {
+    await dropCartDraft(from, session, session.cart);
+    await sendText(from, buildCartUnchangedMessage());
+    return await showCart(from, session.cart);
+  }
 
   if (result.reply) {
     await sendText(from, result.reply);
@@ -2028,7 +2206,7 @@ async function showVariantPicker(from: string, item: MenuItem) {
 
 async function applyVariant(from: string, variant: PackSize) {
   const session = await getSession(from);
-  const stored = readStoredDraft(session.recent_turns);
+  const stored = session.cart.length > 0 ? null : readStoredDraft(session.recent_turns);
   const menu = await getMenu();
   const selected = session.selected_item_id
     ? menu.find((m) => m.id === session.selected_item_id)
@@ -2036,13 +2214,14 @@ async function applyVariant(from: string, variant: PackSize) {
 
   // The size buttons sit on a dish card. A leftover draft (an earlier wings
   // order, still holding its date and address) must not keep that other dish.
-  if (session.state === "picking_variant" && selected) {
+  // An open cart stays the order: the size tap falls through to the qty picker.
+  if (session.cart.length === 0 && session.state === "picking_variant" && selected) {
     const draft: ProposalDraft = {
       ...(stored || {}),
       items: [{ dish: selected.name, size: variant, quantity: 1 }],
     };
     if (stored) return await presentProposal(from, draft);
-  } else if (stored || (session.state === "ai_chat" && selected)) {
+  } else if (session.cart.length === 0 && (stored || (session.state === "ai_chat" && selected))) {
     const items = (stored?.items || []).map((item) => ({
       ...item,
       size: parsePackSize(String(item.size || "")) ?? variant,
