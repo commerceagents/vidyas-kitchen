@@ -828,7 +828,7 @@ export async function POST(req: Request) {
         return await handlePickingQty(from, text, session);
 
       case "cart_review":
-        return await handleCartReview(from, text, session);
+        return await handleCartReview(from, text, session, profileName);
 
       case "confirming_last":
         return await handleConfirmingLast(from, text, session);
@@ -1127,7 +1127,7 @@ async function handlePickingQty(from: string, text: string, session: WhatsAppSes
   return await addSelectedItemToCart(from, session, qty);
 }
 
-async function handleCartReview(from: string, text: string, session: WhatsAppSession) {
+async function handleCartReview(from: string, text: string, session: WhatsAppSession, profileName: string) {
   const bare = text.trim();
   const isMenuNumber = /^(1|2|3)$/.test(bare);
   if (!isMenuNumber) {
@@ -1168,8 +1168,8 @@ async function handleCartReview(from: string, text: string, session: WhatsAppSes
     return ack();
   }
 
-  await sendText(from, notUnderstoodReply(langOf(from)));
-  return ack();
+  // A question while the cart is open is still a question. The cart stays.
+  return await handleAiChat(from, text, profileName);
 }
 
 async function handleConfirmingLast(from: string, text: string, session: WhatsAppSession) {
