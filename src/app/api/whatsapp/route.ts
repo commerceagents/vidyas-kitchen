@@ -740,7 +740,8 @@ export async function POST(req: Request) {
       ) &&
       !trimmedText.includes("?") &&
       trimmedText.split(/\s+/).length <= 3;
-    const isMenuCmd = /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower);
+    const isMenuCmd =
+      /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower) || /^order$/i.test(lower);
     const isCartCmd = /^(cart|my cart|view cart)\b/i.test(lower);
     const isHelpCmd = /^(help|support|help & support|help_support)\b/i.test(lower);
     const isTrackCmd = /^(track|order status|where is my order|my order)\b/i.test(lower);

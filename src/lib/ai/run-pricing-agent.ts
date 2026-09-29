@@ -8,7 +8,8 @@ import { variantIdToDishIdMap } from "@/lib/menu/best-selling";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 import { phraseQuietDishReason } from "@/lib/ai/promo-copy";
 import { buildItemPairs } from "@/lib/ai/item-pairs";
-import { orderCountsAsSale } from "@/lib/ai/dish-analytics";
+import { detectUpcomingFestivals, orderCountsAsSale } from "@/lib/ai/dish-analytics";
+import { ensureFestivalBanners } from "@/lib/ai/banner-draft";
 
 export type PricingAgentRunSummary = {
   message: string;
@@ -228,6 +229,22 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
     },
     { onConflict: "key" },
   );
+
+  try {
+    const upcoming = detectUpcomingFestivals(festivals, config.festivalAdvanceDays);
+    await ensureFestivalBanners(
+      upcoming.map((festival) => ({
+        id: festival.id,
+        name: festival.name,
+        date_start: festival.date_start,
+        date_end: festival.date_end,
+        discount_override: Number(festival.discount_override) || 0,
+        shouldActivate: festival.shouldActivate,
+      })),
+    );
+  } catch (err) {
+    console.error("[banner draft]", err);
+  }
 
   const { data: existingPending } = await supabase
     .from("ai_pricing_decisions")

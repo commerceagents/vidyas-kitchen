@@ -33,6 +33,7 @@ import {
   type BestSellingSource,
 } from "@/lib/menu/best-selling";
 import { useActiveFestival } from "./festival-pricing-context";
+import { PromoBannerStrip } from "@/components/ui/mobile/PromoBannerStrip";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { SizeQtyDrawer, cartLineKey, qtyForDish, dishCartSizeLabel } from "@/components/ui/mobile/SizeQtyDrawer";
 import { formatFullDishName } from "@/lib/dish-name";
@@ -2558,6 +2559,7 @@ export function MobileHomeScreen({
           </AnimatePresence>
         </motion.div>
 
+        <PromoBannerStrip />
 
         {/* ── Favorites Section ─────────────────────────────────────────── */}
         <motion.div {...fadeUp(0.2)}>
