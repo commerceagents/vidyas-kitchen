@@ -520,6 +520,19 @@ export function buildCartUnchangedMessage(): string {
   });
 }
 
+export function buildUpsellMessage(favorite: string, suggested: string, discount: number): string {
+  const fav = formatFullDishName(favorite);
+  const dish = formatFullDishName(suggested);
+  return msg({
+    title: "Often ordered with",
+    lines: [
+      `${fav} often shares an order with ${dish}.`,
+      `${dish} is ${discount}% off right now.`,
+    ],
+    note: "Tap Add More if you want it in this cart.",
+  });
+}
+
 export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   if (cart.length === 0) {
     return pickLang(

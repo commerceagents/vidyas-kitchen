@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { kitchenDateKey } from "@/lib/ai/dish-analytics";
+import { endedFestivalDecisionIds } from "@/lib/ai/festival-decisions";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,17 @@ export async function GET() {
     );
 
     const decisions = decisionsRes.data ?? [];
+    const festivalsRes = await supabase.from("festivals").select("id, date_start, date_end");
+    const expiredIds = endedFestivalDecisionIds(
+      decisions as { id?: string; status?: string; dish_id?: string; decision_type?: string }[],
+      (festivalsRes.data ?? []) as { id: string; date_start: string; date_end: string }[],
+    );
+    if (expiredIds.length > 0) {
+      await supabase.from("ai_pricing_decisions").update({ status: "expired" }).in("id", expiredIds);
+      for (const row of decisions as { id?: string; status?: string }[]) {
+        if (row.id && expiredIds.includes(row.id)) row.status = "expired";
+      }
+    }
     const pendingCount = decisions.filter((d: { status?: string }) => d.status === "pending").length;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const appliedCount = decisions.filter(

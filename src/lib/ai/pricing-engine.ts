@@ -54,6 +54,9 @@ export class PricingAgent {
     const currentDiscountedCount = currentDiscounts.filter((d) => d.show_discount).length;
 
     const dishPerformances = computeDishPerformance(orders, this.config.lowPerformerDays, now);
+    const monthOrders = new Map(
+      computeDishPerformance(orders, 30, now).map((dish) => [dish.dishId, dish.totalOrders]),
+    );
     const categoryStats = computeCategoryStats(dishPerformances);
     const mealStats = computeMealPerformance(orders, this.config.lowPerformerDays, now);
     const upcomingFestivals = detectUpcomingFestivals(festivals, this.config.festivalAdvanceDays, now);
@@ -70,7 +73,13 @@ export class PricingAgent {
       const currentRow = discountMap.get(dish.dishId);
       const currentPct = currentRow?.discount_type === "percentage" ? (currentRow.discount_value ?? null) : null;
 
-      const lowDecision = lowPerformerRule(dish, categoryStats, this.config, currentPct);
+      const lowDecision = lowPerformerRule(
+        dish,
+        categoryStats,
+        this.config,
+        currentPct,
+        monthOrders.get(dish.dishId) ?? 0,
+      );
       if (lowDecision) {
         const validation = validateDecision(lowDecision, this.config, projectedDiscounted, totalMenuItems);
         if (validation.valid) {

@@ -87,7 +87,7 @@ function orderKitchenDay(order: DashboardOrder): string {
   return kitchenDateKey(when);
 }
 
-function orderCountsForSales(order: DashboardOrder): boolean {
+export function orderCountsAsSale(order: { status: string }): boolean {
   const s = normalizeOrderStatus(order.status);
   return (
     s === OrderStatus.PAID ||
@@ -172,12 +172,12 @@ export function computeDishPerformance(
 
   const currentOrders = orders.filter((o) => {
     const day = orderKitchenDay(o);
-    return day >= cutoff && day <= today && orderCountsForSales(o);
+    return day >= cutoff && day <= today && orderCountsAsSale(o);
   });
 
   const prevOrders = orders.filter((o) => {
     const day = orderKitchenDay(o);
-    return day >= prevCutoff && day < cutoff && orderCountsForSales(o);
+    return day >= prevCutoff && day < cutoff && orderCountsAsSale(o);
   });
 
   const dishMap = new Map<string, DishBucket>();
@@ -207,7 +207,7 @@ export function computeDishPerformance(
 
   // Ratings and written reviews cover the whole loaded history, not only the sales week.
   for (const order of orders) {
-    if (!orderCountsForSales(order)) continue;
+    if (!orderCountsAsSale(order)) continue;
     const stars = order.rating_stars;
     if (typeof stars !== "number" || stars < 1 || stars > 5) continue;
     const day = orderKitchenDay(order);
@@ -308,7 +308,7 @@ export function computeMealPerformance(
 
   for (const order of orders) {
     if (orderKitchenDay(order) < cutoff) continue;
-    if (!orderCountsForSales(order)) continue;
+    if (!orderCountsAsSale(order)) continue;
 
     const meal = mealSlotOf(order);
     const amt = getOrderRevenueAmount(order);

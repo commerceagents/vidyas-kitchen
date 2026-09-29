@@ -71,6 +71,22 @@ export function isOfferLive(offer: OfferRow, now = new Date()): boolean {
 }
 
 /**
+ * Date lifecycle, separate from the on/off switch. A past `ends_on` is
+ * expired even when the switch was left on, so the dashboard can drop it.
+ */
+export type OfferCalendarStatus = "open" | "upcoming" | "active" | "expired";
+
+export function offerCalendarStatus(offer: OfferRow, now = new Date()): OfferCalendarStatus {
+  const t = now.getTime();
+  const start = parseYmd(offer.starts_on);
+  const end = parseYmd(offer.ends_on);
+  if (end != null && t > end + 86400000 - 1) return "expired";
+  if (start != null && t < start) return "upcoming";
+  if (start == null && end == null) return "open";
+  return "active";
+}
+
+/**
  * Rupees off `subtotal`. Never exceeds the subtotal — fees and GST are charged
  * on top and an offer must not eat into those.
  */

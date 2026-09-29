@@ -6,6 +6,9 @@ import type { FestivalRow, DishDiscountRow } from "@/lib/menu/discount-pricing";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { variantIdToDishIdMap } from "@/lib/menu/best-selling";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
+import { phraseQuietDishReason } from "@/lib/ai/promo-copy";
+import { buildItemPairs } from "@/lib/ai/item-pairs";
+import { orderCountsAsSale } from "@/lib/ai/dish-analytics";
 
 export type PricingAgentRunSummary = {
   message: string;
@@ -195,6 +198,36 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const totalMenuItems = Object.values(MENU_BY_CATEGORY).flat().length;
   const agent = new PricingAgent(config);
   const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems);
+
+  let phrased = 0;
+  for (const decision of result.decisions) {
+    if (decision.decisionType !== "increase_discount" || !decision.brief || phrased >= 6) continue;
+    decision.reasoning = await phraseQuietDishReason({
+      item: decision.dishName,
+      orders7d: decision.brief.orders7d,
+      orders30d: decision.brief.orders30d,
+      rating: decision.brief.rating,
+      reviewCount: decision.brief.reviewCount,
+      discount: decision.newDiscount,
+    });
+    phrased += 1;
+  }
+
+  const pairs = buildItemPairs(
+    orders
+      .filter(orderCountsAsSale)
+      .map((order) => ({
+        dishIds: order.items.map((item) => item.menuItemId).filter((id): id is string => Boolean(id)),
+      })),
+  );
+  await supabase.from("ai_pricing_config").upsert(
+    {
+      key: "item_pairs",
+      value: JSON.stringify(pairs.slice(0, 200)),
+      updated_at: result.timestamp,
+    },
+    { onConflict: "key" },
+  );
 
   const { data: existingPending } = await supabase
     .from("ai_pricing_decisions")

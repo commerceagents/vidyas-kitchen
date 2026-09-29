@@ -9,7 +9,7 @@ import {
   upsertOfferAction,
   type OfferUpsertPayload,
 } from "@/app/actions/offers";
-import { isOfferLive, offerTerms, type OfferRow } from "@/lib/offers";
+import { isOfferLive, offerCalendarStatus, offerTerms, type OfferRow } from "@/lib/offers";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
   DashboardDesktopTopBar,
@@ -346,6 +346,10 @@ export default function OffersPage() {
   };
 
   const liveCount = useMemo(() => offers.filter((o) => isOfferLive(o)).length, [offers]);
+  const visibleOffers = useMemo(
+    () => offers.filter((o) => offerCalendarStatus(o) !== "expired"),
+    [offers],
+  );
 
   const closeDrawer = useCallback(() => {
     if (saving) return;
@@ -417,7 +421,7 @@ export default function OffersPage() {
             </div>
           )}
 
-          {!listError && offers.length === 0 && (
+          {!listError && visibleOffers.length === 0 && (
             <div
               style={{
                 flex: 1,
@@ -433,16 +437,20 @@ export default function OffersPage() {
             >
               <Tag size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
-                No offers yet
+                {offers.length > 0 ? "No current offers" : "No offers yet"}
               </p>
               <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
-                Tap New offer to run a festival discount or hand out a promo code.
+                {offers.length > 0
+                  ? "Ended offers leave this list on their own."
+                  : "Tap New offer to run a festival discount or hand out a promo code."}
               </p>
             </div>
           )}
 
-          {offers.map((o) => {
+          {visibleOffers.map((o) => {
             const live = isOfferLive(o);
+            const calendar = offerCalendarStatus(o);
+            const badge = live ? "RUNNING" : calendar === "upcoming" ? "UPCOMING" : "OFF";
             return (
               <div
                 key={o.id}
@@ -504,7 +512,7 @@ export default function OffersPage() {
                         fontFamily: FONT,
                       }}
                     >
-                      {live ? "RUNNING" : o.active ? "SCHEDULED" : "OFF"}
+                      {badge}
                     </span>
                   </div>
                   <p style={{ margin: "5px 0 0", fontSize: 13, color: "#bbb", fontFamily: FONT }}>

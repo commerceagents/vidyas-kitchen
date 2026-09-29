@@ -22,6 +22,13 @@ export type PricingDecision = {
   newDiscount: number;
   reasoning: string;
   autoApply: boolean;
+  /** Facts for the one-line card. Not stored. The percent stays newDiscount. */
+  brief?: {
+    orders7d: number;
+    orders30d: number;
+    rating: number | null;
+    reviewCount: number;
+  };
 };
 
 export type AgentConfig = {
@@ -48,49 +55,32 @@ export const DEFAULT_CONFIG: AgentConfig = {
 
 // ─── Individual Rules ────────────────────────────────────────────────────────
 
+/**
+ * Quiet-but-liked dishes only. The percent comes from this rule:
+ * 20% when the last 7 days had zero orders, 15% when there were one or two.
+ * A rating under 3.5 blocks the suggestion. No reviews yet does not.
+ */
 export function lowPerformerRule(
   dish: DishPerformance,
-  categoryStats: CategoryStats[],
+  _categoryStats: CategoryStats[],
   config: AgentConfig,
   currentDiscount: number | null,
+  ordersLast30 = 0,
 ): PricingDecision | null {
-  const cat = categoryStats.find((c) => c.category === (dish.category ?? "uncategorized"));
-  if (!cat || cat.avgOrders === 0) return null;
+  if (dish.totalOrders >= 3) return null;
+  if (dish.ratingCount > 0 && (dish.avgRating == null || dish.avgRating < 3.5)) return null;
 
-  const ratio = cat.avgOrders > 0 ? dish.totalOrders / cat.avgOrders : 1;
-  const quiet = dish.totalOrders === 0 || ratio < config.lowPerformerThreshold;
-  const poorlyRated =
-    dish.ratingCount >= 2 && dish.avgRating != null && dish.avgRating <= 3;
-  if (!quiet && !poorlyRated) return null;
+  const newDiscount = Math.min(dish.totalOrders === 0 ? 20 : 15, config.maxDiscountPct);
+  if (currentDiscount != null && currentDiscount >= newDiscount) return null;
 
-  let newDiscount: number;
-  let reasoning: string;
-  const window = `last ${config.lowPerformerDays} days`;
   const ratingBit =
     dish.ratingCount > 0 && dish.avgRating != null
-      ? ` Rating ${dish.avgRating}/5 from ${dish.ratingCount} review${dish.ratingCount === 1 ? "" : "s"}${dish.lowReview ? ` (“${dish.lowReview.slice(0, 80)}”)` : ""}.`
+      ? ` Rating ${dish.avgRating}/5 from ${dish.ratingCount} review${dish.ratingCount === 1 ? "" : "s"}.`
       : "";
-
-  if (dish.totalOrders === 0) {
-    newDiscount = 20;
-    reasoning = `Nobody ordered this in the ${window}. The rest of ${cat.category} averaged ${cat.avgOrders}. Suggest ${newDiscount}% off.`;
-  } else if (poorlyRated && !quiet) {
-    newDiscount = 20;
-    reasoning = `Selling, but rated ${dish.avgRating}/5 from ${dish.ratingCount} reviews.${dish.lowReview ? ` Latest: “${dish.lowReview.slice(0, 80)}”.` : ""} Suggest ${newDiscount}% off while that is looked at.`;
-  } else if (dish.daysSinceLastOrder != null && dish.daysSinceLastOrder >= 7) {
-    newDiscount = 30;
-    reasoning = `No orders in ${dish.daysSinceLastOrder} days. Category avg: ${cat.avgOrders} in the ${window}.${ratingBit} Suggest ${newDiscount}% off.`;
-  } else if (ratio < 0.15) {
-    newDiscount = 25;
-    reasoning = `Very low sales (${dish.totalOrders} vs category avg ${cat.avgOrders} in the ${window}).${ratingBit} Suggest ${newDiscount}% off.`;
-  } else {
-    newDiscount = 15;
-    reasoning = `Below the rest of ${cat.category} (${dish.totalOrders} vs avg ${cat.avgOrders} in the ${window}).${ratingBit} Suggest ${newDiscount}% off.`;
-  }
-
-  newDiscount = Math.min(roundToDiscountPreset(newDiscount), config.maxDiscountPct);
-
-  if (currentDiscount != null && currentDiscount >= newDiscount) return null;
+  const reasoning =
+    dish.totalOrders === 0
+      ? `Nobody ordered this in the last ${config.lowPerformerDays} days.${ratingBit} ${ordersLast30} orders in the last 30 days. Suggest ${newDiscount}% off.`
+      : `${dish.totalOrders} order${dish.totalOrders === 1 ? "" : "s"} in the last ${config.lowPerformerDays} days, ${ordersLast30} in the last 30.${ratingBit} Suggest ${newDiscount}% off.`;
 
   return {
     dishId: dish.dishId,
@@ -101,6 +91,12 @@ export function lowPerformerRule(
     reasoning,
     // Kitchen picks the final % — never auto-apply dish offers
     autoApply: false,
+    brief: {
+      orders7d: dish.totalOrders,
+      orders30d: ordersLast30,
+      rating: dish.avgRating,
+      reviewCount: dish.ratingCount,
+    },
   };
 }
 

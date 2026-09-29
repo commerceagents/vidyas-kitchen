@@ -43,18 +43,31 @@ export function isWithinSeasonalWindow(
   return t >= start.getTime() && t <= endInclusive;
 }
 
+/**
+ * Where the dates put a festival. The stored `active` flag is approval, not
+ * this. A past end date is expired even if that flag was left on.
+ */
+export type FestivalCalendarStatus = "upcoming" | "active" | "expired";
+
+export function festivalCalendarStatus(
+  row: { date_start: string; date_end: string },
+  now = new Date(),
+): FestivalCalendarStatus {
+  if (isWithinSeasonalWindow(row.date_start, row.date_end, now)) return "active";
+  const start = parseYmdToUtcNoon(row.date_start);
+  if (start && now.getTime() < start.getTime()) return "upcoming";
+  return "expired";
+}
+
 /** Dashboard copy: where a festival row sits relative to “today”. */
 export type FestivalUiStatus = "live" | "upcoming" | "ended" | "off";
 
 export function festivalUiStatus(row: FestivalRow, now = new Date()): FestivalUiStatus {
+  const calendar = festivalCalendarStatus(row, now);
+  if (calendar === "expired") return "ended";
   if (!row.active) return "off";
-  if (isWithinSeasonalWindow(row.date_start, row.date_end, now)) return "live";
-  const start = parseYmdToUtcNoon(row.date_start);
-  const end = parseYmdToUtcNoon(row.date_end);
-  if (!start || !end) return "off";
-  const endInclusive = end.getTime() + 86400000 - 1;
-  if (now.getTime() < start.getTime()) return "upcoming";
-  return "ended";
+  if (calendar === "active") return "live";
+  return "upcoming";
 }
 
 /** Master switch + optional seasonal date gate. */

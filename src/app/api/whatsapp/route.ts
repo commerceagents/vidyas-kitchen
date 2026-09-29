@@ -142,6 +142,7 @@ import {
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
 import { resolveCartIntent } from "@/lib/ai/cart-intent";
+import { cartUpsellMessage } from "@/lib/ai/cart-upsell";
 import {
   cartLineButtonTitle,
   looksLikeCartEdit,
@@ -2383,6 +2384,12 @@ async function showCart(from: string, cart: CartItem[]) {
 }
 
 async function afterCartReady(from: string, session: WhatsAppSession) {
+  try {
+    const upsell = await cartUpsellMessage(session.cart);
+    if (upsell) await sendText(from, upsell);
+  } catch (err) {
+    console.error("[WA upsell]", err);
+  }
   const last = await fetchLastAddressAndSlot(from);
   if (last.address || last.slotKind) {
     await updateSession(from, {
