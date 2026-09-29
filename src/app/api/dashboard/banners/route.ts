@@ -8,6 +8,7 @@ import { renderFestivalPoster } from "@/lib/posters/render";
 import { isBannerTemplateId } from "@/lib/posters/templates";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const MISSING =
   "Banners table not found. Run supabase/migrations-banners.sql in the Supabase SQL editor, then reload.";

@@ -1,7 +1,6 @@
 import React from "react";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { ImageResponse } from "next/og";
+import { randomFoodPhoto } from "@/lib/posters/food-photo";
 import { posterDishes, themeFor, type BannerTemplateId } from "@/lib/posters/templates";
 
 export type PosterInput = {
@@ -9,26 +8,9 @@ export type PosterInput = {
   headline: string;
   discount: number;
   dates: string;
+  /** When set, skip a new generation and use this picture. */
+  photo?: string | null;
 };
-
-const SITE = "https://www.vidyaskitchenhome.com";
-
-async function loadPhoto(publicPath: string): Promise<string | null> {
-  const rel = publicPath.replace(/^\//, "");
-  try {
-    const bytes = await readFile(path.join(process.cwd(), "public", rel));
-    return `data:image/jpeg;base64,${bytes.toString("base64")}`;
-  } catch {
-    try {
-      const res = await fetch(`${SITE}/${rel}`);
-      if (!res.ok) return null;
-      const bytes = Buffer.from(await res.arrayBuffer());
-      return `data:image/jpeg;base64,${bytes.toString("base64")}`;
-    } catch {
-      return null;
-    }
-  }
-}
 
 function money(amount: number): string {
   return `Rs ${amount}`;
@@ -38,7 +20,7 @@ function money(amount: number): string {
 export async function renderFestivalPoster(input: PosterInput): Promise<Buffer> {
   const theme = themeFor(input.template);
   const dishes = posterDishes(input.discount).slice(0, 3);
-  const photo = await loadPhoto(dishes[0]?.image || "/menu-images/chk-mom-gravy.jpg");
+  const photo = input.photo === undefined ? await randomFoodPhoto() : input.photo;
   const headline = input.headline.replace(/\s+/g, " ").trim().slice(0, 42).toUpperCase() || "FESTIVE OFFER";
   const discount = Math.round(input.discount);
 
