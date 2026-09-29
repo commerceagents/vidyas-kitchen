@@ -1137,6 +1137,11 @@ async function handleCartReview(from: string, text: string, session: WhatsAppSes
     if (packs.length > 0 && itemId) {
       return await setPackLines(from, session, itemId, packs);
     }
+    // A size was named but not paired with a count. Don't rewrite the line already in the cart.
+    if (/\b500\b|\b1\s*kg\b|\bhalf\s*kg\b/i.test(text)) {
+      await sendText(from, buildQtyMessage(session.selected_variant || "500gm", langOf(from)));
+      return ack();
+    }
     const qty = parseSpokenQuantity(text);
     const last = session.cart[session.cart.length - 1];
     if (qty != null && qty >= 1 && qty <= 10 && last) {

@@ -227,6 +227,9 @@ const QTY_WORDS: Record<string, number> = {
 
 const QTY_TOKEN = "one|two|three|four|five|six|seven|eight|nine|ten|\\d{1,2}";
 const PACK_TOKEN = "500\\s*(?:g|gm|gms|grams?)?|half\\s*kg|1\\s*(?:kg|kgs|kilo|kilogram)";
+/** Words that can sit between a size and a count: "500gm in two quantities". */
+const PACK_GAP =
+  "(?:\\s+|[-–—:x×]|\\b(?:in|of|for|a|an|the|qty|quantity|quantities|packs?)\\b)*";
 
 function quantityToken(raw: string): number | null {
   const t = String(raw || "").toLowerCase().trim();
@@ -265,14 +268,8 @@ export function parsePackQuantities(text: string): PackQuantity[] {
     .toLowerCase()
     .split(/\band\b|,|&/i);
   const found: PackQuantity[] = [];
-  const sizeThenQty = new RegExp(
-    `\\b(${PACK_TOKEN})\\s*(?:[-–—:x×]|qty|quantity|packs?)?\\s*(${QTY_TOKEN})\\b`,
-    "i",
-  );
-  const qtyThenSize = new RegExp(
-    `\\b(${QTY_TOKEN})\\s*(?:x|×|of)?\\s*(${PACK_TOKEN})\\b`,
-    "i",
-  );
+  const sizeThenQty = new RegExp(`\\b(${PACK_TOKEN})${PACK_GAP}(${QTY_TOKEN})\\b`, "i");
+  const qtyThenSize = new RegExp(`\\b(${QTY_TOKEN})${PACK_GAP}(${PACK_TOKEN})\\b`, "i");
   for (const clause of clauses) {
     const sizeFirst = clause.match(sizeThenQty);
     const qtyFirst = clause.match(qtyThenSize);

@@ -458,6 +458,7 @@ export function buildQtyMessage(variant: string, lang?: WaLang): string {
         "Four, 4, and “I need four” all count.",
         "",
         "Both sizes in one line: _500gm 2 and 1kg 1_.",
+        "Or send the other size after. _1kg in 1 quantity_ keeps the 500gm line.",
       ],
     }),
     msg({
