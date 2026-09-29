@@ -48,6 +48,7 @@ import {
   buildCartMessage,
   buildCartLimitMessage,
   buildItemAddedMessage,
+  buildItemsAddedMessage,
   buildDatePickerMessage,
   buildSlotPickerMessage,
   buildAddressPrompt,
@@ -128,6 +129,8 @@ import {
   parseDateText,
   parseHour,
   parsePackSize,
+  parsePackQuantities,
+  parseSpokenQuantity,
   parseSlotWord,
   repriceProposal,
   slotKindForHour,
@@ -1085,7 +1088,12 @@ async function handlePickingItem(from: string, text: string) {
   return ack();
 }
 
-async function handlePickingVariant(from: string, text: string, _session: WhatsAppSession) {
+async function handlePickingVariant(from: string, text: string, session: WhatsAppSession) {
+  const packs = parsePackQuantities(text);
+  if (packs.length > 0 && session.selected_item_id) {
+    return await setPackLines(from, session, session.selected_item_id, packs);
+  }
+
   const lower = text.toLowerCase().trim();
   const num = parseInt(text, 10);
 
@@ -1106,9 +1114,14 @@ async function handlePickingVariant(from: string, text: string, _session: WhatsA
 }
 
 async function handlePickingQty(from: string, text: string, session: WhatsAppSession) {
-  let qty = parseInt(text.trim().replace(/^qty_/, ""), 10);
-  if (isNaN(qty) || qty < 1) qty = 1;
-  if (qty > 10) {
+  const fromButton = text.trim().match(/^qty_(\d+)$/);
+  const packs = fromButton ? [] : parsePackQuantities(text);
+  if (packs.length > 0 && session.selected_item_id) {
+    return await setPackLines(from, session, session.selected_item_id, packs);
+  }
+
+  const qty = fromButton ? parseInt(fromButton[1], 10) : parseSpokenQuantity(text);
+  if (qty == null || qty < 1 || qty > 10) {
     await sendText(from, buildQtyMessage(session.selected_variant || "500gm", langOf(from)));
     return ack();
   }
@@ -1116,6 +1129,22 @@ async function handlePickingQty(from: string, text: string, session: WhatsAppSes
 }
 
 async function handleCartReview(from: string, text: string, session: WhatsAppSession) {
+  const bare = text.trim();
+  const isMenuNumber = /^(1|2|3)$/.test(bare);
+  if (!isMenuNumber) {
+    const packs = parsePackQuantities(text);
+    const itemId = session.selected_item_id || session.cart[session.cart.length - 1]?.menu_item_id;
+    if (packs.length > 0 && itemId) {
+      return await setPackLines(from, session, itemId, packs);
+    }
+    const qty = parseSpokenQuantity(text);
+    const last = session.cart[session.cart.length - 1];
+    if (qty != null && qty >= 1 && qty <= 10 && last) {
+      const variant: PackSize = last.variant === "1kg" ? "1kg" : "500gm";
+      return await setPackLines(from, session, last.menu_item_id, [{ size: variant, quantity: qty }]);
+    }
+  }
+
   const num = parseInt(text.trim(), 10);
   const resolved = await resolveNumbered(from, text);
 
@@ -2053,6 +2082,65 @@ async function handleMarketingOrderTap(from: string, retailerOrId: string) {
     return await applyVariant(from, parsed.variant);
   }
   return await showVariantPicker(from, item);
+}
+
+async function setPackLines(
+  from: string,
+  session: WhatsAppSession,
+  menuItemId: string,
+  packs: { size: PackSize; quantity: number }[],
+) {
+  const menu = await getMenu();
+  const item = menu.find((m) => m.id === menuItemId);
+  if (!item) {
+    await sendText(from, notUnderstoodReply(langOf(from)));
+    return ack();
+  }
+  if (packs.some((pack) => pack.quantity < 1 || pack.quantity > 10)) {
+    await sendText(from, buildQtyMessage(session.selected_variant || packs[0]?.size || "500gm", langOf(from)));
+    return ack();
+  }
+
+  const cart = [...(session.cart || [])];
+  const newLines = packs.filter(
+    (pack) => !cart.some((line) => line.menu_item_id === item.id && line.variant === pack.size),
+  );
+  if (cart.length + newLines.length > WA_CART_MAX) {
+    await sendText(from, buildCartLimitMessage(langOf(from)));
+    return ack();
+  }
+
+  for (const pack of packs) {
+    const unitPrice = unitPriceFor(item, pack.size);
+    const existingIdx = cart.findIndex((line) => line.menu_item_id === item.id && line.variant === pack.size);
+    if (existingIdx >= 0) {
+      cart[existingIdx] = { ...cart[existingIdx], quantity: pack.quantity, unit_price: unitPrice };
+    } else {
+      cart.push({
+        menu_item_id: item.id,
+        name: item.name,
+        variant: pack.size,
+        quantity: pack.quantity,
+        unit_price: unitPrice,
+      });
+    }
+  }
+
+  await updateSession(from, {
+    cart,
+    selected_item_id: item.id,
+    selected_variant: null,
+    selected_qty: 1,
+    state: "cart_review",
+  });
+  await sendText(
+    from,
+    buildItemsAddedMessage(
+      packs.map((pack) => ({ name: item.name, variant: pack.size, qty: pack.quantity })),
+      langOf(from),
+    ),
+  );
+  return await showCart(from, cart);
 }
 
 async function addSelectedItemToCart(from: string, session: WhatsAppSession, qty: number) {

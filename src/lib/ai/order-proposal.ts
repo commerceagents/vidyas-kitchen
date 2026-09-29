@@ -212,6 +212,82 @@ export function parsePackSize(text: string): PackSize | null {
   return null;
 }
 
+const QTY_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+const QTY_TOKEN = "one|two|three|four|five|six|seven|eight|nine|ten|\\d{1,2}";
+const PACK_TOKEN = "500\\s*(?:g|gm|gms|grams?)?|half\\s*kg|1\\s*(?:kg|kgs|kilo|kilogram)";
+
+function quantityToken(raw: string): number | null {
+  const t = String(raw || "").toLowerCase().trim();
+  if (/^\d{1,2}$/.test(t)) return parseInt(t, 10);
+  return QTY_WORDS[t] ?? null;
+}
+
+function packToken(raw: string): PackSize | null {
+  const t = String(raw || "").toLowerCase().replace(/\s+/g, "");
+  if (/^1(?:kg|kgs|kilo|kilogram)$/.test(t)) return "1kg";
+  if (/^500(?:g|gm|gms|grams?)?$/.test(t) || t === "halfkg") return "500gm";
+  return null;
+}
+
+/** "4", "four", "I need four quantity" — pack sizes are not quantities. */
+export function parseSpokenQuantity(text: string): number | null {
+  const stripped = String(text || "")
+    .toLowerCase()
+    .replace(new RegExp(`\\b(?:${PACK_TOKEN})\\b`, "g"), " ");
+  const digit = stripped.match(/\b(\d{1,2})\b/);
+  if (digit) return parseInt(digit[1], 10);
+  for (const [word, n] of Object.entries(QTY_WORDS)) {
+    if (new RegExp(`\\b${word}\\b`).test(stripped)) return n;
+  }
+  return null;
+}
+
+export type PackQuantity = { size: PackSize; quantity: number };
+
+/**
+ * "500gm 2 and 1kg 1", "2 of 500gm and 1 of 1kg", "500 - 2 quantity and 1kg - 1".
+ * Empty when the line names no pack.
+ */
+export function parsePackQuantities(text: string): PackQuantity[] {
+  const clauses = String(text || "")
+    .toLowerCase()
+    .split(/\band\b|,|&/i);
+  const found: PackQuantity[] = [];
+  const sizeThenQty = new RegExp(
+    `\\b(${PACK_TOKEN})\\s*(?:[-–—:x×]|qty|quantity|packs?)?\\s*(${QTY_TOKEN})\\b`,
+    "i",
+  );
+  const qtyThenSize = new RegExp(
+    `\\b(${QTY_TOKEN})\\s*(?:x|×|of)?\\s*(${PACK_TOKEN})\\b`,
+    "i",
+  );
+  for (const clause of clauses) {
+    const sizeFirst = clause.match(sizeThenQty);
+    const qtyFirst = clause.match(qtyThenSize);
+    const hit = sizeFirst
+      ? { size: packToken(sizeFirst[1]), quantity: quantityToken(sizeFirst[2]) }
+      : qtyFirst
+        ? { size: packToken(qtyFirst[2]), quantity: quantityToken(qtyFirst[1]) }
+        : null;
+    if (hit?.size && hit.quantity != null && hit.quantity >= 1) found.push({ size: hit.size, quantity: hit.quantity });
+  }
+  const merged = new Map<PackSize, number>();
+  for (const row of found) merged.set(row.size, (merged.get(row.size) || 0) + row.quantity);
+  return [...merged.entries()].map(([size, quantity]) => ({ size, quantity }));
+}
+
 export function parsePaymentMethod(text: string): ProposalPaymentMethod | null {
   const t = String(text || "").toLowerCase();
   if (/\b(cod|cash|kaiyila|door)\b/.test(t)) return "cod";

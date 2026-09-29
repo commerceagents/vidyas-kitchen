@@ -118,7 +118,8 @@ function money(amount: number): string {
 
 /** `Mutton Curry (1kg) x 2 — ₹3,898` — the one shape for a cart line. */
 function cartLine(item: CartItem): string {
-  return `${item.name} (${item.variant}) x ${item.quantity} — ${money(item.unit_price * item.quantity)}`;
+  const name = formatFullDishName(item.name);
+  return `${name} (${item.variant}) x ${item.quantity} — ${money(item.unit_price * item.quantity)}`;
 }
 
 /**
@@ -437,7 +438,7 @@ export function buildVariantMessage(
     msg({
       title: itemName,
       lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
-      note: "Pick a size. It is added after this.",
+      note: "Pick a size, or type both: 500gm 2 and 1kg 1.",
     }),
     msg({
       title: itemName,
@@ -450,8 +451,23 @@ export function buildVariantMessage(
 export function buildQtyMessage(variant: string, lang?: WaLang): string {
   return pickLang(
     lang,
-    msg({ title: variant, lines: ["How many? Tap 1, 2 or 3."] }),
-    msg({ title: variant, lines: ["Ethana? 1, 2, illa 3 tap pannunga."] }),
+    msg({
+      title: variant,
+      lines: [
+        "How many? Tap 1, 2 or 3, or type a number up to 10.",
+        "Four, 4, and “I need four” all count.",
+        "",
+        "Both sizes in one line: _500gm 2 and 1kg 1_.",
+      ],
+    }),
+    msg({
+      title: variant,
+      lines: [
+        "Ethana? 1, 2, 3 tap pannunga, illa number type pannunga. 10 varaikkum.",
+        "",
+        "Rendu size: _500gm 2 and 1kg 1_.",
+      ],
+    }),
   );
 }
 
@@ -469,9 +485,7 @@ export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   return msg({
     title: pickLang(lang, "Your cart", "Unga cart"),
     lines: [
-      ...cart.map(cartLine),
-      ...totalLines(cart, lang),
-      cart.length >= WA_CART_MAX ? "" : null,
+      ...invoiceLines(cart, lang, null, []),
       cart.length >= WA_CART_MAX
         ? pickLang(
             lang,
@@ -498,10 +512,21 @@ export function buildCartLimitMessage(lang?: WaLang): string {
 }
 
 export function buildItemAddedMessage(name: string, variant: string, qty: number, lang?: WaLang): string {
+  return buildItemsAddedMessage([{ name, variant, qty }], lang);
+}
+
+export function buildItemsAddedMessage(
+  lines: { name: string; variant: string; qty: number }[],
+  lang?: WaLang,
+): string {
+  const body = lines.flatMap((line) => [
+    `*${formatFullDishName(line.name)}*`,
+    `_${line.variant} × ${line.qty}_`,
+  ]);
   return pickLang(
     lang,
-    msg({ lines: [`Added: ${name} (${variant}) x ${qty}.`] }),
-    msg({ lines: [`Cart-la sethuruchu: ${name} (${variant}) x ${qty}.`] }),
+    msg({ title: "Added", lines: body }),
+    msg({ title: "Cart-la sethuruchu", lines: body }),
   );
 }
 
