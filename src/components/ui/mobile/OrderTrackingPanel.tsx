@@ -382,13 +382,25 @@ function StatusMascot({ stage }: { stage: number }) {
     );
   }
   return (
-    <span style={wrap} aria-hidden>
+    <span style={{ ...wrap, position: "relative" }} aria-hidden>
       <motion.span
         animate={{ scale: [0.92, 1.08, 0.92] }}
         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-        style={{ display: "flex" }}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: 24,
+          height: 24,
+          marginTop: -12,
+          marginLeft: -12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 0,
+        }}
       >
-        <CheckCircle size={24} weight="fill" color={C.red} />
+        <CheckCircle size={24} weight="fill" color={C.red} style={{ display: "block" }} />
       </motion.span>
     </span>
   );
