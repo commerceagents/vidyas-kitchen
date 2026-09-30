@@ -17,6 +17,7 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
+import { DashboardDropdown } from "@/components/dashboard/DashboardDropdown";
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
 const CARD_BG = "#1a1a1a";
@@ -174,14 +175,16 @@ function OfferDrawer({
 
           <div className="vk-offer-grid">
             <Field label="Discount">
-              <select
-                style={inputStyle}
+              <DashboardDropdown
+                fullWidth
+                ariaLabel="Discount type"
                 value={draft.value_type}
-                onChange={(e) => onChange({ ...draft, value_type: e.target.value as Draft["value_type"] })}
-              >
-                <option value="percent">Percent off</option>
-                <option value="flat">Flat ₹ off</option>
-              </select>
+                options={[
+                  { value: "percent", label: "Percent off" },
+                  { value: "flat", label: "Flat ₹ off" },
+                ]}
+                onChange={(value_type) => onChange({ ...draft, value_type })}
+              />
             </Field>
             <Field label={draft.value_type === "percent" ? "Percent, up to 90" : "Rupees off"}>
               <input
@@ -842,8 +845,7 @@ export default function OffersPage() {
           grid-template-columns: 1fr 1fr;
           gap: 12px;
         }
-        .vk-offer-body input,
-        .vk-offer-body select {
+        .vk-offer-body input {
           min-height: 44px;
           color-scheme: dark;
         }
