@@ -209,6 +209,25 @@ export default function ReviewsPage() {
           if (!busy) setPending(null);
         }}
       />
+
+      <style jsx global>{`
+        @media (max-width: 1023px) {
+          .vk-dash-home-mobile {
+            display: flex !important;
+          }
+          .vk-dash-home-desktop {
+            display: none !important;
+          }
+        }
+        @media (min-width: 1024px) {
+          .vk-dash-home-mobile {
+            display: none !important;
+          }
+          .vk-dash-home-desktop {
+            display: flex !important;
+          }
+        }
+      `}</style>
     </>
   );
 }
