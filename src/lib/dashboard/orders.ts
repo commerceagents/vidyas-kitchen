@@ -128,20 +128,31 @@ export function filterOrdersByMonth(orders: DashboardOrder[], month: MonthKey) {
   });
 }
 
+function createdMonthKey(order: DashboardOrder): MonthKey | null {
+  const createdDate = order.created_at ? istDateString(order.created_at) : null;
+  if (!createdDate) return null;
+  const [y, m] = createdDate.split("-").map(Number);
+  return { year: y, month: m - 1 };
+}
+
 /**
  * Kitchen board for a month.
  *
  * A slot is booked at least a day ahead, so an order placed on the last day of
  * the month delivers next month. The month filter would hide it until someone
  * switches the calendar. While the board is on the current month, keep every
- * order that is still being cooked or delivered, whichever month the slot sits in.
+ * order that is still being cooked, and every order placed this month, even
+ * after it is marked delivered.
  */
 export function filterOrdersForKitchen(orders: DashboardOrder[], month: MonthKey) {
   const viewingNow = isSameMonth(month, currentMonthKey());
   return orders.filter((o) => {
     const mk = orderMonthKey(o);
     if (mk && isSameMonth(mk, month)) return true;
-    return viewingNow && isOrderInFlight(o.status);
+    if (!viewingNow) return false;
+    if (isOrderInFlight(o.status)) return true;
+    const created = createdMonthKey(o);
+    return created ? isSameMonth(created, month) : false;
   });
 }
 
