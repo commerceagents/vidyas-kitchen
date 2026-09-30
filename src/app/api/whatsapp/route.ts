@@ -241,7 +241,12 @@ async function storeOptions(phone: string, opts: { id: string; title: string }[]
 }
 
 async function resolveNumbered(phone: string, text: string): Promise<string | null> {
-  const num = parseInt(text.trim(), 10);
+  // Only a message that is nothing but the button number. "2 500gms" is two
+  // packs of 500gm, and parseInt would otherwise treat the leading 2 as
+  // button 2 (1kg) and ask for a quantity again.
+  const trimmed = text.trim();
+  if (!/^\d{1,2}$/.test(trimmed)) return null;
+  const num = parseInt(trimmed, 10);
   if (isNaN(num) || num < 1) return null;
 
   try {
@@ -1154,11 +1159,12 @@ async function handlePickingVariant(from: string, text: string, session: WhatsAp
   }
 
   const lower = text.toLowerCase().trim();
-  const num = parseInt(text, 10);
+  const bare = /^\d{1,2}$/.test(lower);
+  const num = bare ? parseInt(lower, 10) : NaN;
 
   let variant: PackSize | null = null;
-  if (num === 1 || /500/i.test(lower) || lower === "var_500gm") variant = "500gm";
-  else if (num === 2 || /1\s*kg/i.test(lower) || lower === "var_1kg") variant = "1kg";
+  if ((bare && num === 1) || (!bare && /500/i.test(lower)) || lower === "var_500gm") variant = "500gm";
+  else if ((bare && num === 2) || /1\s*kg/i.test(lower) || lower === "var_1kg") variant = "1kg";
 
   const resolvedVar = await resolveNumbered(from, text);
   if (resolvedVar === "var_500gm") variant = "500gm";
