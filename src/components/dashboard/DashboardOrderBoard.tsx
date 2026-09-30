@@ -1699,6 +1699,8 @@ function OrderCard({
     );
   })();
 
+  const showDriver = isDispatched && Boolean(order.driver_arrived_at || driverFixForOrder(order));
+
   const cardClass = [
     "vk-order-card",
     highlighted ? "vk-order-card-highlighted" : "",
@@ -1763,8 +1765,8 @@ function OrderCard({
       <div style={{
         display: "flex",
         flexDirection: "column",
-        flex: mobile ? undefined : 1,
-        minHeight: !mobile && items.length > 0 ? DESKTOP_ITEMS_MIN_H : undefined,
+        flex: mobile || showDriver ? undefined : 1,
+        minHeight: !mobile && items.length > 0 && !showDriver ? DESKTOP_ITEMS_MIN_H : undefined,
       }}>
         {items.length === 0 ? (
           <span style={{ fontSize: "13px", color: "#555", fontStyle: "italic", padding: "8px 0" }}>No items</span>
@@ -1799,7 +1801,7 @@ function OrderCard({
               >
                 + {hiddenItemCount} More
               </button>
-            ) : !mobile ? (
+            ) : !mobile && !showDriver ? (
               <div style={{ height: DESKTOP_MORE_ROW_H, marginTop: 8, flexShrink: 0 }} aria-hidden />
             ) : null}
           </>
@@ -1808,15 +1810,26 @@ function OrderCard({
 
       {mobile && <OrderStatusRail status={order.status} />}
 
-      {isDispatched && (order.driver_arrived_at || driverFixForOrder(order)) ? <DriverTrackRow order={order} /> : null}
+      {showDriver ? (
+        <div style={{
+          flex: mobile ? undefined : 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          marginTop: 18,
+          marginBottom: 18,
+        }}>
+          <DriverTrackRow order={order} />
+        </div>
+      ) : null}
       {isUndelivered ? <CodBlockRow order={order} /> : null}
 
       {/* Footer — totals top, actions below on mobile; side-by-side on desktop */}
       <div
         className="vk-order-card-footer"
         style={{
-          marginTop: mobile ? "16px" : "auto",
-          paddingTop: mobile ? "12px" : "4px",
+          marginTop: showDriver ? 0 : mobile ? "16px" : "auto",
+          paddingTop: showDriver ? 0 : mobile ? "12px" : "4px",
           borderTop: mobile ? "1px solid rgba(255,255,255,0.06)" : undefined,
           display: "flex",
           alignItems: mobile ? undefined : "center",
@@ -1951,7 +1964,7 @@ function DriverTrackRow({ order }: { order: DashboardOrder }) {
   }, []);
 
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {arrivedAgo ? (
         <div
           onClick={(e) => e.stopPropagation()}
@@ -1959,22 +1972,23 @@ function DriverTrackRow({ order }: { order: DashboardOrder }) {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            marginTop: 12,
-            padding: "9px 12px",
+            minHeight: 38,
+            padding: "10px 12px",
             borderRadius: 10,
             border: "1px solid rgba(52,211,153,0.32)",
             background: "rgba(52,211,153,0.10)",
+            boxSizing: "border-box",
           }}
         >
           <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: "#34D399" }} aria-hidden />
-          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#34D399" }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#34D399", lineHeight: 1.35 }}>
             Driver at the customer&apos;s door · {arrivedAgo}
           </span>
         </div>
       ) : null}
 
       {fix ? <DriverFixRow fix={fix} /> : null}
-    </>
+    </div>
   );
 }
 
@@ -1986,15 +2000,16 @@ function DriverFixRow({ fix }: { fix: NonNullable<DriverFix> }) {
         display: "flex",
         alignItems: "center",
         gap: 8,
-        marginTop: 12,
-        padding: "9px 12px",
+        minHeight: 38,
+        padding: "10px 12px",
         borderRadius: 10,
         border: "1px solid #2a2a2a",
         background: "#141414",
+        boxSizing: "border-box",
       }}
     >
       <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: "#34D399" }} aria-hidden />
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#bbb" }}>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#bbb", lineHeight: 1.35 }}>
         Driver seen {fix.agoLabel}
       </span>
       <a
