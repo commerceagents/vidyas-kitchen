@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { generateUPILink, kitchenUpiVpa } from "@/lib/payments";
 
 function isUuid(s: string) {
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         delivery_lat, delivery_lng,
         driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         phone_number, recipient_name, recipient_phone,
-        payment_method, payment_status, cod_collected_at, total_amount,
+        payment_method, payment_status, cod_collected_at, total_amount, driver_phone,
         users:customer_id ( full_name, phone_number ),
         order_items ( quantity, menu_item_id, menu_items ( name, image_url ) )
       `,
@@ -36,6 +36,11 @@ export async function GET(request: Request) {
       .single();
 
     if (error || !row) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const assigned = normalizeDriverPhone(String((row as { driver_phone?: string | null }).driver_phone || ""));
+    if (assigned !== normalizeDriverPhone(auth.driver.phone)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

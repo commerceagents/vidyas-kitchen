@@ -13,16 +13,26 @@ import { haversineMeters } from "@/lib/geo";
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
 /**
- * The driver reports GPS every 12s and this page polls every 10s, so a marker
- * snapped straight to each fix would teleport and then freeze. Walking to each
- * new fix over roughly that same gap keeps the bike in near-constant motion,
- * which is what makes it read as a rider rather than a blinking pin.
+ * The driver phone posts a fix every few seconds. A short glide keeps the
+ * bike moving between those fixes without lagging a whole block behind.
  */
-const GLIDE_MS = 9000;
+const GLIDE_MS = 2800;
 /** Re-ask Directions only after the driver has actually covered ground. */
-const ROUTE_REFRESH_M = 120;
+const ROUTE_REFRESH_M = 40;
 /** ...or after this long, so traffic-driven ETA changes still land. */
 const ROUTE_MAX_AGE_MS = 45_000;
+
+const zoomBtnStyle = {
+  width: 36,
+  height: 36,
+  border: "none",
+  background: "transparent",
+  fontSize: 20,
+  fontWeight: 700,
+  lineHeight: 1,
+  color: "#1a1a1a",
+  cursor: "pointer",
+} as const;
 
 type LatLng = { lat: number; lng: number };
 type Route = { coords: [number, number][]; distanceM: number; durationS: number };
@@ -470,14 +480,21 @@ export function LiveDeliveryMap({
         mapboxAccessToken={token}
         mapStyle={MAP_STYLE}
         initialViewState={{ longitude: customerLng, latitude: customerLat, zoom: 14 }}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", touchAction: "none" }}
         logoPosition="bottom-right"
+        scrollZoom
         dragRotate={false}
         pitchWithRotate={false}
-        touchZoomRotate={false}
+        touchZoomRotate
+        onLoad={(e) => {
+          e.target.touchZoomRotate.disableRotation();
+        }}
         onDragStart={(e) => {
           // Only a real gesture counts; our own fitBounds fires the same event
           // without an originalEvent, and typings don't carry the field.
+          if ((e as unknown as { originalEvent?: unknown }).originalEvent) setUserMoved(true);
+        }}
+        onZoomStart={(e) => {
           if ((e as unknown as { originalEvent?: unknown }).originalEvent) setUserMoved(true);
         }}
       >
@@ -540,6 +557,45 @@ export function LiveDeliveryMap({
           </Marker>
         ) : null}
       </Map>
+
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          top: 12,
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 12,
+          overflow: "hidden",
+          border: `1px solid ${C.border}`,
+          background: "rgba(255,255,255,0.96)",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Zoom in"
+          onClick={() => {
+            mapRef.current?.zoomIn({ duration: 200 });
+            setUserMoved(true);
+          }}
+          style={zoomBtnStyle}
+        >
+          +
+        </button>
+        <div style={{ height: 1, background: C.border }} />
+        <button
+          type="button"
+          aria-label="Zoom out"
+          onClick={() => {
+            mapRef.current?.zoomOut({ duration: 200 });
+            setUserMoved(true);
+          }}
+          style={zoomBtnStyle}
+        >
+          −
+        </button>
+      </div>
 
       {userMoved ? (
         <button

@@ -757,7 +757,7 @@ function RideStatusCard({
   const [callOpen, setCallOpen] = useState(false);
   const phone = driverPhoneParts(driverPhone);
   const who = driverName?.trim() || "";
-  const here = arrived || (eta != null && eta.metres < 80);
+  const here = arrived;
   const title = here ? "At your door" : "Out for delivery";
   const sub = here
     ? who

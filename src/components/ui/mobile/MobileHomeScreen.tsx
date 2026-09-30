@@ -1985,13 +1985,13 @@ export function MobileHomeScreen({
       }
     };
     poll();
-    const t = setInterval(poll, 10000);
+    const t = setInterval(poll, 4000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
     // `addressSavedAt` restarts the poll so an address the customer just changed
-    // is reflected immediately rather than up to 10 seconds later.
+    // is reflected immediately rather than on the next tick.
   }, [trackingOrderId, customerPhone, giftTrackToken, addressSavedAt]);
 
   useEffect(() => {

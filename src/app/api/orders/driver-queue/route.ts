@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { OrderStatus } from "@/lib/order-status";
 
 /** Driver list: ready / out-for-delivery orders. Requires a signed driver session. */
@@ -15,7 +15,7 @@ export async function GET() {
       .select(
         `
         id, order_number, status, total_amount, delivery_address, delivery_slot, delivery_slot_kind, created_at,
-        phone_number, recipient_name, recipient_phone, payment_method, payment_status,
+        phone_number, recipient_name, recipient_phone, payment_method, payment_status, driver_phone,
         users:customer_id ( full_name, phone_number ),
         order_items ( quantity, menu_item_id, menu_items ( name, image_url ) )
       `,
@@ -54,7 +54,15 @@ export async function GET() {
       }
     }
 
-    const orders = rows.map((r) => {
+    // Food Ready is still unassigned. Item details stay off every driver phone
+    // until the kitchen picks someone at Dispatch and that phone is stored.
+    const mine = normalizeDriverPhone(auth.driver.phone);
+    const assigned = rows.filter((r) => {
+      const phone = normalizeDriverPhone(String((r as { driver_phone?: string | null }).driver_phone || ""));
+      return phone.length === 10 && phone === mine;
+    });
+
+    const orders = assigned.map((r) => {
       const joined = flat(r.users);
       if (joined?.full_name || !r.phone_number) return { ...r, users: joined };
       const full_name = nameByPhone.get(r.phone_number);

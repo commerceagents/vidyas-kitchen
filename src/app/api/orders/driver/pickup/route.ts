@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { transitionOrderStatusInDb } from "@/lib/order-transition";
 import { OrderStatus } from "@/lib/order-status";
 
@@ -26,6 +26,15 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServerSupabase();
+  const { data: existing } = await supabase
+    .from("orders")
+    .select("driver_phone")
+    .eq("id", orderId)
+    .maybeSingle();
+  const assigned = normalizeDriverPhone(String(existing?.driver_phone || ""));
+  if (assigned !== normalizeDriverPhone(auth.driver.phone)) {
+    return NextResponse.json({ error: "This delivery is not assigned to you." }, { status: 403 });
+  }
   const r = await transitionOrderStatusInDb(supabase, orderId, OrderStatus.OUT_FOR_DELIVERY);
   if (!r.ok) {
     return NextResponse.json({ error: r.error }, { status: 400 });

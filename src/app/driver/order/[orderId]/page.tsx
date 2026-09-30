@@ -55,7 +55,7 @@ type DriverOrder = {
 
 /** Matches the server check in /api/orders/driver/complete. */
 const PROXIMITY_UNLOCK_M = 120;
-const LOCATION_POST_MS = 12_000;
+const LOCATION_POST_MS = 4_000;
 /** Re-request the driving ETA only after the driver has actually moved this far. */
 const ROUTE_REFRESH_M = 150;
 
@@ -353,7 +353,7 @@ function DriverOrderDetailInner() {
               : "Location unavailable — delivery still works, but nobody can track you.",
         );
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
     );
     postTimer.current = setInterval(tick, LOCATION_POST_MS);
     const once = window.setTimeout(tick, 2000);

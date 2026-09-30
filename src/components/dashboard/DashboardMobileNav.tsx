@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Tag,
   Truck,
+  Star,
   Bot,
   Clock,
   ChefHat,
@@ -25,6 +26,7 @@ const MENU_ITEMS = [
   { href: "/dashboard/pricing-agent", label: "AI", icon: Bot, exact: false },
   { href: "/dashboard/offers", label: "Offers", icon: Tag, exact: false },
   { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
+  { href: "/dashboard/reviews", label: "Reviews", icon: Star, exact: false },
 ] as const;
 
 function isActive(pathname: string, href: string, exact: boolean) {

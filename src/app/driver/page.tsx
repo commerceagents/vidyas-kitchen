@@ -126,7 +126,7 @@ function DriverHubInner() {
         last = { lat: p.coords.latitude, lng: p.coords.longitude };
       },
       () => {},
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
     );
     const post = () => {
       if (!last) return;
@@ -139,7 +139,7 @@ function DriverHubInner() {
       }
     };
     const once = window.setTimeout(post, 2000);
-    const timer = window.setInterval(post, 12_000);
+    const timer = window.setInterval(post, 4_000);
     return () => {
       navigator.geolocation.clearWatch(watch);
       window.clearTimeout(once);
