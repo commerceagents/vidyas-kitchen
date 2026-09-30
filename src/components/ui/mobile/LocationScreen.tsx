@@ -378,6 +378,8 @@ export function LocationScreen({
   const [isSearching, setIsSearching] = useState(false);
   const [searchedOnce, setSearchedOnce] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
+  /** True while the GPS camera is gliding. Tiles lag that move and the map goes white. */
+  const [isGliding, setIsGliding] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>(DEFAULT_SAVED_PLACES);
   const [selectedSaved, setSelectedSaved] = useState<string | null>(null);
@@ -418,12 +420,15 @@ export function LocationScreen({
       cancelAnimationFrame(cameraAnimRef.current);
       cameraAnimRef.current = null;
     }
+    setIsGliding(false);
   }, []);
 
   type AnimateCameraOptions = {
     easing?: (t: number) => number;
     /** Fires only if this segment was not cancelled by `stopCameraAnimation`. */
     onComplete?: () => void;
+    /** GPS glide. A following segment with this set keeps the locating chip up. */
+    glide?: boolean;
   };
 
   const animateCameraTo = useCallback(
@@ -435,6 +440,7 @@ export function LocationScreen({
       options?: AnimateCameraOptions
     ) => {
       stopCameraAnimation();
+      if (options?.glide) setIsGliding(true);
       const gen = cameraGenRef.current;
       const from = viewStateRef.current;
       const start = performance.now();
@@ -457,6 +463,9 @@ export function LocationScreen({
         } else {
           cameraAnimRef.current = null;
           if (gen === cameraGenRef.current) options?.onComplete?.();
+          // A chained glide bumps the generation inside onComplete, so this
+          // only clears the chip when the move actually finished.
+          if (gen === cameraGenRef.current && options?.glide) setIsGliding(false);
         }
       };
       cameraAnimRef.current = requestAnimationFrame(step);
@@ -477,8 +486,9 @@ export function LocationScreen({
 
       animateCameraTo(lng, lat, glideMs, travelZoom, {
         easing: easeLaggySmooth,
+        glide: true,
         onComplete: () => {
-          animateCameraTo(lng, lat, 7200, TARGET_ZOOM, { easing: easeOutCubic });
+          animateCameraTo(lng, lat, 7200, TARGET_ZOOM, { easing: easeOutCubic, glide: true });
         },
       });
     },
@@ -1020,6 +1030,62 @@ export function LocationScreen({
         </FallbackMap>
       )}
 
+      <AnimatePresence>
+        {(isDetecting || isGliding) && (
+          <motion.div
+            key="locating-map"
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: sheetHeight,
+              zIndex: 22,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              background: "rgba(245,245,247,0.28)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.94)",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
+                border: "1px solid rgba(0,0,0,0.06)",
+              }}
+            >
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
+                style={{ color: "#BD2320", display: "flex" }}
+              >
+                <Crosshair size={22} weight="bold" />
+              </motion.span>
+              <div style={{ textAlign: "left" }}>
+                <p style={{ ...LOC.gpsTitle, fontSize: 14 }}>
+                  {isGliding ? "Moving the map" : "Locating you"}
+                </p>
+                <p style={LOC.gpsSub}>
+                  {isGliding ? "Hold on, it is on its way to you" : "Getting a GPS fix"}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Red-black tint over map for brand tone */}
       <div
         style={{
@@ -1419,8 +1485,8 @@ export function LocationScreen({
               flexShrink: 0,
             }}>
               <motion.span
-                animate={isDetecting ? { rotate: 360 } : { rotate: 0 }}
-                transition={{ duration: 1, repeat: isDetecting ? Infinity : 0, ease: "linear" }}
+                animate={isDetecting || isGliding ? { rotate: 360 } : { rotate: 0 }}
+                transition={{ duration: 1, repeat: isDetecting || isGliding ? Infinity : 0, ease: "linear" }}
                 style={{ color: "#BD2320", display: "flex" }}
               >
                 <GPSIcon />
@@ -1428,7 +1494,7 @@ export function LocationScreen({
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
               <p style={LOC.gpsTitle}>
-                {isDetecting ? "Detecting location…" : "Use current location"}
+                {isDetecting ? "Detecting location…" : isGliding ? "Moving the map…" : "Use current location"}
               </p>
               <p style={LOC.gpsSub}>
                 {mode === "delivery-pin" ? `Only if you are in ${DELIVERY_ZONE.name}` : "Detect via GPS"}
