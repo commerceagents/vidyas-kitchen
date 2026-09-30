@@ -370,15 +370,15 @@ export class VidyaAgent {
     const active = await this.hasActiveUpcomingOrder(phoneNumber);
     if (active) {
       return [
-        { id: "view_menu", title: "Browse menu" },
+        { id: "buy_usual", title: "Buy usual" },
         { id: "welcome_track", title: "Track order" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
     if (returning) {
       return [
+        { id: "buy_usual", title: "Buy usual" },
         { id: "view_menu", title: "Browse menu" },
-        { id: "quick_reorder", title: "Order again" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
@@ -395,8 +395,8 @@ export class VidyaAgent {
       phoneNumber && (await this.hasPriorOrders(phoneNumber));
     if (returning) {
       return [
+        { id: "buy_usual", title: "Buy usual" },
         { id: "view_menu", title: "Browse menu" },
-        { id: "quick_reorder", title: "Order again" },
         { id: "help_support", title: "Help & Support" },
       ];
     }

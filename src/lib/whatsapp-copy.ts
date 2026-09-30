@@ -54,6 +54,7 @@ const COD_CAP = formatInr(COD_MAX_ORDER_VALUE);
 export const BTN = {
   menu: "Menu",
   orderAgain: "Order Again",
+  buyUsual: "Buy usual",
   track: "Track Order",
   help: "Help",
   installApp: "Install App",
@@ -315,6 +316,66 @@ export function buildWelcomeMessage(firstName?: string, kind: WelcomeKind = "new
       title: `Vidya's Kitchen-ku vanga${name}`,
       lines: ["Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg."],
       note: "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.",
+    }),
+  );
+}
+
+export function buildUsualWelcomeMessage(
+  firstName: string | undefined,
+  dishes: { name: string; variant: string; quantity: number }[],
+  lang?: WaLang,
+): string {
+  const name = greetName(firstName);
+  const lines = dishes.map(
+    (dish) => `${formatFullDishName(dish.name)} — ${dish.variant} × ${dish.quantity}`,
+  );
+  return pickLang(
+    lang,
+    msg({
+      title: `Welcome back${name}`,
+      lines: ["Your usual:", ...lines, "", "Tap Buy usual, pick one, and the next step is payment."],
+      note: "Change stays on the payment screen if the dish, time, address, or payment should be different.",
+    }),
+    msg({
+      title: `Vanakkam${name}`,
+      lines: ["Unga usual:", ...lines, "", "Buy usual tap pannunga. Adutha step payment dhaan."],
+      note: "Payment screen-la Change iruku. Dish, time, address, payment maathalam.",
+    }),
+  );
+}
+
+export function buildUsualPayNote(method: "online" | "cod", lang?: WaLang, overLimit?: boolean): string {
+  if (overLimit) {
+    return pickLang(
+      lang,
+      "Cash isn't available on this total, so this one is online. Change if the dish, time, or address should be different.",
+      "Indha total-ku cash illa, so online dhaan. Dish, time, address maatha Change.",
+    );
+  }
+  if (method === "cod") {
+    return pickLang(
+      lang,
+      "You usually pay cash. Tap that, or pay online instead. Change if the dish, time, or address should be different.",
+      "Neenga usual-a cash dhaan. Adhe, illa online. Maatha Change.",
+    );
+  }
+  return pickLang(
+    lang,
+    "You usually pay online. Tap that, or pay cash instead. Change if the dish, time, or address should be different.",
+    "Neenga usual-a online dhaan. Adhe, illa cash. Maatha Change.",
+  );
+}
+
+export function buildUsualChangeMessage(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "What should change?",
+      lines: ["The rest of this order stays as it is."],
+    }),
+    msg({
+      title: "Enna maathanum?",
+      lines: ["Micham order adhey-a irukkum."],
     }),
   );
 }

@@ -37,6 +37,9 @@ import {
 import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
 import {
   BTN,
+  buildUsualChangeMessage,
+  buildUsualPayNote,
+  buildUsualWelcomeMessage,
   buildWelcomeMessage,
   welcomeLogoImageUrl,
   buildMenuHeader,
@@ -116,6 +119,7 @@ import {
   fetchLastOrderSnapshot,
   nextBookableDateForKind,
 } from "@/lib/whatsapp-last-order";
+import { fetchUsualProfile, type UsualPayment } from "@/lib/whatsapp-usual";
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
 import { checkSharedPin, checkTypedAddress } from "@/lib/delivery-area";
 import { DELIVERY_ZONE } from "@/lib/delivery-zone";
@@ -475,25 +479,39 @@ async function showSpecificOrderStatus(from: string, refNum: string, profileName
 }
 
 const VK_DRAFT_PREFIX = "__vk_draft__:";
+const VK_USUAL_PAY_PREFIX = "__vk_usual_pay__:";
+
+function isHiddenTurn(content: string): boolean {
+  return (
+    content.startsWith(VK_DRAFT_PREFIX) ||
+    content.startsWith(VK_INTERRUPT_PREFIX) ||
+    content.startsWith(VK_USUAL_PAY_PREFIX)
+  );
+}
+
+function readUsualPay(turns: WhatsAppSession["recent_turns"]): UsualPayment | null {
+  const raw = [...(turns || [])].reverse().find((t) => t.content.startsWith(VK_USUAL_PAY_PREFIX));
+  const value = raw?.content.slice(VK_USUAL_PAY_PREFIX.length);
+  return value === "cod" || value === "online" ? value : null;
+}
+
+function turnsWithUsualPay(turns: WhatsAppSession["recent_turns"], method: UsualPayment): SessionTurns {
+  const kept = (turns || []).filter((t) => !t.content.startsWith(VK_USUAL_PAY_PREFIX));
+  return [...kept, { role: "assistant" as const, content: `${VK_USUAL_PAY_PREFIX}${method}` }].slice(-12);
+}
 
 type SessionTurns = NonNullable<WhatsAppSession["recent_turns"]>;
 
 function turnsForAgent(turns: WhatsAppSession["recent_turns"]): Message[] {
-  return (turns || []).filter(
-    (t) => !t.content.startsWith(VK_DRAFT_PREFIX) && !t.content.startsWith(VK_INTERRUPT_PREFIX),
-  );
+  return (turns || []).filter((t) => !isHiddenTurn(t.content));
 }
 
 function chatTurns(turns: WhatsAppSession["recent_turns"]): SessionTurns {
-  return (turns || []).filter(
-    (t) => !t.content.startsWith(VK_DRAFT_PREFIX) && !t.content.startsWith(VK_INTERRUPT_PREFIX),
-  );
+  return (turns || []).filter((t) => !isHiddenTurn(t.content));
 }
 
 function sessionNotes(turns: WhatsAppSession["recent_turns"]): SessionTurns {
-  return (turns || []).filter(
-    (t) => t.content.startsWith(VK_DRAFT_PREFIX) || t.content.startsWith(VK_INTERRUPT_PREFIX),
-  );
+  return (turns || []).filter((t) => isHiddenTurn(t.content));
 }
 
 function readStoredDraft(turns: WhatsAppSession["recent_turns"]): ProposalDraft | null {
@@ -977,6 +995,9 @@ async function handleResolvedId(
     return await handleMarketingOrderTap(from, id.slice("order_".length));
   }
 
+  const usualPick = id.match(/^buyusual_(\d+)$/);
+  if (usualPick) return await startUsualDish(from, Number(usualPick[1]));
+
   switch (id) {
     case "lang_en":
       return await applyLanguageChoice(from, "en", profileName);
@@ -1001,6 +1022,8 @@ async function handleResolvedId(
       return await showHelpSupport(from);
     case "quick_reorder":
       return await showQuickReorder(from);
+    case "buy_usual":
+      return await showUsualList(from);
     case "cat_chicken":
       return await showCategoryItems(from, "chicken");
     case "cat_mutton":
@@ -1051,6 +1074,20 @@ async function handleResolvedId(
       return await handlePayCodTap(from, session);
     case "edit_order":
       return await showCart(from, session.cart);
+    case "usual_change":
+      return await showUsualChange(from);
+    case "usual_dish":
+      return await showUsualList(from);
+    case "usual_qty":
+      return await showCart(from, session.cart);
+    case "usual_time":
+      return await showDatePicker(from);
+    case "usual_addr":
+      await updateSession(from, { state: "picking_address", delivery_address: null });
+      await sendText(from, buildAddressPrompt(langOf(from)));
+      return ack();
+    case "usual_back":
+      return await resumeUsualPayment(from);
     case "back_home":
       await resetSession(from);
       return await showWelcome(from, profileName);
@@ -2157,11 +2194,147 @@ async function homeButtons(from: string): Promise<{ id: string; title: string }[
   return buttons;
 }
 
+function clipLabel(value: string, max: number): string {
+  const text = value.trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 3))}...`;
+}
+
+function usualListRows(profile: NonNullable<Awaited<ReturnType<typeof fetchUsualProfile>>>, active: boolean) {
+  const dishes = profile.dishes.map((dish, index) => ({
+    id: `buyusual_${index}`,
+    title: clipLabel(formatFullDishName(dish.name), 24),
+    description: `${dish.variant} × ${dish.quantity}`.slice(0, 72),
+  }));
+  const other = [
+    { id: "browse_menu", title: "Full menu", description: "Pick something else" },
+    active
+      ? { id: "track_order", title: "Track order", description: "An order is already moving" }
+      : { id: "help_support", title: "Help", description: "Questions, or a problem with an order" },
+  ];
+  return { dishes, other };
+}
+
+async function showUsualList(from: string) {
+  const [profile, active] = await Promise.all([fetchUsualProfile(from), hasActiveOrder(from)]);
+  if (!profile?.dishes.length) {
+    await sendText(from, buildReorderEmptyMessage(langOf(from)));
+    return await showFullMenu(from);
+  }
+  const rows = usualListRows(profile, active);
+  const options = [...rows.dishes, ...rows.other];
+  await sendList(from, buildUsualWelcomeMessage(undefined, profile.dishes, langOf(from)), BTN.buyUsual, [
+    { title: "Your usual", rows: rows.dishes },
+    { title: "Or", rows: rows.other },
+  ]);
+  await storeOptions(from, options.map((row) => ({ id: row.id, title: row.title })));
+  return ack();
+}
+
+async function startUsualDish(from: string, index: number) {
+  const profile = await fetchUsualProfile(from);
+  const dish = profile?.dishes[index];
+  if (!profile || !dish) {
+    await sendText(from, buildReorderEmptyMessage(langOf(from)));
+    return await showFullMenu(from);
+  }
+  const menu = await getMenu();
+  const item = menu.find((row) => row.id === dish.menuItemId);
+  if (!item) {
+    await sendText(from, buildReorderEmptyMessage(langOf(from)));
+    return await showFullMenu(from);
+  }
+  const variant: PackSize = dish.variant === "1kg" ? "1kg" : "500gm";
+  const kind = profile.slotKind && isValidSlotKind(profile.slotKind) ? profile.slotKind : "lunch";
+  const next = nextBookableDateForKind(kind);
+  const session = await getSession(from);
+  await updateSession(from, {
+    cart: [
+      {
+        menu_item_id: item.id,
+        name: item.name,
+        variant,
+        quantity: dish.quantity,
+        unit_price: unitPriceFor(item, variant),
+      },
+    ],
+    delivery_address: profile.address,
+    delivery_slot_kind: kind,
+    delivery_date: next?.ymd ?? null,
+    proposal: null,
+    selected_item_id: null,
+    selected_variant: null,
+    recent_turns: turnsWithUsualPay(session.recent_turns, profile.payment),
+    state: !next ? "picking_date" : profile.address ? "awaiting_payment" : "picking_address",
+  });
+  if (!next) return await showDatePicker(from);
+  if (!profile.address) {
+    await sendText(from, buildAddressPrompt(langOf(from)));
+    return ack();
+  }
+  const fresh = await getSession(from);
+  return await finishAddress(from, fresh, profile.address, { usualPayment: profile.payment });
+}
+
+async function showUsualChange(from: string) {
+  const rows = [
+    { id: "usual_dish", title: "Change dish", description: "Pick another usual" },
+    { id: "usual_qty", title: "Change quantity", description: "Edit what is in the cart" },
+    { id: "usual_time", title: "Change time", description: "Another day or meal" },
+    { id: "usual_addr", title: "Change address", description: "A different door" },
+    { id: "usual_back", title: "Back to payment", description: "Keep this order" },
+  ];
+  await sendList(from, buildUsualChangeMessage(langOf(from)), BTN.change, [{ title: "Change", rows }]);
+  await storeOptions(
+    from,
+    rows.map((row) => ({ id: row.id, title: row.title })),
+  );
+  return ack();
+}
+
+async function resumeUsualPayment(from: string) {
+  const session = await getSession(from);
+  if (!session.cart.length) return await showUsualList(from);
+  if (!session.delivery_date || !session.delivery_slot_kind) return await showDatePicker(from);
+  if (!session.delivery_address) {
+    await updateSession(from, { state: "picking_address" });
+    await sendText(from, buildAddressPrompt(langOf(from)));
+    return ack();
+  }
+  return await finishAddress(from, session, session.delivery_address, {
+    usualPayment: readUsualPay(session.recent_turns) ?? undefined,
+  });
+}
+
 async function showWelcome(from: string, profileName: string) {
   const firstName = profileName?.trim().split(/\s+/)[0];
   const lang = langOf(from);
 
   const [active, returning] = await Promise.all([hasActiveOrder(from), hasOrders(from)]);
+  const usual = returning ? await fetchUsualProfile(from) : null;
+  if (usual?.dishes.length) {
+    const rows = usualListRows(usual, active);
+    const options = [...rows.dishes, ...rows.other];
+    try {
+      await sendList(from, buildUsualWelcomeMessage(firstName, usual.dishes, lang), BTN.buyUsual, [
+        { title: "Your usual", rows: rows.dishes },
+        { title: "Or", rows: rows.other },
+      ]);
+    } catch (e) {
+      console.error("[WA] usual welcome failed:", e);
+    }
+    after(async () => {
+      try {
+        await resetSession(from);
+        await storeOptions(from, options.map((row) => ({ id: row.id, title: row.title })));
+        await trackWhatsAppUser(from, profileName?.trim() || "WhatsApp User");
+      } catch (err) {
+        console.error("[WA] welcome background:", err);
+      }
+    });
+    return ack();
+  }
+
   const kind = active ? "active" : returning ? "returning" : "new";
   const buttons = await homeButtons(from);
 
@@ -2801,7 +2974,7 @@ async function finishAddress(
   from: string,
   session: WhatsAppSession | { cart: CartItem[]; delivery_date: string | null; delivery_slot_kind: string | null },
   address: string,
-  opts?: { pinVerified?: boolean },
+  opts?: { pinVerified?: boolean; usualPayment?: UsualPayment },
 ) {
   if (!address || address.length < 5) {
     await updateSession(from, { state: "picking_address" });
@@ -2830,23 +3003,36 @@ async function finishAddress(
     langOf(from),
     quoted.offer,
   );
-  return await showSummaryButtons(from, session.cart, summary, quoted.total);
+  const usualPayment = opts?.usualPayment ?? readUsualPay((await getSession(from)).recent_turns) ?? undefined;
+  return await showSummaryButtons(from, session.cart, summary, quoted.total, usualPayment);
 }
 
-async function showSummaryButtons(from: string, cart: CartItem[], summary: string, quotedTotal?: number) {
+async function showSummaryButtons(
+  from: string,
+  cart: CartItem[],
+  summary: string,
+  quotedTotal?: number,
+  usualPayment?: UsualPayment,
+) {
   const total = quotedTotal ?? cartGrandTotal(cart);
   const overLimit = !isCodAllowedForTotal(total);
-  const body = overLimit ? `${summary}\n\n${buildCodOverLimitMention(langOf(from))}` : summary;
+  const lang = langOf(from);
+  const tail = usualPayment
+    ? `\n\n_${buildUsualPayNote(usualPayment, lang, overLimit)}_`
+    : overLimit
+      ? `\n\n${buildCodOverLimitMention(lang)}`
+      : "";
+  const body = `${summary}${tail}`;
+  const payOnline = { id: "pay_online", title: BTN.payOnline };
+  const payCash = { id: "pay_cod", title: BTN.payCash };
+  const change = usualPayment
+    ? { id: "usual_change", title: BTN.change }
+    : { id: "edit_order", title: BTN.edit };
   const buttons = overLimit
-    ? [
-        { id: "pay_online", title: BTN.payOnline },
-        { id: "edit_order", title: BTN.edit },
-      ]
-    : [
-        { id: "pay_online", title: BTN.payOnline },
-        { id: "pay_cod", title: BTN.payCash },
-        { id: "edit_order", title: BTN.edit },
-      ];
+    ? [payOnline, change]
+    : usualPayment === "cod"
+      ? [payCash, payOnline, change]
+      : [payOnline, payCash, change];
   await storeOptions(from, buttons);
   await sendButtons(from, body, buttons);
   return ack();
