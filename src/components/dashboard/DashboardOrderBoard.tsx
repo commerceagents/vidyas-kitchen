@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
+import Link from "next/link";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy, Loader2, CookingPot } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
 import { listActiveDrivers } from "@/app/actions/drivers";
@@ -2078,21 +2079,33 @@ function DriverPickerModal({ orderId, onClose, onConfirm }: { orderId: string; o
     };
   }, []);
 
+  const empty = !loading && drivers.length === 0;
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#1a1a1a", borderRadius: "16px", border: "1px solid #2a2a2a", padding: "24px", width: "100%", maxWidth: "380px", fontFamily: FONT }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-          <Truck size={20} style={{ color: YELLOW }} />
-          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff" }}>Select Driver</h3>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", color: "#666", cursor: "pointer" }}><X size={18} /></button>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#1a1a1a", borderRadius: "16px", border: "1px solid #2a2a2a", padding: "22px 22px 20px", width: "100%", maxWidth: "380px", fontFamily: FONT, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", minHeight: "32px" }}>
+          <Truck size={20} style={{ color: YELLOW, flexShrink: 0 }} />
+          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>Select Driver</h3>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "#888", cursor: "pointer", borderRadius: "8px", flexShrink: 0 }}><X size={18} /></button>
         </div>
 
         {loading ? (
-          <DriverRowsSkeleton count={3} />
-        ) : drivers.length === 0 ? (
-          <p style={{ color: "#666", fontSize: "14px" }}>No drivers yet. Add them from the Drivers page.</p>
+          <div style={{ marginTop: "18px" }}>
+            <DriverRowsSkeleton count={3} />
+          </div>
+        ) : empty ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "28px 16px 24px", gap: "8px" }}>
+            <div style={{ width: "56px", height: "56px", borderRadius: "16px", background: "#222", border: "1px solid #333", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "6px" }}>
+              <Truck size={24} style={{ color: YELLOW }} />
+            </div>
+            <p style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>No drivers yet</p>
+            <p style={{ margin: 0, maxWidth: "240px", fontSize: "13px", fontWeight: 500, lineHeight: 1.5, color: "#888" }}>
+              Add them from the Drivers page, then come back to dispatch this order.
+            </p>
+          </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "18px", marginBottom: "16px" }}>
             {drivers.map((d) => (
               <button
                 key={d.id}
@@ -2106,31 +2119,49 @@ function DriverPickerModal({ orderId, onClose, onConfirm }: { orderId: string; o
                   cursor: "pointer", textAlign: "left", fontFamily: FONT,
                 }}
               >
-                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: selected === d.phone ? YELLOW : "#333", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: selected === d.phone ? YELLOW : "#333", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Truck size={18} style={{ color: selected === d.phone ? "#111" : "#888" }} />
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: "14px", fontWeight: 700, color: "#fff" }}>{d.name}</div>
-                  <div style={{ fontSize: "12px", color: "#888" }}>{d.phone}</div>
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>{d.phone}</div>
                 </div>
               </button>
             ))}
           </div>
         )}
 
-        <button
-          type="button"
-          disabled={!selected}
-          onClick={() => onConfirm(selected)}
-          style={{
-            width: "100%", height: "44px", borderRadius: "12px", border: "none",
-            background: selected ? YELLOW : "#333", color: selected ? "#111" : "#666",
-            fontSize: "14px", fontWeight: 800, cursor: selected ? "pointer" : "not-allowed",
-            fontFamily: FONT, boxShadow: selected ? `0 4px 14px ${YELLOW}30` : "none",
-          }}
-        >
-          {selected ? "Dispatch & Notify Driver" : "Select a driver"}
-        </button>
+        {empty ? (
+          <Link
+            href="/dashboard/drivers"
+            onClick={onClose}
+            style={{
+              width: "100%", height: "44px", borderRadius: "12px",
+              background: YELLOW, color: "#111",
+              fontSize: "14px", fontWeight: 800,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              textDecoration: "none", fontFamily: FONT,
+              boxShadow: `0 4px 14px ${YELLOW}30`,
+            }}
+          >
+            Go to Drivers
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled={!selected || loading}
+            onClick={() => onConfirm(selected)}
+            style={{
+              width: "100%", height: "44px", borderRadius: "12px", border: "none",
+              marginTop: loading ? "16px" : 0,
+              background: selected ? YELLOW : "#333", color: selected ? "#111" : "#666",
+              fontSize: "14px", fontWeight: 800, cursor: selected ? "pointer" : "not-allowed",
+              fontFamily: FONT, boxShadow: selected ? `0 4px 14px ${YELLOW}30` : "none",
+            }}
+          >
+            {selected ? "Dispatch & Notify Driver" : "Select a driver"}
+          </button>
+        )}
       </div>
     </div>
   );
