@@ -15,6 +15,8 @@ export type UsualProfile = {
   dishes: UsualDish[];
   payment: UsualPayment;
   address: string | null;
+  /** Newest first, duplicates removed. The first entry is `address`. */
+  addresses: string[];
   slotKind: DeliverySlotKind | null;
 };
 
@@ -120,13 +122,19 @@ export function summarizeUsualOrders(orders: UsualSourceOrder[]): UsualProfile |
 
   if (dishes.length === 0) return null;
 
-  const address =
-    rows.map((order) => String(order.delivery_address || "").trim()).find((line) => line.length >= 5) ?? null;
+  const addresses: string[] = [];
+  for (const order of rows) {
+    const line = String(order.delivery_address || "").replace(/\s+/g, " ").trim();
+    if (line.length < 5 || addresses.includes(line)) continue;
+    addresses.push(line);
+    if (addresses.length >= 5) break;
+  }
 
   return {
     dishes,
     payment: winner(pay) ?? "online",
-    address,
+    address: addresses[0] ?? null,
+    addresses,
     slotKind: winner(slots),
   };
 }

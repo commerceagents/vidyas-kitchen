@@ -25,6 +25,7 @@ import {
   sendCtaUrl,
   sendList,
   sendCarousel,
+  sendLocationRequest,
 } from "@/lib/whatsapp-send";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
 import {
@@ -38,8 +39,8 @@ import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp
 import {
   BTN,
   buildUsualChangeMessage,
+  buildUsualListBody,
   buildUsualPayNote,
-  buildUsualWelcomeMessage,
   buildWelcomeMessage,
   welcomeLogoImageUrl,
   buildMenuHeader,
@@ -60,7 +61,8 @@ import {
   buildItemsAddedMessage,
   buildDatePickerMessage,
   buildSlotPickerMessage,
-  buildAddressPrompt,
+  buildAddressChoicesMessage,
+  buildMapPinPrompt,
   buildOrderSummaryMessage,
   buildPaymentMessage,
   buildPayMethodPrompt,
@@ -122,6 +124,7 @@ import {
 import { fetchUsualProfile, type UsualPayment } from "@/lib/whatsapp-usual";
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
 import { checkSharedPin, checkTypedAddress } from "@/lib/delivery-area";
+import { reverseGeocode } from "@/lib/places-search";
 import { DELIVERY_ZONE } from "@/lib/delivery-zone";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
@@ -997,6 +1000,8 @@ async function handleResolvedId(
 
   const usualPick = id.match(/^buyusual_(\d+)$/);
   if (usualPick) return await startUsualDish(from, Number(usualPick[1]));
+  const savedAddress = id.match(/^addr_(\d+)$/);
+  if (savedAddress) return await useSavedAddress(from, Number(savedAddress[1]));
 
   switch (id) {
     case "lang_en":
@@ -1059,9 +1064,9 @@ async function handleResolvedId(
     case "reuse_address":
       return await finishAddress(from, session, session.delivery_address || (await fetchLastAddressAndSlot(from)).address || "");
     case "new_address":
-      await updateSession(from, { state: "picking_address", delivery_address: null });
-      await sendText(from, buildAddressPrompt(langOf(from)));
-      return ack();
+      return await askForAddress(from);
+    case "addr_map":
+      return await askForMapPin(from);
     case "confirm_proposal":
       return await confirmProposal(from, session);
     case "cancel_proposal":
@@ -1083,9 +1088,7 @@ async function handleResolvedId(
     case "usual_time":
       return await showDatePicker(from);
     case "usual_addr":
-      await updateSession(from, { state: "picking_address", delivery_address: null });
-      await sendText(from, buildAddressPrompt(langOf(from)));
-      return ack();
+      return await askForAddress(from);
     case "usual_back":
       return await resumeUsualPayment(from);
     case "back_home":
@@ -1586,11 +1589,7 @@ async function reaskPending(from: string, state: SessionState): Promise<Response
     await sendButtons(from, buildSlotPickerMessage(dateLabel(session.delivery_date), langOf(from)), buttons);
     return ack();
   }
-  if (state === "picking_address") {
-    await updateSession(from, { state: "picking_address" });
-    await sendText(from, buildAddressPrompt(langOf(from)));
-    return ack();
-  }
+  if (state === "picking_address") return await askForAddress(from);
   if (state === "picking_pay_method") return await offerPayOrConfirm(from, session);
   if (state === "awaiting_payment") {
     await updateSession(from, { state: "awaiting_payment" });
@@ -1734,14 +1733,11 @@ async function handlePickingSlot(from: string, text: string, session: WhatsAppSe
 }
 
 async function handlePickingAddress(from: string, text: string, session: WhatsAppSession) {
-  if (text.length < 5) {
-    await sendText(from, buildAddressPrompt(langOf(from)));
-    return ack();
-  }
+  if (text.length < 5) return await askForAddress(from);
   const check = checkTypedAddress(text);
   if (check.status !== "ok") {
     await sendText(from, check.message);
-    return ack();
+    return await askForMapPin(from);
   }
   return await finishAddress(from, session, text.trim());
 }
@@ -1762,7 +1758,11 @@ async function handleSharedLocation(
     return ack();
   }
 
-  const address = pin.label.trim() || `Pinned location (${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)})`;
+  const geo = pin.label.trim().length >= 8 ? null : await reverseGeocode(pin.lat, pin.lng).catch(() => null);
+  const address =
+    pin.label.trim() ||
+    geo ||
+    `Pinned location (${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)})`;
   await updateSession(from, { delivery_address: address });
   const fresh = await getSession(from);
   const draft = readStoredDraft(fresh.recent_turns);
@@ -2177,21 +2177,50 @@ async function handleRatingComment(
  * app. When they do, that slot goes to the thing they are most likely to want:
  * tracking a live order, or reordering.
  */
-async function homeButtons(from: string): Promise<{ id: string; title: string }[]> {
-  const [installed, active, returning] = await Promise.all([
-    hasAppInstalledSignal(from),
-    hasActiveOrder(from),
-    hasOrders(from),
+async function homeButtons(_from: string): Promise<{ id: string; title: string }[]> {
+  return [
+    { id: "buy_usual", title: BTN.buyUsual },
+    { id: "browse_menu", title: BTN.menu },
+    { id: "help_support", title: BTN.help },
+  ];
+}
+
+async function askForMapPin(from: string) {
+  await updateSession(from, { state: "picking_address" });
+  await sendLocationRequest(from, buildMapPinPrompt(langOf(from)));
+  return ack();
+}
+
+async function askForAddress(from: string) {
+  await updateSession(from, { state: "picking_address" });
+  const profile = await fetchUsualProfile(from).catch(() => null);
+  const saved = profile?.addresses ?? [];
+  if (saved.length === 0) return await askForMapPin(from);
+
+  const rows = [
+    ...saved.slice(0, 8).map((address, index) => ({
+      id: `addr_${index}`,
+      title: clipLabel(address, 24),
+      description: clipLabel(address, 72),
+    })),
+    { id: "addr_map", title: "Choose on map", description: "Drop a pin. No need to type it." },
+  ];
+  await sendList(from, buildAddressChoicesMessage(langOf(from)), "Address", [
+    { title: "Deliver to", rows },
   ]);
+  await storeOptions(
+    from,
+    rows.map((row) => ({ id: row.id, title: row.title })),
+  );
+  return ack();
+}
 
-  const buttons: { id: string; title: string }[] = [{ id: "browse_menu", title: BTN.menu }];
-  if (active) buttons.push({ id: "track_order", title: BTN.track });
-  else if (installed && returning) buttons.push({ id: "quick_reorder", title: BTN.orderAgain });
-  else if (installed) buttons.push({ id: "open_app", title: BTN.openApp });
-  else buttons.push({ id: "install_app", title: BTN.installApp });
-
-  buttons.push({ id: "help_support", title: BTN.help });
-  return buttons;
+async function useSavedAddress(from: string, index: number) {
+  const profile = await fetchUsualProfile(from);
+  const address = profile?.addresses[index];
+  if (!address) return await askForAddress(from);
+  const session = await getSession(from);
+  return await finishAddress(from, session, address);
 }
 
 function clipLabel(value: string, max: number): string {
@@ -2223,7 +2252,7 @@ async function showUsualList(from: string) {
   }
   const rows = usualListRows(profile, active);
   const options = [...rows.dishes, ...rows.other];
-  await sendList(from, buildUsualWelcomeMessage(undefined, profile.dishes, langOf(from)), BTN.buyUsual, [
+  await sendList(from, buildUsualListBody(langOf(from)), BTN.buyUsual, [
     { title: "Your usual", rows: rows.dishes },
     { title: "Or", rows: rows.other },
   ]);
@@ -2268,10 +2297,7 @@ async function startUsualDish(from: string, index: number) {
     state: !next ? "picking_date" : profile.address ? "awaiting_payment" : "picking_address",
   });
   if (!next) return await showDatePicker(from);
-  if (!profile.address) {
-    await sendText(from, buildAddressPrompt(langOf(from)));
-    return ack();
-  }
+  if (!profile.address) return await askForAddress(from);
   const fresh = await getSession(from);
   return await finishAddress(from, fresh, profile.address, { usualPayment: profile.payment });
 }
@@ -2296,11 +2322,7 @@ async function resumeUsualPayment(from: string) {
   const session = await getSession(from);
   if (!session.cart.length) return await showUsualList(from);
   if (!session.delivery_date || !session.delivery_slot_kind) return await showDatePicker(from);
-  if (!session.delivery_address) {
-    await updateSession(from, { state: "picking_address" });
-    await sendText(from, buildAddressPrompt(langOf(from)));
-    return ack();
-  }
+  if (!session.delivery_address) return await askForAddress(from);
   return await finishAddress(from, session, session.delivery_address, {
     usualPayment: readUsualPay(session.recent_turns) ?? undefined,
   });
@@ -2311,30 +2333,6 @@ async function showWelcome(from: string, profileName: string) {
   const lang = langOf(from);
 
   const [active, returning] = await Promise.all([hasActiveOrder(from), hasOrders(from)]);
-  const usual = returning ? await fetchUsualProfile(from) : null;
-  if (usual?.dishes.length) {
-    const rows = usualListRows(usual, active);
-    const options = [...rows.dishes, ...rows.other];
-    try {
-      await sendList(from, buildUsualWelcomeMessage(firstName, usual.dishes, lang), BTN.buyUsual, [
-        { title: "Your usual", rows: rows.dishes },
-        { title: "Or", rows: rows.other },
-      ]);
-    } catch (e) {
-      console.error("[WA] usual welcome failed:", e);
-    }
-    after(async () => {
-      try {
-        await resetSession(from);
-        await storeOptions(from, options.map((row) => ({ id: row.id, title: row.title })));
-        await trackWhatsAppUser(from, profileName?.trim() || "WhatsApp User");
-      } catch (err) {
-        console.error("[WA] welcome background:", err);
-      }
-    });
-    return ack();
-  }
-
   const kind = active ? "active" : returning ? "returning" : "new";
   const buttons = await homeButtons(from);
 
@@ -2940,8 +2938,7 @@ async function applySlot(from: string, session: WhatsAppSession, slotKind: Deliv
     return ack();
   }
 
-  await sendText(from, buildAddressPrompt(langOf(from)));
-  return ack();
+  return await askForAddress(from);
 }
 
 async function applyLastAddressAndSlot(from: string, session: WhatsAppSession) {
@@ -2960,9 +2957,7 @@ async function applyLastAddressAndSlot(from: string, session: WhatsAppSession) {
       if (address) {
         return await finishAddress(from, { ...session, delivery_date: next.ymd, delivery_slot_kind: kind }, address);
       }
-      await updateSession(from, { state: "picking_address" });
-      await sendText(from, buildAddressPrompt(langOf(from)));
-      return ack();
+      return await askForAddress(from);
     }
   }
 
@@ -2976,19 +2971,14 @@ async function finishAddress(
   address: string,
   opts?: { pinVerified?: boolean; usualPayment?: UsualPayment },
 ) {
-  if (!address || address.length < 5) {
-    await updateSession(from, { state: "picking_address" });
-    await sendText(from, buildAddressPrompt(langOf(from)));
-    return ack();
-  }
+  if (!address || address.length < 5) return await askForAddress(from);
 
   const pinLabel = /^Pinned location \(/.test(address);
   if (!opts?.pinVerified && !pinLabel) {
     const check = checkTypedAddress(address);
     if (check.status !== "ok") {
-      await updateSession(from, { state: "picking_address" });
       await sendText(from, check.message);
-      return ack();
+      return await askForMapPin(from);
     }
   }
 

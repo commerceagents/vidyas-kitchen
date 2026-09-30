@@ -373,6 +373,24 @@ export async function sendLocation(
   );
 }
 
+/**
+ * Opens the customer's map so they can drop a pin. The button label is
+ * WhatsApp's own "Send location".
+ */
+export async function sendLocationRequest(to: string, bodyText: string): Promise<MetaSendResult> {
+  return postMessage(
+    "location_request",
+    envelope(to, {
+      type: "interactive",
+      interactive: {
+        type: "location_request_message",
+        body: { text: bodyText.substring(0, 1024) },
+        action: { name: "send_location" },
+      },
+    }),
+  );
+}
+
 export type TemplateComponent = Record<string, unknown>;
 
 /** Approved template send — the only way to reach someone outside 24 hours. */

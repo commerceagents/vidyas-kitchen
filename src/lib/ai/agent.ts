@@ -361,8 +361,8 @@ export class VidyaAgent {
   private async getWelcomeButtonsForGreeting(phoneNumber?: string) {
     if (!phoneNumber) {
       return [
+        { id: "buy_usual", title: "Buy usual" },
         { id: "view_menu", title: "Browse menu" },
-        { id: "view_app", title: "Open app" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
@@ -371,7 +371,7 @@ export class VidyaAgent {
     if (active) {
       return [
         { id: "buy_usual", title: "Buy usual" },
-        { id: "welcome_track", title: "Track order" },
+        { id: "view_menu", title: "Browse menu" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
@@ -383,13 +383,13 @@ export class VidyaAgent {
       ];
     }
     return [
+      { id: "buy_usual", title: "Buy usual" },
       { id: "view_menu", title: "Browse menu" },
-      { id: "view_app", title: "Open app" },
       { id: "help_support", title: "Help & Support" },
     ];
   }
 
-  /** WhatsApp allows max 3 reply buttons. First-time users get *Help & Support* instead of *Order again*. */
+  /** WhatsApp allows max 3 reply buttons. Buy usual is always on the welcome row. */
   private async getMainActionButtons(phoneNumber?: string) {
     const returning =
       phoneNumber && (await this.hasPriorOrders(phoneNumber));
@@ -401,8 +401,8 @@ export class VidyaAgent {
       ];
     }
     return [
+      { id: "buy_usual", title: "Buy usual" },
       { id: "view_menu", title: "Browse menu" },
-      { id: "view_app", title: "Open app" },
       { id: "help_support", title: "Help & Support" },
     ];
   }

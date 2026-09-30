@@ -22,6 +22,7 @@ import {
   sendProductList as metaSendProductList,
   sendSingleProduct as metaSendSingleProduct,
   sendLocation as metaSendLocation,
+  sendLocationRequest as metaSendLocationRequest,
   type ListSection,
   type SendButtonsOptions,
   type CarouselCard,
@@ -218,6 +219,28 @@ export async function sendLocation(
     });
   }
   return r.success;
+}
+
+/** Map pin request. WhatsApp shows its own Send location button. */
+export async function sendLocationRequest(to: string, bodyText: string): Promise<WaSendOutcome> {
+  if (!isMetaApiConfigured()) return notConfigured("location_request");
+  const r = await metaSendLocationRequest(to, bodyText);
+  if (!r.success) {
+    console.error("[whatsapp-send] location request failed:", r.error);
+    return sendText(
+      to,
+      `${bodyText}\n\n_Tap the paperclip, then Location, and send the pin._`,
+    );
+  }
+  logWhatsAppMessageSoon({
+    phone: to,
+    direction: "out",
+    kind: "text",
+    body: bodyText,
+    provider: "meta",
+    waMessageId: r.messageId,
+  });
+  return { ok: true };
 }
 
 /** Interactive list, or a numbered text list when Meta rejects it. */

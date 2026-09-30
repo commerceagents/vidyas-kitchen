@@ -320,6 +320,21 @@ export function buildWelcomeMessage(firstName?: string, kind: WelcomeKind = "new
   );
 }
 
+export function buildUsualListBody(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Your usual",
+      lines: ["Tap a dish. The next step is payment."],
+      note: "Help is at the bottom if this isn't the order.",
+    }),
+    msg({
+      title: "Unga usual",
+      lines: ["Dish tap pannunga. Adutha step payment."],
+    }),
+  );
+}
+
 export function buildUsualWelcomeMessage(
   firstName: string | undefined,
   dishes: { name: string; variant: string; quantity: number }[],
@@ -714,6 +729,34 @@ export function buildReuseAddressPrompt(address: string, lang?: WaLang): string 
 }
 
 // ─── Address ─────────────────────────────────────────────────────────────────
+
+export function buildMapPinPrompt(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Where should we deliver?",
+      lines: ["Tap Send location and drop a pin on the map. No need to type the address."],
+    }),
+    msg({
+      title: "Enga deliver pannanum?",
+      lines: ["Send location tap pannitu map-la pin podunga. Address type panna vendaam."],
+    }),
+  );
+}
+
+export function buildAddressChoicesMessage(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Which door?",
+      lines: ["These are doors you've used before.", "Or drop a new pin on the map."],
+    }),
+    msg({
+      title: "Endha veedu?",
+      lines: ["Idhu varaikkum use panna address.", "Illana map-la pudhu pin podunga."],
+    }),
+  );
+}
 
 export function buildAddressPrompt(lang?: WaLang): string {
   return pickLang(

@@ -46,6 +46,7 @@ assert.equal(profile.dishes[0]?.quantity, 2);
 assert.equal(profile.payment, "cod");
 assert.equal(profile.slotKind, "lunch");
 assert.equal(profile.address, "12 Anna Nagar, Sivakasi");
+assert.deepEqual(profile.addresses, ["12 Anna Nagar, Sivakasi"]);
 
 const newestWinsTie = summarizeUsualOrders([
   {
