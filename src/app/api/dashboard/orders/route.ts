@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE = { "Cache-Control": "private, no-store, max-age=0" };
+
 /**
  * Owner-only endpoint: returns all orders (with items and menu_items) plus a
  * phone→name map built from the users table.  All reads use the service-role
@@ -13,7 +18,10 @@ import { requireDashboardSession } from "@/lib/dashboard-auth";
  */
 export async function GET(request: Request) {
   const gate = await requireDashboardSession();
-  if (!gate.ok) return gate.response;
+  if (!gate.ok) {
+    gate.response.headers.set("Cache-Control", NO_STORE["Cache-Control"]);
+    return gate.response;
+  }
 
   const url = new URL(request.url);
   const limit = Math.min(
@@ -43,7 +51,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("[api/dashboard/orders]", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500, headers: NO_STORE });
     }
 
     // Build phone→name lookup from users table (separate query, same client).
@@ -72,12 +80,12 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ rows: rows ?? [], nameByPhone });
+    return NextResponse.json({ rows: rows ?? [], nameByPhone }, { headers: NO_STORE });
   } catch (e) {
     console.error("[api/dashboard/orders] unexpected", e);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500, headers: NO_STORE },
     );
   }
 }

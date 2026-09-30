@@ -20,8 +20,8 @@ import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { isDashboardSoundMuted, playNewOrderAlert, setDashboardSoundMuted } from "@/lib/dashboard/alert-sound";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 
-/** Polling interval for the owner dashboard — replaces the dropped realtime channel. */
-const POLL_INTERVAL_MS = 15_000;
+/** How often the open dashboard pulls the order list. A full browser reload is not required. */
+const POLL_INTERVAL_MS = 5_000;
 const NOTIF_STORAGE_KEY = "vk_dash_notifications";
 export const TEST_NOTIFICATION_ID = "test-notification";
 
@@ -295,16 +295,25 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const bootstrappedRef = useRef(false);
   const notifHydratedRef = useRef(false);
 
+  const loadGeneration = useRef(0);
+
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     let res: Response;
     try {
-      res = await fetch("/api/dashboard/orders?limit=400");
+      res = await fetch(`/api/dashboard/orders?limit=400&_=${generation}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
     } catch (e) {
       console.error("[dashboard] fetch error", e);
+      if (generation === loadGeneration.current) setLoading(false);
       return;
     }
+    if (generation !== loadGeneration.current) return;
     if (!res.ok) {
       console.error("[dashboard] orders fetch", res.status, res.statusText);
+      setLoading(false);
       return;
     }
 
@@ -312,6 +321,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       rows: Record<string, unknown>[];
       nameByPhone: Record<string, string>;
     };
+    if (generation !== loadGeneration.current) return;
 
     const mapped = json.rows.map((r) => mapRow(r));
     const enriched = sortDashboardOrders(
@@ -322,6 +332,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     );
     const withPreviews = applyDevPreviewOrders(enriched);
     setAllOrders(withPreviews);
+    setLoading(false);
 
     if (!bootstrappedRef.current) {
       mapped.forEach((o) => {
@@ -343,7 +354,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem("vk_test_bell_played", "1");
       if (!isDashboardSoundMuted()) playNewOrderAlert();
     }
-    void load().finally(() => setLoading(false));
+    void load();
   }, [load]);
 
   // Icon number = orders still waiting for Accept, across every month, so it
@@ -366,12 +377,26 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
     persistNotifications(notifications);
   }, [notifications]);
 
-  // Poll every 15 s instead of a realtime channel — the anon key is no longer
-  // used anywhere in the dashboard, so Supabase realtime (which also uses the
-  // anon key) is dropped in favour of simple HTTP polling.
+  // Pull the list on a timer, and again the moment the tab is visible. The
+  // anon key is not used in the dashboard, so this HTTP poll is the live
+  // channel. Hidden tabs wait, otherwise the browser throttles the timer and
+  // the kitchen comes back to a stale board.
   useEffect(() => {
-    const id = setInterval(() => { void load(); }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    const tick = () => {
+      if (document.visibilityState === "hidden") return;
+      void load();
+    };
+    const id = setInterval(tick, POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+    };
   }, [load]);
 
   const pushNotification = useCallback(

@@ -228,6 +228,9 @@ self.addEventListener("fetch", (event) => {
   ) {
     return;
   }
+  // Order polling must hit the network itself. Sitting in front of /api
+  // lets a cached JSON body stand in for a new order until a full reload.
+  if (new URL(event.request.url).pathname.startsWith("/api/")) return;
   event.respondWith(
     fetch(event.request).catch(async () => {
       const cached = await caches.match(event.request);
