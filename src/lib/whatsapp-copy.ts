@@ -54,7 +54,7 @@ const COD_CAP = formatInr(COD_MAX_ORDER_VALUE);
 export const BTN = {
   menu: "Menu",
   orderAgain: "Order Again",
-  buyUsual: "Buy usual",
+  buyUsual: "Quick Reorder",
   track: "Track Order",
   help: "Help",
   installApp: "Install App",
@@ -348,12 +348,12 @@ export function buildUsualWelcomeMessage(
     lang,
     msg({
       title: `Welcome back${name}`,
-      lines: ["Your usual:", ...lines, "", "Tap Buy usual, pick one, and the next step is payment."],
+      lines: ["Your usual:", ...lines, "", "Tap Quick Reorder, pick one, and the next step is payment."],
       note: "Change stays on the payment screen if the dish, time, address, or payment should be different.",
     }),
     msg({
       title: `Vanakkam${name}`,
-      lines: ["Unga usual:", ...lines, "", "Buy usual tap pannunga. Adutha step payment dhaan."],
+      lines: ["Unga usual:", ...lines, "", "Quick Reorder tap pannunga. Adutha step payment dhaan."],
       note: "Payment screen-la Change iruku. Dish, time, address, payment maathalam.",
     }),
   );

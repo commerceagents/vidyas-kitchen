@@ -361,7 +361,7 @@ export class VidyaAgent {
   private async getWelcomeButtonsForGreeting(phoneNumber?: string) {
     if (!phoneNumber) {
       return [
-        { id: "buy_usual", title: "Buy usual" },
+        { id: "buy_usual", title: "Quick Reorder" },
         { id: "view_menu", title: "Browse menu" },
         { id: "help_support", title: "Help & Support" },
       ];
@@ -370,38 +370,38 @@ export class VidyaAgent {
     const active = await this.hasActiveUpcomingOrder(phoneNumber);
     if (active) {
       return [
-        { id: "buy_usual", title: "Buy usual" },
+        { id: "buy_usual", title: "Quick Reorder" },
         { id: "view_menu", title: "Browse menu" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
     if (returning) {
       return [
-        { id: "buy_usual", title: "Buy usual" },
+        { id: "buy_usual", title: "Quick Reorder" },
         { id: "view_menu", title: "Browse menu" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
     return [
-      { id: "buy_usual", title: "Buy usual" },
+      { id: "buy_usual", title: "Quick Reorder" },
       { id: "view_menu", title: "Browse menu" },
       { id: "help_support", title: "Help & Support" },
     ];
   }
 
-  /** WhatsApp allows max 3 reply buttons. Buy usual is always on the welcome row. */
+  /** WhatsApp allows max 3 reply buttons. Quick Reorder is always on the welcome row. */
   private async getMainActionButtons(phoneNumber?: string) {
     const returning =
       phoneNumber && (await this.hasPriorOrders(phoneNumber));
     if (returning) {
       return [
-        { id: "buy_usual", title: "Buy usual" },
+        { id: "buy_usual", title: "Quick Reorder" },
         { id: "view_menu", title: "Browse menu" },
         { id: "help_support", title: "Help & Support" },
       ];
     }
     return [
-      { id: "buy_usual", title: "Buy usual" },
+      { id: "buy_usual", title: "Quick Reorder" },
       { id: "view_menu", title: "Browse menu" },
       { id: "help_support", title: "Help & Support" },
     ];
