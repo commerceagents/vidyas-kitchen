@@ -1,4 +1,4 @@
-import { formatOrderRef, normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
+import { formatOrderRef, isOrderInFlight, normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { getOrderRevenueAmount } from "@/lib/order-pricing";
 
 export type DashboardOrderItem = {
@@ -125,6 +125,23 @@ export function filterOrdersByMonth(orders: DashboardOrder[], month: MonthKey) {
   return orders.filter((o) => {
     const mk = orderMonthKey(o);
     return mk ? isSameMonth(mk, month) : false;
+  });
+}
+
+/**
+ * Kitchen board for a month.
+ *
+ * A slot is booked at least a day ahead, so an order placed on the last day of
+ * the month delivers next month. The month filter would hide it until someone
+ * switches the calendar. While the board is on the current month, keep every
+ * order that is still being cooked or delivered, whichever month the slot sits in.
+ */
+export function filterOrdersForKitchen(orders: DashboardOrder[], month: MonthKey) {
+  const viewingNow = isSameMonth(month, currentMonthKey());
+  return orders.filter((o) => {
+    const mk = orderMonthKey(o);
+    if (mk && isSameMonth(mk, month)) return true;
+    return viewingNow && isOrderInFlight(o.status);
   });
 }
 
@@ -317,7 +334,7 @@ export type DashboardTab =
 
 export function tabForOrder(status: string): DashboardTab {
   const s = normalizeOrderStatus(status);
-  if (s === OrderStatus.PAID) return "new";
+  if (s === OrderStatus.PAID || s === OrderStatus.PENDING_PAYMENT) return "new";
   if (s === OrderStatus.CONFIRMED || s === OrderStatus.PREPARING) return "preparing";
   if (s === OrderStatus.READY) return "awaiting";
   if (s === OrderStatus.OUT_FOR_DELIVERY) return "dispatched";

@@ -7,6 +7,7 @@ import {
   type DashboardOrder,
   filterOrdersByIdQuery,
   filterOrdersByMonth,
+  filterOrdersForKitchen,
   isDevPreviewOrder,
   isNewPaidOrder,
   sortDashboardOrders,
@@ -411,7 +412,8 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, [allOrders, pushNotification]);
 
   const monthOrders = useMemo(() => filterOrdersByMonth(allOrders, month), [allOrders, month]);
-  const visibleOrders = useMemo(() => filterOrdersByIdQuery(monthOrders, searchQuery), [monthOrders, searchQuery]);
+  const kitchenOrders = useMemo(() => filterOrdersForKitchen(allOrders, month), [allOrders, month]);
+  const visibleOrders = useMemo(() => filterOrdersByIdQuery(kitchenOrders, searchQuery), [kitchenOrders, searchQuery]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = useCallback(() => {
