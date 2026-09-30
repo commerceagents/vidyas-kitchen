@@ -150,9 +150,11 @@ const MAP_PAD_TOP = 20;
 const MAP_PAD_BOTTOM_EXTRA = 20;
 /**
  * Must match initial `sheetHeight` so padding matches before the first layout
- * measure. Smaller default gives the map ~65% of the viewport.
+ * measure. The sheet is capped, so the map keeps the top half of the screen.
  */
-const INITIAL_SHEET_FALLBACK_H = 280;
+const INITIAL_SHEET_FALLBACK_H = 320;
+/** Drawer never takes more than this, so the map stays the larger view. */
+const SHEET_MAX_HEIGHT = "48dvh";
 
 /** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
 function easeSmootherstep(t: number) {
@@ -1094,15 +1096,16 @@ export function LocationScreen({
           zIndex: 4,
           pointerEvents: "none",
           background:
-            "radial-gradient(circle at 50% 42%, rgba(189,35,32,0.05) 0%, rgba(255,255,255,0) 48%), linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.35) 100%)",
+            "radial-gradient(circle at 50% 42%, rgba(189,35,32,0.05) 0%, rgba(255,255,255,0) 48%), linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0.08) 100%)",
         }}
       />
 
-      {/* Map bottom fade — blends map into sheet */}
+      {/* Short fade at the sheet edge so the map above it stays readable */}
       <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        height: "45%",
-        background: "linear-gradient(to top, #F5F5F7 20%, transparent 100%)",
+        position: "absolute", left: 0, right: 0,
+        bottom: Math.max(0, sheetHeight - 12),
+        height: 56,
+        background: "linear-gradient(to top, rgba(245,245,247,0.55), transparent)",
         pointerEvents: "none",
         zIndex: 5,
       }} />
@@ -1153,20 +1156,22 @@ export function LocationScreen({
           border: "1px solid rgba(0,0,0,0.06)",
           borderBottom: "none",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
-          padding: "20px 0 36px",
+          padding: "12px 0 16px",
           display: "flex",
           flexDirection: "column",
+          maxHeight: SHEET_MAX_HEIGHT,
+          overflow: "hidden",
         }}
       >
         {/* Drag handle */}
         <div style={{
           width: 36, height: 4, borderRadius: 2,
           background: "rgba(0,0,0,0.12)",
-          margin: "0 auto 20px",
+          margin: "0 auto 12px",
           flexShrink: 0,
         }} />
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", scrollbarWidth: "none" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "0 20px", scrollbarWidth: "none" }}>
           {/* Search bar + suggestions */}
           <motion.div
             custom={0}
