@@ -2340,9 +2340,7 @@ async function showWelcome(from: string, profileName: string) {
 
   try {
     await sendButtons(from, buildWelcomeMessage(firstName, kind, lang), buttons, {
-      // Only show the Vidya's Kitchen logo header on the very first greeting.
-      // Returning / active users know the brand — skip the image.
-      headerImageUrl: kind === "new" ? welcomeLogoImageUrl() : undefined,
+      headerImageUrl: welcomeLogoImageUrl(),
     });
     console.log(`[WA] Welcome (${kind}) sent to ${from}`);
   } catch (e) {
