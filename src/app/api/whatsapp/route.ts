@@ -25,6 +25,7 @@ import {
   sendCtaUrl,
   sendList,
   sendCarousel,
+  sendProductList,
   sendLocationRequest,
 } from "@/lib/whatsapp-send";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
@@ -183,6 +184,9 @@ import {
   retailerIdForCsvPrefix,
   guessRetailerId,
   publicDishImageUrl,
+  whatsappCatalogId,
+  catalogMenuSections,
+  catalogSectionForCategory,
 } from "@/lib/whatsapp-catalog";
 
 /**
@@ -2503,7 +2507,24 @@ async function addDishByRetailer(from: string, retailerId: string) {
 }
 
 async function showFullMenu(from: string) {
+  const lang = langOf(from);
   await updateSession(from, { state: "browsing_category" });
+
+  const catalogId = whatsappCatalogId();
+  if (catalogId) {
+    const { sections, truncated } = catalogMenuSections();
+    const sent = await sendProductList(
+      from,
+      catalogId,
+      buildMenuHeader(lang),
+      buildFullMenuBody(lang, { truncated }),
+      sections,
+      "Vidya's Kitchen, Sivakasi",
+    );
+    if (sent) return ack();
+    console.error("[WA] product_list failed for the full menu — falling back to categories.");
+  }
+
   return await showCategoryBrowser(from);
 }
 
@@ -2546,6 +2567,16 @@ async function showCategoryItems(from: string, cat: string) {
   const slice = items.slice(0, 10);
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
+
+  const catalogId = whatsappCatalogId();
+  if (catalogId) {
+    const section = catalogSectionForCategory(cat);
+    if (section) {
+      const sent = await sendProductList(from, catalogId, catLabel, buildDishListBody(catLabel, lang), [section]);
+      if (sent) return ack();
+      console.error(`[WA] product_list failed for ${cat} — falling back to a list.`);
+    }
+  }
 
   let body = buildDishListBody(catLabel, lang);
   if (items.length > 10) {

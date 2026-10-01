@@ -126,12 +126,12 @@ function dishPriority(dish: DishPricing): number {
 }
 
 /**
- * The whole menu as catalog sections: Chicken, Mutton, Egg.
+ * The whole menu as one catalog drawer: Chicken, Mutton, Egg.
  *
- * All 17 dishes across both packs is 34 products, four over Meta's limit, so
- * dishes are added in whole pairs — best sellers first — until the budget runs
- * out. A dish showing only one of its two packs would look broken, and a
- * half-filled section is worse than an honest "full menu in the app" footer.
+ * Each dish is two catalog rows (500gm and 1kg), 34 in all. WhatsApp allows
+ * 30 rows in one drawer, so every dish keeps its 500gm photo, then 1kg rows
+ * are added for the house favourites until the drawer is full. A section is
+ * never dropped to make room for another.
  */
 export function catalogMenuSections(): { sections: ProductSection[]; truncated: boolean } {
   const byCategory = new Map<string, DishPricing[]>();
@@ -141,29 +141,56 @@ export function catalogMenuSections(): { sections: ProductSection[]; truncated: 
     byCategory.set(dish.category, list);
   }
 
-  let budget = MPM_MAX_PRODUCTS;
+  const chosen = new Map<string, string[]>();
+  let used = 0;
   let truncated = false;
-  const sections: ProductSection[] = [];
 
+  const ranked = MENU_SECTION_ORDER.flatMap((category) =>
+    (byCategory.get(category) || [])
+      .slice()
+      .sort((a, b) => dishPriority(a) - dishPriority(b))
+      .map((dish) => ({ category, dish })),
+  );
+
+  for (const { category, dish } of ranked) {
+    const pair = catalogProductIdsForRetailer(dish.retailerId);
+    const half = pair[0];
+    if (!half) continue;
+    if (used >= MPM_MAX_PRODUCTS) {
+      truncated = true;
+      break;
+    }
+    const rows = chosen.get(category) || [];
+    rows.push(half);
+    chosen.set(category, rows);
+    used += 1;
+  }
+
+  const kilos = ranked
+    .map(({ category, dish }) => ({
+      category,
+      id: catalogProductIdsForRetailer(dish.retailerId)[1],
+      priority: dishPriority(dish),
+    }))
+    .filter((row): row is { category: string; id: string; priority: number } => Boolean(row.id))
+    .sort((a, b) => a.priority - b.priority);
+
+  for (const row of kilos) {
+    if (used >= MPM_MAX_PRODUCTS) {
+      truncated = true;
+      break;
+    }
+    const rows = chosen.get(row.category) || [];
+    rows.push(row.id);
+    chosen.set(row.category, rows);
+    used += 1;
+  }
+
+  const sections: ProductSection[] = [];
   for (const category of MENU_SECTION_ORDER) {
     if (sections.length >= MPM_MAX_SECTIONS) break;
-    const dishes = (byCategory.get(category) || []).slice().sort((a, b) => dishPriority(a) - dishPriority(b));
-
-    const ids: string[] = [];
-    for (const dish of dishes) {
-      const pair = catalogProductIdsForRetailer(dish.retailerId);
-      if (pair.length === 0) continue;
-      if (pair.length > budget) {
-        truncated = true;
-        continue;
-      }
-      ids.push(...pair);
-      budget -= pair.length;
-    }
-
-    if (ids.length > 0) {
-      sections.push({ title: categoryDisplayLabel(category), productRetailerIds: ids });
-    }
+    const ids = chosen.get(category) || [];
+    if (ids.length > 0) sections.push({ title: categoryDisplayLabel(category), productRetailerIds: ids });
   }
 
   return { sections, truncated };
