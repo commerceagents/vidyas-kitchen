@@ -6,7 +6,7 @@ import { Check, X, WarningCircle } from "@phosphor-icons/react";
 import { PhoneLoginScreen } from "./PhoneLoginScreen";
 import { PwaInstallBanner } from "@/components/ui/PwaInstallBanner";
 import { InstallConfirmModal } from "@/components/ui/InstallConfirmModal";
-import { isAlreadyInstalled } from "@/lib/pwa-install";
+import { detectInstalledApp, isAlreadyInstalled, isStandaloneMode, openInstalledApp } from "@/lib/pwa-install";
 import { LocationScreen } from "./LocationScreen";
 import { LocationMarkedScreen } from "./LocationMarkedScreen";
 import { MobileHomeScreen } from "./MobileHomeScreen";
@@ -73,9 +73,33 @@ type PaymentFeedback =
   | { kind: "cancelled" };
 
 export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, cancelPhone, wantInstall }: MobileShellProps) {
-  const [showInstallConfirm, setShowInstallConfirm] = useState(
-    () => !!wantInstall && (typeof window === "undefined" || !isAlreadyInstalled()),
-  );
+  const [showInstallConfirm, setShowInstallConfirm] = useState(false);
+
+  // A scan must open the installed app. `?install=1` is only for someone who
+  // does not have it yet — never show that drawer over an app that's already there.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const installed = isAlreadyInstalled() || (await detectInstalledApp());
+      if (cancelled) return;
+      if (installed) {
+        const opened = !isStandaloneMode() && openInstalledApp();
+        if (!opened) {
+          const u = new URL(window.location.href);
+          if (u.searchParams.has("install") || u.searchParams.has("handoff")) {
+            u.searchParams.delete("install");
+            u.searchParams.delete("handoff");
+            window.history.replaceState({}, "", u.toString());
+          }
+        }
+        return;
+      }
+      if (wantInstall) setShowInstallConfirm(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wantInstall]);
 
   // ── Sync Initial State from Storage ──────────────────────────────────────
   const [initialData] = useState(() => {

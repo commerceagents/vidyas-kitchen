@@ -27,6 +27,19 @@ export function customerManifest(opts?: { desktop?: boolean }): MetadataRoute.Ma
     background_color: "#F5F5F7",
     theme_color: "#0d0d0d",
     categories: ["food", "lifestyle", "shopping"],
+    // An in-scope link (a QR scan, a WhatsApp tap) should open the installed
+    // app window instead of a new browser tab.
+    ...(!opts?.desktop
+      ? {
+          launch_handler: { client_mode: "navigate-existing" as const },
+          related_applications: [
+            {
+              platform: "webapp",
+              url: "https://www.vidyaskitchenhome.com/manifest.webmanifest",
+            },
+          ],
+        }
+      : {}),
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },

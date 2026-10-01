@@ -17,6 +17,12 @@ let installed = false;
 let beaconSent = false;
 const listeners = new Set<() => void>();
 
+/** Set while the home-screen app is running, so a later browser visit can tell. */
+const HOME_APP_KEY = "vk_home_app";
+/** Stops a failed handoff from bouncing the browser tab into the app forever. */
+const HANDOFF_AT_KEY = "vk_app_handoff_at";
+const HANDOFF_COOLDOWN_MS = 15_000;
+
 function notify() {
   listeners.forEach((fn) => fn());
 }
@@ -85,6 +91,8 @@ if (typeof window !== "undefined") {
   window.addEventListener("resize", disableDesktopInstall);
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
+    // Chrome only offers install when the home-screen app is not already there.
+    clearHomeAppInstalled();
     // Allow on mobile, and always allow on the driver app (tablets count too).
     if (!isMobileViewport() && !isDriverAppPath()) return;
     deferredPrompt = e as InstallPromptEvent;
@@ -93,11 +101,15 @@ if (typeof window !== "undefined") {
   window.addEventListener("appinstalled", () => {
     installed = true;
     deferredPrompt = null;
+    markHomeAppInstalled();
     void reportInstalled();
     notify();
   });
   // iOS never fires `appinstalled`; running standalone is the only signal there.
-  if (isStandaloneMode()) void reportInstalled();
+  if (isStandaloneMode()) {
+    markHomeAppInstalled();
+    void reportInstalled();
+  }
 }
 
 export function subscribePwaInstall(fn: () => void): () => void {
@@ -138,7 +150,10 @@ export async function triggerNativeInstall(): Promise<boolean> {
   const choice = await deferredPrompt.userChoice;
   deferredPrompt = null;
   const accepted = choice.outcome === "accepted";
-  if (accepted) installed = true;
+  if (accepted) {
+    installed = true;
+    markHomeAppInstalled();
+  }
   notify();
   return accepted;
 }
@@ -201,7 +216,93 @@ export function isMobileViewport(): boolean {
   return window.innerWidth <= 1024;
 }
 
+function storageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode */
+  }
+}
+
+function storageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* private mode */
+  }
+}
+
+export function markHomeAppInstalled(): void {
+  storageSet(HOME_APP_KEY, "1");
+}
+
+export function clearHomeAppInstalled(): void {
+  storageRemove(HOME_APP_KEY);
+}
+
+export function hasHomeAppFlag(): boolean {
+  return storageGet(HOME_APP_KEY) === "1";
+}
+
+type RelatedApp = { platform?: string };
+
+/** Chrome can see an already-installed home-screen app from a normal browser tab. */
+export async function detectInstalledApp(): Promise<boolean> {
+  if (isAlreadyInstalled()) return true;
+  const nav = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<RelatedApp[]>;
+  };
+  if (typeof nav.getInstalledRelatedApps !== "function") return false;
+  try {
+    const apps = await nav.getInstalledRelatedApps();
+    const hit = apps.some((app) => app.platform === "webapp" || app.platform === "play");
+    if (hit) markHomeAppInstalled();
+    return hit;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Android intent that lets the installed app claim the link.
+ * No Chrome package — pinning Chrome is what keeps the scan in the browser.
+ * The fallback is the same page without `install`, so a miss stays on the app
+ * and does not ask to install again.
+ */
+export function installedAppIntentUrl(page: URL): string {
+  const target = new URL(page.href);
+  target.searchParams.delete("install");
+  target.searchParams.delete("handoff");
+  const fallback = new URL(target.href);
+  fallback.searchParams.set("handoff", "1");
+  return (
+    `intent://${target.host}${target.pathname}${target.search}#Intent;` +
+    `scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;` +
+    `S.browser_fallback_url=${encodeURIComponent(fallback.toString())};end`
+  );
+}
+
+/** Leave the browser tab for the installed app. No-op on iPhone and inside the app. */
+export function openInstalledApp(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!isAndroid() || isSamsungInternet() || isStandaloneMode()) return false;
+  if (new URL(window.location.href).searchParams.get("handoff") === "1") return false;
+  const last = Number(storageGet(HANDOFF_AT_KEY) || 0);
+  if (Number.isFinite(last) && Date.now() - last < HANDOFF_COOLDOWN_MS) return false;
+  storageSet(HANDOFF_AT_KEY, String(Date.now()));
+  window.location.href = installedAppIntentUrl(new URL(window.location.href));
+  return true;
+}
+
 /** True once the app is already installed/running standalone — hide any "Install" affordance. */
 export function isAlreadyInstalled(): boolean {
-  return installed || isStandaloneMode();
+  return installed || isStandaloneMode() || hasHomeAppFlag();
 }

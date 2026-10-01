@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 
-import { phoneInstallUrl, publicSiteOrigin } from "@/lib/site-url";
+import { appOpenUrl, publicSiteOrigin } from "@/lib/site-url";
 import { ChefSpecialVector } from "./vectors/ChefSpecialVector";
 import { HomemadeSpicesVector } from "./vectors/HomemadeSpicesVector";
 
@@ -86,7 +86,7 @@ function GlowingBlobsBackground() {
 export function DesktopLanding() {
   const origin = publicSiteOrigin();
   const whatsappNumber = "+91 75500 28179";
-  const installUrl = phoneInstallUrl(origin);
+  const installUrl = appOpenUrl(origin);
 
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
