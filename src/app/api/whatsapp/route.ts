@@ -900,7 +900,7 @@ export async function POST(req: Request) {
         return await handleBrowsingCategory(from, text, profileName);
 
       case "picking_item":
-        return await handlePickingItem(from, text);
+        return await handlePickingItem(from, text, profileName);
 
       case "picking_variant":
         return await handlePickingVariant(from, text, session);
@@ -1180,7 +1180,7 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
   return await handleIdle(from, text, { cart: [] }, profileName);
 }
 
-async function handlePickingItem(from: string, text: string) {
+async function handlePickingItem(from: string, text: string, profileName: string) {
   const num = parseInt(text, 10);
   const menu = await getMenu();
 
@@ -1196,8 +1196,8 @@ async function handlePickingItem(from: string, text: string) {
   const matched = findItemByName(menu, text);
   if (matched) return await showVariantPicker(from, matched);
 
-  await sendText(from, notUnderstoodReply(langOf(from)));
-  return ack();
+  await updateSession(from, { state: "ai_chat" });
+  return await handleAiChat(from, text, profileName);
 }
 
 async function handlePickingVariant(from: string, text: string, session: WhatsAppSession) {
@@ -1542,7 +1542,7 @@ async function handleInterrupt(
 
   await rememberInterrupt(from, session, decision.nextInterruptCount);
 
-  if (decision.action === "mutate_cart_then_reask") {
+    if (decision.action === "mutate_cart_then_reask") {
     const fresh = await getSession(from);
     const edited = await applySpokenCartEdit(from, text, fresh);
     if (edited) return edited;
@@ -1551,12 +1551,16 @@ async function handleInterrupt(
       const matched = findItemByName(menu, text);
       if (matched && !looksLikeCompoundOrder(text)) return await showVariantPicker(from, matched);
     }
-    await sendText(from, interruptClarifyMessage(text));
+    const aside = await answerWithVidya(from, text, _profileName);
+    if (aside.kind === "done") return aside.response;
+    if (aside.kind === "skip") await sendText(from, interruptClarifyMessage(text));
     return reaskPending(from, session.state);
   }
 
   if (decision.action === "answer_menu_then_reask") {
-    await sendText(from, interruptMenuAside());
+    const aside = await answerWithVidya(from, text, _profileName);
+    if (aside.kind === "done") return aside.response;
+    if (aside.kind === "skip") await sendText(from, interruptMenuAside());
     return reaskPending(from, session.state);
   }
 
@@ -1574,12 +1578,55 @@ async function handleInterrupt(
     return reaskPending(from, session.state);
   }
 
-  if (decision.action === "reask" && classification.intent !== "small_talk") {
-    await sendText(from, interruptStillOpenMessage());
-  } else if (decision.action === "clarify") {
-    await sendText(from, interruptClarifyMessage(text));
+  if (decision.action === "clarify" || (decision.action === "reask" && classification.intent !== "small_talk")) {
+    const aside = await answerWithVidya(from, text, _profileName);
+    if (aside.kind === "done") return aside.response;
+    if (aside.kind === "skip") {
+      await sendText(
+        from,
+        decision.action === "clarify" ? interruptClarifyMessage(text) : interruptStillOpenMessage(),
+      );
+    }
   }
   return reaskPending(from, session.state);
+}
+
+/**
+ * A side question gets a real answer from Vidya, using this chat and the live
+ * menu. A draft order is handed to the normal confirmation card. Otherwise the
+ * caller asks the pending step again.
+ */
+async function answerWithVidya(
+  from: string,
+  text: string,
+  profileName: string,
+): Promise<{ kind: "skip" } | { kind: "said" } | { kind: "done"; response: Response }> {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const asking =
+    text.includes("?") ||
+    /^(what|when|where|why|how|who|can|could|do|does|is|are|will|would|should)\b/i.test(text.trim()) ||
+    words.length >= 4;
+  if (!asking) return { kind: "skip" };
+
+  const session = await getSession(from);
+  const agent = new VidyaAgent();
+  const result = await agent.processMessage(text, turnsForAgent(session.recent_turns), from, profileName);
+  const turns: SessionTurns = [
+    ...chatTurns(session.recent_turns),
+    { role: "user", content: text },
+    ...(result.reply ? [{ role: "assistant" as const, content: result.reply }] : []),
+    ...sessionNotes(session.recent_turns),
+  ].slice(-16);
+
+  if (result.proposalDraft && session.cart.length === 0) {
+    await updateSession(from, { recent_turns: turnsWithDraft(turns, result.proposalDraft) });
+    return { kind: "done", response: await presentProposal(from, result.proposalDraft, text) };
+  }
+
+  if (!result.reply) return { kind: "skip" };
+  await updateSession(from, { recent_turns: turns });
+  await sendText(from, result.reply);
+  return { kind: "said" };
 }
 
 async function reaskPending(from: string, state: SessionState): Promise<Response> {
@@ -1689,8 +1736,12 @@ async function handleConfirmingLast(from: string, text: string, session: WhatsAp
   if (resolved === "edit_order" || /edit|cart/i.test(lower)) {
     return await showCart(from, session.cart);
   }
-  await sendText(from, notUnderstoodReply(langOf(from)));
-  return ack();
+  const aside = await answerWithVidya(from, text, "");
+  if (aside.kind === "done") return aside.response;
+  if (aside.kind === "skip") {
+    await sendText(from, "Say same to repeat the last door and time, or change to pick new ones.");
+  }
+  return reaskPending(from, "confirming_last");
 }
 
 async function handleConfirmingProposal(
@@ -1823,7 +1874,11 @@ async function handleAwaitingPayment(from: string, text: string, session: WhatsA
     return await showCart(from, session.cart);
   }
 
-  await sendText(from, notUnderstoodReply(langOf(from)));
+  const aside = await answerWithVidya(from, text, "");
+  if (aside.kind === "done") return aside.response;
+  if (aside.kind === "skip") {
+    await sendText(from, "The payment link is still open. Say pay when it's done, or tell me what to change.");
+  }
   return ack();
 }
 
@@ -1904,14 +1959,12 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     return await presentProposal(from, result.proposalDraft, text);
   }
 
-  // Only send action buttons when the reply naturally leads to a next step.
-  // Attaching "Anything else I can do?" + 3 buttons after every single AI
-  // response makes the bot feel like an IVR, not a conversational assistant.
-  const replyLower = (result.reply ?? "").toLowerCase();
-  const menusignals = /menu|order|dish|chicken|mutton|egg|biryani|curry|meal|food|browse|item/i;
-  const helpsignals = /help|support|complaint|contact|issue|problem|refund|cancel|track|delivery/i;
-  const isMenuRelated = menusignals.test(replyLower);
-  const isHelpRelated = helpsignals.test(replyLower) && !isMenuRelated;
+  // Buttons only when they asked to order or for help. A price answer that
+  // happens to name a dish should stay a sentence.
+  const menusignals = /\b(menu|order|browse)\b/i;
+  const helpsignals = /\b(help|support|complaint|refund|problem)\b/i;
+  const isMenuRelated = menusignals.test(text);
+  const isHelpRelated = helpsignals.test(text) && !isMenuRelated;
 
   if (isMenuRelated) {
     const buttons = [
