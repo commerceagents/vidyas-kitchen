@@ -25,7 +25,6 @@ import {
   sendCtaUrl,
   sendList,
   sendCarousel,
-  sendProductList,
   sendLocationRequest,
 } from "@/lib/whatsapp-send";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
@@ -44,8 +43,6 @@ import {
   buildUsualPayNote,
   buildWelcomeMessage,
   welcomeLogoImageUrl,
-  buildMenuHeader,
-  buildFullMenuBody,
   buildCategoryListBody,
   buildCategoryMessage,
   buildDishListBody,
@@ -179,14 +176,12 @@ import {
   type TurnClassification,
 } from "@/lib/whatsapp-turn";
 import {
+  MENU_SECTION_ORDER,
   categoryDisplayLabel,
   parseCatalogProductId,
   retailerIdForCsvPrefix,
   guessRetailerId,
   publicDishImageUrl,
-  whatsappCatalogId,
-  catalogMenuSections,
-  catalogSectionForCategory,
 } from "@/lib/whatsapp-catalog";
 
 /**
@@ -2396,7 +2391,7 @@ function dishCards(dishes: DishPricing[]): { id: string; title: string; body: st
       title: name,
       body: `${name}\n500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 160),
       imageUrl: publicDishImageUrl({ image_url: dish.imagePath, retailer_id: dish.retailerId }),
-      buttonTitle: "Add",
+      buttonTitle: "Choose size",
     };
   });
 }
@@ -2505,22 +2500,26 @@ async function addDishByRetailer(from: string, retailerId: string) {
 }
 
 async function showFullMenu(from: string) {
-  const lang = langOf(from);
   await updateSession(from, { state: "browsing_category" });
 
-  const catalogId = whatsappCatalogId();
-  if (catalogId) {
-    const { sections, truncated } = catalogMenuSections();
-    const sent = await sendProductList(
+  const shown: DishPricing[] = [];
+  let sent = false;
+  for (const category of MENU_SECTION_ORDER) {
+    const dishes = dishesInCategory(category);
+    if (dishes.length < 2) continue;
+    const ok = await sendCarousel(
       from,
-      catalogId,
-      buildMenuHeader(lang),
-      buildFullMenuBody(lang, { truncated }),
-      sections,
-      "Vidya's Kitchen, Sivakasi",
+      `${categoryDisplayLabel(category)}\nEach dish is listed once. Tap Choose size.`,
+      dishCards(dishes),
     );
-    if (sent) return ack();
-    console.error("[WA] product_list failed for the full menu — falling back to categories.");
+    if (ok) {
+      sent = true;
+      shown.push(...dishes);
+    }
+  }
+  if (sent) {
+    await rememberDishCards(from, shown.slice(0, 10));
+    return ack();
   }
 
   return await showCategoryBrowser(from);
@@ -2566,14 +2565,11 @@ async function showCategoryItems(from: string, cat: string) {
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
 
-  const catalogId = whatsappCatalogId();
-  if (catalogId) {
-    const section = catalogSectionForCategory(cat);
-    if (section) {
-      const sent = await sendProductList(from, catalogId, catLabel, buildDishListBody(catLabel, lang), [section]);
-      if (sent) return ack();
-      console.error(`[WA] product_list failed for ${cat} — falling back to a list.`);
-    }
+  const dishes = dishesInCategory(cat);
+  if (dishes.length >= 2) {
+    await rememberDishCards(from, dishes);
+    const ok = await sendCarousel(from, `${catLabel}\nEach dish is listed once. Tap Choose size.`, dishCards(dishes));
+    if (ok) return ack();
   }
 
   let body = buildDishListBody(catLabel, lang);
@@ -2594,15 +2590,19 @@ async function showCategoryItems(from: string, cat: string) {
 
 async function showVariantPicker(from: string, item: MenuItem) {
   const lang = langOf(from);
-  const buttons = [
-    { id: "var_500gm", title: BTN.size500 },
-    { id: "var_1kg", title: BTN.size1kg },
+  const prices = packPricesFor(item);
+  const rows = [
+    { id: "var_500gm", title: BTN.size500, description: formatInr(prices["500gm"]) },
+    { id: "var_1kg", title: BTN.size1kg, description: formatInr(prices["1kg"]) },
   ];
   await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
-  await storeOptions(from, buttons);
-  await sendButtons(from, buildVariantMessage(formatFullDishName(item.name), packPricesFor(item), lang), buttons, {
-    headerImageUrl: publicDishImageUrl(item),
-  });
+  await storeOptions(
+    from,
+    rows.map((row) => ({ id: row.id, title: row.title })),
+  );
+  await sendList(from, buildVariantMessage(formatFullDishName(item.name), prices, lang), "Choose size", [
+    { title: "Size", rows },
+  ]);
   return ack();
 }
 
