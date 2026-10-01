@@ -13,15 +13,6 @@ export const DELIVERY_ZONE = {
   radiusKm: Number(process.env.NEXT_PUBLIC_DELIVERY_RADIUS_KM) || 15,
 } as const;
 
-/**
- * Extra drop-off circles. Chennai is temporary so a live tracking test can use
- * a pin in the city while the driver stands nearby. Sivakasi stays open.
- * Remove this entry when the test is done.
- */
-const EXTRA_ZONES = [
-  { name: "Chennai", lat: 13.0827, lng: 80.2707, radiusKm: 40 },
-] as const;
-
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -37,6 +28,5 @@ export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: numbe
 
 /** True when this pin is a legal drop-off — not “where the customer is standing”. */
 export function isInsideDeliveryZone(lat: number, lng: number) {
-  if (distanceKm(lat, lng, DELIVERY_ZONE.lat, DELIVERY_ZONE.lng) <= DELIVERY_ZONE.radiusKm) return true;
-  return EXTRA_ZONES.some((zone) => distanceKm(lat, lng, zone.lat, zone.lng) <= zone.radiusKm);
+  return distanceKm(lat, lng, DELIVERY_ZONE.lat, DELIVERY_ZONE.lng) <= DELIVERY_ZONE.radiusKm;
 }
