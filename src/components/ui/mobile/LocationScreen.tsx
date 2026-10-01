@@ -154,7 +154,7 @@ const MAP_PAD_BOTTOM_EXTRA = 20;
  */
 const INITIAL_SHEET_FALLBACK_H = 320;
 /** Drawer never takes more than this, so the map stays the larger view. */
-const SHEET_MAX_HEIGHT = "48dvh";
+const SHEET_MAX_HEIGHT = "64dvh";
 
 /** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
 function easeSmootherstep(t: number) {
@@ -1032,62 +1032,6 @@ export function LocationScreen({
         </FallbackMap>
       )}
 
-      <AnimatePresence>
-        {(isDetecting || isGliding) && (
-          <motion.div
-            key="locating-map"
-            role="status"
-            aria-live="polite"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: sheetHeight,
-              zIndex: 22,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-              background: "rgba(245,245,247,0.28)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 16px",
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.94)",
-                boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
-                border: "1px solid rgba(0,0,0,0.06)",
-              }}
-            >
-              <motion.span
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
-                style={{ color: "#BD2320", display: "flex" }}
-              >
-                <Crosshair size={22} weight="bold" />
-              </motion.span>
-              <div style={{ textAlign: "left" }}>
-                <p style={{ ...LOC.gpsTitle, fontSize: 14 }}>
-                  {isGliding ? "Moving the map" : "Locating you"}
-                </p>
-                <p style={LOC.gpsSub}>
-                  {isGliding ? "Hold on, it is on its way to you" : "Getting a GPS fix"}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Red-black tint over map for brand tone */}
       <div
         style={{
@@ -1112,31 +1056,69 @@ export function LocationScreen({
 
       {/* Top bar pill removed — the search field in the sheet is sufficient */}
 
-      {/* ── FLOATING RECENTER BUTTON ── sits above bottom sheet */}
+      {/* Recenter sits on the map. While the camera travels it grows a short label; the label fades when the pin arrives. */}
       <motion.button
+        layout
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 340, damping: 28, delay: 0.45 }}
         whileTap={{ scale: 0.88 }}
         onClick={handleRecenter}
+        aria-label={isDetecting || isGliding ? (isGliding ? "Moving the map" : "Locating you") : "Recenter map"}
         style={{
           position: "absolute",
-          right: 18,
+          right: 14,
           bottom: sheetHeight + 14,
           zIndex: 25,
-          background: "rgba(255,255,255,0.85)",
+          background: "rgba(255,255,255,0.92)",
           backdropFilter: "blur(16px) saturate(180%)",
           WebkitBackdropFilter: "blur(16px) saturate(180%)",
           border: "1px solid rgba(0,0,0,0.06)",
           borderRadius: 14,
-          width: 44, height: 44,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          height: 44,
+          padding: isDetecting || isGliding ? "0 14px 0 12px" : "0 13px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
           cursor: "pointer",
           color: "rgba(0,0,0,0.6)",
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         }}
       >
-        <RecenterIcon />
+        <motion.span
+          animate={{ rotate: isDetecting || isGliding ? 360 : 0 }}
+          transition={
+            isDetecting || isGliding
+              ? { duration: 1.1, repeat: Infinity, ease: "linear" }
+              : { duration: 0 }
+          }
+          style={{ color: isDetecting || isGliding ? "#BD2320" : "rgba(0,0,0,0.6)", display: "flex", flexShrink: 0 }}
+        >
+          <RecenterIcon />
+        </motion.span>
+        <AnimatePresence initial={false}>
+          {(isDetecting || isGliding) && (
+            <motion.span
+              key="map-move-label"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.35 }}
+              style={{
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                fontSize: 13,
+                fontWeight: 800,
+                letterSpacing: "0.01em",
+                color: "#1A1A1A",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              }}
+            >
+              {isGliding ? "Moving the map" : "Locating you"}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </motion.button>
 
       {/* ── BOTTOM GLASS SHEET ── */}
@@ -1411,8 +1393,56 @@ export function LocationScreen({
             </div>
           )}
 
+        </div>
+
+        {/* Pinned so a short phone never has to scroll to find GPS or the door fields. */}
+        <div style={{ flexShrink: 0, padding: "4px 20px 0" }}>
+          <motion.button
+            custom={1}
+            variants={springReveal}
+            initial="hidden"
+            animate="show"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => void handleGPS()}
+            style={{
+              width: "100%",
+              background: "rgba(0,0,0,0.03)",
+              border: "1.5px solid rgba(0,0,0,0.07)",
+              borderRadius: 14,
+              padding: "10px 12px",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12,
+              marginBottom: hasPicked && !isResolvingAddress ? 8 : 0,
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: 10,
+              background: "rgba(189,35,32,0.1)",
+              border: "1px solid rgba(189,35,32,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <motion.span
+                animate={isDetecting || isGliding ? { rotate: 360 } : { rotate: 0 }}
+                transition={{ duration: 1, repeat: isDetecting || isGliding ? Infinity : 0, ease: "linear" }}
+                style={{ color: "#BD2320", display: "flex" }}
+              >
+                <GPSIcon />
+              </motion.span>
+            </div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <p style={LOC.gpsTitle}>
+                {isDetecting ? "Detecting location…" : isGliding ? "Moving the map…" : "Use current location"}
+              </p>
+              <p style={LOC.gpsSub}>
+                {mode === "delivery-pin" ? `Only if you are in ${DELIVERY_ZONE.name}` : "Detect via GPS"}
+              </p>
+            </div>
+            <span style={{ color: "rgba(0,0,0,0.25)", fontSize: 18 }}>›</span>
+          </motion.button>
+
           {hasPicked && !isResolvingAddress && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="text"
@@ -1462,51 +1492,6 @@ export function LocationScreen({
               />
             </div>
           )}
-
-          {/* Use current location row */}
-          <motion.button
-            custom={3}
-            variants={springReveal}
-            initial="hidden"
-            animate="show"
-            whileTap={{ scale: 0.97 }}
-            onClick={() => void handleGPS()}
-            style={{
-              width: "100%",
-              background: "rgba(0,0,0,0.03)",
-              border: "1.5px solid rgba(0,0,0,0.07)",
-              borderRadius: 14,
-              padding: "12px 14px",
-              cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 12,
-              marginBottom: 14,
-            }}
-          >
-            <div style={{
-              width: 32, height: 32, borderRadius: 10,
-              background: "rgba(189,35,32,0.1)",
-              border: "1px solid rgba(189,35,32,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <motion.span
-                animate={isDetecting || isGliding ? { rotate: 360 } : { rotate: 0 }}
-                transition={{ duration: 1, repeat: isDetecting || isGliding ? Infinity : 0, ease: "linear" }}
-                style={{ color: "#BD2320", display: "flex" }}
-              >
-                <GPSIcon />
-              </motion.span>
-            </div>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <p style={LOC.gpsTitle}>
-                {isDetecting ? "Detecting location…" : isGliding ? "Moving the map…" : "Use current location"}
-              </p>
-              <p style={LOC.gpsSub}>
-                {mode === "delivery-pin" ? `Only if you are in ${DELIVERY_ZONE.name}` : "Detect via GPS"}
-              </p>
-            </div>
-            <span style={{ color: "rgba(0,0,0,0.25)", fontSize: 18 }}>›</span>
-          </motion.button>
         </div>
 
         {/* GPS Error Banner */}
