@@ -178,13 +178,11 @@ import {
   type TurnClassification,
 } from "@/lib/whatsapp-turn";
 import {
-  MENU_SECTION_ORDER,
   categoryDisplayLabel,
   parseCatalogProductId,
   retailerIdForCsvPrefix,
   guessRetailerId,
   publicDishImageUrl,
-  CATEGORY_CAROUSEL_IMAGES,
 } from "@/lib/whatsapp-catalog";
 
 /**
@@ -2425,51 +2423,6 @@ async function rememberDishCards(from: string, dishes: DishPricing[]): Promise<v
   );
 }
 
-async function sendCategoryDishCarousel(
-  from: string,
-  category: string,
-  heading: string,
-  remember = true,
-): Promise<boolean> {
-  const dishes = dishesInCategory(category);
-  if (dishes.length < 2) return false;
-  if (remember) await rememberDishCards(from, dishes);
-  return sendCarousel(from, `${heading}\nTap Add, then pick 500gm or 1kg.`, dishCards(dishes));
-}
-
-async function sendPartitionedMenu(from: string): Promise<boolean> {
-  const shown: DishPricing[] = [];
-  let sent = false;
-  for (const category of MENU_SECTION_ORDER) {
-    const label = categoryDisplayLabel(category);
-    const ok = await sendCategoryDishCarousel(from, category, label, false);
-    if (ok) {
-      sent = true;
-      shown.push(...dishesInCategory(category));
-    }
-  }
-  if (sent) await rememberDishCards(from, shown.slice(0, 10));
-  if (sent) return true;
-
-  const sections = MENU_SECTION_ORDER.map((category) => ({
-    title: categoryDisplayLabel(category),
-    rows: dishesInCategory(category).slice(0, 10).map((dish) => ({
-      id: `add_${dish.retailerId}`,
-      title: formatFullDishName(dish.name).slice(0, 24),
-      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
-    })),
-  })).filter((section) => section.rows.length > 0);
-
-  if (sections.length === 0) return false;
-  await sendList(
-    from,
-    "Chicken, mutton, and egg. Tap a dish, then pick 500gm or 1kg.",
-    "View menu",
-    sections,
-  );
-  return true;
-}
-
 async function sendLookalikeCarousel(from: string, query: string): Promise<void> {
   const category = dishQueryCategory(query);
   const dishes = lookalikeDishes(query);
@@ -2551,8 +2504,6 @@ async function addDishByRetailer(from: string, retailerId: string) {
 
 async function showFullMenu(from: string) {
   await updateSession(from, { state: "browsing_category" });
-  const sent = await sendPartitionedMenu(from);
-  if (sent) return ack();
   return await showCategoryBrowser(from);
 }
 
@@ -2569,32 +2520,6 @@ async function showCategoryBrowser(from: string) {
   }
 
   const lang = langOf(from);
-  const cards = [
-    {
-      id: "cat_chicken",
-      title: BTN.chicken,
-      body: "Pepper, Chilly, Mom's Recipe, Wings.",
-      imageUrl: CATEGORY_CAROUSEL_IMAGES.chicken,
-      buttonTitle: BTN.chicken,
-    },
-    {
-      id: "cat_mutton",
-      title: BTN.mutton,
-      body: "Curries, Keema, Stew, Chukka.",
-      imageUrl: CATEGORY_CAROUSEL_IMAGES.mutton,
-      buttonTitle: BTN.mutton,
-    },
-    {
-      id: "cat_egg",
-      title: BTN.egg,
-      body: "Egg Curry and Egg Chalna.",
-      imageUrl: CATEGORY_CAROUSEL_IMAGES.egg,
-      buttonTitle: BTN.egg,
-    },
-  ];
-  const carouselOk = await sendCarousel(from, buildCategoryListBody(lang), cards);
-  if (carouselOk) return ack();
-
   await sendList(from, buildCategoryListBody(lang), "View Menu", [
     {
       title: "Categories",
@@ -2611,9 +2536,6 @@ async function showCategoryBrowser(from: string) {
 async function showCategoryItems(from: string, cat: string) {
   const lang = langOf(from);
   const catLabel = categoryDisplayLabel(cat);
-  const asCards = await sendCategoryDishCarousel(from, cat, catLabel);
-  if (asCards) return ack();
-
   const items = await getMenuByCategory(cat);
 
   if (items.length === 0) {
@@ -2624,22 +2546,6 @@ async function showCategoryItems(from: string, cat: string) {
   const slice = items.slice(0, 10);
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
-
-  if (slice.length >= 2) {
-    const cards = slice.map((m) => {
-      const formatted = formatFullDishName(m.name);
-      return {
-        id: m.id,
-        title: formatted.length > 20 ? `${formatted.slice(0, 17)}...` : formatted,
-        body: `${formatted}\n${packPriceLine(m)}`.slice(0, 160),
-        imageUrl: publicDishImageUrl(m),
-        buttonTitle: "Choose",
-      };
-    });
-    const carouselOk = await sendCarousel(from, buildCarouselBody(catLabel, lang), cards);
-    if (carouselOk) return ack();
-    console.error(`[WA] carousel failed for ${cat} — falling back to a list.`);
-  }
 
   let body = buildDishListBody(catLabel, lang);
   if (items.length > 10) {
