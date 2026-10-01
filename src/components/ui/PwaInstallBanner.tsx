@@ -47,7 +47,9 @@ export function PwaInstallBanner({ active }: { active: boolean }) {
 
   useEffect(() => {
     const recompute = () => {
-      if (!isMobileViewport() || isAlreadyInstalled()) {
+      // iPhone Camera always opens Safari, and Safari cannot see or launch the
+      // home-screen app. Asking to install there is the sheet in the screenshot.
+      if (!isMobileViewport() || isAlreadyInstalled() || isAppleTouchDevice()) {
         setEligible(false);
         return;
       }
