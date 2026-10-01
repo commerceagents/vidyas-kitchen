@@ -33,12 +33,17 @@ export async function POST(request: Request) {
   const supabase = createServerSupabase();
   const { data: row, error: fe } = await supabase
     .from("orders")
-    .select("id, status")
+    .select("id, status, driver_phone")
     .eq("id", orderId)
     .single();
 
   if (fe || !row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const assigned = normalizeDriverPhone(String(row.driver_phone || ""));
+  if (assigned !== normalizeDriverPhone(auth.driver.phone)) {
+    return NextResponse.json({ error: "This delivery is not assigned to you." }, { status: 403 });
   }
 
   const st = normalizeOrderStatus(String(row.status));
@@ -62,16 +67,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: up.message }, { status: 500 });
   }
 
-  // Orders dispatched before the name columns existed have a blank driver.
-  // The phone that is actually sharing this trip fills that in, without
-  // overwriting a name the dashboard already saved.
+  // The dashboard already stored this driver's phone. Fill a blank name only,
+  // and never attach this phone to a different delivery.
   const driverName = auth.driver.name?.trim() || "";
-  const driverPhone = normalizeDriverPhone(auth.driver.phone);
-  if (driverName && driverPhone) {
+  if (driverName) {
     const { error: named } = await supabase
       .from("orders")
-      .update({ driver_name: driverName, driver_phone: driverPhone })
+      .update({ driver_name: driverName })
       .eq("id", orderId)
+      .eq("driver_phone", row.driver_phone)
       .is("driver_name", null);
     if (named) console.error("[driver/location] driver name", named.message);
   }

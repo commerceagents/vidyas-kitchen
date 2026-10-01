@@ -7,6 +7,27 @@ import {
   signDriverSession,
   verifyDriverPin,
 } from "@/lib/driver-auth";
+import {
+  authLockSeconds,
+  clearAuthFailures,
+  registerAuthFailure,
+  requestIdentifier,
+} from "@/lib/auth-throttle";
+
+const SCOPE_PHONE = "driver_pin";
+const SCOPE_IP = "driver_pin_ip";
+
+function lockedResponse(seconds: number) {
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  return NextResponse.json(
+    {
+      error: `Too many wrong PINs. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      locked: true,
+      retryAfter: seconds,
+    },
+    { status: 429, headers: { "Retry-After": String(seconds) } },
+  );
+}
 
 type DriverRow = {
   id: string;
@@ -30,6 +51,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter your phone and 4–6 digit PIN" }, { status: 400 });
   }
 
+  const ip = requestIdentifier(request);
+  const phoneLock = await authLockSeconds(SCOPE_PHONE, phoneKey);
+  if (phoneLock > 0) return lockedResponse(phoneLock);
+  const ipLock = await authLockSeconds(SCOPE_IP, ip);
+  if (ipLock > 0) return lockedResponse(ipLock);
+
+  const fail = async () => {
+    const lock = Math.max(
+      await registerAuthFailure(SCOPE_PHONE, phoneKey),
+      await registerAuthFailure(SCOPE_IP, ip),
+    );
+    if (lock > 0) return lockedResponse(lock);
+    return NextResponse.json({ error: "Wrong phone or PIN" }, { status: 401 });
+  };
+
   try {
     const supabase = createServerSupabase();
     const { data, error } = await supabase
@@ -51,12 +87,12 @@ export async function POST(request: Request) {
       (d) => d.is_active !== false && normalizeDriverPhone(d.phone) === phoneKey,
     );
 
-    if (!match?.pin_hash) {
-      return NextResponse.json({ error: "Wrong phone or PIN" }, { status: 401 });
+    if (!match?.pin_hash || !verifyDriverPin(pin, match.pin_hash)) {
+      return await fail();
     }
-    if (!verifyDriverPin(pin, match.pin_hash)) {
-      return NextResponse.json({ error: "Wrong phone or PIN" }, { status: 401 });
-    }
+
+    await clearAuthFailures(SCOPE_PHONE, phoneKey);
+    await clearAuthFailures(SCOPE_IP, ip);
 
     // Mark that they have successfully installed and used the app
     await supabase.from("drivers").update({ has_installed_app: true }).eq("id", match.id);

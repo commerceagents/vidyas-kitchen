@@ -10,6 +10,7 @@ import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { formatFullDishName } from "@/lib/dish-name";
 import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-status";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
+import { getVkToken } from "@/lib/vk-session";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 
 const fontUi = C.mono;
@@ -98,8 +99,10 @@ export function OrderReceiptSheet({
     let cancelled = false;
     void (async () => {
       try {
+        const token = await getVkToken().catch(() => null);
         const res = await fetch(
           `/api/orders/status?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(customerPhone)}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
         );
         const data = (await res.json().catch(() => ({}))) as Receipt & { error?: string };
         if (cancelled) return;

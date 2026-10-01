@@ -23,6 +23,7 @@ import {
   type SavedPlace,
 } from "@/lib/vk-saved-places";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
+import { getVkToken } from "@/lib/vk-session";
 import { FavoritesSheet, type FavoriteRow } from "@/components/ui/mobile/FavoritesSheet";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
@@ -1973,7 +1974,10 @@ export function MobileHomeScreen({
         const q = new URLSearchParams({ orderId: trackingOrderId });
         if (giftTrackToken) q.set("gift", giftTrackToken);
         if (phone.length >= 10) q.set("phone", phone);
-        const res = await fetch(`/api/orders/status?${q}`);
+        const token = await getVkToken().catch(() => null);
+        const res = await fetch(`/api/orders/status?${q}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         if (!res.ok) throw new Error(String(data.error || "Could not load order"));
         if (!cancelled) {
@@ -2010,9 +2014,12 @@ export function MobileHomeScreen({
       if (!trackingOrderId || customerPhone.trim().length < 10) return;
       setRatingSending(true);
       try {
+        const token = await getVkToken().catch(() => null);
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers.Authorization = `Bearer ${token}`;
         const res = await fetch("/api/orders/rating", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             orderId: trackingOrderId,
             phone: customerPhone.trim(),
@@ -2023,7 +2030,9 @@ export function MobileHomeScreen({
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) throw new Error(data.error || "Could not save");
         const q = new URLSearchParams({ orderId: trackingOrderId, phone: customerPhone.trim() });
-        const snap = await fetch(`/api/orders/status?${q}`);
+        const statusHeaders: Record<string, string> = {};
+        if (token) statusHeaders.Authorization = `Bearer ${token}`;
+        const snap = await fetch(`/api/orders/status?${q}`, { headers: statusHeaders });
         const j = (await snap.json().catch(() => ({}))) as Record<string, unknown>;
         if (snap.ok) setTrackSnap(toTrackSnapshot(j));
         setRatingCommentDraft("");

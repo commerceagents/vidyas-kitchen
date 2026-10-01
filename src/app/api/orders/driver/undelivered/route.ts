@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { markOrderUndelivered } from "@/lib/order-transition";
 import { COD_FAILURE_REASONS, type CodFailureReason } from "@/lib/order-status";
 
@@ -36,6 +36,15 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createServerSupabase();
+    const { data: existing } = await supabase
+      .from("orders")
+      .select("driver_phone")
+      .eq("id", orderId)
+      .maybeSingle();
+    const assigned = normalizeDriverPhone(String(existing?.driver_phone || ""));
+    if (assigned !== normalizeDriverPhone(auth.driver.phone)) {
+      return NextResponse.json({ error: "This delivery is not assigned to you." }, { status: 403 });
+    }
     const result = await markOrderUndelivered(supabase, orderId, reason);
     if (!result.ok) {
       console.error("[driver/undelivered]", result.error);

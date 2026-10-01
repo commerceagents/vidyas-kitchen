@@ -67,12 +67,6 @@ export type PhoneAuthResult = { ok: true } | { ok: false; status: number; error:
 export async function authorizePhone(request: Request, phone: string): Promise<PhoneAuthResult> {
   if (isTestBypassPhone(phone)) return { ok: true };
 
-  if (!firebaseAuthAvailable()) {
-    // No Firebase configured at all — a local dev setup, where every login is
-    // a bypass anyway. Refusing here would make the feature untestable.
-    return { ok: true };
-  }
-
   const token = bearerToken(request);
   if (!token) return { ok: false, status: 401, error: "Please sign in again to make changes." };
 

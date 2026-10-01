@@ -801,7 +801,8 @@ export async function POST(req: Request) {
         trimmedText,
       ) &&
       !trimmedText.includes("?") &&
-      trimmedText.split(/\s+/).length <= 3;
+      trimmedText.split(/\s+/).length <= 3 &&
+      !asksAboutExistingOrder(trimmedText);
     const isMenuCmd =
       /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower) || /^order$/i.test(lower);
     const isCartCmd = /^(cart|my cart|view cart)\b/i.test(lower);
@@ -2671,12 +2672,18 @@ async function showFullMenu(from: string) {
   const shown: DishPricing[] = [];
   let sent = false;
   for (const category of MENU_SECTION_ORDER) {
-    const dishes = dishesInCategory(category);
-    if (dishes.length < 2) continue;
-    const ok = await sendCarousel(
+    const dishes = dishesInCategory(category).slice(0, 10);
+    if (dishes.length === 0) continue;
+    const rows = dishes.map((dish) => ({
+      id: `add_${dish.retailerId}`,
+      title: formatFullDishName(dish.name).slice(0, 24),
+      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
+    }));
+    const ok = await sendList(
       from,
-      `${categoryDisplayLabel(category)}\nEach dish is listed once. Tap Choose size.`,
-      dishCards(dishes),
+      `${categoryDisplayLabel(category)}\nTap a dish, then pick 500gm or 1kg.`,
+      "View menu",
+      [{ title: categoryDisplayLabel(category).slice(0, 24), rows }],
     );
     if (ok) {
       sent = true;
@@ -2727,17 +2734,24 @@ async function showCategoryItems(from: string, cat: string) {
     return ack();
   }
 
+  const dishes = dishesInCategory(cat).slice(0, 10);
+  if (dishes.length > 0) {
+    await rememberDishCards(from, dishes);
+    await updateSession(from, { state: "picking_item" });
+    const rows = dishes.map((dish) => ({
+      id: `add_${dish.retailerId}`,
+      title: formatFullDishName(dish.name).slice(0, 24),
+      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
+    }));
+    await sendList(from, `${catLabel}\nTap a dish, then pick 500gm or 1kg.`, "View menu", [
+      { title: catLabel.slice(0, 24), rows },
+    ]);
+    return ack();
+  }
+
   const slice = items.slice(0, 10);
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
-
-  const dishes = dishesInCategory(cat);
-  if (dishes.length >= 2) {
-    await rememberDishCards(from, dishes);
-    const ok = await sendCarousel(from, `${catLabel}\nEach dish is listed once. Tap Choose size.`, dishCards(dishes));
-    if (ok) return ack();
-  }
-
   let body = buildDishListBody(catLabel, lang);
   if (items.length > 10) {
     body += `\n\n${buildAppNudgeFooter(lang)}`;

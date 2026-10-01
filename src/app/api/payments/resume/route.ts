@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import Razorpay from "razorpay";
+import { authorizePhone } from "@/lib/firebase-verify";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -25,6 +26,11 @@ export async function GET(request: Request) {
 
   if (!isUuid(orderId) || phoneKey(phone).length < 10) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const auth = await authorizePhone(request, phone);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const supabase = createServerSupabase();

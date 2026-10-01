@@ -93,6 +93,7 @@ export async function transitionOrderStatusInDb(
   // then contradicts itself minutes later. /api/orders/assign-driver alerts the
   // one driver who is actually taking it.
 
+  let refundStatus: string | null = null;
   if (next === OrderStatus.REJECTED || next === OrderStatus.CANCELLED) {
     const paymentId = (row as { payment_id?: string | null }).payment_id;
     const totalAmount = (row as { total_amount?: number | null }).total_amount;
@@ -113,9 +114,6 @@ export async function transitionOrderStatusInDb(
         return { ok: false as const, error: "Refund exception" };
       });
       if (!refResult.ok) {
-        // The customer has already been messaged that their money is coming
-        // back, so a silent failure here is money quietly stuck. Loud log plus
-        // a dashboard badge so someone retries it by hand in Razorpay.
         console.error(`[order-transition] REFUND FAILED order=${orderId} payment=${paymentId}: ${refResult.error}`);
       }
       await supabase
@@ -126,6 +124,7 @@ export async function transitionOrderStatusInDb(
           refund_id: refResult.ok ? refResult.refundId : null,
         })
         .eq("id", orderId);
+      refundStatus = refResult.ok ? "refunded" : "refund_failed";
     }
   }
 
@@ -142,6 +141,7 @@ export async function transitionOrderStatusInDb(
       total_amount: (row as { total_amount?: number | null }).total_amount ?? null,
       payment_method: paymentMethod || null,
       payment_status: (row as { payment_status?: string | null }).payment_status ?? null,
+      refund_status: refundStatus,
     });
   } catch (e) {
     console.error("[order-transition] WhatsApp notify failed", e);

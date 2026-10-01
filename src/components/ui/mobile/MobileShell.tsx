@@ -571,7 +571,10 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/profile?phone=${encodeURIComponent(phone)}`);
+        const token = await getVkToken().catch(() => null);
+        const res = await fetch(`/api/profile?phone=${encodeURIComponent(phone)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!res.ok) return;
         const data = (await res.json()) as {
           name?: string | null;
@@ -761,9 +764,13 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
       setAddressSaveError(null);
       void (async () => {
         try {
+          const token = await getVkToken().catch(() => null);
           const res = await fetch("/api/orders/address", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ orderId, phone, address: loc.label, lat: loc.lat, lng: loc.lng }),
           });
           const data = (await res.json().catch(() => ({}))) as { error?: string };

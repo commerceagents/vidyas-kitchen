@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { requireDriverSession } from "@/lib/driver-auth";
+import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { transitionOrderStatusInDb, markCodCollected } from "@/lib/order-transition";
 import { normalizeOrderStatus, OrderStatus, PaymentStatus } from "@/lib/order-status";
 import { haversineMeters } from "@/lib/geo";
@@ -52,12 +52,17 @@ export async function POST(request: Request) {
   const supabase = createServerSupabase();
   const { data: row, error: fe } = await supabase
     .from("orders")
-    .select("id, status, delivery_lat, delivery_lng, payment_method, payment_status")
+    .select("id, status, delivery_lat, delivery_lng, payment_method, payment_status, driver_phone")
     .eq("id", orderId)
     .single();
 
   if (fe || !row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const assigned = normalizeDriverPhone(String(row.driver_phone || ""));
+  if (assigned !== normalizeDriverPhone(auth.driver.phone)) {
+    return NextResponse.json({ error: "This delivery is not assigned to you." }, { status: 403 });
   }
 
   const st = normalizeOrderStatus(String(row.status));

@@ -31,6 +31,9 @@ export async function GET(request: Request) {
   const phone = toE164(new URL(request.url).searchParams.get("phone") || "");
   if (!phone) return NextResponse.json({ error: "Invalid phone" }, { status: 400 });
 
+  const auth = await authorizePhone(request, phone);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const supabase = createServerSupabase();
     const { data, error } = await supabase

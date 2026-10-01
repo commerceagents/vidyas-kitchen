@@ -15,8 +15,9 @@ function bucket(ts: number) {
   return Math.floor(ts / (WINDOW_SECS * 1000));
 }
 
-function otpForBucket(phone: string, b: number): string {
-  const secret = process.env.VK_OTP_SECRET ?? "dev-otp-secret-change-in-production";
+function otpForBucket(phone: string, b: number): string | null {
+  const secret = process.env.VK_OTP_SECRET?.trim();
+  if (!secret) return null;
   const mac = createHmac("sha256", secret)
     .update(`${phone}:${b}`)
     .digest("hex");
@@ -24,15 +25,15 @@ function otpForBucket(phone: string, b: number): string {
   return String(num % 1_000_000).padStart(6, "0");
 }
 
-export function generateOtp(phone: string, ts = Date.now()): string {
+export function generateOtp(phone: string, ts = Date.now()): string | null {
   return otpForBucket(phone, bucket(ts));
 }
 
 /** Returns true if `code` matches the current or previous 5-minute window. */
 export function verifyOtp(phone: string, code: string): boolean {
   const now = Date.now();
-  return (
-    code === otpForBucket(phone, bucket(now)) ||
-    code === otpForBucket(phone, bucket(now) - 1)
-  );
+  const current = otpForBucket(phone, bucket(now));
+  const previous = otpForBucket(phone, bucket(now) - 1);
+  if (!current || !previous) return false;
+  return code === current || code === previous;
 }

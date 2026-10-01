@@ -109,6 +109,7 @@ type NotifyOrderRow = {
   total_amount?: number | null;
   payment_method?: string | null;
   payment_status?: string | null;
+  refund_status?: string | null;
   /** Set for the synthetic cod_collected / undelivered events. */
   cod_failure_reason?: string | null;
 };
@@ -505,6 +506,9 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const isCod = String(order.payment_method || "").toLowerCase() === "cod";
   const wasPaid =
     !isCod && String(order.payment_status || "").toLowerCase() === "paid";
+  const refundStatus = String(order.refund_status || "");
+  const refundStarted = wasPaid && refundStatus === "refunded";
+  const refundFailed = wasPaid && refundStatus === "refund_failed";
   const amtStr = order.total_amount != null ? formatInr(Number(order.total_amount)) : "the order amount";
   const lang = (await loadWaLang(to)) ?? undefined;
   const bill = await loadOrderBill(order);
@@ -629,7 +633,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
         "cancelled",
         await sendCtaUrl(
           to,
-          notifyOrderCancelled(short, lang, wasPaid ? { amount: amtStr } : null),
+          notifyOrderCancelled(short, lang, refundStarted ? { amount: amtStr } : null, refundFailed),
           trackUrl,
           BTN.track,
           { headerImageUrl: cancelledOrderImageUrl(bill, "cancelled") },
@@ -641,7 +645,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
         "rejected",
         await sendCtaUrl(
           to,
-          notifyOrderRejected(short, amtStr, wasPaid, lang),
+          notifyOrderRejected(short, amtStr, refundStarted, lang, refundFailed),
           trackUrl,
           BTN.track,
           { headerImageUrl: cancelledOrderImageUrl(bill, "rejected") },

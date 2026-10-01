@@ -1509,14 +1509,25 @@ export function ratingCommentThanks(lang?: WaLang): string {
   );
 }
 
-export function notifyOrderCancelled(shortId: string, lang?: WaLang, refund?: { amount: string } | null): string {
+export function notifyOrderCancelled(
+  shortId: string,
+  lang?: WaLang,
+  refund?: { amount: string } | null,
+  refundFailed = false,
+): string {
   const refundLine = refund
     ? pickLang(
         lang,
         `A full refund of *${refund.amount}* — food, packaging, delivery and GST — is going back to the same UPI or card you paid with. Usually 5 to 7 working days; often faster on UPI.`,
         `*${refund.amount}* full refund — food, packing, delivery, GST — neenga pay panna UPI / card-ku thirumbi pogum. Usually 5 to 7 working days; UPI-la often faster.`,
       )
-    : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
+    : refundFailed
+      ? pickLang(
+          lang,
+          "The refund did not start. The kitchen will sort it and message you.",
+          "Refund start aagala. Kitchen paathu message pannuvom.",
+        )
+      : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
   return pickLang(
     lang,
     msg({
@@ -1530,14 +1541,26 @@ export function notifyOrderCancelled(shortId: string, lang?: WaLang, refund?: { 
   );
 }
 
-export function notifyOrderRejected(shortId: string, amtStr: string, wasPaid = true, lang?: WaLang): string {
+export function notifyOrderRejected(
+  shortId: string,
+  amtStr: string,
+  wasPaid = true,
+  lang?: WaLang,
+  refundFailed = false,
+): string {
   const refundLine = wasPaid
     ? pickLang(
         lang,
         `A full refund of *${amtStr}* — food, packaging, delivery and GST — is going back to the same UPI or card you paid with. Usually 5 to 7 working days; often faster on UPI.`,
         `*${amtStr}* full refund — food, packing, delivery, GST — neenga pay panna UPI / card-ku thirumbi pogum. Usually 5 to 7 working days; UPI-la often faster.`,
       )
-    : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
+    : refundFailed
+      ? pickLang(
+          lang,
+          "The refund did not start. The kitchen will sort it and message you.",
+          "Refund start aagala. Kitchen paathu message pannuvom.",
+        )
+      : pickLang(lang, "You have not been charged.", "Ungalukku charge aagala.");
   return pickLang(
     lang,
     msg({

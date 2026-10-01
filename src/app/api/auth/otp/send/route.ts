@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { generateOtp } from "@/lib/vk-otp";
 import { isTestBypassPhone, toE164Phone } from "@/lib/test-numbers";
+import { authLockSeconds, registerAuthFailure, requestIdentifier } from "@/lib/auth-throttle";
 import twilio from "twilio";
+
+const SCOPE_PHONE = "otp_send";
+const SCOPE_IP = "otp_send_ip";
+
+function lockedResponse(seconds: number) {
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  return NextResponse.json(
+    {
+      error: `Too many codes sent. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      retryAfter: seconds,
+    },
+    { status: 429, headers: { "Retry-After": String(seconds) } },
+  );
+}
 
 /**
  * POST /api/auth/otp/send
@@ -35,6 +50,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  const phoneLock = await authLockSeconds(SCOPE_PHONE, phone);
+  if (phoneLock > 0) return lockedResponse(phoneLock);
+  const ipLock = await authLockSeconds(SCOPE_IP, requestIdentifier(request));
+  if (ipLock > 0) return lockedResponse(ipLock);
+
+  if (!process.env.VK_OTP_SECRET?.trim()) {
+    return NextResponse.json(
+      { error: "Sign-in codes are not configured. Contact support." },
+      { status: 503 },
+    );
+  }
+
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM_NUMBER;
@@ -47,6 +74,12 @@ export async function POST(request: Request) {
   }
 
   const otp = generateOtp(phone);
+  if (!otp) {
+    return NextResponse.json(
+      { error: "Sign-in codes are not configured. Contact support." },
+      { status: 503 },
+    );
+  }
   const host = (process.env.NEXT_PUBLIC_APP_HOST ?? "vidyaskitchenhome.com").replace(/^https?:\/\//, "");
 
   const message =
@@ -55,6 +88,8 @@ export async function POST(request: Request) {
   try {
     const client = twilio(sid, authToken);
     await client.messages.create({ body: message, from, to: phone });
+    await registerAuthFailure(SCOPE_PHONE, phone);
+    await registerAuthFailure(SCOPE_IP, requestIdentifier(request));
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[otp/send]", e);

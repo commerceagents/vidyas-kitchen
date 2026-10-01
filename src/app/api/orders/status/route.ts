@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { verifyGiftTrackToken } from "@/lib/gift-track";
+import { authorizePhone } from "@/lib/firebase-verify";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -59,8 +60,14 @@ export async function GET(request: Request) {
     const buyerOk = phoneKey(phone).length >= 10 && phoneKey(String(row.phone_number || "")) === phoneKey(phone);
     const recPhone = String((row as { recipient_phone?: string | null }).recipient_phone || "");
     const giftOk = Boolean(gift) && verifyGiftTrackToken(orderId, recPhone, gift);
-    if (!buyerOk && !giftOk) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!giftOk) {
+      const auth = await authorizePhone(request, phone);
+      if (!auth.ok) {
+        return NextResponse.json({ error: auth.error }, { status: auth.status });
+      }
+      if (!buyerOk) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
     }
 
     const rawItems = (row as { order_items?: unknown }).order_items;

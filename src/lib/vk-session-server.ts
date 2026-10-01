@@ -8,8 +8,9 @@
 
 import { SignJWT, jwtVerify } from "jose";
 
-function secretKey(): Uint8Array {
-  const raw = process.env.VK_SESSION_SECRET ?? "dev-session-secret-change-in-production";
+function secretKey(): Uint8Array | null {
+  const raw = process.env.VK_SESSION_SECRET?.trim();
+  if (!raw) return null;
   return new TextEncoder().encode(raw);
 }
 
@@ -18,18 +19,22 @@ export interface VkSession {
   name: string;
 }
 
-export async function signSessionToken(session: VkSession): Promise<string> {
+export async function signSessionToken(session: VkSession): Promise<string | null> {
+  const key = secretKey();
+  if (!key) return null;
   return new SignJWT({ phone: session.phone, name: session.name })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secretKey());
+    .sign(key);
 }
 
 /** Returns the session payload or null if the token is invalid / expired. */
 export async function verifySessionToken(token: string): Promise<VkSession | null> {
+  const key = secretKey();
+  if (!key) return null;
   try {
-    const { payload } = await jwtVerify(token, secretKey());
+    const { payload } = await jwtVerify(token, key);
     const phone = typeof payload.phone === "string" ? payload.phone : null;
     if (!phone) return null;
     const name = typeof payload.name === "string" ? payload.name : "Guest";

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { DELIVERY_SLOT_TIMEZONE } from "@/lib/delivery-slots";
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
+import { getVkToken } from "@/lib/vk-session";
 import { codFailureLabel, formatOrderRef } from "@/lib/order-status";
 import { Motorcycle, Money, MapPin, PencilSimple, CookingPot, CheckCircle, Package, BowlFood, Phone, User } from "@phosphor-icons/react";
 import { createPortal } from "react-dom";
@@ -1084,8 +1085,10 @@ export function OrderTrackingPanel({
     setResumeFetching(true);
     try {
       const phone = customerPhone.trim();
+      const token = await getVkToken().catch(() => null);
       const res = await fetch(
         `/api/payments/resume?orderId=${encodeURIComponent(trackingOrderId)}&phone=${encodeURIComponent(phone)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
       );
       const data = (await res.json().catch(() => ({}))) as { paymentUrl?: string; error?: string };
       if (!res.ok || !data.paymentUrl) {
@@ -1104,9 +1107,13 @@ export function OrderTrackingPanel({
     setCancelErr(null);
     setCancelSubmitting(true);
     try {
+      const token = await getVkToken().catch(() => null);
       const res = await fetch("/api/orders/cancel", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ orderId: trackingOrderId, phone }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };

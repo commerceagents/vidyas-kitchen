@@ -32,9 +32,15 @@ export async function POST(request: Request) {
 
   const name = (typeof body.name === "string" ? body.name.trim().slice(0, 40) : "") || "Guest";
 
-  // Test bypass phones and unconfigured-OTP-secret environments skip code check.
-  const skipVerify = isTestBypassPhone(phone) || !process.env.VK_OTP_SECRET;
-  if (!skipVerify && !verifyOtp(phone, code)) {
+  // Test numbers never receive an SMS. A missing OTP secret must not accept
+  // whatever 6 digits the caller typed.
+  if (!isTestBypassPhone(phone) && !process.env.VK_OTP_SECRET?.trim()) {
+    return NextResponse.json(
+      { error: "Sign-in codes are not configured. Contact support." },
+      { status: 503 },
+    );
+  }
+  if (!isTestBypassPhone(phone) && !verifyOtp(phone, code)) {
     return NextResponse.json(
       { error: "Incorrect or expired code. Try again." },
       { status: 400 },
@@ -55,5 +61,11 @@ export async function POST(request: Request) {
   }
 
   const token = await signSessionToken({ phone, name });
+  if (!token) {
+    return NextResponse.json(
+      { error: "Sign-in is not configured. Contact support." },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ ok: true, token });
 }
