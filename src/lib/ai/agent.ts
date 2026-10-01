@@ -907,6 +907,7 @@ ORDERING
   and the customer confirms with a tap. Do not invent prices or promise a slot.
 - Use search_menu when you are unsure a dish exists or which one they mean.
 - Use get_orders for "where is my order" style questions.
+- When a tap would actually help, call offer_choices with 1 to 3 ids. Pick only what follows from this answer: a price question might offer the menu, a lost order might offer tracking, a complaint might offer help or a call. Do not offer checkout or add_more unless they are already ordering. A plain fact needs no taps. Never invent an id.
 
 CURRENT STATE
 - Time now (IST): ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
@@ -933,6 +934,42 @@ ${context}`;
             name: "get_orders",
             description: "This customer's recent orders and their current status. Read-only.",
             parameters: { type: "object", properties: {} },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "offer_choices",
+            description:
+              "Offer up to 3 next taps that fit the answer you just gave. Omit the call when no tap would help.",
+            parameters: {
+              type: "object",
+              properties: {
+                choices: {
+                  type: "array",
+                  maxItems: 3,
+                  items: {
+                    type: "string",
+                    enum: [
+                      "browse_menu",
+                      "buy_usual",
+                      "help_support",
+                      "track_order",
+                      "cat_chicken",
+                      "cat_mutton",
+                      "cat_egg",
+                      "checkout",
+                      "add_more",
+                      "pay_online",
+                      "pay_cod",
+                      "hs_call",
+                      "open_app",
+                    ],
+                  },
+                },
+              },
+              required: ["choices"],
+            },
           },
         },
         {
@@ -976,6 +1013,7 @@ ${context}`;
 
       let reply = "";
       let proposalDraft: ProposalDraft | null = null;
+      const offeredIds: string[] = [];
 
       // Two rounds is enough for "look it up, then answer". More than that and
       // the customer is waiting on a webhook that Meta will retry.
@@ -999,6 +1037,21 @@ ${context}`;
         for (const call of calls) {
           if (call.type !== "function") continue;
           const args = safeJson(call.function.arguments);
+
+          if (call.function.name === "offer_choices") {
+            const raw = (args as { choices?: unknown }).choices;
+            if (Array.isArray(raw)) {
+              for (const id of raw) {
+                if (typeof id === "string" && !offeredIds.includes(id)) offeredIds.push(id);
+              }
+            }
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: "Choices noted. The server will show only the ones it recognises. Finish the written answer if you have not already.",
+            });
+            continue;
+          }
 
           if (call.function.name === "propose_order") {
             proposalDraft = args as ProposalDraft;
@@ -1053,7 +1106,9 @@ ${context}`;
         shouldSendAppCta: false,
         shouldShowHelpList: false,
         helpListRows: [] as HelpListRow[],
-        buttons: isGreeting ? await this.getMainActionButtons(phoneNumber) : [],
+        buttons: isGreeting
+          ? await this.getMainActionButtons(phoneNumber)
+          : offeredIds.slice(0, 3).map((id) => ({ id, title: id })),
         menuItems: menu.slice(0, 10),
         headerImage: isGreeting ? welcomeLogoImageUrl() : undefined,
         paymentLink: null as string | null,

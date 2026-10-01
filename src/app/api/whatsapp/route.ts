@@ -1602,10 +1602,7 @@ async function answerWithVidya(
   profileName: string,
 ): Promise<{ kind: "skip" } | { kind: "said" } | { kind: "done"; response: Response }> {
   const words = text.trim().split(/\s+/).filter(Boolean);
-  const asking =
-    text.includes("?") ||
-    /^(what|when|where|why|how|who|can|could|do|does|is|are|will|would|should)\b/i.test(text.trim()) ||
-    words.length >= 4;
+  const asking = text.includes("?") || words.length >= 2;
   if (!asking) return { kind: "skip" };
 
   const session = await getSession(from);
@@ -1948,44 +1945,51 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     return await showCart(from, session.cart);
   }
 
-  if (result.reply) {
-    await sendText(from, result.reply);
-  }
-
   // A draft means they were trying to order. Price it here — the model has
   // never seen a price and is not allowed to quote one.
   if (result.proposalDraft) {
+    if (result.reply) await sendText(from, result.reply);
     await updateSession(from, { recent_turns: turnsWithDraft(turns, result.proposalDraft) });
     return await presentProposal(from, result.proposalDraft, text);
   }
 
-  // Buttons only when they asked to order or for help. A price answer that
-  // happens to name a dish should stay a sentence.
-  const menusignals = /\b(menu|order|browse)\b/i;
-  const helpsignals = /\b(help|support|complaint|refund|problem)\b/i;
-  const isMenuRelated = menusignals.test(text);
-  const isHelpRelated = helpsignals.test(text) && !isMenuRelated;
-
-  if (isMenuRelated) {
-    const buttons = [
-      { id: "browse_menu", title: BTN.menu },
-      { id: "help_support", title: BTN.help },
-    ];
-    await storeOptions(from, buttons);
-    await sendButtons(from, aiFollowupPrompt(langOf(from)), buttons);
-  } else if (isHelpRelated) {
-    const buttons = [
-      { id: "help_support", title: BTN.help },
-      { id: "browse_menu", title: BTN.menu },
-    ];
-    await storeOptions(from, buttons);
-    await sendButtons(from, aiFollowupPrompt(langOf(from)), buttons);
+  const choices = agentChoices(result.buttons);
+  if (result.reply && choices.length > 0) {
+    await storeOptions(from, choices);
+    await sendButtons(from, result.reply, choices);
+  } else if (result.reply) {
+    await sendText(from, result.reply);
   }
-  // For pure Q&A (hours, location, allergens, FAQs…) no follow-up buttons
-  // are needed — just let the customer continue the conversation naturally.
 
   await updateSession(from, { state: "idle", recent_turns: turns });
   return ack();
+}
+
+/** Titles for the taps Vidya is allowed to offer. Anything else is dropped. */
+function agentChoices(buttons: { id: string; title: string }[] | undefined) {
+  const titles: Record<string, string> = {
+    browse_menu: BTN.menu,
+    buy_usual: BTN.buyUsual,
+    help_support: BTN.help,
+    track_order: BTN.track,
+    cat_chicken: BTN.chicken,
+    cat_mutton: BTN.mutton,
+    cat_egg: BTN.egg,
+    checkout: BTN.checkout,
+    add_more: BTN.addMore,
+    pay_online: BTN.payOnline,
+    pay_cod: BTN.payCash,
+    hs_call: BTN.callUs,
+    open_app: BTN.openApp,
+  };
+  const chosen: { id: string; title: string }[] = [];
+  for (const button of buttons || []) {
+    const title = titles[button.id];
+    if (!title || chosen.some((row) => row.id === button.id)) continue;
+    chosen.push({ id: button.id, title });
+    if (chosen.length === 3) break;
+  }
+  return chosen;
 }
 
 /** Price and rule-check a draft, then either ask for what's missing or show it. */
