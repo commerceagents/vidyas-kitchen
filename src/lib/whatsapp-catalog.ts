@@ -196,6 +196,45 @@ export function catalogMenuSections(): { sections: ProductSection[]; truncated: 
   return { sections, truncated };
 }
 
+/**
+ * Add-more drawers. Each heading is one pack size, and the rows under it are
+ * that size only. WhatsApp allows 30 rows in one drawer, so chicken is its
+ * own drawer and mutton plus egg are the next.
+ */
+export function catalogPackDrawers(): ProductSection[][] {
+  const sections: ProductSection[] = [];
+  for (const category of MENU_SECTION_ORDER) {
+    const dishes = allDishPricing().filter((dish) => dish.category === category);
+    for (const size of ["500gm", "1kg"] as const) {
+      const index = size === "500gm" ? 0 : 1;
+      const ids = dishes
+        .map((dish) => catalogProductIdsForRetailer(dish.retailerId)[index])
+        .filter((id): id is string => Boolean(id));
+      if (ids.length === 0) continue;
+      sections.push({
+        title: `${categoryDisplayLabel(category)} (${size})`.slice(0, 24),
+        productRetailerIds: ids,
+      });
+    }
+  }
+
+  const drawers: ProductSection[][] = [];
+  let current: ProductSection[] = [];
+  let count = 0;
+  for (const section of sections) {
+    const rows = section.productRetailerIds.length;
+    if (current.length > 0 && count + rows > MPM_MAX_PRODUCTS) {
+      drawers.push(current);
+      current = [];
+      count = 0;
+    }
+    current.push(section);
+    count += rows;
+  }
+  if (current.length > 0) drawers.push(current);
+  return drawers;
+}
+
 /** Catalog sections for one category, used by the per-category screen. */
 export function catalogSectionForCategory(category: string): ProductSection | null {
   const dishes = allDishPricing()

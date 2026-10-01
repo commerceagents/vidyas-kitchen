@@ -25,6 +25,7 @@ import {
   sendCtaUrl,
   sendList,
   sendCarousel,
+  sendProductList,
   sendLocationRequest,
 } from "@/lib/whatsapp-send";
 import { fromMetaWebhook } from "@/lib/meta-whatsapp";
@@ -182,6 +183,8 @@ import {
   retailerIdForCsvPrefix,
   guessRetailerId,
   publicDishImageUrl,
+  whatsappCatalogId,
+  catalogPackDrawers,
 } from "@/lib/whatsapp-catalog";
 
 /**
@@ -535,7 +538,7 @@ function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalD
 }
 
 const BOT_REPLY_ID =
-  /^(add_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
+  /^(add_|addmore_|szsec_|sz500_|sz1kg_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
 
 function isBotReplyId(value: string): boolean {
   return BOT_REPLY_ID.test(value);
@@ -979,6 +982,14 @@ async function handleResolvedId(
   if (booked) {
     return await applyBookedSlot(from, booked[1], booked[2] as DeliverySlotKind);
   }
+  if (id === "add_more") return await showAddMoreChoice(from);
+  if (id === "addmore_menu") return await showSizedMenu(from);
+  const sizedSection = id.match(/^szsec_(chicken|mutton|egg)_(500gm|1kg)$/);
+  if (sizedSection) return await showSizedSectionItems(from, sizedSection[1], sizedSection[2] as PackSize);
+  const sizedDish = id.match(/^sz(500|1kg)_(.+)$/);
+  if (sizedDish) {
+    return await addDishAtSize(from, sizedDish[2], sizedDish[1] === "1kg" ? "1kg" : "500gm");
+  }
   if (id.startsWith("add_")) {
     return await addDishByRetailer(from, id.slice(4));
   }
@@ -1049,7 +1060,7 @@ async function handleResolvedId(
       }
       return await afterCartReady(from, session);
     case "add_more":
-      return await showCategoryBrowser(from);
+      return await showAddMoreChoice(from);
     case "clear_cart":
       await dropCartDraft(from, session, []);
       await sendText(from, buildCartMessage([], langOf(from)));
@@ -1653,8 +1664,8 @@ async function handleCartReview(from: string, text: string, session: WhatsAppSes
     }
     return await afterCartReady(from, session);
   }
-  if (resolved === "add_more" || num === 2) {
-    return await showCategoryBrowser(from);
+  if (resolved === "add_more" || num === 2 || /^add more$/i.test(text.trim())) {
+    return await showAddMoreChoice(from);
   }
   if (resolved === "clear_cart" || num === 3) {
     await dropCartDraft(from, session, []);
@@ -2497,6 +2508,96 @@ async function addDishByRetailer(from: string, retailerId: string) {
       image_url: pricing.imagePath,
     } satisfies MenuItem);
   return await showVariantPicker(from, item);
+}
+
+async function showAddMoreChoice(from: string) {
+  const buttons = [{ id: "addmore_menu", title: "Menu" }];
+  await updateSession(from, { state: "cart_review" });
+  await storeOptions(from, buttons);
+  await sendButtons(from, "Tap Menu to add another dish. Your cart stays as it is.", buttons);
+  return ack();
+}
+
+async function showSizedMenu(from: string) {
+  const catalogId = whatsappCatalogId();
+  const drawers = catalogPackDrawers();
+  if (catalogId && drawers.length > 0) {
+    let sent = false;
+    for (const sections of drawers) {
+      const names = [...new Set(sections.map((section) => section.title.replace(/\s+\(.*\)$/, "")))];
+      const header = names.length === 1 ? names[0] : `${names[0]} and ${names[1].toLowerCase()}`;
+      const ok = await sendProductList(
+        from,
+        catalogId,
+        header,
+        "Tap View items. 500gm is the first heading, then 1kg.",
+        sections,
+        "Vidya's Kitchen, Sivakasi",
+      );
+      if (ok) sent = true;
+    }
+    if (sent) return ack();
+    console.error("[WA] sized menu product_list failed — falling back to a list.");
+  }
+
+  const rows = [
+    { id: "szsec_chicken_500gm", title: "Chicken (500gm)", description: "Chicken dishes, 500gm pack" },
+    { id: "szsec_chicken_1kg", title: "Chicken (1kg)", description: "Chicken dishes, 1kg pack" },
+    { id: "szsec_mutton_500gm", title: "Mutton (500gm)", description: "Mutton dishes, 500gm pack" },
+    { id: "szsec_mutton_1kg", title: "Mutton (1kg)", description: "Mutton dishes, 1kg pack" },
+    { id: "szsec_egg_500gm", title: "Egg (500gm)", description: "Egg dishes, 500gm pack" },
+    { id: "szsec_egg_1kg", title: "Egg (1kg)", description: "Egg dishes, 1kg pack" },
+  ];
+  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  await sendList(from, "Pick a pack size. The dishes for that size open next.", "Menu", [
+    { title: "Menu", rows },
+  ]);
+  return ack();
+}
+
+async function showSizedSectionItems(from: string, category: string, variant: PackSize) {
+  const dishes = dishesInCategory(category);
+  const rows = dishes.slice(0, 10).map((dish) => ({
+    id: `${variant === "1kg" ? "sz1kg" : "sz500"}_${dish.retailerId}`,
+    title: formatFullDishName(dish.name).slice(0, 24),
+    description: formatInr(dish.prices[variant]),
+  }));
+  if (rows.length === 0) {
+    await sendText(from, notUnderstoodReply(langOf(from)));
+    return ack();
+  }
+  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  const heading = `${categoryDisplayLabel(category)} (${variant})`;
+  await sendList(from, heading, "Menu", [{ title: heading.slice(0, 24), rows }]);
+  return ack();
+}
+
+async function addDishAtSize(from: string, retailerId: string, variant: PackSize) {
+  const pricing = dishPricingForRetailerId(retailerId);
+  if (!pricing) {
+    await sendText(from, notUnderstoodReply(langOf(from)));
+    return ack();
+  }
+  const menu = await getMenu();
+  const item =
+    menu.find((m) => m.id === pricing.dishId || m.retailer_id === pricing.retailerId) ||
+    ({
+      id: pricing.dishId,
+      retailer_id: pricing.retailerId,
+      name: pricing.name,
+      price: pricing.prices[variant],
+      category: pricing.category,
+      image_url: pricing.imagePath,
+    } satisfies MenuItem);
+  const buttons = [
+    { id: "qty_1", title: "1" },
+    { id: "qty_2", title: "2" },
+    { id: "qty_3", title: "3" },
+  ];
+  await updateSession(from, { selected_item_id: item.id, selected_variant: variant, state: "picking_qty" });
+  await storeOptions(from, buttons);
+  await sendButtons(from, buildQtyMessage(variant, langOf(from)), buttons);
+  return ack();
 }
 
 async function showFullMenu(from: string) {
