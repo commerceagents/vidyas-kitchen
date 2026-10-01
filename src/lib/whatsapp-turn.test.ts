@@ -38,6 +38,28 @@ const matched = matchCartLines(pool, plan?.itemReference || "");
 check("1kg line is the only remove hit", matched.hits.length === 1 && matched.hits[0].variant === "1kg");
 check("remove is not ambiguous", matched.ambiguous === false);
 
+const pepperSaid = "Can u remove 1kg and keep only 2 500gm";
+const pepperPlan = planScopedCartEdit(pepperSaid);
+const pepper1kg: CartItem = {
+  menu_item_id: "pepper",
+  name: "Black Pepper Chicken Gravy",
+  variant: "1kg",
+  quantity: 1,
+  unit_price: 799,
+};
+const pepper500: CartItem = {
+  menu_item_id: "pepper",
+  name: "Black Pepper Chicken Gravy",
+  variant: "500gm",
+  quantity: 2,
+  unit_price: 399,
+};
+check("pepper sentence removes 1kg", pepperPlan?.removeSize === "1kg");
+check("pepper sentence keeps 2 x 500gm", pepperPlan?.keep?.size === "500gm" && pepperPlan.keep.quantity === 2);
+const pepperPool = [pepper1kg, pepper500].filter((line) => line.variant === pepperPlan?.removeSize);
+const pepperMatch = matchCartLines(pepperPool, pepperPlan?.itemReference || "");
+check("1kg pepper is found", pepperMatch.hits.length === 1 && pepperMatch.hits[0].variant === "1kg" && !pepperMatch.ambiguous);
+
 const duringDate = classifyTurn(SAID, "picking_date");
 check("sentence is a remove, not a day", duringDate.intent === "remove_item" && duringDate.matches_pending_state === false);
 const removeRoute = routeTurn("picking_date", duringDate, 0);

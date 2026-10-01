@@ -37,7 +37,7 @@ const ACTIONS = new Set<CartActionName>([
 /** Words that describe the edit, not the dish. */
 const FILLER = new Set([
   "i", "id", "im", "want", "wanna", "would", "like", "please", "pls", "plz",
-  "to", "the", "a", "an", "my", "me", "you", "can", "just", "only", "alone",
+  "to", "the", "a", "an", "and", "my", "me", "you", "u", "ur", "can", "just", "only", "alone",
   "remove", "delete", "drop", "take", "off", "out", "from", "cart", "item",
   "dish", "dont", "don", "not", "do", "need", "get", "rid", "of", "that",
   "this", "one", "it", "also", "too", "please", "kindly", "hey", "hi",
@@ -173,7 +173,7 @@ const QTY_RE = /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|quan
 function stripReference(text: string): string {
   return text
     .replace(
-      /\b(i|want|wanna|would|like|please|pls|to|the|a|an|my|me|you|can|just|only|alone|remov\w*|delet\w*|drop\w*|scratch\w*|take|off|out|from|cart|item|dish|don'?t|do|not|need|get|rid|of|that|this|one|it|also|too|kindly|change|update|make|set|quantity|qty|without|no|more)\b/gi,
+      /\b(i|want|wanna|would|like|please|pls|to|the|a|an|and|my|me|you|u|ur|can|just|only|alone|remov\w*|delet\w*|drop\w*|scratch\w*|take|off|out|from|cart|item|dish|don'?t|do|not|need|get|rid|of|that|this|one|it|also|too|kindly|change|update|make|set|quantity|qty|without|no|more)\b/gi,
       " ",
     )
     .replace(/\s+/g, " ")
