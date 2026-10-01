@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -141,27 +141,13 @@ type ChipStripProps = {
 
 export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
-
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const update = () => {
-      const btn = container.querySelector<HTMLElement>(`[data-chip-id="${activeTab}"]`);
-      if (!btn) return;
-      setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth });
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [activeTab]);
 
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
     const btn = container.querySelector<HTMLElement>(`[data-chip-id="${activeTab}"]`);
     if (!btn) return;
-    const scrollLeft = btn.offsetLeft - container.offsetWidth / 2 + btn.offsetWidth / 2;
+    const scrollLeft = btn.offsetLeft - container.clientWidth / 2 + btn.offsetWidth / 2;
     container.scrollTo({ left: Math.max(0, scrollLeft), behavior: "smooth" });
   }, [activeTab]);
 
@@ -171,33 +157,16 @@ export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripPro
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "12px 16px 0",
+        gap: 10,
+        padding: "12px 16px 4px",
         overflowX: "auto",
         overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
         scrollbarWidth: "none",
         msOverflowStyle: "none",
-        position: "relative",
         flexShrink: 0,
       }}
     >
-      {pillStyle.width > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: pillStyle.left,
-            width: pillStyle.width,
-            height: 36,
-            borderRadius: 10,
-            background: "#f5e32d",
-            transition: "left 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s cubic-bezier(0.4,0,0.2,1)",
-            zIndex: 0,
-          }}
-        />
-      )}
-
       {STATUS_TABS.map(({ id, label, icon: Icon }) => {
         const active = activeTab === id;
         const count = counts[id] || 0;
@@ -208,16 +177,15 @@ export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripPro
             data-chip-id={id}
             onClick={() => onTabChange(id)}
             style={{
-              position: "relative",
-              zIndex: 1,
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
               height: 36,
               padding: "0 12px",
               borderRadius: 10,
-              border: active ? "none" : "1px solid #2a2a2a",
-              background: active ? "transparent" : "#1a1a1a",
+              boxSizing: "border-box",
+              border: active ? "1px solid #f5e32d" : "1px solid #2a2a2a",
+              background: active ? "#f5e32d" : "#1a1a1a",
               color: active ? "#000" : "#888",
               fontSize: 12,
               fontWeight: 700,
@@ -226,7 +194,6 @@ export function StatusChipStrip({ activeTab, onTabChange, counts }: ChipStripPro
               whiteSpace: "nowrap",
               flexShrink: 0,
               WebkitTapHighlightColor: "transparent",
-              transition: "color 0.25s ease",
             }}
           >
             <Icon size={14} strokeWidth={active ? 2.5 : 2} />

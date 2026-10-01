@@ -381,7 +381,6 @@ function OrderBottomSheet({
   onReject,
   onFoodReady,
   onCollected,
-  onDelivered,
 }: {
   order: DashboardOrder;
   onClose: () => void;
@@ -390,7 +389,6 @@ function OrderBottomSheet({
   onReject: () => void;
   onFoodReady: () => void;
   onCollected: () => void;
-  onDelivered: () => void;
 }) {
   const status = normalizeOrderStatus(order.status);
   const mealType = mealTypeLabel(order.delivery_slot_kind);
@@ -399,10 +397,8 @@ function OrderBottomSheet({
   const isPaid = status === OrderStatus.PAID;
   const isPreparing = status === OrderStatus.CONFIRMED || status === OrderStatus.PREPARING;
   const isAwaiting = status === OrderStatus.READY;
-  const isDispatched = status === OrderStatus.OUT_FOR_DELIVERY;
-  const isDelivered = status === OrderStatus.DELIVERED;
   const isCancelled = status === OrderStatus.REJECTED || status === OrderStatus.CANCELLED;
-  const showActions = !isDelivered && !isCancelled;
+  const showKitchenAction = (isPaid || isPreparing || isAwaiting) && !isCancelled;
 
   const [closing, setClosing] = useState(false);
 
@@ -465,7 +461,7 @@ function OrderBottomSheet({
           <OrderDetailContent order={order} mobile />
         </div>
 
-        {showActions && (
+        {showKitchenAction && (
           <div style={{ flexShrink: 0, padding: "12px 20px 0", borderTop: "1px solid #2a2a2a", display: "flex", gap: "10px" }}>
             {isPaid && (
               <>
@@ -485,11 +481,6 @@ function OrderBottomSheet({
             {isAwaiting && (
               <button type="button" disabled={busy} onClick={onCollected} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
                 {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Dispatching</span></span> : "Dispatch"}
-              </button>
-            )}
-            {isDispatched && (
-              <button type="button" disabled={busy} onClick={onDelivered} className="vk-order-btn vk-order-btn-yellow" style={{ flex: 1, height: "48px", borderRadius: "12px", border: "none", background: YELLOW, color: "#111", fontSize: "16px", fontWeight: 500, cursor: busy ? "wait" : "pointer", fontFamily: FONT, boxShadow: `0 4px 14px ${YELLOW}30` }}>
-                {busy ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Loader2 size={16} className="animate-spin" /><span>Updating</span></span> : "Mark Delivered"}
               </button>
             )}
           </div>
@@ -635,15 +626,6 @@ export function DashboardOrderBoard({
     onActionDone();
   };
 
-  const runDelivered = async (orderId: string) => {
-    setBusyId(orderId);
-    const r = await transitionOrderStatus(orderId, OrderStatus.DELIVERED);
-    if (!r.ok) alert(r.error);
-    setBusyId(null);
-    if (r.ok) setTab("completed");
-    onActionDone();
-  };
-
   return (
     <div
       style={{
@@ -755,7 +737,6 @@ export function DashboardOrderBoard({
                   onReject={() => setRejectOrder(order)}
                   onFoodReady={() => void runFoodReady(order.id)}
                   onCollected={() => void runCollected(order.id)}
-                  onDelivered={() => void runDelivered(order.id)}
                   onShowDetails={() => setDetailOrder(order)}
                   mobile={mobile}
                   simplified={simplified}
@@ -777,7 +758,6 @@ export function DashboardOrderBoard({
             onReject={() => setRejectOrder(detailOrder)}
             onFoodReady={() => void runFoodReady(detailOrder.id)}
             onCollected={() => void runCollected(detailOrder.id)}
-            onDelivered={() => void runDelivered(detailOrder.id)}
           />
         ) : (
           <OrderDetailsModal
@@ -1496,7 +1476,6 @@ function OrderCard({
   onReject,
   onFoodReady,
   onCollected,
-  onDelivered,
   onShowDetails,
   mobile,
   simplified = false,
@@ -1508,7 +1487,6 @@ function OrderCard({
   onReject: () => void;
   onFoodReady: () => void;
   onCollected: () => void;
-  onDelivered: () => void;
   onShowDetails: () => void;
   mobile: boolean;
   simplified?: boolean;
@@ -1652,17 +1630,7 @@ function OrderCard({
             ) : "Dispatch",
             onClick: onCollected,
           }
-        : isDispatched
-          ? {
-              label: busy ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Updating</span>
-                </span>
-              ) : "Delivered",
-              onClick: onDelivered,
-            }
-          : null;
+        : null;
 
     if (!singleAction) return null;
 
