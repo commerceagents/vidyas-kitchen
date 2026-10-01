@@ -78,7 +78,21 @@ const COMPLAINT_RE =
   /\b(complaint|complain|refund|cheated|disgusting|spoiled|spoilt|stale|worst|terrible|food poisoning)\b/i;
 const CANCEL_RE = /^(please\s+)?(cancel|cancel (this |the |my )?order|stop this order)\b/i;
 const MENU_RE = /\b(menu|what do you (have|sell)|what's available|what is available|show (me )?(the )?dishes)\b/i;
-const STATUS_RE = /\b(where is my order|order status|track my order|track order|did it (ship|leave))\b/i;
+
+/**
+ * A question about an order already placed. "I want to order chicken" is a
+ * new order and must not match — the word "order" alone is not enough.
+ */
+export function asksAboutExistingOrder(text: string): boolean {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  if (/\b(where is my order|order status|track( my)? order|did it (ship|leave))\b/.test(t)) return true;
+  if (/\b(pending|existing|active|current|previous|last|earlier|unpaid)\b[\s\S]{0,40}\borders?\b/.test(t)) return true;
+  if (/\borders?\b[\s\S]{0,40}\b(pending|status|update|updates)\b/.test(t)) return true;
+  if (/\b(any|do i have|have i|did i|is there|check my)\b[\s\S]{0,48}\borders?\b/.test(t)) return true;
+  if (/\bwhere\b[\s\S]{0,24}\borders?\b/.test(t)) return true;
+  return false;
+}
 const ADD_RE = /\b(add|also (get|want|add)|one more|i want|i need|get me)\b/i;
 const SMALL_TALK_RE = /^(thanks|thank you|ok+|okay|hmm+|cool|great|super|nice)[.! ]*$/i;
 
@@ -150,7 +164,7 @@ export function classifyTurn(text: string, state: SessionState): TurnClassificat
   if (local?.action === "checkout") return blank("checkout");
 
   if (MENU_RE.test(raw)) return blank("ask_menu");
-  if (STATUS_RE.test(raw)) return blank("ask_status");
+  if (asksAboutExistingOrder(raw)) return blank("ask_status");
   if (ADD_RE.test(raw) && !REMOVE_WORD.test(raw)) return blank("add_item");
 
   const answered = isPendingState(state) ? directAnswer(state, raw) : null;

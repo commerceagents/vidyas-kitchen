@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { CartItem } from "./whatsapp-cart";
 import { matchCartLines, planScopedCartEdit } from "./whatsapp-cart-ops";
-import { classifyTurn, INTERRUPT_ESCALATE_AT, routeTurn } from "./whatsapp-turn";
+import { asksAboutExistingOrder, classifyTurn, INTERRUPT_ESCALATE_AT, routeTurn } from "./whatsapp-turn";
 
 const moms1kg: CartItem = {
   menu_item_id: "37c30dfd-3be1-46a1-9780-8f65e6112259",
@@ -68,6 +68,13 @@ check("remove interrupts then re-asks", removeRoute.action === "mutate_cart_then
 const tomorrow = classifyTurn("tomorrow", "picking_date");
 check("tomorrow answers the day", tomorrow.matches_pending_state === true && tomorrow.intent === "answer_pending_question");
 check("a real answer resets the count", routeTurn("picking_date", tomorrow, 2).action === "accept_answer");
+
+check(
+  "pending order is a status question",
+  asksAboutExistingOrder("Is there any pending order of me?") &&
+    classifyTurn("Is there any pending order of me?", "browsing_category").intent === "ask_status",
+);
+check("placing an order is not a status question", asksAboutExistingOrder("I want to order chicken gravy") === false);
 
 const menu = classifyTurn("what's on the menu", "picking_date");
 check("menu question is not a day", menu.intent === "ask_menu");

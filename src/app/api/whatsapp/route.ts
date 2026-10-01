@@ -167,6 +167,7 @@ import {
 } from "@/lib/whatsapp-cart-ops";
 import { classifyTurnWithModel } from "@/lib/ai/turn-intent";
 import {
+  asksAboutExistingOrder,
   classifyTurn,
   isPendingState,
   pendingResume,
@@ -805,7 +806,9 @@ export async function POST(req: Request) {
       /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower) || /^order$/i.test(lower);
     const isCartCmd = /^(cart|my cart|view cart)\b/i.test(lower);
     const isHelpCmd = /^(help|support|help & support|help_support)\b/i.test(lower);
-    const isTrackCmd = /^(track|order status|where is my order|my order)\b/i.test(lower);
+    const isTrackCmd =
+      /^(track|order status|where is my order|my orders?)\b/i.test(lower) ||
+      asksAboutExistingOrder(text);
     const isCallCmd = /^(call|call us|phone)\b/i.test(lower);
     const isAppCmd = /^(app|open app|pwa|install|install app|install_app)\b/i.test(lower);
     const isLangCmd = /^(language|lang|bhasha|mozhi)\b/i.test(lower);
@@ -1911,7 +1914,12 @@ async function handleAiChat(from: string, text: string, profileName: string) {
   }
 
   const menu = await getMenu();
-  const askingForFood = /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
+  // "order" alone used to send the dish cards. "any pending order?" is a
+  // status question and is answered before this, but keep the guard here so
+  // a side question cannot fall through into the lookalike carousel.
+  const askingForFood =
+    !asksAboutExistingOrder(text) &&
+    /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
   if (askingForFood && !mentionsKnownDish(menu, text) && !categoryChoice(text)) {
     await updateSession(from, { state: "ai_chat" });
     await sendLookalikeCarousel(from, text);
