@@ -1652,6 +1652,7 @@ function OrderCard({
   })();
 
   const showDriver = isDispatched && Boolean(order.driver_arrived_at || driverFixForOrder(order));
+  const waitingOnDriver = isDispatched && !showDriver;
 
   const cardClass = [
     "vk-order-card",
@@ -1717,8 +1718,8 @@ function OrderCard({
       <div style={{
         display: "flex",
         flexDirection: "column",
-        flex: mobile || showDriver ? undefined : 1,
-        minHeight: !mobile && items.length > 0 && !showDriver ? DESKTOP_ITEMS_MIN_H : undefined,
+        flex: mobile || showDriver || waitingOnDriver ? undefined : 1,
+        minHeight: !mobile && items.length > 0 && !showDriver && !waitingOnDriver ? DESKTOP_ITEMS_MIN_H : undefined,
       }}>
         {items.length === 0 ? (
           <span style={{ fontSize: "13px", color: "#555", fontStyle: "italic", padding: "8px 0" }}>No items</span>
@@ -1753,7 +1754,7 @@ function OrderCard({
               >
                 + {hiddenItemCount} More
               </button>
-            ) : !mobile && !showDriver ? (
+            ) : !mobile && !showDriver && !waitingOnDriver ? (
               <div style={{ height: DESKTOP_MORE_ROW_H, marginTop: 8, flexShrink: 0 }} aria-hidden />
             ) : null}
           </>
@@ -1762,6 +1763,25 @@ function OrderCard({
 
       {mobile && <OrderStatusRail status={order.status} />}
 
+      {waitingOnDriver ? (
+        <div style={{
+          flex: mobile ? undefined : 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 72,
+          marginTop: 16,
+          padding: "8px 4px",
+          textAlign: "center",
+        }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#eee", lineHeight: 1.4 }}>
+            Driver has to pick this up
+            <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 600, color: "#888" }}>
+              It shows here once they mark it in the driver app.
+            </span>
+          </p>
+        </div>
+      ) : null}
       {showDriver ? (
         <div style={{
           flex: mobile ? undefined : 1,
