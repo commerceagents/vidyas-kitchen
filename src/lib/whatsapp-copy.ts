@@ -1094,156 +1094,242 @@ function billMoneyLines(bill: WaOrderBill, lang?: WaLang): string[] {
   ];
 }
 
-function stageWelcome(
+type StageLine = { title: string; intro: string; note?: string };
+
+/** Same order and stage always pick the same line. A resend does not change the words. */
+function variantIndex(key: string, count: number): number {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 33 + key.charCodeAt(i)) >>> 0;
+  return hash % count;
+}
+
+function stageLines(
   stage: WaOrderStage,
-  bill: WaOrderBill,
-  extra?: { refundLine?: string; undeliveredReason?: string },
-  lang?: WaLang,
-): { title: string; intro: string; note?: string } {
-  const ref = bill.ref;
-  const pay = money(bill.amount);
+  ref: string,
+  pay: string,
+): StageLine[] {
+  const who = ref ? `Order ${ref}` : "Your order";
   switch (stage) {
     case "placed_cod":
-      return pickLang(
-        lang,
+      return [
         {
           title: "🔥 We've reserved the stove",
           intro: `Hi! Order ${ref} is in. You rest — the gravy is our problem now. 😌`,
           note: "We'll write again as it moves.",
         },
         {
-          title: "🔥 Stove reserve aayiduchu",
-          intro: `Hi! Order ${ref} in-la irukku. Neenga rest pannunga — gravy enga vela. 😌`,
-          note: "Move aana write pannuvom.",
+          title: "🔥 Order's in",
+          intro: `${who} is booked. Close the chat if you like — cooking is on us.`,
+          note: "We'll write again as it moves.",
         },
-      );
+        {
+          title: "🔥 Saved you a spot",
+          intro: `Got order ${ref}. The kitchen has it, so you don't have to start anything at home.`,
+          note: "We'll write again as it moves.",
+        },
+        {
+          title: "🔥 That's with the kitchen",
+          intro: `Order ${ref} just landed. We'll take it from here and message you as it moves.`,
+          note: "We'll write again as it moves.",
+        },
+      ];
     case "placed_paid":
-      return pickLang(
-        lang,
+      return [
         {
           title: "🎉 Payment in. Dinner is ours",
           intro: `Order ${ref} is confirmed. No need to start cooking at home tonight. 🙌`,
           note: "We'll write again as it moves.",
         },
         {
-          title: "🎉 Payment vandhuduchu",
-          intro: `Order ${ref} confirm. Veetla stove on panna vendaam. 🙌`,
-          note: "Move aana write pannuvom.",
+          title: "🎉 Paid and confirmed",
+          intro: `Payment for order ${ref} is in. Tonight's dinner is already decided.`,
+          note: "We'll write again as it moves.",
         },
-      );
+        {
+          title: "🎉 We're cooking this one",
+          intro: `Order ${ref} is paid. You can leave the stove alone.`,
+          note: "We'll write again as it moves.",
+        },
+        {
+          title: "🎉 Money's in, order's on",
+          intro: `Got the payment for ${ref}. The kitchen picks it up from here.`,
+          note: "We'll write again as it moves.",
+        },
+      ];
     case "accepted":
-      return pickLang(
-        lang,
+      return [
         {
           title: "👩‍🍳 The kitchen said yes",
           intro: `Order ${ref} is on the board. The onions have been warned. 🧅`,
           note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
         },
         {
-          title: "👩‍🍳 Kitchen yes solliduchu",
-          intro: `Order ${ref} board-la vandhuduchu. Onion-ku warning kuduthutom. 🧅`,
-          note: "Cancel-na app-la, slot-ku 12 hours munnadi.",
+          title: "👩‍🍳 Accepted",
+          intro: `${who} is on today's board. We'll cook it for your slot.`,
+          note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
         },
-      );
+        {
+          title: "👩‍🍳 On the board",
+          intro: `The kitchen took order ${ref}. It's in the line for your slot.`,
+          note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
+        },
+        {
+          title: "👩‍🍳 Yes from the kitchen",
+          intro: `Order ${ref} is accepted. Cooking is planned around your time.`,
+          note: "Need to cancel? That's in the app, up to 12 hours before your slot.",
+        },
+      ];
     case "preparing":
-      return pickLang(
-        lang,
+      return [
         {
           title: "🍳 The stove is on",
-          intro: `${ref ? `Order ${ref}` : "Your order"} — someone at the stove is taking this personally. In a good way. 😄`,
+          intro: `${who} — someone at the stove is taking this personally. In a good way. 😄`,
         },
         {
-          title: "🍳 Stove on aayiduchu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} — stove-la oruthar personally eduthuttanga. Nalla sense-la. 😄`,
+          title: "🍳 On the flame",
+          intro: `${who} is being cooked now. The lid is on.`,
         },
-      );
+        {
+          title: "🍳 Cooking",
+          intro: `We've started order ${ref || "yours"}. This is the noisy part.`,
+        },
+        {
+          title: "🍳 In the pan",
+          intro: `${who} has moved to the stove. We'll pack it once it's ready.`,
+        },
+      ];
     case "packed":
-      return pickLang(
-        lang,
+      return [
         {
           title: "📦 Packed. Pretending to be patient",
-          intro: `${ref ? `Order ${ref}` : "Your order"} is in a box by the door. The driver is next. ⏳`,
+          intro: `${who} is in a box by the door. The driver is next. ⏳`,
         },
         {
-          title: "📦 Pack aayiduchu. Patience act pannudhu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} box-la, door side. Driver next. ⏳`,
+          title: "📦 Packed",
+          intro: `${who} is boxed and waiting. A driver picks it up next.`,
         },
-      );
+        {
+          title: "📦 Ready by the door",
+          intro: `The lid is on order ${ref || "yours"}. It leaves as soon as the driver takes it.`,
+        },
+        {
+          title: "📦 Box is closed",
+          intro: `${who} is packed. Next message is when it's on the way.`,
+        },
+      ];
     case "dispatched":
-      return pickLang(
-        lang,
+      return [
         {
           title: "🛵 Out the gate",
-          intro: `${ref ? `Order ${ref}` : "Your order"} has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins. 😉`,
+          intro: `${who} has left the kitchen. Sivakasi traffic versus hot gravy — the gravy usually wins. 😉`,
         },
         {
-          title: "🛵 Gate-la kilambiduchu",
-          intro: `${ref ? `Order ${ref}` : "Unga order"} kitchen-la irundhu kilambiduchu. Sivakasi traffic vs sooda gravy — gravy dhaan usually jeikkum. 😉`,
+          title: "🛵 On the way",
+          intro: `${who} is with the driver now. You can track it from here.`,
         },
-      );
+        {
+          title: "🛵 Left the kitchen",
+          intro: `Order ${ref || "yours"} is out for delivery. It's heading to you.`,
+        },
+        {
+          title: "🛵 Driver has it",
+          intro: `${who} is on the bike. We'll tell you when it's at the door.`,
+        },
+      ];
     case "delivered":
-      return pickLang(
-        lang,
+      return [
         {
           title: "🍽️ That's it — enjoy",
           intro: `Order ${ref} is at your door. Hope it's still steaming. How was it? 😊`,
         },
         {
-          title: "🍽️ Vandhuduchu — enjoy",
-          intro: `Order ${ref} veetla. Sooda irukkanum! Eppadi irundhuchu? 😊`,
+          title: "🍽️ Delivered",
+          intro: `Order ${ref} is with you. Hope the lid was still warm.`,
         },
-      );
+        {
+          title: "🍽️ It's there",
+          intro: `We handed over order ${ref}. Tell us how it tasted.`,
+        },
+        {
+          title: "🍽️ Enjoy",
+          intro: `Order ${ref} reached you. A quick rating below helps the kitchen.`,
+        },
+      ];
     case "cancelled":
-      return pickLang(
-        lang,
+      return [
         {
           title: `Order ${ref} is off the stove`,
           intro: "Whenever you're hungry again, we're here.",
         },
         {
-          title: `Order ${ref} stove-la irundhu down`,
-          intro: "Adutha vaatti pasikkum bodhu, naanga irukom.",
-        },
-      );
-    case "rejected":
-      return pickLang(
-        lang,
-        {
-          title: `We couldn't take order ${ref}`,
-          intro: extra?.refundLine || "Rejected by the kitchen.",
+          title: `Order ${ref} is cancelled`,
+          intro: "The kitchen has taken it off. Order again whenever you want.",
         },
         {
-          title: `Order ${ref} accept panna mudiyala`,
-          intro: extra?.refundLine || "Sorry.",
+          title: `${ref} is cancelled`,
+          intro: "That's off the board. We'll be here the next time you're hungry.",
         },
-      );
+      ];
     case "cod_collected":
-      return pickLang(
-        lang,
+      return [
         {
           title: `✅ Cash received for ${ref}`,
           intro: `Got *${pay}*. Our driver says thank you. We say enjoy. 🙏`,
         },
         {
-          title: `✅ ${ref}-ku cash vandhuduchu`,
-          intro: `*${pay}* kittuchu. Driver thanks solraaru. Naanga solrom — enjoy pannunga. 🙏`,
-        },
-      );
-    case "undelivered":
-      return pickLang(
-        lang,
-        {
-          title: `We couldn't deliver ${ref}`,
-          intro: extra?.undeliveredReason || "Something got in the way.",
-          note: "Reply here and we'll sort it out. We're not going anywhere.",
+          title: `✅ ${pay} collected`,
+          intro: `Cash for order ${ref} is in. Thank you.`,
         },
         {
-          title: `${ref} deliver panna mudiyala`,
-          intro: extra?.undeliveredReason || "Oru thada vandhuduchu.",
-          note: "Inga reply pannunga, sari pannuvom.",
+          title: `✅ Paid at the door`,
+          intro: `The driver collected *${pay}* for ${ref}. You're all set.`,
         },
-      );
+      ];
+    default:
+      return [];
   }
+}
+
+function stageWelcome(
+  stage: WaOrderStage,
+  bill: WaOrderBill,
+  extra?: { refundLine?: string; undeliveredReason?: string },
+  lang?: WaLang,
+): StageLine {
+  const ref = bill.ref;
+  const pay = money(bill.amount);
+  if (stage === "rejected") {
+    const titles = [
+      `We couldn't take order ${ref}`,
+      `Order ${ref} didn't make the board`,
+      `The kitchen had to pass on ${ref}`,
+    ];
+    const title = titles[variantIndex(`rejected:${ref}`, titles.length)];
+    const intro = extra?.refundLine || "Rejected by the kitchen.";
+    return pickLang(lang, { title, intro }, { title, intro });
+  }
+  if (stage === "undelivered") {
+    const titles = [
+      `We couldn't deliver ${ref}`,
+      `Order ${ref} didn't reach you`,
+      `${ref} came back to the kitchen`,
+    ];
+    const notes = [
+      "Reply here and we'll sort it out. We're not going anywhere.",
+      "Reply on this chat and the kitchen will sort the next step.",
+      "Message us here. We'll figure out what to do with it.",
+    ];
+    const i = variantIndex(`undelivered:${ref}`, titles.length);
+    const line = {
+      title: titles[i],
+      intro: extra?.undeliveredReason || "Something got in the way.",
+      note: notes[i],
+    };
+    return pickLang(lang, line, line);
+  }
+  const lines = stageLines(stage, ref, pay);
+  const line = lines[variantIndex(`${stage}:${ref}`, lines.length)];
+  return pickLang(lang, line, line);
 }
 
 /**
