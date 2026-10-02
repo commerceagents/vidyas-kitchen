@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
+import { useId, useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import Link from "next/link";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy, Loader2, CookingPot } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
@@ -1116,49 +1116,39 @@ const SECTION_LABEL: CSSProperties = {
   lineHeight: 1,
 };
 
-function zigZagSvg(color: string, flip: boolean) {
-  // Tips run past the tile so they paint over the paper edge. An exact 8px
-  // tile leaves two hairlines: one through the teeth, one on the paper.
-  const d = flip ? "M0 0 L8 10 L16 0 Z" : "M0 10 L8 0 L16 10 Z";
-  return encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10" viewBox="0 0 16 10"><path d="${d}" fill="${color}"/></svg>`,
+/** Torn edge drawn as vectors. A repeating image left a hairline on both edges. */
+function BillSaw({ edge }: { edge: "top" | "bottom" }) {
+  const uid = useId().replace(/:/g, "");
+  const id = `vk-bill-saw-${edge}-${uid}`;
+  const d = edge === "top" ? "M-1 14 L8 0 L17 14 Z" : "M-1 -2 L8 12 L17 -2 Z";
+  return (
+    <svg
+      aria-hidden
+      width="100%"
+      height="12"
+      style={{
+        display: "block",
+        position: "absolute",
+        left: 0,
+        right: 0,
+        pointerEvents: "none",
+        ...(edge === "top" ? { top: -8 } : { bottom: -8 }),
+      }}
+    >
+      <defs>
+        <pattern id={id} width="16" height="12" patternUnits="userSpaceOnUse">
+          {edge === "top" ? (
+            <rect x="-1" y="8" width="18" height="6" fill={BILL_PAPER} />
+          ) : (
+            <rect x="-1" y="-2" width="18" height="6" fill={BILL_PAPER} />
+          )}
+          <path d={d} fill={BILL_PAPER} />
+        </pattern>
+      </defs>
+      <rect width="100%" height="12" fill={`url(#${id})`} />
+    </svg>
   );
 }
-
-const BILL_ZIGZAG_TOP = `url("data:image/svg+xml,${zigZagSvg(BILL_PAPER, false)}")`;
-const BILL_ZIGZAG_BOTTOM = `url("data:image/svg+xml,${zigZagSvg(BILL_PAPER, true)}")`;
-
-const BILL_RECEIPT_CSS = `
-  .vk-bill-receipt {
-    padding: 8px 0;
-    overflow: hidden;
-  }
-  .vk-bill-paper {
-    position: relative;
-    background: ${BILL_PAPER};
-    padding: 16px 18px 14px;
-    color: ${BILL_INK};
-  }
-  .vk-bill-paper::before,
-  .vk-bill-paper::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 10px;
-    background-repeat: repeat-x;
-    background-size: 16px 10px;
-    pointer-events: none;
-  }
-  .vk-bill-paper::before {
-    top: -8px;
-    background-image: ${BILL_ZIGZAG_TOP};
-  }
-  .vk-bill-paper::after {
-    bottom: -8px;
-    background-image: ${BILL_ZIGZAG_BOTTOM};
-  }
-`;
 
 function BillRow({
   label,
@@ -1209,11 +1199,19 @@ function OrderBillReceipt({ order }: { order: DashboardOrder }) {
       <div style={{ ...SECTION_LABEL, marginBottom: 10 }}>
         Bill
       </div>
-      <div className="vk-bill-receipt">
+      <div style={{ padding: "10px 0", overflow: "hidden" }}>
         <div
-          className="vk-bill-paper"
-          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            background: BILL_PAPER,
+            padding: "16px 18px 14px",
+            color: BILL_INK,
+          }}
         >
+          <BillSaw edge="top" />
           <BillRow label="Items subtotal" value={`₹${Math.round(itemsSubtotal)}`} />
           {discount > 0 ? (
             <BillRow label={promoLineLabel(order)} value={`−₹${discount}`} discount />
@@ -1227,9 +1225,9 @@ function OrderBillReceipt({ order }: { order: DashboardOrder }) {
           <div style={{ borderTop: `1px dashed ${BILL_MUTED}55`, marginTop: 4, paddingTop: 12 }}>
             <BillRow label="Total paid" value={`₹${totalPaid}`} bold />
           </div>
+          <BillSaw edge="bottom" />
         </div>
       </div>
-      <style>{BILL_RECEIPT_CSS}</style>
     </div>
   );
 }
