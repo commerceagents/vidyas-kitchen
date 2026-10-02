@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import Link from "next/link";
 import { PackageOpen, User, Clock, X, Check, ShoppingBag, Phone, Truck, Copy, Loader2, CookingPot } from "lucide-react";
 import { transitionOrderStatus } from "@/app/actions/order-transition";
@@ -1116,39 +1116,25 @@ const SECTION_LABEL: CSSProperties = {
   lineHeight: 1,
 };
 
-/** Torn edge drawn as vectors. A repeating image left a hairline on both edges. */
-function BillSaw({ edge }: { edge: "top" | "bottom" }) {
-  const uid = useId().replace(/:/g, "");
-  const id = `vk-bill-saw-${edge}-${uid}`;
-  const d = edge === "top" ? "M-1 14 L8 0 L17 14 Z" : "M-1 -2 L8 12 L17 -2 Z";
-  return (
-    <svg
-      aria-hidden
-      width="100%"
-      height="12"
-      style={{
-        display: "block",
-        position: "absolute",
-        left: 0,
-        right: 0,
-        pointerEvents: "none",
-        ...(edge === "top" ? { top: -8 } : { bottom: -8 }),
-      }}
-    >
-      <defs>
-        <pattern id={id} width="16" height="12" patternUnits="userSpaceOnUse">
-          {edge === "top" ? (
-            <rect x="-1" y="8" width="18" height="6" fill={BILL_PAPER} />
-          ) : (
-            <rect x="-1" y="-2" width="18" height="6" fill={BILL_PAPER} />
-          )}
-          <path d={d} fill={BILL_PAPER} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="12" fill={`url(#${id})`} />
-    </svg>
-  );
+/** Teeth are a clip of the paper itself, so no second shape can leave a line on the edge. */
+function billClipPath(teeth = 36) {
+  const pts: string[] = [];
+  for (let i = 0; i < teeth; i++) {
+    const x0 = (i / teeth) * 100;
+    const mid = ((i + 0.5) / teeth) * 100;
+    pts.push(`${x0}% 8px`, `${mid}% 0`);
+  }
+  pts.push("100% 8px");
+  for (let i = teeth; i > 0; i--) {
+    const x0 = (i / teeth) * 100;
+    const mid = ((i - 0.5) / teeth) * 100;
+    pts.push(`${x0}% calc(100% - 8px)`, `${mid}% 100%`);
+  }
+  pts.push("0 calc(100% - 8px)");
+  return `polygon(${pts.join(",")})`;
 }
+
+const BILL_CLIP = billClipPath();
 
 function BillRow({
   label,
@@ -1199,19 +1185,18 @@ function OrderBillReceipt({ order }: { order: DashboardOrder }) {
       <div style={{ ...SECTION_LABEL, marginBottom: 10 }}>
         Bill
       </div>
-      <div style={{ padding: "10px 0", overflow: "hidden" }}>
+      <div>
         <div
           style={{
-            position: "relative",
             display: "flex",
             flexDirection: "column",
             gap: 10,
             background: BILL_PAPER,
-            padding: "16px 18px 14px",
+            padding: "22px 18px 20px",
             color: BILL_INK,
+            clipPath: BILL_CLIP,
           }}
         >
-          <BillSaw edge="top" />
           <BillRow label="Items subtotal" value={`₹${Math.round(itemsSubtotal)}`} />
           {discount > 0 ? (
             <BillRow label={promoLineLabel(order)} value={`−₹${discount}`} discount />
@@ -1225,7 +1210,6 @@ function OrderBillReceipt({ order }: { order: DashboardOrder }) {
           <div style={{ borderTop: `1px dashed ${BILL_MUTED}55`, marginTop: 4, paddingTop: 12 }}>
             <BillRow label="Total paid" value={`₹${totalPaid}`} bold />
           </div>
-          <BillSaw edge="bottom" />
         </div>
       </div>
     </div>
