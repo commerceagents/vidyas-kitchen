@@ -1117,9 +1117,11 @@ const SECTION_LABEL: CSSProperties = {
 };
 
 function zigZagSvg(color: string, flip: boolean) {
-  const d = flip ? "M0 0 L8 8 L16 0 Z" : "M0 8 L8 0 L16 8 Z";
+  // Tips run past the tile so they paint over the paper edge. An exact 8px
+  // tile leaves two hairlines: one through the teeth, one on the paper.
+  const d = flip ? "M0 0 L8 10 L16 0 Z" : "M0 10 L8 0 L16 10 Z";
   return encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="8" viewBox="0 0 16 8"><path d="${d}" fill="${color}"/></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10" viewBox="0 0 16 10"><path d="${d}" fill="${color}"/></svg>`,
   );
 }
 
@@ -1143,9 +1145,9 @@ const BILL_RECEIPT_CSS = `
     position: absolute;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 10px;
     background-repeat: repeat-x;
-    background-size: 16px 8px;
+    background-size: 16px 10px;
     pointer-events: none;
   }
   .vk-bill-paper::before {
