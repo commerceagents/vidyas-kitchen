@@ -430,6 +430,33 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
     max-width: none;
     text-align: center;
   }
+
+  /* One action (Food Ready, Dispatch) sits in the middle of the card. */
+  .vk-order-card-footer:has(.vk-order-card-actions--single) {
+    display: grid !important;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+  .vk-order-card-footer:has(.vk-order-card-actions--single) .vk-order-card-footer-total {
+    grid-column: 1;
+    justify-self: start;
+  }
+  .vk-order-card-actions--single,
+  .vk-sidebar-collapsed .vk-order-card-actions--single {
+    display: flex;
+    grid-column: 2;
+    justify-content: center;
+    justify-self: center;
+    width: auto;
+  }
+  .vk-order-card-actions--single .vk-order-btn,
+  .vk-sidebar-collapsed .vk-order-card-actions--single .vk-order-btn {
+    width: min(220px, 100%) !important;
+    flex: 0 0 auto !important;
+    min-width: 160px;
+    max-width: 240px;
+    text-align: center;
+  }
 }
 
 /* ── Revenue dashboard ── */
