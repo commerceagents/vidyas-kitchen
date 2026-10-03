@@ -34,6 +34,8 @@ import {
 } from "@/lib/delivery-slots";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
+import { dishQuote } from "@/lib/menu/discount-pricing";
+import { useActiveFestival } from "./festival-pricing-context";
 import {
   clearPendingOnlinePayment,
   readPendingOnlinePayment,
@@ -401,6 +403,7 @@ export function CheckoutScreen({
   onPickRecipientAddress,
   onSetRecipientDrop,
 }: CheckoutScreenProps) {
+  const activeFestival = useActiveFestival();
   const [phase, setPhase] = useState<CheckoutPhase>(() => {
     const saved = readUiSession()?.checkoutPhase;
     return saved === "schedule" ? "schedule" : "cart";
@@ -565,7 +568,7 @@ export function CheckoutScreen({
           variantId: variant.id,
           name: item.name,
           image: item.image || item.image_url || "/VK_Logo.webp",
-          price: variant.price,
+          price: dishQuote(variant.price, item.id, activeFestival).pay,
           weight: variant.weight,
           weightLabel: variant.label,
           quantity: qty,
@@ -582,7 +585,7 @@ export function CheckoutScreen({
       weightLabel: string;
       quantity: number;
     }[];
-  }, [cart, items]);
+  }, [activeFestival, cart, items]);
 
   useEffect(() => {
     if (cartEntries.length === 0 && phase === "schedule") {

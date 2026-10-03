@@ -7,6 +7,7 @@ import {
   subtotalFor,
   type CartLineInput,
 } from "@/lib/menu/variant-prices";
+import { festivalUnitPrice, loadActiveFestival } from "@/lib/menu/festival-dishes";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,11 @@ export async function POST(request: Request) {
     );
     if (!priceById) {
       return NextResponse.json({ ok: false, error: "Could not load menu prices." }, { status: 500 });
+    }
+
+    const activeFestival = await loadActiveFestival(supabase);
+    for (const [id, price] of priceById) {
+      priceById.set(id, festivalUnitPrice(price, id, activeFestival));
     }
 
     const subtotal = subtotalFor(normalized.lines, priceById);

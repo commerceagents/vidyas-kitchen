@@ -15,6 +15,8 @@
  */
 
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
+import { payPriceForDish } from "@/lib/menu/discount-pricing";
+import { peekFestivalQuote } from "@/lib/menu/festival-dishes";
 
 export type PackSize = "500gm" | "1kg";
 
@@ -212,11 +214,15 @@ export type PriceableRow = {
  */
 export function unitPriceFor(row: PriceableRow, size: PackSize): number {
   const resolved = resolveDishPricing(row);
-  if (resolved) return resolved.dish.prices[size];
-
-  const kiloPrice = Number(row.price);
-  if (!Number.isFinite(kiloPrice) || kiloPrice <= 0) return 0;
-  return size === "1kg" ? Math.round(kiloPrice) : Math.round(kiloPrice / 2);
+  const base = resolved
+    ? resolved.dish.prices[size]
+    : (() => {
+        const kiloPrice = Number(row.price);
+        if (!Number.isFinite(kiloPrice) || kiloPrice <= 0) return 0;
+        return size === "1kg" ? Math.round(kiloPrice) : Math.round(kiloPrice / 2);
+      })();
+  if (!resolved) return base;
+  return payPriceForDish(base, resolved.dish.dishId, peekFestivalQuote());
 }
 
 export function packPricesFor(row: PriceableRow): PackPrices {

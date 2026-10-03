@@ -20,6 +20,7 @@ import {
   resolveVariantPrices,
   type CartLineInput as LineInput,
 } from "@/lib/menu/variant-prices";
+import { festivalUnitPrice, loadActiveFestival } from "@/lib/menu/festival-dishes";
 
 export async function POST(request: Request) {
   try {
@@ -117,13 +118,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not load menu prices." }, { status: 500 });
     }
 
+    const activeFestival = await loadActiveFestival(supabase);
     let itemTotal = 0;
     const resolved: { menuItemId: string; quantity: number; unitPrice: number }[] = [];
     for (const l of mergedLines) {
-      const p = priceById.get(l.menuItemId);
-      if (p == null || !Number.isFinite(p)) {
+      const menuPrice = priceById.get(l.menuItemId);
+      if (menuPrice == null || !Number.isFinite(menuPrice)) {
         return NextResponse.json({ error: "Unknown menu item." }, { status: 400 });
       }
+      const p = festivalUnitPrice(menuPrice, l.menuItemId, activeFestival);
       const qty = l.quantity;
       itemTotal += p * qty;
       resolved.push({ menuItemId: l.menuItemId, quantity: qty, unitPrice: p });

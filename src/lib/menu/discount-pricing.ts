@@ -9,6 +9,8 @@ export type FestivalRow = {
   discount_override: number;
   chip_label: string;
   active: boolean;
+  /** Dishes that actually pay the festival %. Empty means the offer is on, but no dish is cut yet. */
+  included_dish_ids?: string[];
 };
 
 /** Row from `dish_discount_settings` (API / Supabase). */
@@ -82,6 +84,40 @@ function festivalAppliesNow(festival: FestivalRow | null | undefined, now: Date)
   return isWithinSeasonalWindow(festival.date_start, festival.date_end, now);
 }
 
+/** Live festival window, and this dish was ticked for it. */
+export function festivalAppliesToDish(
+  festival: FestivalRow | null | undefined,
+  dishId: string,
+  now = new Date(),
+): boolean {
+  if (!festivalAppliesNow(festival, now)) return false;
+  return (festival?.included_dish_ids ?? []).includes(dishId);
+}
+
+/** What the customer pays. Unticked dishes stay at the menu price. */
+export function payPriceForDish(
+  menuPrice: number,
+  dishId: string,
+  festival: FestivalRow | null | undefined,
+  now = new Date(),
+): number {
+  if (!festivalAppliesToDish(festival, dishId, now)) return menuPrice;
+  const pct = Number(festival?.discount_override);
+  if (!(pct > 0) || pct >= 100) return menuPrice;
+  const pay = Math.round(menuPrice * (1 - pct / 100));
+  return pay > 0 && pay < menuPrice ? pay : menuPrice;
+}
+
+export function dishQuote(
+  menuPrice: number,
+  dishId: string,
+  festival: FestivalRow | null | undefined,
+  now = new Date(),
+): { pay: number; was: number | null } {
+  const pay = payPriceForDish(menuPrice, dishId, festival, now);
+  return { pay, was: pay < menuPrice ? menuPrice : null };
+}
+
 /**
  * Pick the winning festival when calendars overlap (highest `discount_override` wins).
  */
@@ -146,6 +182,10 @@ export function discountChipDisplay(
   now = new Date(),
   activeFestival: FestivalRow | null = null,
 ): DiscountChipDisplay {
+  if (festivalAppliesToDish(activeFestival, item.id, now) && activeFestival?.chip_label) {
+    return { text: activeFestival.chip_label, variant: "festival" };
+  }
+
   if (!effectiveShowDiscount(item, now)) return { text: null, variant: "normal" };
 
   const festivalOn =

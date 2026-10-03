@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { kitchenDateKey } from "@/lib/ai/dish-analytics";
 import { endedFestivalDecisionIds } from "@/lib/ai/festival-decisions";
+import { loadFestivalDishMap } from "@/lib/menu/festival-dishes";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +96,7 @@ export async function GET() {
     const lastRunAt = kitchenDayOf(freshMap.get("last_run_at"))
       ? String(freshMap.get("last_run_at")).replace(/"/g, "")
       : null;
+    const festivalDishes = await loadFestivalDishMap(supabase);
 
     return NextResponse.json({
       enabled: freshMap.get("agent_enabled") ?? true,
@@ -102,6 +104,7 @@ export async function GET() {
       decisions,
       pendingCount,
       appliedCount,
+      festivalDishes,
     });
   } catch (error) {
     return NextResponse.json(

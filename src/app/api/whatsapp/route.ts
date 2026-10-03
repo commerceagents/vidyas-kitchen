@@ -270,6 +270,8 @@ async function resolveNumbered(phone: string, text: string): Promise<string | nu
 
 async function getMenu(): Promise<MenuItem[]> {
   try {
+    const { primeFestivalQuote } = await import("@/lib/menu/festival-dishes");
+    await primeFestivalQuote(supabase);
     const { data, error } = await supabase
       .from("menu_items")
       .select("*")
@@ -649,6 +651,11 @@ export async function POST(req: Request) {
         json = rawBody ? JSON.parse(rawBody) : {};
       } catch {
         return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }
+
+      if (json.object === "whatsapp_business_account") {
+        const { primeFestivalQuote } = await import("@/lib/menu/festival-dishes");
+        await primeFestivalQuote(supabase);
       }
 
       if (json.object === "whatsapp_business_account" && json.entry) {
