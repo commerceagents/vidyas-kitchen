@@ -1131,13 +1131,10 @@ export function LocationScreen({
           position: "absolute",
           bottom: 0, left: 0, right: 0,
           zIndex: 20,
-          background: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          background: "#fff",
           borderRadius: "28px 28px 0 0",
-          border: "1px solid rgba(0,0,0,0.06)",
-          borderBottom: "none",
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(255,255,255,0.5) inset",
+          border: "none",
+          boxShadow: "0 -10px 30px rgba(0,0,0,0.08)",
           padding: "12px 0 16px",
           display: "flex",
           flexDirection: "column",
@@ -1393,10 +1390,6 @@ export function LocationScreen({
             </div>
           )}
 
-        </div>
-
-        {/* Pinned so a short phone never has to scroll to find GPS or the door fields. */}
-        <div style={{ flexShrink: 0, padding: "4px 20px 0" }}>
           <motion.button
             custom={1}
             variants={springReveal}
@@ -1412,6 +1405,7 @@ export function LocationScreen({
               padding: "10px 12px",
               cursor: "pointer",
               display: "flex", alignItems: "center", gap: 12,
+              marginTop: 4,
               marginBottom: hasPicked && !isResolvingAddress ? 8 : 0,
             }}
           >
@@ -1492,6 +1486,27 @@ export function LocationScreen({
               />
             </div>
           )}
+
+          {mode !== "delivery-pin" && hasPicked && !isInsideDeliveryZone(pinCoords.lat, pinCoords.lng) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+                marginTop: 12,
+                padding: "11px 13px",
+                borderRadius: 14,
+                background: "rgba(245,158,11,0.10)",
+                border: "1px solid rgba(245,158,11,0.35)",
+              }}
+            >
+              <Gift size={18} weight="fill" color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.45, color: "#7C4A03" }}>
+                We only cook and deliver in {DELIVERY_ZONE.name}. You can still order from here — at
+                checkout we&apos;ll ask who in {DELIVERY_ZONE.name} the food should go to.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* GPS Error Banner */}
@@ -1557,27 +1572,6 @@ export function LocationScreen({
               Save as {addingPlace.id === "other" ? (otherName.trim() || "Other") : addingPlace.label}
             </motion.button>
           ) : (
-            <>
-            {mode !== "delivery-pin" && hasPicked && !isInsideDeliveryZone(pinCoords.lat, pinCoords.lng) && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "flex-start",
-                  padding: "11px 13px",
-                  marginBottom: 12,
-                  borderRadius: 14,
-                  background: "rgba(245,158,11,0.10)",
-                  border: "1px solid rgba(245,158,11,0.35)",
-                }}
-              >
-                <Gift size={18} weight="fill" color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.45, color: "#7C4A03" }}>
-                  We only cook and deliver in {DELIVERY_ZONE.name}. You can still order from here — at
-                  checkout we&apos;ll ask who in {DELIVERY_ZONE.name} the food should go to.
-                </p>
-              </div>
-            )}
             <motion.button
               whileTap={confirmDisabled ? undefined : { scale: 0.97 }}
               onClick={handleConfirm}
@@ -1618,7 +1612,6 @@ export function LocationScreen({
                   ? confirmLabel ?? "Confirm Location"
                   : "Pick a location to continue"}
             </motion.button>
-            </>
           )}
         </motion.div>
       </motion.div>

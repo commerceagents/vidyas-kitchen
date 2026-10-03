@@ -343,10 +343,20 @@ export default function PricingAgentPage() {
           .vk-pricing-decisions-grid {
             grid-template-columns: 1fr !important;
           }
+          .vk-festival-dish-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
         }
         @media (min-width: 1024px) {
           .vk-dash-home-mobile { display: none !important; }
           .vk-dash-home-desktop { display: flex !important; }
+          .vk-festival-dish-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+          }
         }
       `}</style>
     </>
@@ -815,108 +825,146 @@ function OfferGroups({
             <span style={{ marginLeft: 8, color: "#555" }}>{section.items.length}</span>
           </h3>
           <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
-            {section.items.map((d) => {
-              const festivalId = d.dish_id.startsWith("festival:") ? d.dish_id.slice("festival:".length) : "";
-              return (
-                <DecisionCard
-                  key={d.id}
-                  decision={d}
-                  onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
-                  onReject={onReject ? () => onReject(d.id) : undefined}
-                  onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
-                  selectedDishIds={festivalId ? festivalDishes[festivalId] ?? [] : undefined}
-                  onSaveDishes={festivalId ? (ids) => onSaveDishes(festivalId, ids) : undefined}
-                />
-              );
-            })}
+            {section.items.map((d) => (
+              <DecisionCard
+                key={d.id}
+                decision={d}
+                onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
+                onReject={onReject ? () => onReject(d.id) : undefined}
+                onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
+                selectedCount={
+                  d.dish_id.startsWith("festival:")
+                    ? (festivalDishes[d.dish_id.slice("festival:".length)] ?? []).length
+                    : undefined
+                }
+              />
+            ))}
           </ul>
+          {section.id === "festival" &&
+            section.items
+              .filter((d) => d.decision_type === "festival_activate" && d.dish_id.startsWith("festival:"))
+              .map((d) => {
+                const festivalId = d.dish_id.slice("festival:".length);
+                return (
+                  <FestivalDishPicker
+                    key={festivalId}
+                    title={decisionDisplayName(d)}
+                    selected={festivalDishes[festivalId] ?? EMPTY_DISH_IDS}
+                    onSave={(ids) => onSaveDishes(festivalId, ids)}
+                  />
+                );
+              })}
         </section>
       ))}
     </div>
   );
 }
 
+const EMPTY_DISH_IDS: string[] = [];
+
+function dishKey(ids: string[]): string {
+  return [...ids].sort().join(",");
+}
+
 function FestivalDishPicker({
+  title,
   selected,
   onSave,
 }: {
+  title: string;
   selected: string[];
   onSave: (dishIds: string[]) => Promise<void>;
 }) {
+  const savedKey = dishKey(selected);
   const [picked, setPicked] = useState<string[]>(selected);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setPicked(selected);
-  }, [selected]);
-  const dirty =
-    picked.length !== selected.length || picked.some((id) => !selected.includes(id));
+    // Sync only when the saved set actually changes, not on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey]);
+  const dirty = dishKey(picked) !== savedKey;
   const toggle = (id: string) => {
     setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   };
   return (
-    <div style={{ marginTop: 8 }}>
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#bbb", lineHeight: 1.4 }}>
-        Tick the dishes that get this offer. Unticked dishes stay at full price.
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 240, overflowY: "auto", paddingRight: 4 }}>
+    <div
+      style={{
+        marginTop: 12,
+        padding: "14px 16px 16px",
+        borderRadius: 16,
+        border: "1px solid #2a2a2a",
+        background: "#141414",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: FONT }}>
+          {title} dishes
+          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: "#888" }}>{picked.length} selected</span>
+        </p>
+        <button
+          type="button"
+          disabled={!dirty || saving}
+          onClick={async () => {
+            setSaving(true);
+            await onSave(picked);
+            setSaving(false);
+          }}
+          style={{
+            height: 36,
+            padding: "0 14px",
+            borderRadius: 10,
+            border: "none",
+            background: dirty ? YELLOW : "#2a2a2a",
+            color: dirty ? "#111" : "#666",
+            fontSize: 13,
+            fontWeight: 800,
+            fontFamily: FONT,
+            cursor: dirty && !saving ? "pointer" : "default",
+          }}
+        >
+          {saving ? "Saving…" : dirty ? "Save dishes" : "Saved"}
+        </button>
+      </div>
+      <div className="vk-festival-dish-grid">
         {MENU_CATEGORIES.map((category) => (
           <div key={category.id}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#777" }}>
+            <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#777", fontFamily: FONT }}>
               {category.label}
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {MENU_BY_CATEGORY[category.id].map((dish) => {
                 const on = picked.includes(dish.id);
                 return (
-                  <button
+                  <label
                     key={dish.id}
-                    type="button"
-                    onClick={() => toggle(dish.id)}
                     style={{
-                      height: 32,
-                      padding: "0 10px",
-                      borderRadius: 999,
-                      border: on ? `1px solid ${YELLOW}` : "1px solid #333",
-                      background: on ? `${YELLOW}22` : "transparent",
-                      color: on ? YELLOW : "#aaa",
-                      fontSize: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      minHeight: 36,
+                      padding: "0 4px",
+                      cursor: "pointer",
+                      color: on ? "#fff" : "#aaa",
+                      fontSize: 13,
                       fontWeight: 700,
                       fontFamily: FONT,
-                      cursor: "pointer",
                     }}
                   >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggle(dish.id)}
+                      style={{ width: 16, height: 16, accentColor: YELLOW, flexShrink: 0 }}
+                    />
                     {dish.name.replace(" - ", " — ")}
-                  </button>
+                  </label>
                 );
               })}
             </div>
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        disabled={!dirty || saving}
-        onClick={async () => {
-          setSaving(true);
-          await onSave(picked);
-          setSaving(false);
-        }}
-        style={{
-          marginTop: 10,
-          height: 40,
-          padding: "0 14px",
-          borderRadius: 10,
-          border: "none",
-          background: dirty ? YELLOW : "#2a2a2a",
-          color: dirty ? "#111" : "#666",
-          fontSize: 13,
-          fontWeight: 700,
-          fontFamily: FONT,
-          cursor: dirty && !saving ? "pointer" : "not-allowed",
-        }}
-      >
-        {saving ? "Saving…" : dirty ? "Save selected dishes" : picked.length ? `${picked.length} dishes on this offer` : "No dishes selected"}
-      </button>
     </div>
   );
 }
@@ -926,15 +974,13 @@ function DecisionCard({
   onApprove,
   onReject,
   onUpdate,
-  selectedDishIds,
-  onSaveDishes,
+  selectedCount,
 }: {
   decision: Decision;
   onApprove?: (pct?: number | null) => void;
   onReject?: () => void;
   onUpdate?: (pct: number) => void | Promise<void>;
-  selectedDishIds?: string[];
-  onSaveDishes?: (dishIds: string[]) => Promise<void>;
+  selectedCount?: number;
 }) {
   const isPending = decision.status === "pending";
   const isLiveOffer = decision.status === "applied" || decision.status === "auto_applied";
@@ -1063,7 +1109,7 @@ function DecisionCard({
               <Percent size={16} color={YELLOW} strokeWidth={2.25} style={{ flexShrink: 0 }} />
               <span style={{ ...DETAIL_TEXT, color: YELLOW }}>
                 {decision.decision_type === "festival_activate"
-                  ? `${isLiveOffer ? "Live" : "Activate"} ${showPctPicker ? pickedPct : (decision.new_discount ?? 20)}%${selectedDishIds ? ` · ${selectedDishIds.length} dishes` : ""}`
+                  ? `${isLiveOffer ? "Live" : "Activate"} ${showPctPicker ? pickedPct : (decision.new_discount ?? 20)}%${selectedCount != null ? ` · ${selectedCount} dishes` : ""}`
                   : `New ${showPctPicker ? `${pickedPct}%` : decision.new_discount != null ? `${decision.new_discount}%` : "—"}`}
               </span>
             </div>
@@ -1086,9 +1132,6 @@ function DecisionCard({
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <InfoChip label={decisionTypeLabel(decision.decision_type)} />
           </div>
-          {decision.decision_type === "festival_activate" && onSaveDishes && selectedDishIds && (
-            <FestivalDishPicker selected={selectedDishIds} onSave={onSaveDishes} />
-          )}
         </div>
 
         <div
