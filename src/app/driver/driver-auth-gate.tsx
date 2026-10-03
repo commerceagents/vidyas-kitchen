@@ -123,7 +123,7 @@ export function DriverLoginScreen({
             }, 120);
           } else {
             setDriverName(null);
-            setLookupError("No active driver found with this phone number");
+            setLookupError(data.error || "No active driver found with this phone number");
           }
         })
         .catch((err) => {

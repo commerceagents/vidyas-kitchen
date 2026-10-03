@@ -73,7 +73,7 @@ export async function disablePush(): Promise<void> {
 
     await fetch("/api/push/unsubscribe", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify({ endpoint: sub.endpoint }),
     }).catch(() => {});
     await sub.unsubscribe().catch(() => {});

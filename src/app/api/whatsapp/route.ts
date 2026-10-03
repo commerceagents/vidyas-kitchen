@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse, after } from "next/server";
 import { VidyaAgent, type MenuItem, type Message } from "@/lib/ai/agent";
 import { publicSiteOrigin } from "@/lib/site-url";
@@ -608,9 +609,24 @@ async function replyUnreadableTap(from: string): Promise<void> {
   );
 }
 
+/** Meta signs the raw body with the app secret. A missing secret leaves the check off so the bot keeps working until WHATSAPP_APP_SECRET is set. */
+function whatsAppSignatureOk(rawBody: string, header: string | null, secret: string): boolean {
+  if (!header?.startsWith("sha256=")) return false;
+  const given = header.slice("sha256=".length);
+  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+  try {
+    const a = Buffer.from(given, "hex");
+    const b = Buffer.from(expected, "hex");
+    return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get("content-type") || "";
+    const rawBody = await req.text();
     let from = "";
     let body = "";
     let profileName = "";
@@ -623,7 +639,17 @@ export async function POST(req: Request) {
     let sharedPin: { lat: number; lng: number; label: string } | null = null;
 
     if (contentType.includes("application/json")) {
-      const json = await req.json();
+      const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
+      if (appSecret && !whatsAppSignatureOk(rawBody, req.headers.get("x-hub-signature-256"), appSecret)) {
+        console.error("[WA] Rejected a webhook post with a bad signature");
+        return new Response("Invalid signature", { status: 401 });
+      }
+      let json: any = {};
+      try {
+        json = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
+      }
 
       if (json.object === "whatsapp_business_account" && json.entry) {
         const entry = json.entry?.[0];

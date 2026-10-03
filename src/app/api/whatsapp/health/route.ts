@@ -62,6 +62,7 @@ export async function GET(request: Request) {
       process.env.WHATSAPP_PHONE_NUMBER_ID &&
       process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
   );
+  const appSecretSet = Boolean(process.env.WHATSAPP_APP_SECRET?.trim());
 
   /**
    * Payment confirmation health.
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     configured,
+    appSecretSet,
     token: { ok: tokenOk, error: tokenError },
     templates: [
       { name: ORDER_UPDATE_TEMPLATE_NAME, status: orderUpdate },

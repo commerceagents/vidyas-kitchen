@@ -31,6 +31,7 @@ type TemplateStatus = "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED
 
 type HealthData = {
   configured: boolean;
+  appSecretSet?: boolean;
   token: { ok: boolean; error?: string };
   templates: { name: string; status: TemplateStatus }[];
   templatesReady: boolean;
@@ -429,6 +430,15 @@ function WhatsAppHealthPageInner() {
                     data.configured
                       ? "WHATSAPP_ACCESS_TOKEN, PHONE_NUMBER_ID, WABA_ID all set"
                       : "One or more env vars missing — check Vercel project settings"
+                  }
+                />
+                <StatusChip
+                  ok={data.appSecretSet === true}
+                  label="Webhook signature"
+                  detail={
+                    data.appSecretSet
+                      ? "Incoming WhatsApp posts are checked against the app secret"
+                      : "Add WHATSAPP_APP_SECRET in Vercel (Meta app → Settings → Basic → App secret) so strangers cannot post fake messages"
                   }
                 />
                 <StatusChip

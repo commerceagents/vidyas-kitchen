@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { authorizePhone } from "@/lib/firebase-verify";
 import { toE164Phone } from "@/lib/test-numbers";
 
 /**
@@ -11,9 +12,8 @@ import { toE164Phone } from "@/lib/test-numbers";
  * here bypasses RLS, which is safe because the phone number is validated and
  * the caller has already authenticated via Firebase OTP (or dev bypass).
  *
- * No additional auth token check is performed here: the Firebase OTP step
- * already proved the caller owns the number.  The only data written is the
- * caller's own name + role — there is no way to mutate another user's row.
+ * The session token is what proves the caller owns the number. Without it,
+ * anyone could rename a customer or knock a staff row back to "customer".
  */
 export async function POST(request: Request) {
   let body: { phone?: unknown; name?: unknown };
@@ -33,14 +33,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
+  const auth = await authorizePhone(request, phone);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
     const supabase = createServerSupabase();
-    const { error } = await supabase
+    const existing = await supabase
       .from("users")
-      .upsert(
-        { phone_number: phone, full_name: name, role: "customer" },
-        { onConflict: "phone_number" },
-      );
+      .select("phone_number")
+      .eq("phone_number", phone)
+      .maybeSingle();
+    const { error } = existing.data
+      ? await supabase.from("users").update({ full_name: name }).eq("phone_number", phone)
+      : await supabase.from("users").insert({ phone_number: phone, full_name: name, role: "customer" });
 
     if (error) {
       console.error("[auth/sync-profile]", error.message);
