@@ -28,7 +28,7 @@ import { FavoritesSheet, type FavoriteRow } from "@/components/ui/mobile/Favorit
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
-import { discountChipDisplay, dishQuote, listPriceForVariant, type FestivalRow } from "@/lib/menu/discount-pricing";
+import { discountChipDisplay, listPriceForVariant } from "@/lib/menu/discount-pricing";
 import {
   KITCHEN_PICK_DISH_IDS,
   type BestSellingSource,
@@ -351,17 +351,13 @@ function sizeServingMeta(weightOrLabel: string): {
   };
 }
 
-function cartTotalPrice(
-  cart: Record<string, number>,
-  allItems: MenuItem[],
-  festival: FestivalRow | null = null,
-): number {
+function cartTotalPrice(cart: Record<string, number>, allItems: MenuItem[]): number {
   return Object.entries(cart).reduce((acc, [key, q]) => {
     const [id, weight] = key.split(":");
     const item = allItems.find((it) => it.id === id);
     if (!item) return acc;
     const variant = item.variants.find((v) => v.weight === weight);
-    return acc + dishQuote(variant?.price || 0, item.id, festival).pay * q;
+    return acc + (variant?.price || 0) * q;
   }, 0);
 }
 
@@ -630,9 +626,7 @@ function BestSellingCard({
   // Image pans opposite the swipe — slight depth, not a hard slide
   const imgX = useTransform(scrollXProgress, [0, 0.5, 1], ["14%", "0%", "-14%"]);
 
-  const minMenu = Math.min(...item.variants.map(v => v.price));
-  const minQuote = dishQuote(minMenu, item.id, activeFestival);
-  const minPrice = minQuote.pay;
+  const minPrice = Math.min(...item.variants.map(v => v.price));
   const chip = discountChipDisplay(item, new Date(), activeFestival);
   const canOrder = isOrderingWindowOpen();
 
@@ -1004,9 +998,7 @@ function DishDetailView({
   const fullDishName = formatFullDishName(item.name);
   const desc = item.description || simpleDishDescription(cleanName, item.category || "");
   const pairing = pairingSuggestion(cleanName, item.category || "");
-  const minMenu = Math.min(...(item.variants?.map((v) => v.price) || [0]));
-  const minQuote = dishQuote(minMenu, item.id, activeFestival);
-  const minPrice = minQuote.pay;
+  const minPrice = Math.min(...(item.variants?.map((v) => v.price) || [0]));
 
   useEffect(() => {
     setHeroLoaded(false);
@@ -1238,11 +1230,6 @@ function DishDetailView({
             <span style={{ fontSize: 20, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
               ₹{minPrice.toLocaleString("en-IN")}
             </span>
-            {minQuote.was != null && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.35)", textDecoration: "line-through" }}>
-                ₹{minQuote.was.toLocaleString("en-IN")}
-              </span>
-            )}
           </div>
         </div>
 
@@ -1529,7 +1516,7 @@ function DishDetailView({
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {suggested.map((d) => {
                 const sn = formatFullDishName(d.name);
-                const fromPrice = dishQuote(Math.min(...d.variants.map((v) => v.price)), d.id, activeFestival).pay;
+                const fromPrice = Math.min(...d.variants.map((v) => v.price));
                 const thumb = getItemImage(d.name, d.image || d.image_url);
                 return (
                   <motion.button
@@ -2092,12 +2079,11 @@ export function MobileHomeScreen({
       favoriteItems.map((item) => {
         const min = Math.min(...item.variants.map((v) => v.price));
         const variant = item.variants.find((v) => v.price === min) ?? item.variants[0];
-        const quote = dishQuote(min, item.id, activeFestival);
         return {
           id: item.id,
           name: formatFullDishName(item.name),
-          price: quote.pay,
-          listPrice: quote.was ?? listPriceForVariant(item, variant.id, min, new Date(), activeFestival),
+          price: min,
+          listPrice: listPriceForVariant(item, variant.id, min, new Date(), activeFestival),
         };
       }),
     [activeFestival, favoriteItems],
@@ -3513,7 +3499,6 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
   const [activeCat, setActiveCat] = useState("chicken");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [sizePickItem, setSizePickItem] = useState<MenuItem | null>(null);
-  const activeFestival = useActiveFestival();
   const carouselRef               = useRef<HTMLDivElement>(null);
 
   const filtered = allItems
@@ -3521,7 +3506,7 @@ function MenuBrowseView({ onBack, allItems, cart, updateQty, onCheckout, onOpenD
     .sort((a, b) => a.variants[0].price - b.variants[0].price); 
   const totalCards = filtered.length;
   
-  const totalPrice = cartTotalPrice(cart, allItems, activeFestival);
+  const totalPrice = cartTotalPrice(cart, allItems);
 
   const cartItemCount = Object.values(cart).reduce((sum, q) => sum + q, 0);
   
@@ -3872,9 +3857,7 @@ function MenuGridCard({
   const gridChip = discountChipDisplay(item, new Date(), activeFestival);
   const defaultVar =
     item.variants.find((v) => /500/i.test(v.weight || v.label || "")) ?? item.variants[0];
-  const menuFrom = defaultVar?.price ?? Math.min(...item.variants.map((v) => v.price));
-  const fromQuote = dishQuote(menuFrom, item.id, activeFestival);
-  const fromPrice = fromQuote.pay;
+  const fromPrice = defaultVar?.price ?? Math.min(...item.variants.map((v) => v.price));
 
   useEffect(() => {
     setLoaded(false);
@@ -4035,11 +4018,6 @@ function MenuGridCard({
           <span style={{ fontSize: 17.5, fontWeight: 900, color: C.red, letterSpacing: "-0.02em" }}>
             ₹{fromPrice.toLocaleString("en-IN")}
           </span>
-          {fromQuote.was != null && (
-            <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.35)", textDecoration: "line-through" }}>
-              ₹{fromQuote.was.toLocaleString("en-IN")}
-            </span>
-          )}
         </button>
       </div>
 

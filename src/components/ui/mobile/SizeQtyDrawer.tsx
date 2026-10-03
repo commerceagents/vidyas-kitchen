@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BowlFood, ForkKnife, Minus, Plus } from "@phosphor-icons/react";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
 import type { MenuItem } from "@/components/ui/mobile/mobileMenuData";
-import { dishQuote, listPriceForVariant, type FestivalRow } from "@/lib/menu/discount-pricing";
+import { listPriceForVariant } from "@/lib/menu/discount-pricing";
 import { useActiveFestival } from "./festival-pricing-context";
 
 export function cartLineKey(itemId: string, weight?: string | null): string {
@@ -30,14 +30,10 @@ export function dishCartSizeLabel(item: MenuItem, cart: Record<string, number>):
   return parts.join(" + ");
 }
 
-export function dishLineTotal(
-  item: MenuItem,
-  cart: Record<string, number>,
-  festival: FestivalRow | null = null,
-): number {
+export function dishLineTotal(item: MenuItem, cart: Record<string, number>): number {
   return (item.variants || []).reduce((sum, v) => {
     const q = cart[cartLineKey(item.id, v.weight)] || 0;
-    return sum + dishQuote(v.price || 0, item.id, festival).pay * q;
+    return sum + (v.price || 0) * q;
   }, 0);
 }
 
@@ -60,7 +56,7 @@ export function SizeQtyDrawer({
   onClose: () => void;
 }) {
   const activeFestival = useActiveFestival();
-  const lineTotal = item ? dishLineTotal(item, cart, activeFestival) : 0
+  const lineTotal = item ? dishLineTotal(item, cart) : 0;
   const units = item ? qtyForDish(item, cart) : 0;
 
   return (
@@ -125,9 +121,8 @@ export function SizeQtyDrawer({
                 const key = cartLineKey(item.id, v.weight);
                 const qty = cart[key] || 0;
                 const inCart = qty > 0;
-                const quote = dishQuote(v.price, item.id, activeFestival);
-                const listPrice = quote.was ?? listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
-                const pay = quote.pay;
+                const listPrice = listPriceForVariant(item, v.id, v.price, new Date(), activeFestival);
+                const pay = v.price;
                 const meta = sizeServingMeta(v.weight || v.label || "");
                 const Icon = meta.kind === "meal" ? ForkKnife : BowlFood;
                 return (

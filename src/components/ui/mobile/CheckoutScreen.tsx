@@ -34,8 +34,6 @@ import {
 } from "@/lib/delivery-slots";
 import { TYPO } from "@/components/ui/mobile/mobile-typography";
 import { MenuItem } from "@/components/ui/mobile/mobileMenuData";
-import { dishQuote } from "@/lib/menu/discount-pricing";
-import { useActiveFestival } from "./festival-pricing-context";
 import {
   clearPendingOnlinePayment,
   readPendingOnlinePayment,
@@ -403,7 +401,6 @@ export function CheckoutScreen({
   onPickRecipientAddress,
   onSetRecipientDrop,
 }: CheckoutScreenProps) {
-  const activeFestival = useActiveFestival();
   const [phase, setPhase] = useState<CheckoutPhase>(() => {
     const saved = readUiSession()?.checkoutPhase;
     return saved === "schedule" ? "schedule" : "cart";
@@ -568,7 +565,7 @@ export function CheckoutScreen({
           variantId: variant.id,
           name: item.name,
           image: item.image || item.image_url || "/VK_Logo.webp",
-          price: dishQuote(variant.price, item.id, activeFestival).pay,
+          price: variant.price,
           weight: variant.weight,
           weightLabel: variant.label,
           quantity: qty,
@@ -585,7 +582,7 @@ export function CheckoutScreen({
       weightLabel: string;
       quantity: number;
     }[];
-  }, [activeFestival, cart, items]);
+  }, [cart, items]);
 
   useEffect(() => {
     if (cartEntries.length === 0 && phase === "schedule") {
@@ -1482,7 +1479,7 @@ export function CheckoutScreen({
                               </button>
                             ) : null}
                           </div>
-                          {!appliedOffer.code && (
+                          {!appliedOffer.code && activeCode && (
                             <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.5)" }}>
                               Your running offer saves more than {activeCode}, so we kept it.
                             </p>

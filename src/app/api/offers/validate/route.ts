@@ -7,7 +7,7 @@ import {
   subtotalFor,
   type CartLineInput,
 } from "@/lib/menu/variant-prices";
-import { festivalUnitPrice, loadActiveFestival } from "@/lib/menu/festival-dishes";
+import { festivalCheckoutDiscount, loadActiveFestival } from "@/lib/menu/festival-dishes";
 
 export const dynamic = "force-dynamic";
 
@@ -43,18 +43,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Could not load menu prices." }, { status: 500 });
     }
 
-    const activeFestival = await loadActiveFestival(supabase);
-    for (const [id, price] of priceById) {
-      priceById.set(id, festivalUnitPrice(price, id, activeFestival));
-    }
-
     const subtotal = subtotalFor(normalized.lines, priceById);
-    const { applied, codeError } = await resolveOfferForCheckout({
+    const { applied: promo, codeError } = await resolveOfferForCheckout({
       subtotal,
       code: body.code,
       phone: body.phone,
       supabase,
     });
+
+    const activeFestival = await loadActiveFestival(supabase);
+    const festivalCut = festivalCheckoutDiscount(normalized.lines, priceById, activeFestival);
+    const applied =
+      (festivalCut?.amount ?? 0) > (promo?.amount ?? 0)
+        ? {
+            offerId: `festival:${activeFestival?.id ?? "live"}`,
+            code: null,
+            label: festivalCut!.label,
+            amount: festivalCut!.amount,
+          }
+        : promo;
 
     if (codeError) {
       return NextResponse.json({ ok: false, error: codeError, applied });

@@ -20,7 +20,7 @@ import {
   resolveVariantPrices,
   type CartLineInput as LineInput,
 } from "@/lib/menu/variant-prices";
-import { festivalUnitPrice, loadActiveFestival } from "@/lib/menu/festival-dishes";
+import { festivalCheckoutDiscount, loadActiveFestival } from "@/lib/menu/festival-dishes";
 
 export async function POST(request: Request) {
   try {
@@ -118,7 +118,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not load menu prices." }, { status: 500 });
     }
 
-    const activeFestival = await loadActiveFestival(supabase);
     let itemTotal = 0;
     const resolved: { menuItemId: string; quantity: number; unitPrice: number }[] = [];
     for (const l of mergedLines) {
@@ -126,16 +125,15 @@ export async function POST(request: Request) {
       if (menuPrice == null || !Number.isFinite(menuPrice)) {
         return NextResponse.json({ error: "Unknown menu item." }, { status: 400 });
       }
-      const p = festivalUnitPrice(menuPrice, l.menuItemId, activeFestival);
       const qty = l.quantity;
-      itemTotal += p * qty;
-      resolved.push({ menuItemId: l.menuItemId, quantity: qty, unitPrice: p });
+      itemTotal += menuPrice * qty;
+      resolved.push({ menuItemId: l.menuItemId, quantity: qty, unitPrice: menuPrice });
     }
 
     // Discount is resolved from the subtotal we just recomputed, never from
     // anything the client sent. A bad code fails the order outright rather than
     // quietly billing full price after the customer saw a lower total.
-    const { applied: appliedOffer, codeError } = await resolveOfferForCheckout({
+    const { applied: promoOffer, codeError } = await resolveOfferForCheckout({
       subtotal: itemTotal,
       code: body.promoCode,
       phone,
@@ -145,7 +143,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: codeError }, { status: 400 });
     }
 
-    const discount = appliedOffer?.amount ?? 0;
+    const activeFestival = await loadActiveFestival(supabase);
+    const festivalCut = festivalCheckoutDiscount(mergedLines, priceById, activeFestival);
+    const festivalWins = (festivalCut?.amount ?? 0) > (promoOffer?.amount ?? 0);
+    const appliedOffer = festivalWins ? null : promoOffer;
+    const discount = festivalWins ? festivalCut!.amount : promoOffer?.amount ?? 0;
+    const billLabel = festivalWins ? festivalCut!.label : promoOffer?.label ?? null;
+    const billCode = festivalWins ? null : promoOffer?.code ?? null;
     const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal - discount);
 
     // Re-check COD eligibility server-side: the client hides the option, but the
@@ -195,11 +199,11 @@ export async function POST(request: Request) {
           : {}),
         // Only written when something was actually discounted, so an install
         // that hasn't run migrations-offers.sql still inserts cleanly.
-        ...(appliedOffer
+        ...(discount > 0 && billLabel
           ? {
               discount_amount: discount,
-              offer_code: appliedOffer.code,
-              offer_label: appliedOffer.label,
+              offer_code: billCode,
+              offer_label: billLabel,
             }
           : {}),
       })
@@ -261,7 +265,7 @@ export async function POST(request: Request) {
         paymentMethod: "cod",
         total: grandTotal,
         discount,
-        offerLabel: appliedOffer?.label ?? null,
+        offerLabel: billLabel,
       });
     }
 
@@ -304,7 +308,7 @@ export async function POST(request: Request) {
       paymentUrl: short_url,
       total: grandTotal,
       discount,
-      offerLabel: appliedOffer?.label ?? null,
+      offerLabel: billLabel,
     });
   } catch (e) {
     console.error("[checkout]", e);

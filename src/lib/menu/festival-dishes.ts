@@ -75,6 +75,26 @@ export async function loadActiveFestival(supabase: SupabaseClient): Promise<Fest
   return pickActiveFestival(rows);
 }
 
+/** Rupees off this cart for the live festival, only on the ticked dishes. */
+export function festivalCheckoutDiscount(
+  lines: { menuItemId: string; quantity: number }[],
+  priceById: Map<string, number>,
+  festival: FestivalRow | null,
+): { label: string; amount: number } | null {
+  if (!festival) return null;
+  let amount = 0;
+  for (const line of lines) {
+    const menuPrice = priceById.get(line.menuItemId);
+    if (menuPrice == null) continue;
+    const pay = festivalUnitPrice(menuPrice, line.menuItemId, festival);
+    const saving = menuPrice - pay;
+    if (saving > 0) amount += saving * line.quantity;
+  }
+  amount = Math.round(amount);
+  if (amount <= 0) return null;
+  return { label: festival.name, amount };
+}
+
 /** Menu price after the live festival cut, for one variant id. */
 export function festivalUnitPrice(
   menuPrice: number,

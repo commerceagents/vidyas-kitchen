@@ -147,14 +147,8 @@ export function listPriceForVariant(
   now = new Date(),
   activeFestival: FestivalRow | null = null,
 ): number | null {
+  if (festivalAppliesToDish(activeFestival, item.id, now)) return null;
   if (!effectiveShowDiscount(item, now)) return null;
-
-  const festivalOn =
-    item.show_discount && festivalAppliesNow(activeFestival, now);
-
-  if (festivalOn && activeFestival) {
-    return listPriceFromPercent(salePrice, Number(activeFestival.discount_override));
-  }
 
   const t = item.discount_type ?? null;
   if (t === "manual") {
@@ -182,18 +176,12 @@ export function discountChipDisplay(
   now = new Date(),
   activeFestival: FestivalRow | null = null,
 ): DiscountChipDisplay {
-  if (festivalAppliesToDish(activeFestival, item.id, now) && activeFestival?.chip_label) {
-    return { text: activeFestival.chip_label, variant: "festival" };
+  if (festivalAppliesToDish(activeFestival, item.id, now)) {
+    const pct = Math.round(Number(activeFestival?.discount_override));
+    if (pct > 0 && pct < 100) return { text: `${pct}%`, variant: "festival" };
   }
 
   if (!effectiveShowDiscount(item, now)) return { text: null, variant: "normal" };
-
-  const festivalOn =
-    item.show_discount && festivalAppliesNow(activeFestival, now);
-
-  if (festivalOn && activeFestival?.chip_label) {
-    return { text: activeFestival.chip_label, variant: "festival" };
-  }
 
   if (item.seasonal_active && isWithinSeasonalWindow(item.seasonal_from, item.seasonal_until, now)) {
     return { text: "SEASONAL", variant: "normal" };
