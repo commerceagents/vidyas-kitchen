@@ -5,10 +5,12 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
+import { saveFestivalDishes } from "@/lib/menu/festival-dishes";
 
 export async function approvePricingDecisionAction(
   decisionId: string,
   overridePct?: number | null,
+  dishIds?: string[],
 ): Promise<{ ok: boolean; error?: string }> {
   const denied = await guardDashboardAction();
   if (denied) return denied;
@@ -35,6 +37,12 @@ export async function approvePricingDecisionAction(
 
     if (decision.decision_type === "festival_activate") {
       const festivalId = String(decision.dish_id).replace("festival:", "");
+      const chosen = Array.isArray(dishIds) ? dishIds : [];
+      if (chosen.length === 0) {
+        return { ok: false, error: "Tick at least one dish, then tap Approve." };
+      }
+      const saved = await saveFestivalDishes(supabase, festivalId, chosen);
+      if (!saved.ok) return saved;
       await supabase
         .from("festivals")
         .update({
@@ -84,6 +92,7 @@ export async function approvePricingDecisionAction(
 
     revalidatePath("/dashboard/pricing-agent");
     revalidatePath("/dashboard/dishes");
+    revalidatePath("/");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Approve failed" };

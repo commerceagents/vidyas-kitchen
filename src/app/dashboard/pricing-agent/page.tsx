@@ -160,18 +160,29 @@ export default function PricingAgentPage() {
     }
   };
 
-  const handleApprove = async (id: string, pct?: number | null) => {
+  const handleApprove = async (id: string, pct?: number | null, dishIds?: string[]) => {
     if (id.startsWith("demo-")) return;
+    if (dishIds && dishIds.length === 0) {
+      flashMsg("Tick at least one dish, then tap Approve.");
+      return;
+    }
     setState((s) => {
       const decisions = s.decisions.map((d) => (d.id === id ? { ...d, status: "applied" } : d));
       return {
         ...s,
         decisions,
         pendingCount: decisions.filter((d) => d.status === "pending").length,
+        festivalDishes:
+          dishIds && s.decisions.some((d) => d.id === id && d.dish_id.startsWith("festival:"))
+            ? {
+                ...s.festivalDishes,
+                [String(s.decisions.find((d) => d.id === id)?.dish_id).slice("festival:".length)]: dishIds,
+              }
+            : s.festivalDishes,
       };
     });
-    flashMsg("Approved.");
-    const r = await approvePricingDecisionAction(id, pct);
+    flashMsg(dishIds ? "Approved. Those dishes get the lower price on the real menu during the festival dates." : "Approved.");
+    const r = await approvePricingDecisionAction(id, pct, dishIds);
     if (!r.ok) flashMsg(r.error ?? "Approve failed");
     void load();
   };
@@ -452,7 +463,7 @@ function PricingDecisionsPanel({
   pending: Decision[];
   recent: Decision[];
   msg: string | null;
-  onApprove: (id: string, pct?: number | null) => void;
+  onApprove: (id: string, pct?: number | null, dishIds?: string[]) => void;
   onReject: (id: string) => void;
   onUpdate: (id: string, pct: number) => void | Promise<void>;
   festivalDishes: Record<string, string[]>;
@@ -791,7 +802,7 @@ function OfferGroups({
   items: Decision[];
   festivalDishes: Record<string, string[]>;
   onSaveDishes: (festivalId: string, dishIds: string[]) => Promise<void>;
-  onApprove?: (id: string, pct?: number | null) => void;
+  onApprove?: (id: string, pct?: number | null, dishIds?: string[]) => void;
   onReject?: (id: string) => void;
   onUpdate?: (id: string, pct: number) => void | Promise<void>;
 }) {
@@ -824,6 +835,33 @@ function OfferGroups({
             {section.label}
             <span style={{ marginLeft: 8, color: "#555" }}>{section.items.length}</span>
           </h3>
+          {section.id === "festival" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {section.items.map((d) =>
+                d.decision_type === "festival_activate" && d.dish_id.startsWith("festival:") ? (
+                  <FestivalBundle
+                    key={d.id}
+                    decision={d}
+                    savedIds={festivalDishes[d.dish_id.slice("festival:".length)] ?? EMPTY_DISH_IDS}
+                    pending={Boolean(onApprove)}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    onUpdate={onUpdate}
+                    onSaveDishes={onSaveDishes}
+                  />
+                ) : (
+                  <ul key={d.id} className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
+                    <DecisionCard
+                      decision={d}
+                      onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
+                      onReject={onReject ? () => onReject(d.id) : undefined}
+                      onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
+                    />
+                  </ul>
+                ),
+              )}
+            </div>
+          ) : (
           <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
             {section.items.map((d) => (
               <DecisionCard
@@ -832,28 +870,10 @@ function OfferGroups({
                 onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
                 onReject={onReject ? () => onReject(d.id) : undefined}
                 onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
-                selectedCount={
-                  d.dish_id.startsWith("festival:")
-                    ? (festivalDishes[d.dish_id.slice("festival:".length)] ?? []).length
-                    : undefined
-                }
               />
             ))}
           </ul>
-          {section.id === "festival" &&
-            section.items
-              .filter((d) => d.decision_type === "festival_activate" && d.dish_id.startsWith("festival:"))
-              .map((d) => {
-                const festivalId = d.dish_id.slice("festival:".length);
-                return (
-                  <FestivalDishPicker
-                    key={festivalId}
-                    title={decisionDisplayName(d)}
-                    selected={festivalDishes[festivalId] ?? EMPTY_DISH_IDS}
-                    onSave={(ids) => onSaveDishes(festivalId, ids)}
-                  />
-                );
-              })}
+          )}
         </section>
       ))}
     </div>
@@ -862,31 +882,79 @@ function OfferGroups({
 
 const EMPTY_DISH_IDS: string[] = [];
 
+function FestivalBundle({
+  decision,
+  savedIds,
+  pending,
+  onApprove,
+  onReject,
+  onUpdate,
+  onSaveDishes,
+}: {
+  decision: Decision;
+  savedIds: string[];
+  pending: boolean;
+  onApprove?: (id: string, pct?: number | null, dishIds?: string[]) => void;
+  onReject?: (id: string) => void;
+  onUpdate?: (id: string, pct: number) => void | Promise<void>;
+  onSaveDishes: (festivalId: string, dishIds: string[]) => Promise<void>;
+}) {
+  const festivalId = decision.dish_id.slice("festival:".length);
+  const savedKey = dishKey(savedIds);
+  const [picked, setPicked] = useState<string[]>(savedIds);
+  useEffect(() => {
+    setPicked(savedIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey]);
+  const toggle = (id: string) => {
+    setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+  return (
+    <div>
+      <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
+        <DecisionCard
+          decision={decision}
+          onApprove={pending && onApprove ? (pct) => onApprove(decision.id, pct, picked) : undefined}
+          onReject={onReject ? () => onReject(decision.id) : undefined}
+          onUpdate={onUpdate ? (pct) => onUpdate(decision.id, pct) : undefined}
+          selectedCount={picked.length}
+          approveLabel={pending ? (picked.length ? `Approve on ${picked.length} dishes` : "Tick dishes below") : undefined}
+          approveDisabled={pending && picked.length === 0}
+        />
+      </ul>
+      <FestivalDishPicker
+        title={decisionDisplayName(decision)}
+        picked={picked}
+        onToggle={toggle}
+        pending={pending}
+        savedKey={savedKey}
+        onSave={() => onSaveDishes(festivalId, picked)}
+      />
+    </div>
+  );
+}
+
 function dishKey(ids: string[]): string {
   return [...ids].sort().join(",");
 }
 
 function FestivalDishPicker({
   title,
-  selected,
+  picked,
+  onToggle,
+  pending,
+  savedKey,
   onSave,
 }: {
   title: string;
-  selected: string[];
-  onSave: (dishIds: string[]) => Promise<void>;
+  picked: string[];
+  onToggle: (id: string) => void;
+  pending: boolean;
+  savedKey: string;
+  onSave: () => Promise<void>;
 }) {
-  const savedKey = dishKey(selected);
-  const [picked, setPicked] = useState<string[]>(selected);
   const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    setPicked(selected);
-    // Sync only when the saved set actually changes, not on every parent render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedKey]);
   const dirty = dishKey(picked) !== savedKey;
-  const toggle = (id: string) => {
-    setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  };
   return (
     <div
       style={{
@@ -897,35 +965,42 @@ function FestivalDishPicker({
         background: "#141414",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: FONT }}>
           {title} dishes
           <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: "#888" }}>{picked.length} selected</span>
         </p>
-        <button
-          type="button"
-          disabled={!dirty || saving}
-          onClick={async () => {
-            setSaving(true);
-            await onSave(picked);
-            setSaving(false);
-          }}
-          style={{
-            height: 36,
-            padding: "0 14px",
-            borderRadius: 10,
-            border: "none",
-            background: dirty ? YELLOW : "#2a2a2a",
-            color: dirty ? "#111" : "#666",
-            fontSize: 13,
-            fontWeight: 800,
-            fontFamily: FONT,
-            cursor: dirty && !saving ? "pointer" : "default",
-          }}
-        >
-          {saving ? "Saving…" : dirty ? "Save dishes" : "Saved"}
-        </button>
+        {pending ? null : (
+          <button
+            type="button"
+            disabled={!dirty || saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave();
+              setSaving(false);
+            }}
+            style={{
+              height: 36,
+              padding: "0 14px",
+              borderRadius: 10,
+              border: "none",
+              background: dirty ? YELLOW : "#2a2a2a",
+              color: dirty ? "#111" : "#666",
+              fontSize: 13,
+              fontWeight: 800,
+              fontFamily: FONT,
+              cursor: dirty && !saving ? "pointer" : "default",
+            }}
+          >
+            {saving ? "Saving…" : dirty ? "Update menu" : "On the menu"}
+          </button>
+        )}
       </div>
+      <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#aaa", lineHeight: 1.45, fontFamily: FONT }}>
+        {pending
+          ? "Tick the dishes, then tap Approve. That one tap puts the lower price on the real menu. It shows only on the festival dates in the card above. Before those dates the menu stays at the normal price."
+          : "This offer is already approved. Change the ticks and tap Update menu. The real menu follows that list during the festival dates."}
+      </p>
       <div className="vk-festival-dish-grid">
         {MENU_CATEGORIES.map((category) => (
           <div key={category.id}>
@@ -954,7 +1029,7 @@ function FestivalDishPicker({
                     <input
                       type="checkbox"
                       checked={on}
-                      onChange={() => toggle(dish.id)}
+                      onChange={() => onToggle(dish.id)}
                       style={{ width: 16, height: 16, accentColor: YELLOW, flexShrink: 0 }}
                     />
                     {dish.name.replace(" - ", " — ")}
@@ -975,12 +1050,16 @@ function DecisionCard({
   onReject,
   onUpdate,
   selectedCount,
+  approveLabel,
+  approveDisabled,
 }: {
   decision: Decision;
   onApprove?: (pct?: number | null) => void;
   onReject?: () => void;
   onUpdate?: (pct: number) => void | Promise<void>;
   selectedCount?: number;
+  approveLabel?: string;
+  approveDisabled?: boolean;
 }) {
   const isPending = decision.status === "pending";
   const isLiveOffer = decision.status === "applied" || decision.status === "auto_applied";
@@ -1177,23 +1256,27 @@ function DecisionCard({
               </button>
               <button
                 type="button"
-                onClick={() => onApprove(showPctPicker ? pickedPct : null)}
+                onClick={() => {
+                  if (approveDisabled) return;
+                  onApprove(showPctPicker ? pickedPct : null);
+                }}
+                disabled={approveDisabled}
                 className="vk-order-btn vk-order-btn-accept"
                 style={{
                   height: 44,
                   borderRadius: 10,
                   border: "none",
-                  background: YELLOW,
-                  color: "#111",
+                  background: approveDisabled ? "#3a3a3a" : YELLOW,
+                  color: approveDisabled ? "#777" : "#111",
                   fontSize: 14,
                   fontWeight: 500,
-                  cursor: "pointer",
+                  cursor: approveDisabled ? "not-allowed" : "pointer",
                   fontFamily: FONT,
                   boxShadow: `0 4px 14px ${YELLOW}25`,
                   boxSizing: "border-box",
                 }}
               >
-                Approve
+                {approveLabel ?? "Approve"}
               </button>
             </div>
           ) : pctDirty && onUpdate ? (
