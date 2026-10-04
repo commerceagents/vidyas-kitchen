@@ -726,11 +726,6 @@ export function CheckoutScreen({
     if (giftOnly) setForSomeoneElse(true);
   }, [giftOnly]);
 
-  // The sender is not at the Sivakasi door, so they cannot hand the driver cash.
-  useEffect(() => {
-    if (forSomeoneElse && paymentMethod === "cod") setPaymentMethod("online");
-  }, [forSomeoneElse, paymentMethod]);
-
   const zoneSavedPlaces = savedPlaces.filter((p) => isInsideDeliveryZone(p.lat, p.lng));
   const recipientFieldLabel: CSSProperties = {
     display: "flex",
@@ -830,7 +825,6 @@ export function CheckoutScreen({
     const dropLng = forSomeoneElse ? recipientDrop!.lng : deliveryLng;
     showCheckoutError(null);
     setPaymentNotice(null);
-    const method = forSomeoneElse ? "online" : paymentMethod;
     if (forSomeoneElse && recipientDrop) {
       rememberGiftContact(recipientDrop, recipientNameTrim, recipientPhoneDigits);
     }
@@ -850,7 +844,7 @@ export function CheckoutScreen({
           deliveryAddress: dropLabel,
           deliveryDate: deliveryDateYmd,
           deliverySlot: slotKind,
-          paymentMethod: method,
+          paymentMethod,
           ...(activeCode ? { promoCode: activeCode } : {}),
           ...(forSomeoneElse
             ? { recipientName: recipientNameTrim, recipientPhone: recipientPhoneDigits }
@@ -883,7 +877,7 @@ export function CheckoutScreen({
         checkoutRecipientPhone: "",
         checkoutForSomeoneElse: false,
       });
-      if (method === "cod") {
+      if (paymentMethod === "cod") {
         // No online payment to redirect to — the order is already placed, cash is
         // collected at delivery. Reuse the same success route as the paid flow so
         // cart-clearing / tracking / the confirmation modal all stay in one place.
@@ -2320,19 +2314,17 @@ export function CheckoutScreen({
                       Icon: Lightning,
                       disabled: false,
                     },
-                    ...(forSomeoneElse
-                      ? []
-                      : [
-                          {
-                            id: "cod" as const,
-                            label: "Pay at the door",
-                            sub: codBlockedByTotal
-                              ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}`
-                              : "Driver collects it from you",
-                            Icon: Money,
-                            disabled: codBlockedByTotal,
-                          },
-                        ]),
+                    {
+                      id: "cod",
+                      label: "Pay at the door",
+                      sub: forSomeoneElse
+                        ? "They pay the driver"
+                        : codBlockedByTotal
+                          ? `Up to ₹${COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}`
+                          : "Cash or UPI",
+                      Icon: Money,
+                      disabled: codBlockedByTotal,
+                    },
                   ] as const
                 ).map((p) => {
                   const disabled = p.disabled;
@@ -2385,13 +2377,18 @@ export function CheckoutScreen({
                 })}
               </div>
 
-              {forSomeoneElse && (
+              {forSomeoneElse && paymentMethod === "online" && (
                 <p style={{ margin: "10px 2px 0", fontSize: 12, fontWeight: 700, color: C.text, lineHeight: 1.45 }}>
-                  You pay on your phone now. The person in {DELIVERY_ZONE.name} just receives the food.
+                  You pay on your phone now. They just receive the food.
+                </p>
+              )}
+              {forSomeoneElse && paymentMethod === "cod" && !codBlockedByTotal && (
+                <p style={{ margin: "10px 2px 0", fontSize: 12, fontWeight: 700, color: C.text, lineHeight: 1.45 }}>
+                  They pay the driver in cash. If they have no cash, they scan the QR on the driver&apos;s phone.
                 </p>
               )}
 
-              {codBlockedByTotal && !forSomeoneElse && (
+              {codBlockedByTotal && (
                 <p style={{ margin: "10px 2px 0", fontSize: 11.5, fontWeight: 600, color: C.muted, lineHeight: 1.45 }}>
                   Cash on delivery is available on orders up to ₹
                   {COD_MAX_ORDER_VALUE.toLocaleString("en-IN")}.

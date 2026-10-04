@@ -152,15 +152,6 @@ export async function POST(request: Request) {
     const billCode = festivalWins ? null : promoOffer?.code ?? null;
     const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal - discount);
 
-    // The sender is in another city. Cash can only be collected from whoever
-    // opens the door, so a gift is paid online by the person placing it.
-    if (orderingForSomeoneElse && paymentMethod === "cod") {
-      return NextResponse.json(
-        { error: "Sending food to someone else is paid on your phone now." },
-        { status: 400 },
-      );
-    }
-
     // Re-check COD eligibility server-side: the client hides the option, but the
     // total is only trustworthy once it's been recomputed from the menu here.
     if (paymentMethod === "cod") {

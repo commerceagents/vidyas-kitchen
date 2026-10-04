@@ -108,13 +108,16 @@ export async function sendDriverArrivedPush(
   orderId: string,
   orderNumber?: number | null,
   paymentMethod?: string | null,
+  recipientPays?: boolean,
 ): Promise<void> {
   const short = formatOrderRef(orderNumber, orderId).replace(/^#/, "");
   const isCod = String(paymentMethod || "").toLowerCase() === "cod";
   await pushToCustomer(supabase, phoneNumber, {
     title: "Your driver has arrived",
     body: isCod
-      ? `Order #${short} is at your door. Please keep the cash ready.`
+      ? recipientPays
+        ? `Order #${short} is at their door. They pay in cash, or by scanning the driver's QR.`
+        : `Order #${short} is at your door. Please keep the cash ready.`
       : `Order #${short} is at your door.`,
     tag: `vk-${orderId}-arrived`,
     url: `${publicSiteOrigin()}/?track=${orderId}`,

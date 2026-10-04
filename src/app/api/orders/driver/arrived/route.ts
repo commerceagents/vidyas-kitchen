@@ -6,6 +6,10 @@ import { sendDriverArrivedPush } from "@/lib/push-order-notify";
 import { notifyWhatsAppDriverArrived } from "@/lib/whatsapp-order-notify";
 import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
 
+function last10(value: string | null | undefined): string {
+  return String(value || "").replace(/\D/g, "").slice(-10);
+}
+
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
   const supabase = createServerSupabase();
   const { data: row, error: fe } = await supabase
     .from("orders")
-    .select("id, status, phone_number, order_number, delivery_slot, payment_method, driver_arrived_at, driver_phone")
+    .select("id, status, phone_number, recipient_phone, order_number, delivery_slot, payment_method, driver_arrived_at, driver_phone")
     .eq("id", orderId)
     .single();
 
@@ -80,6 +84,9 @@ export async function POST(request: Request) {
 
   after(async () => {
     const orderRef = formatOrderRef(row.order_number as number | null, orderId).replace(/^#/, "");
+    const buyer = last10(row.phone_number as string | null);
+    const recipient = last10((row as { recipient_phone?: string | null }).recipient_phone);
+    const recipientPays = recipient.length === 10 && recipient !== buyer;
     await Promise.allSettled([
       sendDriverArrivedPush(
         supabase,
@@ -87,6 +94,7 @@ export async function POST(request: Request) {
         orderId,
         (row.order_number as number | null) ?? null,
         (row.payment_method as string | null) ?? null,
+        recipientPays,
       ),
       notifyWhatsAppDriverArrived(supabase, orderId),
       sendDashboardPushNotifications(supabase, {

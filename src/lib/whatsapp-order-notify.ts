@@ -14,6 +14,7 @@ import {
   notifyOrderRejected,
   driverPinCaption,
   notifyDriverArrived,
+  notifyGiftSenderDriverArrived,
   giftRecipientWhatsApp,
   giftRecipientSms,
   olderOrderAskReply,
@@ -254,6 +255,19 @@ const TEMPLATE_STATUS_LINE: Record<WaOrderStage, string> = {
   undelivered: "We could not hand over your order at the door.",
 };
 
+/** Sent to the person who placed a gift, when the recipient is the one who pays. */
+const GIFT_COD_BUYER_LINE =
+  "We have received your order. The person receiving it pays the driver, in cash or by scanning the driver's QR.";
+
+function recipientPaysAtDoor(
+  buyerPhone: string | null | undefined,
+  recipientPhone: string | null | undefined,
+): boolean {
+  const buyer = String(buyerPhone || "").replace(/\D/g, "").slice(-10);
+  const recipient = String(recipientPhone || "").replace(/\D/g, "").slice(-10);
+  return recipient.length === 10 && recipient !== buyer;
+}
+
 function giftKindForStatus(status: string): GiftNotifyKind | null {
   switch (status) {
     case OrderStatus.PAID:
@@ -416,7 +430,7 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
           itemsLine,
           slot: bill.slotLine || "See the tracking link",
           payLine: isCod
-            ? `Please keep ${formatInr(bill.amount)} ready to pay at the door.`
+            ? `Please pay ${formatInr(bill.amount)} to the driver — cash, or scan the QR on their phone.`
             : "Already paid - just receive it at the door.",
           url,
         });
@@ -512,6 +526,24 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
   const amtStr = order.total_amount != null ? formatInr(Number(order.total_amount)) : "the order amount";
   const lang = (await loadWaLang(to)) ?? undefined;
   const bill = await loadOrderBill(order);
+  let recipientPays = false;
+  if (isCod) {
+    try {
+      const supabase = createServerSupabase();
+      const { data } = await supabase
+        .from("orders")
+        .select("recipient_phone, phone_number")
+        .eq("id", order.id)
+        .maybeSingle();
+      const row = data as { recipient_phone?: string | null; phone_number?: string | null } | null;
+      recipientPays = recipientPaysAtDoor(row?.phone_number || order.phone_number, row?.recipient_phone);
+    } catch {
+      recipientPays = false;
+    }
+  }
+  if (recipientPays) bill.recipientPays = true;
+  const lineFor = (stage: WaOrderStage) =>
+    stage === "placed_cod" && recipientPays ? GIFT_COD_BUYER_LINE : TEMPLATE_STATUS_LINE[stage];
 
   /**
    * Rich card first, approved template if WhatsApp refuses it. The refusal is
@@ -535,7 +567,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
     const sent = await sendOrderUpdateTemplate(to, {
       name: await displayNameForPhone(order.phone_number, "there"),
       ref: short,
-      line: TEMPLATE_STATUS_LINE[stage],
+        line: lineFor(stage),
       slot: bill.slotLine || "See the app for your slot",
       url: trackUrl,
     });
@@ -568,7 +600,7 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       const sent = await sendOrderUpdateTemplate(to, {
         name: await displayNameForPhone(order.phone_number, "there"),
         ref: short,
-        line: TEMPLATE_STATUS_LINE[stage],
+        line: lineFor(stage),
         slot: bill.slotLine || "See the app for your slot",
         url: trackUrl,
       });
@@ -725,7 +757,7 @@ export async function notifyWhatsAppDriverArrived(
 ): Promise<void> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, phone_number, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, order_number")
+    .select("id, phone_number, recipient_phone, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, order_number")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -733,6 +765,7 @@ export async function notifyWhatsAppDriverArrived(
 
   const row = data as {
     phone_number?: string | null;
+    recipient_phone?: string | null;
     status?: string | null;
     payment_method?: string | null;
     payment_status?: string | null;
@@ -783,10 +816,13 @@ export async function notifyWhatsAppDriverArrived(
     String(row.payment_method || "").toLowerCase() === "cod" &&
     String(row.payment_status || "").toLowerCase() !== "paid";
   const lang = (await loadWaLang(to)) ?? undefined;
+  const arrivedCopy = recipientPaysAtDoor(row.phone_number, row.recipient_phone)
+    ? notifyGiftSenderDriverArrived(cashDue, Number(row.total_amount) || 0, lang)
+    : notifyDriverArrived(cashDue, Number(row.total_amount) || 0, lang);
 
   await sendCtaUrl(
     to,
-    notifyDriverArrived(cashDue, Number(row.total_amount) || 0, lang),
+    arrivedCopy,
     `${publicSiteOrigin()}/?track=${orderId}`,
     BTN.track,
   );

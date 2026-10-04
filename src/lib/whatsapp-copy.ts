@@ -1036,6 +1036,8 @@ export type WaOrderBill = {
   ref: string;
   slotLine?: string;
   isCod: boolean;
+  /** Cash is collected from the person receiving a gift, not from the sender. */
+  recipientPays?: boolean;
   amount: number;
   items: WaBillLine[];
   breakdown: { itemsSubtotal: number; packaging: number; delivery: number; gst: number };
@@ -1088,9 +1090,15 @@ function billMoneyLines(bill: WaOrderBill, lang?: WaLang): string[] {
     RULE,
     `*${dottedRow(pickLang(lang, "Total", "Total"), pay)}*`,
     "",
-    bill.isCod
-      ? `_${pickLang(lang, "Pay at the door, exact if you can.", "Veetula cash — exact irundha nalla.")}_`
-      : `_${pickLang(lang, "Already paid online.", "Online-la already pay aayiduchu.")}_`,
+    bill.recipientPays
+      ? `_${pickLang(
+          lang,
+          "They pay the driver — cash, or the QR on the driver's phone.",
+          "Avanga driver-kitta cash kudukkalam, illana driver phone-la irukura QR-ah scan pannalam.",
+        )}_`
+      : bill.isCod
+        ? `_${pickLang(lang, "Pay at the door, exact if you can.", "Veetula cash — exact irundha nalla.")}_`
+        : `_${pickLang(lang, "Already paid online.", "Online-la already pay aayiduchu.")}_`,
   ];
 }
 
@@ -1485,6 +1493,27 @@ export function notifyOrderOutForDelivery(lang?: WaLang): string {
       breakdown: { itemsSubtotal: 0, packaging: 0, delivery: 0, gst: 0 },
     },
     lang,
+  );
+}
+
+/** The sender of a gift is not at the door. Cash, if any, is collected there. */
+export function notifyGiftSenderDriverArrived(isCod: boolean, amount: number, lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "The driver has arrived",
+      lines: [
+        "The driver is at their door.",
+        isCod ? `They pay ${money(amount)} — cash, or the QR on the driver's phone.` : null,
+      ],
+    }),
+    msg({
+      title: "Driver vandhutaaru",
+      lines: [
+        "Driver avanga veetla irukaaru.",
+        isCod ? `Avanga ${money(amount)} cash kudukkalam, illana driver phone-la irukura QR-ah scan pannalam.` : null,
+      ],
+    }),
   );
 }
 
@@ -1996,7 +2025,10 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
   amount?: number;
 }): string {
   const sender = opts.sender || "A friend";
-  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash or UPI when it arrives.` : "";
+  const cash =
+    opts.isCod && opts.amount
+      ? ` Pay ${money(opts.amount)} to the driver — cash, or scan the QR on their phone.`
+      : "";
   switch (kind) {
     case "placed":
       return msg({
@@ -2008,7 +2040,7 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
           opts.slotLine ? `When: ${opts.slotLine}` : null,
           "",
           opts.isCod
-            ? `_Pay ${money(opts.amount || 0)} cash or UPI at the door._`
+            ? `_Pay ${money(opts.amount || 0)} to the driver. Cash, or scan the QR on their phone._`
             : "_Already paid — just receive it._",
         ],
         note: "Tap Track to watch the driver on the map.",
@@ -2046,7 +2078,10 @@ export function giftRecipientSms(kind: GiftNotifyKind, opts: {
   amount?: number;
 }): string {
   const sender = opts.sender || "A friend";
-  const cash = opts.isCod && opts.amount ? ` Pay ${money(opts.amount)} cash or UPI at the door.` : "";
+  const cash =
+    opts.isCod && opts.amount
+      ? ` Pay ${money(opts.amount)} to the driver — cash, or scan the QR on their phone.`
+      : "";
   switch (kind) {
     case "placed":
       return `${sender} sent you Vidya's Kitchen food${opts.itemsLine ? `: ${opts.itemsLine}` : ""}${opts.slotLine ? ` (${opts.slotLine})` : ""}.${opts.isCod ? cash : " Already paid."} Track: ${opts.url}`;
