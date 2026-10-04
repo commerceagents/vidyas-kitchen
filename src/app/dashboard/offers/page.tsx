@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Ticket, Trash2, X } from "lucide-react";
+import { Plus, Tag, Ticket, Trash2, X } from "lucide-react";
 import {
   deleteOfferAction,
   listOffersAction,
