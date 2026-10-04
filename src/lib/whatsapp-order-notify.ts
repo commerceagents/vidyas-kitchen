@@ -430,8 +430,8 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
           itemsLine,
           slot: bill.slotLine || "See the tracking link",
           payLine: isCod
-            ? `Please pay ${formatInr(bill.amount)} to the driver — cash, or scan the QR on their phone.`
-            : "Already paid - just receive it at the door.",
+            ? `Please pay ${formatInr(bill.amount)} to the driver. Cash, or scan the QR on their phone.`
+            : "Already paid. Just receive it at the door.",
           url,
         });
         if (!delivered) {

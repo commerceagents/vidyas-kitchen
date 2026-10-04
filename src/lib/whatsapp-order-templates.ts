@@ -117,13 +117,13 @@ export function giftOrderSurpriseTemplateDefinition(): Record<string, unknown> {
       {
         type: "BODY",
         text:
-          "A meal is on its way to you! 🍛\n\n" +
-          "{{1}} ordered it from Vidya's Kitchen — you just open the door.\n\n" +
+          "A meal from Vidya's Kitchen is on its way to you.\n\n" +
+          "{{1}} sent it.\n" +
           "Order #{{2}}\n" +
           "Items: {{3}}\n" +
           "Delivery: {{4}}\n\n" +
           "{{5}}\n" +
-          "Tap below to follow it live.",
+          "Tap below to follow the delivery.",
         example: {
           body_text: [
             [
@@ -131,7 +131,7 @@ export function giftOrderSurpriseTemplateDefinition(): Record<string, unknown> {
               "00123",
               "Mom's Recipe Chicken Gravy x 1",
               "Today, 1:00 PM - 2:00 PM",
-              "Already paid - just receive it at the door.",
+              "Already paid. Just receive it at the door.",
             ],
           ],
         },

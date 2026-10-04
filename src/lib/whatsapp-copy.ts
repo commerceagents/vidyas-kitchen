@@ -2032,18 +2032,18 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
   switch (kind) {
     case "placed":
       return msg({
-        title: "🍛 A meal is headed your way!",
+        title: "A meal is on its way to you",
         lines: [
-          `${sender} ordered this from Vidya's Kitchen — you just open the door.`,
+          `${sender} sent it.`,
           "",
           opts.itemsLine,
           opts.slotLine ? `When: ${opts.slotLine}` : null,
           "",
           opts.isCod
             ? `_Pay ${money(opts.amount || 0)} to the driver. Cash, or scan the QR on their phone._`
-            : "_Already paid — just receive it._",
+            : "_Already paid. Just receive it at the door._",
         ],
-        note: "Tap Track to watch the driver on the map.",
+        note: "Tap Track to follow the delivery.",
       });
     case "dispatched":
       return msg({
