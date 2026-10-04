@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -50,6 +50,10 @@ const sp = (n: number) => n * 8;
 
 const APP_VERSION = "1.0.0";
 const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
+/** Same fill as the Log Out button on this screen. */
+const ACCOUNT_MAROON = `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`;
+const CREDIT_TAP_WINDOW_MS = 1500;
+const CREDIT_VISIBLE_MS = 3000;
 
 /** The same green "Instant" treatment used on the Vidya Bot tile at home. */
 function VerifiedChip() {
@@ -205,6 +209,10 @@ export function AccountTabPanel({
   const [showHelp, setShowHelp] = useState(false);
   const [policy, setPolicy] = useState<"refund" | "terms" | "privacy" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [creditTick, setCreditTick] = useState(0);
+  const creditTaps = useRef<number[]>([]);
+  const creditTipRef = useRef<HTMLSpanElement>(null);
+  const creditOpen = creditTick > 0;
 
   useEffect(() => {
     setMounted(true);
@@ -249,6 +257,42 @@ export function AccountTabPanel({
     recompute();
     return subscribePwaInstall(recompute);
   }, []);
+
+  const onFooterCreditTap = (event: { target: EventTarget | null }) => {
+    const node = event.target;
+    if (node instanceof Node && creditTipRef.current?.contains(node)) return;
+    const now = Date.now();
+    const recent = creditTaps.current.filter((t) => now - t <= CREDIT_TAP_WINDOW_MS);
+    recent.push(now);
+    creditTaps.current = recent;
+    if (recent.length < 3) return;
+    creditTaps.current = [];
+    setCreditTick((n) => n + 1);
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(12);
+      }
+    } catch {
+      /* Vibration is optional and some browsers reject the call. */
+    }
+  };
+
+  useEffect(() => {
+    if (!creditTick) return;
+    const openedAt = Date.now();
+    const timer = window.setTimeout(() => setCreditTick(0), CREDIT_VISIBLE_MS);
+    const onPointerDown = (event: PointerEvent) => {
+      if (Date.now() - openedAt < 350) return;
+      const node = event.target;
+      if (node instanceof Node && creditTipRef.current?.contains(node)) return;
+      setCreditTick(0);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [creditTick]);
 
   const handleInstallApp = useCallback(async () => {
     if (isAppleInstall) {
@@ -512,7 +556,7 @@ export function AccountTabPanel({
             padding: "14px 16px",
             borderRadius: 14,
             border: "none",
-            background: `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`,
+            background: ACCOUNT_MAROON,
             color: C.white,
             fontSize: 15,
             fontWeight: 800,
@@ -525,6 +569,7 @@ export function AccountTabPanel({
       ) : null}
 
       <p
+        onClick={onFooterCreditTap}
         style={{
           margin: `${sp(2)}px 0 0`,
           display: "flex",
@@ -535,12 +580,79 @@ export function AccountTabPanel({
           fontWeight: 700,
           color: "rgba(0,0,0,0.42)",
           letterSpacing: "0.01em",
+          position: "relative",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTapHighlightColor: "transparent",
         }}
       >
+        <span
+          ref={creditTipRef}
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "calc(100% + 10px)",
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            width: "max-content",
+            maxWidth: "100%",
+            pointerEvents: creditOpen ? "auto" : "none",
+          }}
+        >
+          <AnimatePresence>
+            {creditOpen ? (
+              <motion.span
+                role="status"
+                initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                style={{
+                  display: "block",
+                  position: "relative",
+                  padding: "10px 14px",
+                  borderRadius: 15,
+                  background: ACCOUNT_MAROON,
+                  color: C.white,
+                  fontFamily: C.mono,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  lineHeight: 1.35,
+                  textAlign: "center",
+                  boxShadow: `0 8px 22px ${C.redGlow}`,
+                }}
+              >
+                Designed & Developed by Simon Santhosh
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    bottom: -5,
+                    width: 12,
+                    height: 12,
+                    marginLeft: -6,
+                    background: ACCOUNT_MAROON,
+                    transform: "rotate(45deg)",
+                    borderRadius: 2,
+                  }}
+                />
+              </motion.span>
+            ) : null}
+          </AnimatePresence>
+        </span>
         Version {APP_VERSION}
         <span aria-hidden style={{ color: "rgba(0,0,0,0.2)" }}>·</span>
         Made with
-        <Heart size={12} weight="fill" color={C.red} style={{ flexShrink: 0 }} aria-label="love" />
+        <motion.span
+          key={creditTick || "idle"}
+          initial={{ scale: 1 }}
+          animate={creditOpen ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          style={{ display: "inline-flex", flexShrink: 0 }}
+        >
+          <Heart size={12} weight="fill" color={C.red} aria-label="love" />
+        </motion.span>
         in {DELIVERY_CITY}
       </p>
     </motion.div>
