@@ -9,7 +9,7 @@ export interface SavedPlace {
   address: string;
   lat: number;
   lng: number;
-  /** Last person this place was ordered for. Filled after the first gift order. */
+  /** First name and phone entered for this place. A later edit does not replace them. */
   recipientName?: string;
   recipientPhone?: string;
 }
@@ -155,35 +155,31 @@ export function latestGiftContact(
   return { name, phone };
 }
 
-/** Nickname on the chip, when it is a person rather than Home / Work / Other. */
-export function savedPlacePersonName(place: SavedPlace): string {
-  const nickname = place.label.trim();
-  if (!nickname || ["home", "work", "other"].includes(nickname.toLowerCase())) return "";
-  return nickname.slice(0, 40);
-}
-
 /**
- * Past gift orders already have the recipient. A half-finished checkout must
- * not keep a different name on the chip, so the latest real order wins.
+ * Past gift orders can fill a chip that has no contact yet. A name already
+ * saved on the chip stays there.
  */
 export function backfillGiftContacts(orders: PastGiftOrder[]): boolean {
   const places = loadSavedPlaces();
   let changed = false;
   const next = places.map((place) => {
     if (!isPlaceSet(place)) return place;
+    const hasName = Boolean(place.recipientName?.trim());
+    const hasPhone = phoneDigits(place.recipientPhone || "").length === 10;
+    if (hasName || hasPhone) return place;
     const hit = latestGiftContact(place, orders);
-    if (!hit) return place;
+    if (!hit?.name || phoneDigits(hit.phone).length !== 10) return place;
 
-    const recipientName = hit.name || place.recipientName;
-    const recipientPhone = hit.phone || place.recipientPhone || "";
-    if ((recipientName || "") === (place.recipientName || "") && recipientPhone === (place.recipientPhone || "")) {
+    const recipientName = hit.name;
+    const recipientPhone = hit.phone;
+    if ((recipientName || "") === (place.recipientName || "") && (recipientPhone || "") === (place.recipientPhone || "")) {
       return place;
     }
     changed = true;
     return {
       ...place,
       ...(recipientName ? { recipientName } : {}),
-      ...(hit.phone ? { recipientPhone: hit.phone } : {}),
+      ...(recipientPhone ? { recipientPhone } : {}),
     };
   });
 
@@ -191,30 +187,9 @@ export function backfillGiftContacts(orders: PastGiftOrder[]): boolean {
   return changed;
 }
 
-/** Replace the contact stored on one chip, including clearing a draft. */
-export function setPlaceGiftContact(placeId: SavedPlaceId, name: string, phone: string) {
-  const trimmed = name.trim().slice(0, 40);
-  const digits = phone.replace(/\D/g, "").slice(-10);
-  const phoneOk = digits.length === 10 ? digits : "";
-  const places = loadSavedPlaces();
-  let changed = false;
-  const next = places.map((place) => {
-    if (place.id !== placeId) return place;
-    if ((place.recipientName || "") === trimmed && (place.recipientPhone || "") === phoneOk) return place;
-    changed = true;
-    const copy: SavedPlace = { ...place };
-    if (trimmed) copy.recipientName = trimmed;
-    else delete copy.recipientName;
-    if (phoneOk) copy.recipientPhone = phoneOk;
-    else delete copy.recipientPhone;
-    return copy;
-  });
-  if (changed) savePlaces(next);
-}
-
 /**
- * After a gift order, keep who it was for on that saved place so the next
- * checkout can fill name, phone, and address together.
+ * Remember a name and phone on a saved pin the first time they are entered.
+ * Once both are stored, a later edit in checkout does not replace them.
  */
 export function rememberGiftContact(
   drop: { lat: number; lng: number },
@@ -223,14 +198,17 @@ export function rememberGiftContact(
 ) {
   const trimmed = name.trim().slice(0, 40);
   const digits = phone.replace(/\D/g, "").slice(-10);
-  if (!trimmed && digits.length !== 10) return;
+  if (!trimmed || digits.length !== 10) return;
 
   const places = loadSavedPlaces();
   let changed = false;
   const next = places.map((p) => {
     if (!isPlaceSet(p) || !sameSavedPoint(p, drop)) return p;
-    const recipientName = trimmed || p.recipientName;
-    const recipientPhone = digits.length === 10 ? digits : p.recipientPhone;
+    const hasName = Boolean(p.recipientName?.trim());
+    const hasPhone = phoneDigits(p.recipientPhone || "").length === 10;
+    if (hasName && hasPhone) return p;
+    const recipientName = trimmed;
+    const recipientPhone = digits;
     if (recipientName === p.recipientName && recipientPhone === p.recipientPhone) return p;
     changed = true;
     return {

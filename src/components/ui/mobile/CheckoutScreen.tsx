@@ -25,17 +25,7 @@ import {
   PencilSimple,
 } from "@phosphor-icons/react";
 
-import {
-  backfillGiftContacts,
-  latestGiftContact,
-  loadSavedPlaces,
-  rememberGiftContact,
-  savedPlacePersonName,
-  setPlaceGiftContact,
-  sameSavedPoint,
-  type PastGiftOrder,
-  type SavedPlace,
-} from "@/lib/vk-saved-places";
+import { backfillGiftContacts, loadSavedPlaces, rememberGiftContact, type SavedPlace } from "@/lib/vk-saved-places";
 import {
   type DeliverySlotKind,
   iterDeliveryDateOptions,
@@ -525,11 +515,8 @@ export function CheckoutScreen({
     };
   }, [refreshSavedPlaces]);
 
-  const giftOrdersRef = useRef<PastGiftOrder[] | null>(null);
-  const [giftOrders, setGiftOrders] = useState<PastGiftOrder[] | null>(null);
-
-  // A finished gift order is the contact for that pin. A name typed and then
-  // abandoned must not stay on the chip.
+  // Older gift orders can fill a chip that has never had a name and phone.
+  // They do not replace a contact already saved on that chip.
   useEffect(() => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) return;
@@ -541,32 +528,17 @@ export function CheckoutScreen({
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { orders?: PastGiftOrder[] };
+        const data = (await res.json()) as { orders?: Parameters<typeof backfillGiftContacts>[0] };
         if (cancelled || !Array.isArray(data.orders)) return;
-        giftOrdersRef.current = data.orders;
-        setGiftOrders(data.orders);
         backfillGiftContacts(data.orders);
       } catch {
-        giftOrdersRef.current = [];
-        setGiftOrders([]);
+        /* The chip still fills whatever is already saved on the place. */
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [phone]);
-
-  useEffect(() => {
-    if (!giftOrders || !recipientDrop) return;
-    const place = loadSavedPlaces().find((item) => sameSavedPoint(item, recipientDrop));
-    if (!place) return;
-    const fromOrder = latestGiftContact(place, giftOrders);
-    const savedName = fromOrder?.name || savedPlacePersonName(place);
-    const savedPhone = fromOrder?.phone || "";
-    setRecipientName(savedName);
-    setRecipientPhone(savedPhone);
-    setPlaceGiftContact(place.id, savedName, savedPhone);
-  }, [giftOrders, recipientDrop]);
 
   const cartEntries = useMemo(() => {
     return Object.entries(cart)
@@ -2048,6 +2020,9 @@ export function CheckoutScreen({
                             placeholder="e.g. Amma"
                             value={recipientName}
                             onChange={(e) => setRecipientName(e.target.value)}
+                            onBlur={() => {
+                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
+                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -2063,6 +2038,9 @@ export function CheckoutScreen({
                             placeholder="10-digit mobile number"
                             value={recipientPhone}
                             onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
+                            onBlur={() => {
+                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
+                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -2143,20 +2121,16 @@ export function CheckoutScreen({
                                     key={place.id}
                                     type="button"
                                     onClick={() => {
+                                      const saved =
+                                        loadSavedPlaces().find((item) => item.id === place.id) ?? place;
                                       onSetRecipientDrop?.({
-                                        label: place.address,
-                                        lat: place.lat,
-                                        lng: place.lng,
+                                        label: saved.address,
+                                        lat: saved.lat,
+                                        lng: saved.lng,
                                         inRange: true,
                                       });
-                                      const fromOrder = latestGiftContact(place, giftOrdersRef.current ?? []);
-                                      const savedName = fromOrder?.name || savedPlacePersonName(place);
-                                      const savedPhone = fromOrder?.phone || "";
-                                      setRecipientName(savedName);
-                                      setRecipientPhone(savedPhone);
-                                      if (giftOrdersRef.current) {
-                                        setPlaceGiftContact(place.id, savedName, savedPhone);
-                                      }
+                                      setRecipientName(saved.recipientName?.trim() || "");
+                                      setRecipientPhone(saved.recipientPhone || "");
                                       showCheckoutError(null);
                                     }}
                                     style={{
