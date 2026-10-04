@@ -2031,9 +2031,6 @@ export function CheckoutScreen({
                             placeholder="e.g. Amma"
                             value={recipientName}
                             onChange={(e) => setRecipientName(e.target.value)}
-                            onBlur={() => {
-                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
-                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -2049,9 +2046,6 @@ export function CheckoutScreen({
                             placeholder="10-digit mobile number"
                             value={recipientPhone}
                             onChange={(e) => setRecipientPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
-                            onBlur={() => {
-                              if (recipientDrop) rememberGiftContact(recipientDrop, recipientName, recipientPhone);
-                            }}
                             style={recipientFieldInput}
                           />
                         </div>
@@ -2138,17 +2132,14 @@ export function CheckoutScreen({
                                         lng: place.lng,
                                         inRange: true,
                                       });
+                                      const nickname = place.label.trim();
                                       const savedName =
                                         place.recipientName?.trim() ||
-                                        (place.id === "other" &&
-                                        place.label.trim() &&
-                                        place.label.trim().toLowerCase() !== "other"
-                                          ? place.label.trim()
+                                        (nickname && !["home", "work", "other"].includes(nickname.toLowerCase())
+                                          ? nickname
                                           : "");
-                                      if (savedName || !isSelected) setRecipientName(savedName);
-                                      if (place.recipientPhone || !isSelected) {
-                                        setRecipientPhone(place.recipientPhone || "");
-                                      }
+                                      setRecipientName(savedName);
+                                      setRecipientPhone(place.recipientPhone || "");
                                       showCheckoutError(null);
                                     }}
                                     style={{
