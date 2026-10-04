@@ -134,7 +134,15 @@ export function dishQuote(
 export function pickActiveFestival(rows: FestivalRow[], now = new Date()): FestivalRow | null {
   const inWindow = rows.filter((f) => f.active && isWithinSeasonalWindow(f.date_start, f.date_end, now));
   if (!inWindow.length) return null;
-  inWindow.sort((a, b) => Number(b.discount_override) - Number(a.discount_override));
+  inWindow.sort((a, b) => {
+    const pct = Number(b.discount_override) - Number(a.discount_override);
+    if (pct !== 0) return pct;
+    const dishes = (b.included_dish_ids?.length ?? 0) - (a.included_dish_ids?.length ?? 0);
+    if (dishes !== 0) return dishes;
+    const yearA = /\d{4}/.test(a.name) ? 1 : 0;
+    const yearB = /\d{4}/.test(b.name) ? 1 : 0;
+    return yearA - yearB;
+  });
   return inWindow[0] ?? null;
 }
 

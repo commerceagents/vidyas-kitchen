@@ -5,6 +5,8 @@ import { kitchenDateKey } from "@/lib/ai/dish-analytics";
 import { endedFestivalDecisionIds } from "@/lib/ai/festival-decisions";
 import { loadFestivalDishMap, loadFestivalOverrideMap } from "@/lib/menu/festival-dishes";
 import { loadOfferOutcomes } from "@/lib/ai/offer-outcomes";
+import { festivalNameKey } from "@/lib/ai/offer-memory";
+import { historyDecisionIdsToRemove, preferredFestivalIds } from "@/lib/ai/pricing-tabs";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 
 export const dynamic = "force-dynamic";
@@ -112,12 +114,49 @@ export async function GET() {
       active: Boolean(row.active),
       discount_override: Number(row.discount_override ?? 0),
       relevant_categories: row.relevant_categories ? String(row.relevant_categories) : "all",
+      included_dish_ids: festivalDishes[String(row.id)] ?? [],
     }));
+
+    const preferred = preferredFestivalIds(festivals);
+    const duplicateIds = festivals
+      .filter((festival) => {
+        if (preferred.has(festival.id) || !festival.active) return false;
+        return festivals.some(
+          (other) =>
+            other.id !== festival.id &&
+            preferred.has(other.id) &&
+            festivalNameKey(other.name) === festivalNameKey(festival.name) &&
+            other.date_start === festival.date_start &&
+            other.date_end === festival.date_end,
+        );
+      })
+      .map((festival) => festival.id);
+    if (duplicateIds.length > 0) {
+      await supabase.from("festivals").update({ active: false, updated_at: new Date().toISOString() }).in("id", duplicateIds);
+      for (const festival of festivals) {
+        if (duplicateIds.includes(festival.id)) festival.active = false;
+      }
+    }
+
+    const { data: everyDecision } = await supabase
+      .from("ai_pricing_decisions")
+      .select("id, dish_id, decision_type, status, decided_at");
+    const removeIds = historyDecisionIdsToRemove(
+      (everyDecision ?? []) as { id: string; dish_id: string; decision_type: string; status: string; decided_at?: string }[],
+      festivals,
+    );
+    if (removeIds.length > 0) {
+      for (let i = 0; i < removeIds.length; i += 80) {
+        await supabase.from("ai_pricing_decisions").delete().in("id", removeIds.slice(i, i + 80));
+      }
+    }
+    const removed = new Set(removeIds);
+    const visible = (decisions as { id?: string }[]).filter((row) => !row.id || !removed.has(row.id));
 
     return NextResponse.json({
       enabled: freshMap.get("agent_enabled") ?? true,
       lastRunAt,
-      decisions,
+      decisions: visible,
       pendingCount,
       appliedCount,
       festivalDishes,

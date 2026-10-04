@@ -25,10 +25,11 @@ import {
   festivalIdOf,
   isQualityDecision,
   listTabForDecision,
+  preferredFestivalIds,
   visibleReasoning,
   type PricingListTab,
 } from "@/lib/ai/pricing-tabs";
-import { historyPerformanceLine, type OfferOutcome } from "@/lib/ai/offer-memory";
+import { festivalNameKey, historyPerformanceLine, type OfferOutcome } from "@/lib/ai/offer-memory";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -268,19 +269,28 @@ export default function PricingAgentPage() {
   const nestFestival = nestTargetFestival(state.decisions, state.festivals);
   const nestedSuggestions = nestFestival ? suggestionsForFestival(state.decisions, nestFestival, festivalById) : [];
   const hiddenDishIds = new Set(nestedSuggestions.map((row) => row.dishId));
-  const visibleDecisions = state.decisions.filter((decision) => !hiddenDishIds.has(decision.dish_id));
+  const preferredIds = preferredFestivalIds(
+    state.festivals.map((festival) => ({
+      ...festival,
+      included_dish_ids: state.festivalDishes[festival.id] ?? [],
+    })),
+  );
+  const visibleDecisions = state.decisions.filter((decision) => {
+    if (hiddenDishIds.has(decision.dish_id)) return false;
+    const festivalId = festivalIdOf(decision.dish_id);
+    if (!festivalId || !decision.decision_type.startsWith("festival")) return true;
+    return preferredIds.has(festivalId);
+  });
   const upcoming = visibleDecisions.filter((decision) => tabOf(decision) === "upcoming");
   const active = visibleDecisions.filter((decision) => tabOf(decision) === "active");
   const history = visibleDecisions
     .filter((decision) => tabOf(decision) === "history")
     .filter((decision) => {
-      if (decision.decision_type !== "festival_deactivate") return true;
       const id = festivalIdOf(decision.dish_id);
-      return !visibleDecisions.some(
-        (other) => other.decision_type === "festival_activate" && festivalIdOf(other.dish_id) === id,
-      );
+      const festival = id ? festivalById.get(id) : undefined;
+      return festival != null && festivalNameKey(festival.name) === "navaratri" && decision.decision_type === "festival_activate";
     })
-    .slice(0, 20);
+    .slice(0, 1);
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },

@@ -10,6 +10,8 @@ import { phraseQuietDishReason } from "@/lib/ai/promo-copy";
 import { buildItemPairs } from "@/lib/ai/item-pairs";
 import { orderCountsAsSale } from "@/lib/ai/dish-analytics";
 import { loadOfferOutcomes, syncAndSettleOfferOutcomes } from "@/lib/ai/offer-outcomes";
+import { loadFestivalDishMap } from "@/lib/menu/festival-dishes";
+import { preferredFestivalIds } from "@/lib/ai/pricing-tabs";
 
 export type PricingAgentRunSummary = {
   message: string;
@@ -178,13 +180,22 @@ async function applyDecision(
 
 export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const supabase = createServerSupabase();
-  const [config, orders, festivals, discountSettings, outcomes] = await Promise.all([
+  const [config, orders, loadedFestivals, discountSettings, outcomes, festivalDishes] = await Promise.all([
     loadConfig(supabase),
     loadOrders(supabase),
     loadFestivals(supabase),
     loadDiscountSettings(supabase),
     loadOfferOutcomes(supabase),
+    loadFestivalDishMap(supabase),
   ]);
+  const festivalsWithDishes = loadedFestivals.map((festival) => ({
+    ...festival,
+    date_start: String(festival.date_start).slice(0, 10),
+    date_end: String(festival.date_end).slice(0, 10),
+    included_dish_ids: festivalDishes[festival.id] ?? festival.included_dish_ids ?? [],
+  }));
+  const preferred = preferredFestivalIds(festivalsWithDishes);
+  const festivals = festivalsWithDishes.filter((festival) => preferred.has(festival.id));
 
   // Always the last 7 kitchen days, and festivals a week ahead. A stored
   // 14-day window was why yesterday's card never matched this morning.
