@@ -28,6 +28,7 @@ import { ProfileEditSheet } from "@/components/ui/mobile/ProfileEditSheet";
 import { SavedAddressesSheet } from "@/components/ui/mobile/SavedAddressesSheet";
 import { PolicySheet } from "@/components/ui/mobile/PolicySheet";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
+import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import {
   currentPushState,
   disablePush,
@@ -54,151 +55,18 @@ const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
 const ACCOUNT_MAROON = `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`;
 const CREDIT_TAP_WINDOW_MS = 1500;
 const CREDIT_VISIBLE_MS = 3500;
-const CREDIT_DOT_COLORS = [
-  C.red,
-  "rgba(189,35,32,0.55)",
-  "rgba(189,35,32,0.22)",
-  "rgba(189,35,32,0.12)",
-] as const;
 
-type CreditDot = {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  delay: number;
-};
-
-function scatterCreditDots(): CreditDot[] {
-  const count = 10 + Math.floor(Math.random() * 5);
-  return Array.from({ length: count }, (_, id) => {
-    const angle = Math.random() * Math.PI * 2;
-    const reach = 86 + Math.random() * 78;
-    return {
-      id,
-      x: Math.cos(angle) * reach,
-      y: Math.sin(angle) * (22 + Math.random() * 26) - 4,
-      size: 4 + Math.random() * 10,
-      color: CREDIT_DOT_COLORS[Math.floor(Math.random() * CREDIT_DOT_COLORS.length)],
-      delay: id * (0.03 + Math.random() * 0.02),
-    };
-  });
-}
-
-function CreditSplash({ dots, onDismiss }: { dots: CreditDot[]; onDismiss: () => void }) {
+function CreditDismiss({ onDismiss }: { onDismiss: () => void }) {
   const openedAt = useRef(Date.now());
-  return (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      exit="exit"
-      variants={{
-        hidden: { opacity: 1 },
-        show: { opacity: 1 },
-        exit: { opacity: 1, transition: { duration: 0.34, when: "afterChildren" } },
-      }}
+  return createPortal(
+    <div
       onPointerDown={() => {
         if (Date.now() - openedAt.current < 400) return;
         onDismiss();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 140,
-        background: "transparent",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
-          display: "flex",
-          justifyContent: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div style={{ position: "relative", maxWidth: "100%" }}>
-          {dots.map((dot) => (
-            <motion.span
-              key={dot.id}
-              aria-hidden
-              variants={{
-                hidden: { scale: 0, opacity: 0 },
-                show: {
-                  scale: 1,
-                  opacity: 1,
-                  transition: {
-                    scale: {
-                      type: "spring",
-                      stiffness: 620,
-                      damping: 12,
-                      mass: 0.55,
-                      delay: dot.delay,
-                    },
-                    opacity: { duration: 0.16, delay: dot.delay },
-                  },
-                },
-                exit: {
-                  scale: 0,
-                  opacity: 0,
-                  transition: { duration: 0.15, ease: "easeIn" },
-                },
-              }}
-              style={{
-                position: "absolute",
-                left: `calc(50% + ${dot.x}px)`,
-                top: `calc(50% + ${dot.y}px)`,
-                width: dot.size,
-                height: dot.size,
-                marginLeft: -dot.size / 2,
-                marginTop: -dot.size / 2,
-                borderRadius: "50%",
-                background: dot.color,
-                zIndex: 0,
-                willChange: "transform",
-              }}
-            />
-          ))}
-          <motion.div
-            role="status"
-            variants={{
-              hidden: { y: 80, opacity: 0 },
-              show: {
-                y: 0,
-                opacity: 1,
-                transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
-              },
-              exit: {
-                y: 100,
-                opacity: 0,
-                transition: { duration: 0.28, ease: [0.4, 0, 1, 1] },
-              },
-            }}
-            style={{
-              position: "relative",
-              zIndex: 1,
-              padding: "12px 18px",
-              borderRadius: 999,
-              background: ACCOUNT_MAROON,
-              color: C.white,
-              fontFamily: C.mono,
-              fontSize: 13,
-              fontWeight: 800,
-              lineHeight: 1.2,
-              textAlign: "center",
-              maxWidth: "100%",
-              boxShadow: `0 10px 28px ${C.redGlow}`,
-              willChange: "transform",
-            }}
-          >
-            Designed & Developed by Simon Santhosh
-          </motion.div>
-        </div>
-      </div>
-    </motion.div>
+      style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }}
+    />,
+    document.body,
   );
 }
 
@@ -357,7 +225,6 @@ export function AccountTabPanel({
   const [policy, setPolicy] = useState<"refund" | "terms" | "privacy" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [creditTick, setCreditTick] = useState(0);
-  const [creditDots, setCreditDots] = useState<CreditDot[]>([]);
   const creditTaps = useRef<number[]>([]);
   const creditOpen = creditTick > 0;
 
@@ -412,7 +279,6 @@ export function AccountTabPanel({
     creditTaps.current = recent;
     if (recent.length < 3) return;
     creditTaps.current = [];
-    setCreditDots(scatterCreditDots());
     setCreditTick((n) => n + 1);
     try {
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
@@ -736,15 +602,12 @@ export function AccountTabPanel({
       </p>
     </motion.div>
 
-    {mounted &&
-      createPortal(
-        <AnimatePresence>
-          {creditOpen ? (
-            <CreditSplash key={creditTick} dots={creditDots} onDismiss={() => setCreditTick(0)} />
-          ) : null}
-        </AnimatePresence>,
-        document.body,
-      )}
+    {mounted && creditOpen ? <CreditDismiss onDismiss={() => setCreditTick(0)} /> : null}
+    {mounted ? (
+      <GraffitiSpotlight show={creditOpen} chipKey="account-credit" tone="success" burst={false}>
+        Designed & Developed by Simon Santhosh
+      </GraffitiSpotlight>
+    ) : null}
 
     {mounted &&
       createPortal(

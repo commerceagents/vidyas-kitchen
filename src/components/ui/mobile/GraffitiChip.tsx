@@ -58,11 +58,14 @@ export function GraffitiSpotlight({
   show,
   chipKey,
   tone = "info",
+  burst = true,
   children,
 }: {
   show: boolean;
   chipKey: string;
   tone?: GraffitiTone;
+  /** Paint splatters behind the chip. The Account credit leaves these off. */
+  burst?: boolean;
   children: ReactNode;
 }) {
   const [ready, setReady] = useState(false);
@@ -130,7 +133,7 @@ export function GraffitiSpotlight({
             }}
           >
             {children}
-            <GraffitiBurstDots tone={tone} />
+            {burst ? <GraffitiBurstDots tone={tone} /> : null}
           </motion.div>
         </motion.div>
       ) : null}
