@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Tag, Ticket, Trash2, X } from "lucide-react";
+import { Plus, Ticket, Trash2, X } from "lucide-react";
 import {
   deleteOfferAction,
   listOffersAction,
@@ -29,7 +29,7 @@ type Draft = OfferUpsertPayload & { id: string | null };
 const BLANK: Draft = {
   id: null,
   name: "",
-  kind: "auto",
+  kind: "code",
   code: "",
   value_type: "percent",
   value: 10,
@@ -124,8 +124,8 @@ function OfferDrawer({
         <div className="vk-offer-handle" aria-hidden />
         <header className="vk-offer-head">
           <div>
-            <h2 id="vk-offer-drawer-title">{isEdit ? "Edit offer" : "New offer"}</h2>
-            <p>{isEdit ? "Change the name, the amount, or the dates." : "A festival discount, or a code the customer types."}</p>
+            <h2 id="vk-offer-drawer-title">{isEdit ? "Edit promo" : "New promo"}</h2>
+            <p>{isEdit ? "Change the name, the amount, or the dates." : "A code the customer types at checkout."}</p>
           </div>
           <button type="button" className="vk-offer-close" aria-label="Close" onClick={onClose}>
             <X size={18} />
@@ -133,45 +133,28 @@ function OfferDrawer({
         </header>
 
         <div className="vk-offer-body no-scrollbar">
-          <div className="vk-offer-kind">
-            {(["auto", "code"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={draft.kind === k}
-                onClick={() => onChange({ ...draft, kind: k })}
-              >
-                <span>{k === "auto" ? "Festival" : "Promo code"}</span>
-                <small>{k === "auto" ? "Applies by itself" : "Customer enters a code"}</small>
-              </button>
-            ))}
-          </div>
           <p className="vk-offer-hint">
-            {draft.kind === "auto"
-              ? "Every order in the dates below gets this off. Use it for Diwali, Pongal and seasonal pushes."
-              : "Customers see this under View promos in the cart and can apply the code themselves."}
+            Customers see this under View promos in the cart and can apply the code themselves.
           </p>
 
           <Field label="Name customers see">
             <input
               style={inputStyle}
               value={draft.name}
-              placeholder={draft.kind === "auto" ? "Diwali Special" : "Welcome offer"}
+              placeholder="Welcome offer"
               onChange={(e) => onChange({ ...draft, name: e.target.value })}
             />
           </Field>
 
-          {draft.kind === "code" && (
-            <Field label="Code">
-              <input
-                style={{ ...inputStyle, letterSpacing: "0.08em", fontWeight: 700 }}
-                value={draft.code}
-                placeholder="DIWALI50"
-                autoCapitalize="characters"
-                onChange={(e) => onChange({ ...draft, code: e.target.value.toUpperCase() })}
-              />
-            </Field>
-          )}
+          <Field label="Code">
+            <input
+              style={{ ...inputStyle, letterSpacing: "0.08em", fontWeight: 700 }}
+              value={draft.code}
+              placeholder="DIWALI50"
+              autoCapitalize="characters"
+              onChange={(e) => onChange({ ...draft, code: e.target.value.toUpperCase() })}
+            />
+          </Field>
 
           <div className="vk-offer-grid">
             <Field label="Discount">
@@ -274,7 +257,7 @@ function OfferDrawer({
               Cancel
             </button>
             <button type="button" className="vk-offer-save" onClick={onSave} disabled={saving}>
-              {saving ? "Saving…" : isEdit ? "Save changes" : "Create offer"}
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create promo"}
             </button>
           </div>
         </footer>
@@ -318,7 +301,7 @@ export default function OffersPage() {
     if (!draft) return;
     setSaving(true);
     setFormError("");
-    const res = await upsertOfferAction(draft);
+    const res = await upsertOfferAction({ ...draft, kind: "code" });
     setSaving(false);
     if (!res.ok) {
       setFormError(res.error || "Save failed");
@@ -347,10 +330,11 @@ export default function OffersPage() {
     }
   };
 
-  const liveCount = useMemo(() => offers.filter((o) => isOfferLive(o)).length, [offers]);
+  const promoOffers = useMemo(() => offers.filter((o) => o.kind === "code"), [offers]);
+  const liveCount = useMemo(() => promoOffers.filter((o) => isOfferLive(o)).length, [promoOffers]);
   const visibleOffers = useMemo(
-    () => offers.filter((o) => offerCalendarStatus(o) !== "expired"),
-    [offers],
+    () => promoOffers.filter((o) => offerCalendarStatus(o) !== "expired"),
+    [promoOffers],
   );
 
   const closeDrawer = useCallback(() => {
@@ -396,7 +380,7 @@ export default function OffersPage() {
               flexShrink: 0,
             }}
           >
-            <Plus size={14} /> New offer
+            <Plus size={14} /> New promo
           </button>
       </div>
 
@@ -439,12 +423,12 @@ export default function OffersPage() {
             >
               <Tag size={56} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 16 }} />
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#666", fontFamily: FONT }}>
-                {offers.length > 0 ? "No current offers" : "No offers yet"}
+                {promoOffers.length > 0 ? "No current promos" : "No promos yet"}
               </p>
               <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", fontFamily: FONT }}>
-                {offers.length > 0
-                  ? "Ended offers leave this list on their own."
-                  : "Tap New offer to run a festival discount or hand out a promo code."}
+                {promoOffers.length > 0
+                  ? "Ended promos leave this list on their own."
+                  : "Tap New promo to hand out a code."}
               </p>
             </div>
           )}
@@ -478,11 +462,7 @@ export default function OffersPage() {
                     flexShrink: 0,
                   }}
                 >
-                  {o.kind === "code" ? (
-                    <Ticket size={17} style={{ color: "#888" }} />
-                  ) : (
-                    <Tag size={17} style={{ color: "#888" }} />
-                  )}
+                  <Ticket size={17} style={{ color: "#888" }} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -551,7 +531,7 @@ export default function OffersPage() {
                         setDraft({
                           id: o.id,
                           name: o.name,
-                          kind: o.kind,
+                          kind: "code",
                           code: o.code ?? "",
                           value_type: o.value_type,
                           value: o.value,
@@ -798,43 +778,8 @@ export default function OffersPage() {
           flex-direction: column;
           gap: 14px;
         }
-        .vk-offer-kind {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-        }
-        .vk-offer-kind button {
-          text-align: left;
-          border-radius: 12px;
-          border: 1px solid #2a2a2a;
-          background: transparent;
-          color: #aaa;
-          padding: 12px;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .vk-offer-kind button[aria-pressed="true"] {
-          border-color: #f5e32d;
-          background: rgba(245, 227, 45, 0.1);
-          color: #f5e32d;
-        }
-        .vk-offer-kind span {
-          display: block;
-          font-size: 14px;
-          font-weight: 800;
-        }
-        .vk-offer-kind small {
-          display: block;
-          margin-top: 3px;
-          font-size: 11px;
-          font-weight: 600;
-          color: #888;
-        }
-        .vk-offer-kind button[aria-pressed="true"] small {
-          color: rgba(245, 227, 45, 0.75);
-        }
         .vk-offer-hint {
-          margin: -4px 0 0;
+          margin: 0;
           font-size: 13px;
           line-height: 1.45;
           color: #999;
