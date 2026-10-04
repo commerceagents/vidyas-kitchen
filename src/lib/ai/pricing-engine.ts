@@ -11,11 +11,15 @@ import {
   type AgentConfig,
   DEFAULT_CONFIG,
   lowPerformerRule,
+  decliningTrendRule,
+  qualityReviewRule,
   highPerformerRule,
   mealTimeRule,
   festivalRule,
   validateDecision,
 } from "./pricing-rules";
+import { type OfferOutcome, latestDishOutcome, latestFestivalOutcome, suggestionFromOutcome } from "./offer-memory";
+import { suggestFestivalDiscountPct } from "@/lib/menu/discount-presets";
 
 export type AgentRunResult = {
   decisions: PricingDecision[];
@@ -41,6 +45,7 @@ export class PricingAgent {
     festivals: FestivalRow[],
     currentDiscounts: DishDiscountRow[],
     totalMenuItems: number,
+    outcomes: OfferOutcome[] = [],
   ): AgentRunResult {
     if (!this.config.agentEnabled) {
       return { decisions: [], autoApplied: [], pendingApproval: [], rejected: [], timestamp: new Date().toISOString() };
@@ -73,12 +78,17 @@ export class PricingAgent {
       const currentRow = discountMap.get(dish.dishId);
       const currentPct = currentRow?.discount_type === "percentage" ? (currentRow.discount_value ?? null) : null;
 
-      const lowDecision = lowPerformerRule(
-        dish,
-        categoryStats,
-        this.config,
-        currentPct,
-        monthOrders.get(dish.dishId) ?? 0,
+      const orders30 = monthOrders.get(dish.dishId) ?? 0;
+      const qualityDecision = qualityReviewRule(dish, this.config);
+      if (qualityDecision) {
+        qualityDecision.brief = { ...qualityDecision.brief!, orders30d: orders30 };
+        decisions.push(qualityDecision);
+        continue;
+      }
+
+      const lowDecision = this.withDishMemory(
+        lowPerformerRule(dish, categoryStats, this.config, currentPct, orders30),
+        outcomes,
       );
       if (lowDecision) {
         const validation = validateDecision(lowDecision, this.config, projectedDiscounted, totalMenuItems);
@@ -87,6 +97,21 @@ export class PricingAgent {
           projectedDiscounted += 1;
         } else {
           rejected.push({ ...lowDecision, reasoning: `${lowDecision.reasoning} [REJECTED: ${validation.reason}]` });
+        }
+        continue;
+      }
+
+      const declineDecision = this.withDishMemory(
+        decliningTrendRule(dish, this.config, currentPct, orders30),
+        outcomes,
+      );
+      if (declineDecision) {
+        const validation = validateDecision(declineDecision, this.config, projectedDiscounted, totalMenuItems);
+        if (validation.valid) {
+          decisions.push(declineDecision);
+          projectedDiscounted += 1;
+        } else {
+          rejected.push({ ...declineDecision, reasoning: `${declineDecision.reasoning} [REJECTED: ${validation.reason}]` });
         }
         continue;
       }
@@ -110,7 +135,11 @@ export class PricingAgent {
     }
 
     for (const festival of upcomingFestivals) {
-      const fDecision = festivalRule(festival);
+      const past = latestFestivalOutcome(festival.name, outcomes);
+      const learned = past
+        ? suggestionFromOutcome(past, suggestFestivalDiscountPct(festival.discount_override, festival.name))
+        : undefined;
+      const fDecision = festivalRule(festival, learned);
       if (fDecision) decisions.push(fDecision);
     }
 
@@ -123,6 +152,18 @@ export class PricingAgent {
       pendingApproval,
       rejected,
       timestamp: now.toISOString(),
+    };
+  }
+
+  private withDishMemory(decision: PricingDecision | null, outcomes: OfferOutcome[]): PricingDecision | null {
+    if (!decision) return null;
+    const past = latestDishOutcome(decision.dishId, outcomes);
+    if (!past) return decision;
+    const learned = suggestionFromOutcome(past, decision.newDiscount);
+    return {
+      ...decision,
+      newDiscount: learned.pct,
+      memoryNote: learned.note ?? undefined,
     };
   }
 }

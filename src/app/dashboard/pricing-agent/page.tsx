@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { Bot, Play, Pause, Zap, Clock, CheckCircle2, AlertTriangle, Percent } from "lucide-react";
+import { Bot, Play, Pause, Zap, Clock, CheckCircle2, AlertTriangle, Percent, TrendingDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
@@ -20,6 +20,15 @@ import { DiscountPctPicker } from "@/components/dashboard/DiscountPctPicker";
 import { MENU_BY_CATEGORY, MENU_CATEGORIES } from "@/components/ui/mobile/mobileMenuData";
 import { setFestivalDishesAction } from "@/app/actions/festival-pricing";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
+import { festivalCalendarStatus } from "@/lib/menu/discount-pricing";
+import {
+  festivalIdOf,
+  isQualityDecision,
+  listTabForDecision,
+  visibleReasoning,
+  type PricingListTab,
+} from "@/lib/ai/pricing-tabs";
+import { historyPerformanceLine, type OfferOutcome } from "@/lib/ai/offer-memory";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -60,6 +69,18 @@ type Decision = {
   applied_at: string | null;
 };
 
+type DishSuggestion = { dishId: string; pct: number; note: string };
+
+type FestivalWindow = {
+  id: string;
+  name: string;
+  date_start: string;
+  date_end: string;
+  active: boolean;
+  discount_override: number;
+  relevant_categories?: string;
+};
+
 type AgentState = {
   enabled: boolean;
   lastRunAt: string | null;
@@ -68,6 +89,9 @@ type AgentState = {
   appliedCount: number;
   loading: boolean;
   festivalDishes: Record<string, string[]>;
+  dishOverrides: Record<string, Record<string, number>>;
+  offerOutcomes: OfferOutcome[];
+  festivals: FestivalWindow[];
 };
 
 export default function PricingAgentPage() {
@@ -91,10 +115,13 @@ export default function PricingAgentPage() {
     appliedCount: 0,
     loading: true,
     festivalDishes: {},
+    dishOverrides: {},
+    offerOutcomes: [],
+    festivals: [],
   });
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [listTab, setListTab] = useState<"upcoming" | "past">("upcoming");
+  const [listTab, setListTab] = useState<PricingListTab>("upcoming");
   const msgTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -110,7 +137,21 @@ export default function PricingAgentPage() {
         // expired decisions are silently dropped from UI
         const festivalDishes =
           data.festivalDishes && typeof data.festivalDishes === "object" ? data.festivalDishes : {};
-        setState({ ...data, decisions, pendingCount, appliedCount, festivalDishes, loading: false });
+        const dishOverrides =
+          data.dishOverrides && typeof data.dishOverrides === "object" ? data.dishOverrides : {};
+        const offerOutcomes = Array.isArray(data.offerOutcomes) ? data.offerOutcomes : [];
+        const festivals = Array.isArray(data.festivals) ? data.festivals : [];
+        setState({
+          ...data,
+          decisions,
+          pendingCount,
+          appliedCount,
+          festivalDishes,
+          dishOverrides,
+          offerOutcomes,
+          festivals,
+          loading: false,
+        });
       } else {
         setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
       }
@@ -160,7 +201,12 @@ export default function PricingAgentPage() {
     }
   };
 
-  const handleApprove = async (id: string, pct?: number | null, dishIds?: string[]) => {
+  const handleApprove = async (
+    id: string,
+    pct?: number | null,
+    dishIds?: string[],
+    dishOverrides?: Record<string, number>,
+  ) => {
     if (id.startsWith("demo-")) return;
     if (dishIds && dishIds.length === 0) {
       flashMsg("Tick at least one dish, then tap Approve.");
@@ -182,7 +228,7 @@ export default function PricingAgentPage() {
       };
     });
     flashMsg(dishIds ? "Approved. Those dishes get the lower price on the real menu during the festival dates." : "Approved.");
-    const r = await approvePricingDecisionAction(id, pct, dishIds);
+    const r = await approvePricingDecisionAction(id, pct, dishIds, dishOverrides);
     if (!r.ok) flashMsg(r.error ?? "Approve failed");
     void load();
   };
@@ -201,8 +247,12 @@ export default function PricingAgentPage() {
     else setMsg(r.error ?? "Update failed");
   };
 
-  const handleSaveDishes = async (festivalId: string, dishIds: string[]) => {
-    const r = await setFestivalDishesAction(festivalId, dishIds);
+  const handleSaveDishes = async (
+    festivalId: string,
+    dishIds: string[],
+    dishOverrides?: Record<string, number>,
+  ) => {
+    const r = await setFestivalDishesAction(festivalId, dishIds, dishOverrides);
     if (r.ok) {
       setState((s) => ({ ...s, festivalDishes: { ...s.festivalDishes, [festivalId]: dishIds } }));
       flashMsg(dishIds.length ? `Offer saved on ${dishIds.length} dish${dishIds.length === 1 ? "" : "es"}.` : "No dishes selected, so the menu stays full price.");
@@ -212,8 +262,25 @@ export default function PricingAgentPage() {
     }
   };
 
-  const pending = state.decisions.filter((d) => d.status === "pending");
-  const recent = state.decisions.filter((d) => d.status !== "pending" && d.status !== "expired").slice(0, 20);
+  const festivalById = new Map(state.festivals.map((festival) => [festival.id, festival]));
+  const tabOf = (decision: Decision) =>
+    listTabForDecision(decision, festivalById.get(festivalIdOf(decision.dish_id) || "") ?? null);
+  const nestFestival = nestTargetFestival(state.decisions, state.festivals);
+  const nestedSuggestions = nestFestival ? suggestionsForFestival(state.decisions, nestFestival, festivalById) : [];
+  const hiddenDishIds = new Set(nestedSuggestions.map((row) => row.dishId));
+  const visibleDecisions = state.decisions.filter((decision) => !hiddenDishIds.has(decision.dish_id));
+  const upcoming = visibleDecisions.filter((decision) => tabOf(decision) === "upcoming");
+  const active = visibleDecisions.filter((decision) => tabOf(decision) === "active");
+  const history = visibleDecisions
+    .filter((decision) => tabOf(decision) === "history")
+    .filter((decision) => {
+      if (decision.decision_type !== "festival_deactivate") return true;
+      const id = festivalIdOf(decision.dish_id);
+      return !visibleDecisions.some(
+        (other) => other.decision_type === "festival_activate" && festivalIdOf(other.dish_id) === id,
+      );
+    })
+    .slice(0, 20);
 
   const metricCards = [
     { id: "status", label: "Status", value: state.enabled ? "Active" : "Paused", icon: Zap, color: state.enabled ? "#22C55E" : "#666", bg: state.enabled ? "rgba(34, 197, 94, 0.08)" : "rgba(102, 102, 102, 0.08)" },
@@ -228,13 +295,19 @@ export default function PricingAgentPage() {
     <PricingDecisionsPanel
       listTab={listTab}
       onTabChange={setListTab}
-      pending={pending}
-      recent={recent}
+      upcoming={upcoming}
+      active={active}
+      history={history}
       msg={msg}
       onApprove={handleApprove}
       onReject={handleReject}
       onUpdate={handleUpdate}
       festivalDishes={state.festivalDishes}
+      dishOverrides={state.dishOverrides}
+      offerOutcomes={state.offerOutcomes}
+      festivals={state.festivals}
+      nestFestivalId={nestFestival ? festivalIdOf(nestFestival.dish_id) : null}
+      suggestions={nestedSuggestions}
       onSaveDishes={handleSaveDishes}
     />
   );
@@ -369,6 +442,67 @@ export default function PricingAgentPage() {
             gap: 18px;
           }
         }
+        .vk-pricing-filters {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          max-width: 100%;
+          scrollbar-width: none;
+        }
+        .vk-pricing-filters::-webkit-scrollbar { display: none; }
+        .vk-pricing-filters button {
+          scroll-snap-align: start;
+          flex: 0 0 auto;
+        }
+        .vk-pricing-tab-switch { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .vk-festival-adjust-toggle, .vk-festival-sticky { display: none; }
+        @media (max-width: 1023px) {
+          .vk-festival-adjust-toggle {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 44px;
+            margin: 0 0 8px;
+            padding: 0 12px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            background: #1c1c1c;
+            color: #fff;
+            font-family: var(--font-outfit), system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+          }
+          .vk-festival-adjust-body { display: none; }
+          .vk-festival-adjust.is-open .vk-festival-adjust-body { display: block; }
+          .vk-festival-sticky.is-on {
+            display: block;
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+            z-index: 30;
+          }
+          .vk-festival-sticky.is-on button {
+            width: 100%;
+            min-height: 44px;
+            border: none;
+            border-radius: 12px;
+            background: #f5e32d;
+            color: #111;
+            font-family: var(--font-outfit), system-ui, sans-serif;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+          }
+          .vk-order-card-actions .vk-order-btn { min-height: 44px; }
+        }
+        @media (min-width: 1024px) {
+          .vk-pricing-filters { flex-wrap: wrap; overflow: visible; }
+        }
       `}</style>
     </>
   );
@@ -449,25 +583,37 @@ const TAB_MS = 280;
 function PricingDecisionsPanel({
   listTab,
   onTabChange,
-  pending,
-  recent,
+  upcoming,
+  active,
+  history,
   msg,
   onApprove,
   onReject,
   onUpdate,
   festivalDishes,
+  dishOverrides,
+  offerOutcomes,
+  festivals,
+  nestFestivalId,
+  suggestions,
   onSaveDishes,
 }: {
-  listTab: "upcoming" | "past";
-  onTabChange: (tab: "upcoming" | "past") => void;
-  pending: Decision[];
-  recent: Decision[];
+  listTab: PricingListTab;
+  onTabChange: (tab: PricingListTab) => void;
+  upcoming: Decision[];
+  active: Decision[];
+  history: Decision[];
   msg: string | null;
-  onApprove: (id: string, pct?: number | null, dishIds?: string[]) => void;
+  onApprove: (id: string, pct?: number | null, dishIds?: string[], dishOverrides?: Record<string, number>) => void;
   onReject: (id: string) => void;
   onUpdate: (id: string, pct: number) => void | Promise<void>;
   festivalDishes: Record<string, string[]>;
-  onSaveDishes: (festivalId: string, dishIds: string[]) => Promise<void>;
+  dishOverrides: Record<string, Record<string, number>>;
+  offerOutcomes: OfferOutcome[];
+  festivals: FestivalWindow[];
+  nestFestivalId: string | null;
+  suggestions: DishSuggestion[];
+  onSaveDishes: (festivalId: string, dishIds: string[], dishOverrides?: Record<string, number>) => Promise<void>;
 }) {
   const [motionOn, setMotionOn] = useState(false);
   const [group, setGroup] = useState<OfferGroup>("all");
@@ -483,8 +629,9 @@ function PricingDecisionsPanel({
         <ListTabSwitch
           value={listTab}
           onChange={onTabChange}
-          upcomingCount={pending.length}
-          pastCount={recent.length}
+          upcomingCount={upcoming.length}
+          activeCount={active.length}
+          historyCount={history.length}
           motionOn={motionOn}
         />
       </div>
@@ -496,42 +643,55 @@ function PricingDecisionsPanel({
       )}
 
       <div className="vk-pricing-decisions-viewport">
-        {(["upcoming", "past"] as const).map((tab) => {
-          const active = listTab === tab;
-          const items = tab === "upcoming" ? pending : recent;
+        {(["upcoming", "active", "history"] as const).map((tab) => {
+          const showing = listTab === tab;
+          const items = tab === "upcoming" ? upcoming : tab === "active" ? active : history;
+          const emptyTitle = tab === "upcoming" ? "Nothing upcoming" : tab === "active" ? "No live offers" : "No finished offers";
+          const emptyBody =
+            tab === "upcoming"
+              ? "Festivals that have not started, and dishes that need a decision, show up here."
+              : tab === "active"
+                ? "Offers running today show up here."
+                : "When an offer’s last day has passed, its result shows up here.";
           return (
             <div
               key={tab}
-              aria-hidden={!active}
+              aria-hidden={!showing}
               className="vk-pricing-decisions-tab-pane"
               style={{
                 position: "absolute",
                 inset: 0,
-                overflowY: active ? "auto" : "hidden",
-                opacity: active ? 1 : 0,
-                transform: active ? "translateX(0)" : tab === "upcoming" ? "translateX(-14px)" : "translateX(14px)",
+                overflowY: showing ? "auto" : "hidden",
+                opacity: showing ? 1 : 0,
+                transform: showing ? "translateX(0)" : tab === "history" ? "translateX(14px)" : "translateX(-14px)",
                 transition: motionOn ? `opacity ${TAB_MS}ms ${TAB_EASE}, transform ${TAB_MS}ms ${TAB_EASE}` : "none",
-                pointerEvents: active ? "auto" : "none",
+                pointerEvents: showing ? "auto" : "none",
               }}
             >
               {items.length === 0 ? (
                 <div style={{ minHeight: 200, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", boxSizing: "border-box" }}>
                   <Bot size={52} color="#FACC15" strokeWidth={1.2} style={{ marginBottom: 14 }} />
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#999", fontFamily: FONT }}>
-                    {tab === "upcoming" ? "Nothing upcoming" : "No past decisions"}
+                    {emptyTitle}
                   </p>
                   <p style={{ margin: "6px 0 0", fontSize: 13, color: "#666", fontFamily: FONT }}>
-                    {tab === "upcoming" ? "New festival and dish offers will show up here." : "Approved and applied offers will land here."}
+                    {emptyBody}
                   </p>
                 </div>
               ) : (
                 <OfferGroups
                   items={items.filter((d) => group === "all" || decisionGroup(d) === group)}
                   festivalDishes={festivalDishes}
+                  dishOverrides={dishOverrides}
+                  offerOutcomes={offerOutcomes}
+                  festivals={festivals}
+                  nestFestivalId={nestFestivalId}
+                  suggestions={suggestions}
                   onSaveDishes={onSaveDishes}
-                  onApprove={tab === "upcoming" ? onApprove : undefined}
-                  onReject={tab === "upcoming" ? onReject : undefined}
-                  onUpdate={tab === "past" ? onUpdate : undefined}
+                  onApprove={tab === "history" ? undefined : onApprove}
+                  onReject={tab === "history" ? undefined : onReject}
+                  onUpdate={tab === "history" ? undefined : onUpdate}
+                  readOnly={tab === "history"}
                 />
               )}
             </div>
@@ -546,17 +706,19 @@ function ListTabSwitch({
   value,
   onChange,
   upcomingCount,
-  pastCount,
+  activeCount,
+  historyCount,
   motionOn,
 }: {
-  value: "upcoming" | "past";
-  onChange: (tab: "upcoming" | "past") => void;
+  value: PricingListTab;
+  onChange: (tab: PricingListTab) => void;
   upcomingCount: number;
-  pastCount: number;
+  activeCount: number;
+  historyCount: number;
   motionOn: boolean;
 }) {
   const wrapRef = React.useRef<HTMLDivElement>(null);
-  const btnRefs = React.useRef<Partial<Record<"upcoming" | "past", HTMLButtonElement | null>>>({});
+  const btnRefs = React.useRef<Partial<Record<PricingListTab, HTMLButtonElement | null>>>({});
   const [pill, setPill] = useState({ left: 3, width: 0, ready: false });
 
   const measure = useCallback(() => {
@@ -570,7 +732,7 @@ function ListTabSwitch({
 
   useLayoutEffect(() => {
     measure();
-  }, [measure, upcomingCount, pastCount]);
+  }, [measure, upcomingCount, activeCount, historyCount]);
 
   useEffect(() => {
     window.addEventListener("resize", measure);
@@ -579,7 +741,8 @@ function ListTabSwitch({
 
   const tabs = [
     { id: "upcoming" as const, label: "Upcoming", count: upcomingCount },
-    { id: "past" as const, label: "Past", count: pastCount },
+    { id: "active" as const, label: "Active", count: activeCount },
+    { id: "history" as const, label: "History", count: historyCount },
   ];
 
   return (
@@ -587,6 +750,7 @@ function ListTabSwitch({
       ref={wrapRef}
       role="tablist"
       aria-label="Pricing decisions"
+      className="vk-pricing-tab-switch"
       style={{
         position: "relative",
         display: "inline-flex",
@@ -762,7 +926,7 @@ function OfferGroupFilters({ value, onChange }: { value: OfferGroup; onChange: (
     ...MENU_CATEGORIES.map((category) => ({ id: category.id as OfferGroup, label: category.label })),
   ];
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <div className="vk-pricing-filters">
       {options.map((option) => {
         const on = value === option.id;
         return (
@@ -794,17 +958,29 @@ function OfferGroupFilters({ value, onChange }: { value: OfferGroup; onChange: (
 function OfferGroups({
   items,
   festivalDishes,
+  dishOverrides,
+  offerOutcomes,
+  festivals,
+  nestFestivalId,
+  suggestions,
   onSaveDishes,
   onApprove,
   onReject,
   onUpdate,
+  readOnly,
 }: {
   items: Decision[];
   festivalDishes: Record<string, string[]>;
-  onSaveDishes: (festivalId: string, dishIds: string[]) => Promise<void>;
-  onApprove?: (id: string, pct?: number | null, dishIds?: string[]) => void;
+  dishOverrides: Record<string, Record<string, number>>;
+  offerOutcomes: OfferOutcome[];
+  festivals: FestivalWindow[];
+  nestFestivalId: string | null;
+  suggestions: DishSuggestion[];
+  onSaveDishes: (festivalId: string, dishIds: string[], dishOverrides?: Record<string, number>) => Promise<void>;
+  onApprove?: (id: string, pct?: number | null, dishIds?: string[], dishOverrides?: Record<string, number>) => void;
   onReject?: (id: string) => void;
   onUpdate?: (id: string, pct: number) => void | Promise<void>;
+  readOnly?: boolean;
 }) {
   const sections: { id: string; label: string; items: Decision[] }[] = [];
   const push = (id: string, label: string, row: Decision) => {
@@ -843,7 +1019,11 @@ function OfferGroups({
                     key={d.id}
                     decision={d}
                     savedIds={festivalDishes[d.dish_id.slice("festival:".length)] ?? EMPTY_DISH_IDS}
-                    pending={Boolean(onApprove)}
+                    savedOverrides={dishOverrides[d.dish_id.slice("festival:".length)] ?? EMPTY_OVERRIDES}
+                    suggestions={festivalIdOf(d.dish_id) === nestFestivalId ? suggestions : EMPTY_SUGGESTIONS}
+                    historyLine={historyLineFor(d, festivals, offerOutcomes)}
+                    pending={d.status === "pending" && !readOnly}
+                    readOnly={Boolean(readOnly)}
                     onApprove={onApprove}
                     onReject={onReject}
                     onUpdate={onUpdate}
@@ -853,7 +1033,11 @@ function OfferGroups({
                   <ul key={d.id} className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
                     <DecisionCard
                       decision={d}
-                      onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
+                      quality={isQualityDecision(d.reasoning)}
+                      lowSeller={!isQualityDecision(d.reasoning) && !d.dish_id.startsWith("festival:")}
+                      historyLine={historyLineFor(d, festivals, offerOutcomes)}
+                      readOnly={Boolean(readOnly)}
+                      onApprove={onApprove && !isQualityDecision(d.reasoning) ? (pct) => onApprove(d.id, pct) : undefined}
                       onReject={onReject ? () => onReject(d.id) : undefined}
                       onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
                     />
@@ -867,7 +1051,11 @@ function OfferGroups({
               <DecisionCard
                 key={d.id}
                 decision={d}
-                onApprove={onApprove ? (pct) => onApprove(d.id, pct) : undefined}
+                quality={isQualityDecision(d.reasoning)}
+                lowSeller={!isQualityDecision(d.reasoning) && (d.decision_type === "increase_discount" || d.decision_type === "meal_boost")}
+                historyLine={historyLineFor(d, festivals, offerOutcomes)}
+                readOnly={Boolean(readOnly)}
+                onApprove={onApprove && !isQualityDecision(d.reasoning) ? (pct) => onApprove(d.id, pct) : undefined}
                 onReject={onReject ? () => onReject(d.id) : undefined}
                 onUpdate={onUpdate ? (pct) => onUpdate(d.id, pct) : undefined}
               />
@@ -881,11 +1069,17 @@ function OfferGroups({
 }
 
 const EMPTY_DISH_IDS: string[] = [];
+const EMPTY_SUGGESTIONS: DishSuggestion[] = [];
+const EMPTY_OVERRIDES: Record<string, number> = {};
 
 function FestivalBundle({
   decision,
   savedIds,
+  savedOverrides,
+  suggestions,
+  historyLine,
   pending,
+  readOnly,
   onApprove,
   onReject,
   onUpdate,
@@ -893,43 +1087,96 @@ function FestivalBundle({
 }: {
   decision: Decision;
   savedIds: string[];
+  savedOverrides: Record<string, number>;
+  suggestions: DishSuggestion[];
+  historyLine: string | null;
   pending: boolean;
-  onApprove?: (id: string, pct?: number | null, dishIds?: string[]) => void;
+  readOnly: boolean;
+  onApprove?: (id: string, pct?: number | null, dishIds?: string[], dishOverrides?: Record<string, number>) => void;
   onReject?: (id: string) => void;
   onUpdate?: (id: string, pct: number) => void | Promise<void>;
-  onSaveDishes: (festivalId: string, dishIds: string[]) => Promise<void>;
+  onSaveDishes: (festivalId: string, dishIds: string[], dishOverrides?: Record<string, number>) => Promise<void>;
 }) {
   const festivalId = decision.dish_id.slice("festival:".length);
   const savedKey = dishKey(savedIds);
+  const suggestionKey = suggestions.map((row) => `${row.dishId}:${row.pct}`).join("|");
+  const overrideKey = Object.entries(savedOverrides)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, pct]) => `${id}:${pct}`)
+    .join("|");
+  const touched = React.useRef(false);
   const [picked, setPicked] = useState<string[]>(savedIds);
+  const [overrides, setOverrides] = useState<Record<string, number>>(savedOverrides);
+  const [festivalPct, setFestivalPct] = useState<number>(() => roundToDiscountPreset(decision.new_discount ?? 20));
+  const [adjustOpen, setAdjustOpen] = useState(false);
   useEffect(() => {
-    setPicked(savedIds);
+    if (touched.current) return;
+    if (savedIds.length > 0) setPicked(savedIds);
+    else if (pending) setPicked(suggestions.map((row) => row.dishId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedKey]);
+  }, [savedKey, suggestionKey, pending]);
+  useEffect(() => {
+    setOverrides(savedOverrides);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overrideKey]);
   const toggle = (id: string) => {
+    touched.current = true;
     setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+  const priced = (festivalDefault: number) => {
+    const map: Record<string, number> = {};
+    for (const id of picked) {
+      const suggested = suggestions.find((row) => row.dishId === id)?.pct;
+      map[id] = overrides[id] ?? suggested ?? festivalDefault;
+    }
+    return map;
   };
   return (
     <div>
       <ul className="vk-order-grid vk-pricing-decisions-grid no-scrollbar" style={{ margin: 0, padding: 0 }}>
         <DecisionCard
           decision={decision}
-          onApprove={pending && onApprove ? (pct) => onApprove(decision.id, pct, picked) : undefined}
+          onApprove={pending && onApprove ? (pct) => onApprove(decision.id, pct, picked, priced(pct ?? festivalPct)) : undefined}
           onReject={onReject ? () => onReject(decision.id) : undefined}
           onUpdate={onUpdate ? (pct) => onUpdate(decision.id, pct) : undefined}
+          onPctChange={setFestivalPct}
           selectedCount={picked.length}
-          approveLabel={pending ? (picked.length ? `Approve on ${picked.length} dishes` : "Tick dishes below") : undefined}
+          approveLabel={pending ? (picked.length ? `Approve selected (${picked.length})` : "Tick dishes below") : undefined}
           approveDisabled={pending && picked.length === 0}
+          historyLine={historyLine}
+          readOnly={readOnly}
         />
       </ul>
-      <FestivalDishPicker
-        title={decisionDisplayName(decision)}
-        picked={picked}
-        onToggle={toggle}
-        pending={pending}
-        savedKey={savedKey}
-        onSave={() => onSaveDishes(festivalId, picked)}
-      />
+      {readOnly ? null : (
+        <FestivalDishPicker
+          title={decisionDisplayName(decision)}
+          picked={picked}
+          overrides={overrides}
+          suggestions={suggestions}
+          festivalPct={festivalPct}
+          onToggle={toggle}
+          onOverride={(id, pct) => {
+            touched.current = true;
+            setOverrides((current) => ({ ...current, [id]: pct }));
+          }}
+          pending={pending}
+          savedKey={savedKey}
+          adjustOpen={adjustOpen}
+          onToggleAdjust={() => setAdjustOpen((open) => !open)}
+          onSave={() => onSaveDishes(festivalId, picked, priced(festivalPct))}
+        />
+      )}
+      {pending && adjustOpen ? (
+        <div className={`vk-festival-sticky${picked.length ? " is-on" : ""}`}>
+          <button
+            type="button"
+            disabled={picked.length === 0}
+            onClick={() => onApprove?.(decision.id, festivalPct, picked, priced(festivalPct))}
+          >
+            {picked.length ? `Approve all selected (${picked.length})` : "Tick dishes first"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -941,22 +1188,35 @@ function dishKey(ids: string[]): string {
 function FestivalDishPicker({
   title,
   picked,
+  overrides,
+  suggestions,
+  festivalPct,
   onToggle,
+  onOverride,
   pending,
   savedKey,
+  adjustOpen,
+  onToggleAdjust,
   onSave,
 }: {
   title: string;
   picked: string[];
+  overrides: Record<string, number>;
+  suggestions: DishSuggestion[];
+  festivalPct: number;
   onToggle: (id: string) => void;
+  onOverride: (id: string, pct: number) => void;
   pending: boolean;
   savedKey: string;
+  adjustOpen: boolean;
+  onToggleAdjust: () => void;
   onSave: () => Promise<void>;
 }) {
   const [saving, setSaving] = useState(false);
   const dirty = dishKey(picked) !== savedKey;
   return (
     <div
+      className={`vk-festival-adjust${adjustOpen ? " is-open" : ""}`}
       style={{
         marginTop: 12,
         padding: "14px 16px 16px",
@@ -980,7 +1240,7 @@ function FestivalDishPicker({
               setSaving(false);
             }}
             style={{
-              height: 36,
+              height: 44,
               padding: "0 14px",
               borderRadius: 10,
               border: "none",
@@ -996,10 +1256,14 @@ function FestivalDishPicker({
           </button>
         )}
       </div>
+      <button type="button" className="vk-festival-adjust-toggle" onClick={onToggleAdjust}>
+        {picked.length} dishes selected — tap to adjust individually
+      </button>
+      <div className="vk-festival-adjust-body">
       <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#aaa", lineHeight: 1.45, fontFamily: FONT }}>
         {pending
-          ? "Tick the dishes, then tap Approve. That one tap puts the lower price on the real menu. It shows only on the festival dates in the card above. Before those dates the menu stays at the normal price."
-          : "This offer is already approved. Change the ticks and tap Update menu. The real menu follows that list during the festival dates."}
+          ? "Tick the dishes and set a % on any row that should differ from the festival default. One Approve applies every ticked dish."
+          : "This offer is already on the menu. Change the ticks or a dish’s %, then tap Update menu."}
       </p>
       <div className="vk-festival-dish-grid">
         {MENU_CATEGORIES.map((category) => (
@@ -1007,38 +1271,52 @@ function FestivalDishPicker({
             <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#777", fontFamily: FONT }}>
               {category.label}
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {MENU_BY_CATEGORY[category.id].map((dish) => {
                 const on = picked.includes(dish.id);
+                const suggestion = suggestions.find((row) => row.dishId === dish.id);
+                const pct = overrides[dish.id] ?? suggestion?.pct ?? festivalPct;
                 return (
-                  <label
-                    key={dish.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      minHeight: 36,
-                      padding: "0 4px",
-                      cursor: "pointer",
-                      color: on ? "#fff" : "#aaa",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      fontFamily: FONT,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => onToggle(dish.id)}
-                      style={{ width: 16, height: 16, accentColor: YELLOW, flexShrink: 0 }}
-                    />
-                    {dish.name.replace(" - ", " — ")}
-                  </label>
+                  <div key={dish.id}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minHeight: 44,
+                        padding: "0 4px",
+                        cursor: "pointer",
+                        color: on ? "#fff" : "#aaa",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        fontFamily: FONT,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => onToggle(dish.id)}
+                        style={{ width: 18, height: 18, accentColor: YELLOW, flexShrink: 0 }}
+                      />
+                      {dish.name.replace(" - ", " — ")}
+                    </label>
+                    {on ? (
+                      <div style={{ padding: "0 0 6px 32px" }}>
+                        {suggestion ? (
+                          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "#9cdcff", fontFamily: FONT }}>
+                            {suggestion.note}
+                          </p>
+                        ) : null}
+                        <DiscountPctPicker value={pct} suggested={suggestion?.pct ?? festivalPct} onChange={(next) => onOverride(dish.id, next)} size="sm" />
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
@@ -1049,25 +1327,36 @@ function DecisionCard({
   onApprove,
   onReject,
   onUpdate,
+  onPctChange,
   selectedCount,
   approveLabel,
   approveDisabled,
+  quality,
+  lowSeller,
+  historyLine,
+  readOnly,
 }: {
   decision: Decision;
   onApprove?: (pct?: number | null) => void;
   onReject?: () => void;
   onUpdate?: (pct: number) => void | Promise<void>;
+  onPctChange?: (pct: number) => void;
   selectedCount?: number;
   approveLabel?: string;
   approveDisabled?: boolean;
+  quality?: boolean;
+  lowSeller?: boolean;
+  historyLine?: string | null;
+  readOnly?: boolean;
 }) {
-  const isPending = decision.status === "pending";
-  const isLiveOffer = decision.status === "applied" || decision.status === "auto_applied";
+  const isPending = decision.status === "pending" && !readOnly;
+  const isLiveOffer = !readOnly && (decision.status === "applied" || decision.status === "auto_applied");
   const editableType =
-    decision.decision_type === "increase_discount" ||
-    decision.decision_type === "decrease_discount" ||
-    decision.decision_type === "meal_boost" ||
-    decision.decision_type === "festival_activate";
+    !quality &&
+    (decision.decision_type === "increase_discount" ||
+      decision.decision_type === "decrease_discount" ||
+      decision.decision_type === "meal_boost" ||
+      decision.decision_type === "festival_activate");
   const showPctPicker = editableType && (isPending || isLiveOffer);
   const [pickedPct, setPickedPct] = useState<number>(() =>
     roundToDiscountPreset(decision.new_discount ?? 20),
@@ -1079,8 +1368,13 @@ function DecisionCard({
   useEffect(() => {
     setPickedPct(roundToDiscountPreset(decision.new_discount ?? 20));
   }, [decision.new_discount]);
+  useEffect(() => {
+    onPctChange?.(pickedPct);
+  }, [pickedPct, onPctChange]);
   const name = decisionDisplayName(decision);
-  const chip = statusChipStyle(decision.status);
+  const chip = historyLine
+    ? { bg: "rgba(255,255,255,0.06)", color: "#aaa", border: "#333" }
+    : statusChipStyle(decision.status);
   const decidedLabel = new Date(decision.decided_at).toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     dateStyle: "short",
@@ -1092,7 +1386,13 @@ function DecisionCard({
       className="vk-order-card"
       style={{
         borderRadius: 18,
-        border: isPending ? "1px solid rgba(245, 158, 11, 0.35)" : "1px solid #2a2a2a",
+        border: quality
+          ? "1px solid rgba(245, 158, 11, 0.7)"
+          : lowSeller
+            ? "1px solid rgba(56, 189, 248, 0.55)"
+            : isPending
+              ? "1px solid rgba(245, 158, 11, 0.35)"
+              : "1px solid #2a2a2a",
         background: CARD_BG,
         padding: 0,
         boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
@@ -1118,6 +1418,9 @@ function DecisionCard({
       >
         <span
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
             fontSize: 16,
             fontWeight: 800,
             color: "#fff",
@@ -1128,7 +1431,9 @@ function DecisionCard({
             minWidth: 0,
           }}
         >
-          {name}
+            {quality ? <AlertTriangle size={16} color="#F59E0B" style={{ flexShrink: 0 }} /> : null}
+            {lowSeller && !quality ? <TrendingDown size={16} color="#38BDF8" style={{ flexShrink: 0 }} /> : null}
+            {name}
         </span>
         <span
           style={{
@@ -1146,7 +1451,7 @@ function DecisionCard({
             lineHeight: 1,
           }}
         >
-          {statusLabel(decision.status)}
+          {historyLine ? "Ended" : statusLabel(decision.status)}
         </span>
       </div>
 
@@ -1162,7 +1467,7 @@ function DecisionCard({
         <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
           <div style={{ ...DETAIL_BOX, alignItems: "flex-start" }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#ccc", lineHeight: 1.45 }}>
-              {decision.reasoning}
+              {historyLine || visibleReasoning(decision.reasoning)}
             </span>
           </div>
 
@@ -1209,7 +1514,7 @@ function DecisionCard({
           )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <InfoChip label={decisionTypeLabel(decision.decision_type)} />
+            <InfoChip label={quality ? "Check reviews" : lowSeller ? "Low seller" : decisionTypeLabel(decision.decision_type)} accent={Boolean(lowSeller) && !quality} />
           </div>
         </div>
 
@@ -1233,7 +1538,29 @@ function DecisionCard({
             )}
           </div>
 
-          {isPending && onApprove && onReject ? (
+          {isPending && quality && onReject ? (
+            <div className="vk-order-card-actions vk-order-card-actions--single">
+              <button
+                type="button"
+                onClick={onReject}
+                className="vk-order-btn"
+                style={{
+                  height: 44,
+                  minHeight: 44,
+                  borderRadius: 10,
+                  border: "1.5px solid rgba(245, 158, 11, 0.45)",
+                  background: "rgba(245, 158, 11, 0.1)",
+                  color: "#F59E0B",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: FONT,
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : isPending && onApprove && onReject ? (
             <div className="vk-order-card-actions">
               <button
                 type="button"
@@ -1313,4 +1640,80 @@ function DecisionCard({
       </div>
     </li>
   );
+}
+
+function categoryCovered(categories: string | undefined, dishId: string): boolean {
+  const raw = (categories || "all").trim().toLowerCase();
+  if (!raw || raw === "all") return true;
+  const allowed = new Set(raw.split(",").map((part) => part.trim()));
+  for (const category of MENU_CATEGORIES) {
+    if (MENU_BY_CATEGORY[category.id].some((dish) => dish.id === dishId)) return allowed.has(category.id);
+  }
+  return false;
+}
+
+function nestTargetFestival(decisions: Decision[], festivals: FestivalWindow[]): Decision | null {
+  const byId = new Map(festivals.map((festival) => [festival.id, festival]));
+  const ranked = decisions
+    .filter(
+      (decision) =>
+        decision.decision_type === "festival_activate" &&
+        decision.status !== "rejected" &&
+        decision.status !== "expired",
+    )
+    .map((decision) => {
+      const festival = byId.get(festivalIdOf(decision.dish_id) || "");
+      return { decision, calendar: festival ? festivalCalendarStatus(festival) : ("active" as const) };
+    })
+    .filter((row) => row.calendar !== "expired");
+  return (
+    ranked.find((row) => row.decision.status === "pending")?.decision ??
+    ranked.find((row) => row.calendar === "active")?.decision ??
+    null
+  );
+}
+
+function suggestionsForFestival(
+  decisions: Decision[],
+  festivalDecision: Decision,
+  festivals: Map<string, FestivalWindow>,
+): DishSuggestion[] {
+  const festival = festivals.get(festivalIdOf(festivalDecision.dish_id) || "");
+  const out: DishSuggestion[] = [];
+  for (const decision of decisions) {
+    if (decision.status !== "pending") continue;
+    if (decision.decision_type !== "increase_discount" && decision.decision_type !== "meal_boost") continue;
+    if (isQualityDecision(decision.reasoning)) continue;
+    if (decision.dish_id.startsWith("festival:")) continue;
+    if (!categoryCovered(festival?.relevant_categories, decision.dish_id)) continue;
+    const note = visibleReasoning(decision.reasoning);
+    out.push({
+      dishId: decision.dish_id,
+      pct: roundToDiscountPreset(decision.new_discount ?? 20),
+      note: note.length > 140 ? `${note.slice(0, 137)}…` : note,
+    });
+  }
+  return out;
+}
+
+function historyLineFor(decision: Decision, festivals: FestivalWindow[], outcomes: OfferOutcome[]): string | null {
+  const id = festivalIdOf(decision.dish_id);
+  if (!id || decision.decision_type !== "festival_activate") return null;
+  const festival = festivals.find((row) => row.id === id);
+  if (!festival || festivalCalendarStatus(festival) !== "expired") return null;
+  const rollup = outcomes.find((row) => row.dishId === `festival:${id}` && row.startDate === festival.date_start);
+  const measured = rollup ? historyPerformanceLine(rollup) : null;
+  if (measured) return measured;
+  const pct = decision.new_discount ?? festival.discount_override;
+  const from = new Date(`${festival.date_start}T12:00:00Z`).toLocaleDateString("en-IN", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  });
+  const to = new Date(`${festival.date_end}T12:00:00Z`).toLocaleDateString("en-IN", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  });
+  return `Ran ${from} – ${to} · ${pct}% off · orders counted after the nightly run`;
 }

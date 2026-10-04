@@ -9,6 +9,7 @@ import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 import { phraseQuietDishReason } from "@/lib/ai/promo-copy";
 import { buildItemPairs } from "@/lib/ai/item-pairs";
 import { orderCountsAsSale } from "@/lib/ai/dish-analytics";
+import { loadOfferOutcomes, syncAndSettleOfferOutcomes } from "@/lib/ai/offer-outcomes";
 
 export type PricingAgentRunSummary = {
   message: string;
@@ -39,6 +40,13 @@ async function loadConfig(supabase: ReturnType<typeof createServerSupabase>): Pr
       Number(configMap.get("low_performer_threshold")) || DEFAULT_CONFIG.lowPerformerThreshold,
     festivalAdvanceDays:
       Number(configMap.get("festival_advance_days")) || DEFAULT_CONFIG.festivalAdvanceDays,
+    lowSellerMaxOrders7d:
+      Number(configMap.get("low_seller_max_orders_7d")) || DEFAULT_CONFIG.lowSellerMaxOrders7d,
+    lowSellerMinRating:
+      Number(configMap.get("low_seller_min_rating")) || DEFAULT_CONFIG.lowSellerMinRating,
+    minOrdersForTrend: Number(configMap.get("min_orders_for_trend")) || DEFAULT_CONFIG.minOrdersForTrend,
+    declineDropRatio: Number(configMap.get("decline_drop_ratio")) || DEFAULT_CONFIG.declineDropRatio,
+    qualityRatingBelow: Number(configMap.get("quality_rating_below")) || DEFAULT_CONFIG.qualityRatingBelow,
   };
 }
 
@@ -91,7 +99,7 @@ function mapOrderRow(row: Record<string, unknown>): DashboardOrder {
 }
 
 async function loadOrders(supabase: ReturnType<typeof createServerSupabase>): Promise<DashboardOrder[]> {
-  const cutoff = new Date(Date.now() - 60 * 86_400_000).toISOString();
+  const cutoff = new Date(Date.now() - 370 * 86_400_000).toISOString();
   const { data, error } = await supabase
     .from("orders")
     .select(
@@ -128,6 +136,7 @@ async function applyDecision(
   decision: PricingDecision,
   now: string,
 ) {
+  if (decision.reasoning.startsWith("[[quality]]")) return;
   if (decision.decisionType === "festival_activate") {
     const festivalId = decision.dishId.replace("festival:", "");
     await supabase
@@ -169,11 +178,12 @@ async function applyDecision(
 
 export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
   const supabase = createServerSupabase();
-  const [config, orders, festivals, discountSettings] = await Promise.all([
+  const [config, orders, festivals, discountSettings, outcomes] = await Promise.all([
     loadConfig(supabase),
     loadOrders(supabase),
     loadFestivals(supabase),
     loadDiscountSettings(supabase),
+    loadOfferOutcomes(supabase),
   ]);
 
   // Always the last 7 kitchen days, and festivals a week ahead. A stored
@@ -194,10 +204,20 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
 
   const totalMenuItems = Object.values(MENU_BY_CATEGORY).flat().length;
   const agent = new PricingAgent(config);
-  const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems);
+  const result = agent.analyzeMenu(orders, festivals, discountSettings, totalMenuItems, outcomes);
+
+  for (const decision of result.decisions) {
+    if (decision.decisionType !== "quality_review") continue;
+    decision.decisionType = "increase_discount";
+    if (!decision.reasoning.startsWith("[[quality]]")) {
+      decision.reasoning = `[[quality]] ${decision.reasoning}`;
+    }
+    decision.newDiscount = 0;
+  }
 
   let phrased = 0;
   for (const decision of result.decisions) {
+    if (decision.reasoning.startsWith("[[quality]]")) continue;
     if (decision.decisionType !== "increase_discount" || !decision.brief || phrased >= 6) continue;
     decision.reasoning = await phraseQuietDishReason({
       item: decision.dishName,
@@ -208,6 +228,11 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
       discount: decision.newDiscount,
     });
     phrased += 1;
+  }
+
+  for (const decision of result.decisions) {
+    if (!decision.memoryNote) continue;
+    decision.reasoning = `${decision.reasoning} ${decision.memoryNote}`;
   }
 
   const pairs = buildItemPairs(
@@ -256,8 +281,9 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
     const key = `${decision.dishId}::${decision.decisionType}`;
 
     if (!decision.autoApply && pendingSet.has(key)) {
-      const refreshed =
-        decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
+      const refreshed = decision.reasoning.startsWith("[[quality]]")
+        ? 0
+        : decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
           ? decision.newDiscount
           : roundToDiscountPreset(decision.newDiscount);
       await supabase
@@ -275,8 +301,9 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
     }
 
     const status = decision.autoApply ? "auto_applied" : "pending";
-    const newDiscount =
-      decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
+    const newDiscount = decision.reasoning.startsWith("[[quality]]")
+      ? 0
+      : decision.decisionType === "festival_deactivate" || decision.decisionType === "remove_discount"
         ? decision.newDiscount
         : roundToDiscountPreset(decision.newDiscount);
 
@@ -295,6 +322,19 @@ export async function runPricingAgentCore(): Promise<PricingAgentRunSummary> {
       await applyDecision(supabase, { ...decision, newDiscount }, result.timestamp);
     }
   }
+
+  await syncAndSettleOfferOutcomes(
+    supabase,
+    orders,
+    festivals.map((festival) => ({
+      id: festival.id,
+      name: festival.name,
+      date_start: String(festival.date_start).slice(0, 10),
+      date_end: String(festival.date_end).slice(0, 10),
+      discount_override: Number(festival.discount_override) || 0,
+      active: Boolean(festival.active),
+    })),
+  );
 
   await supabase.from("ai_pricing_config").upsert(
     {

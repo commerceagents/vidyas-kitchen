@@ -5,6 +5,8 @@ import {
   type UpcomingFestival,
 } from "./dish-analytics";
 import { roundToDiscountPreset, suggestFestivalDiscountPct } from "@/lib/menu/discount-presets";
+import { PRICING_AGENT_THRESHOLDS } from "@/lib/ai/pricing-agent.config";
+import { demandTrend } from "@/lib/ai/dish-analytics";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,11 +19,14 @@ export type PricingDecision = {
     | "remove_discount"
     | "festival_activate"
     | "festival_deactivate"
-    | "meal_boost";
+    | "meal_boost"
+    | "quality_review";
   oldDiscount: number | null;
   newDiscount: number;
   reasoning: string;
   autoApply: boolean;
+  /** Appended after the card sentence is phrased. Not a column. */
+  memoryNote?: string;
   /** Facts for the one-line card. Not stored. The percent stays newDiscount. */
   brief?: {
     orders7d: number;
@@ -40,6 +45,11 @@ export type AgentConfig = {
   lowPerformerDays: number;
   lowPerformerThreshold: number;
   festivalAdvanceDays: number;
+  lowSellerMaxOrders7d: number;
+  lowSellerMinRating: number;
+  minOrdersForTrend: number;
+  declineDropRatio: number;
+  qualityRatingBelow: number;
 };
 
 export const DEFAULT_CONFIG: AgentConfig = {
@@ -48,17 +58,48 @@ export const DEFAULT_CONFIG: AgentConfig = {
   minMarginPct: 20,
   maxMenuDiscountRatio: 0.6,
   autoApplyThresholdPct: 25,
-  lowPerformerDays: 7,
+  lowPerformerDays: PRICING_AGENT_THRESHOLDS.lowSellerWindowDays,
   lowPerformerThreshold: 0.3,
-  festivalAdvanceDays: 7,
+  festivalAdvanceDays: PRICING_AGENT_THRESHOLDS.festivalLeadDays,
+  lowSellerMaxOrders7d: PRICING_AGENT_THRESHOLDS.lowSellerMaxOrders7d,
+  lowSellerMinRating: PRICING_AGENT_THRESHOLDS.lowSellerMinRating,
+  minOrdersForTrend: PRICING_AGENT_THRESHOLDS.minOrdersForTrend,
+  declineDropRatio: PRICING_AGENT_THRESHOLDS.declineDropRatio,
+  qualityRatingBelow: PRICING_AGENT_THRESHOLDS.qualityRatingBelow,
 };
 
 // ─── Individual Rules ────────────────────────────────────────────────────────
 
 /**
+ * A low rating is a kitchen problem. Do not suggest a discount for it.
+ * Stored as increase_discount with a [[quality]] prefix so the existing
+ * decisions table accepts the row. The dashboard hides Approve on these.
+ */
+export function qualityReviewRule(dish: DishPerformance, config: AgentConfig): PricingDecision | null {
+  if (dish.ratingCount < 1 || dish.avgRating == null) return null;
+  if (dish.avgRating >= config.qualityRatingBelow) return null;
+  const tone = dish.sentiment === "unknown" ? "" : ` Recent reviews look ${dish.sentiment}.`;
+  return {
+    dishId: dish.dishId,
+    dishName: dish.dishName,
+    decisionType: "quality_review",
+    oldDiscount: null,
+    newDiscount: 0,
+    reasoning: `Low rating — discount may not help, check reviews. ${dish.avgRating}/5 from ${dish.ratingCount} review${dish.ratingCount === 1 ? "" : "s"}.${tone}`,
+    autoApply: false,
+    brief: {
+      orders7d: dish.totalOrders,
+      orders30d: 0,
+      rating: dish.avgRating,
+      reviewCount: dish.ratingCount,
+    },
+  };
+}
+
+/**
  * Quiet-but-liked dishes only. The percent comes from this rule:
  * 20% when the last 7 days had zero orders, 15% when there were one or two.
- * A rating under 3.5 blocks the suggestion. No reviews yet does not.
+ * A rating under the low-seller minimum blocks the suggestion. No reviews yet does not.
  */
 export function lowPerformerRule(
   dish: DishPerformance,
@@ -67,8 +108,8 @@ export function lowPerformerRule(
   currentDiscount: number | null,
   ordersLast30 = 0,
 ): PricingDecision | null {
-  if (dish.totalOrders >= 3) return null;
-  if (dish.ratingCount > 0 && (dish.avgRating == null || dish.avgRating < 3.5)) return null;
+  if (dish.totalOrders >= config.lowSellerMaxOrders7d) return null;
+  if (dish.ratingCount > 0 && (dish.avgRating == null || dish.avgRating < config.lowSellerMinRating)) return null;
 
   const newDiscount = Math.min(dish.totalOrders === 0 ? 20 : 15, config.maxDiscountPct);
   if (currentDiscount != null && currentDiscount >= newDiscount) return null;
@@ -90,6 +131,42 @@ export function lowPerformerRule(
     newDiscount,
     reasoning,
     // Kitchen picks the final % — never auto-apply dish offers
+    autoApply: false,
+    brief: {
+      orders7d: dish.totalOrders,
+      orders30d: ordersLast30,
+      rating: dish.avgRating,
+      reviewCount: dish.ratingCount,
+    },
+  };
+}
+
+/** Week is more than `declineDropRatio` under the 30-day weekly average. */
+export function decliningTrendRule(
+  dish: DishPerformance,
+  config: AgentConfig,
+  currentDiscount: number | null,
+  ordersLast30: number,
+): PricingDecision | null {
+  if (ordersLast30 < config.minOrdersForTrend) return null;
+  if (dish.ratingCount > 0 && dish.avgRating != null && dish.avgRating < config.lowSellerMinRating) return null;
+  const expectedWeek = (ordersLast30 / 30) * config.lowPerformerDays;
+  if (!(expectedWeek > 0)) return null;
+  const drop = (expectedWeek - dish.totalOrders) / expectedWeek;
+  if (drop <= config.declineDropRatio) return null;
+  if (demandTrend(dish.totalOrders, ordersLast30) !== "falling") return null;
+
+  const newDiscount = Math.min(20, config.maxDiscountPct);
+  if (currentDiscount != null && currentDiscount >= newDiscount) return null;
+  const trend = demandTrend(dish.totalOrders, ordersLast30);
+
+  return {
+    dishId: dish.dishId,
+    dishName: dish.dishName,
+    decisionType: "increase_discount",
+    oldDiscount: currentDiscount,
+    newDiscount,
+    reasoning: `${dish.dishName} is ${trend}: ${dish.totalOrders} orders this week against about ${Math.round(expectedWeek)} in a typical week from the last 30 days. Suggest ${newDiscount}% off.`,
     autoApply: false,
     brief: {
       orders7d: dish.totalOrders,
@@ -176,8 +253,11 @@ function festivalDayLabel(ymd: string): string {
   return d.toLocaleDateString("en-IN", { timeZone: "UTC", day: "numeric", month: "short" });
 }
 
-export function festivalRule(festival: UpcomingFestival): PricingDecision | null {
-  const suggested = suggestFestivalDiscountPct(festival.discount_override, festival.name);
+export function festivalRule(
+  festival: UpcomingFestival,
+  learned?: { pct: number; note: string | null },
+): PricingDecision | null {
+  const suggested = learned?.pct ?? suggestFestivalDiscountPct(festival.discount_override, festival.name);
   const from = festivalDayLabel(festival.date_start);
   const to = festivalDayLabel(festival.date_end);
 
@@ -194,7 +274,7 @@ export function festivalRule(festival: UpcomingFestival): PricingDecision | null
       decisionType: "festival_activate",
       oldDiscount: null,
       newDiscount: suggested,
-      reasoning: `Festival "${festival.name}" ${when}. Suggested offer ${suggested}%. This is the week-ahead look — approve it to go live.`,
+      reasoning: `Festival "${festival.name}" ${when}. Suggested offer ${suggested}%. This is the week-ahead look — approve it to go live.${learned?.note ? ` ${learned.note}` : ""}`,
       autoApply: false,
     };
   }

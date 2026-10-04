@@ -3,7 +3,8 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { kitchenDateKey } from "@/lib/ai/dish-analytics";
 import { endedFestivalDecisionIds } from "@/lib/ai/festival-decisions";
-import { loadFestivalDishMap } from "@/lib/menu/festival-dishes";
+import { loadFestivalDishMap, loadFestivalOverrideMap } from "@/lib/menu/festival-dishes";
+import { loadOfferOutcomes } from "@/lib/ai/offer-outcomes";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 
 export const dynamic = "force-dynamic";
@@ -96,7 +97,22 @@ export async function GET() {
     const lastRunAt = kitchenDayOf(freshMap.get("last_run_at"))
       ? String(freshMap.get("last_run_at")).replace(/"/g, "")
       : null;
-    const festivalDishes = await loadFestivalDishMap(supabase);
+    const [festivalDishes, dishOverrides, offerOutcomes, festivalRows] = await Promise.all([
+      loadFestivalDishMap(supabase),
+      loadFestivalOverrideMap(supabase),
+      loadOfferOutcomes(supabase),
+      supabase.from("festivals").select("id, name, date_start, date_end, active, discount_override"),
+    ]);
+
+    const festivals = (festivalRows.data ?? []).map((row: Record<string, unknown>) => ({
+      id: String(row.id),
+      name: String(row.name ?? ""),
+      date_start: String(row.date_start ?? "").slice(0, 10),
+      date_end: String(row.date_end ?? "").slice(0, 10),
+      active: Boolean(row.active),
+      discount_override: Number(row.discount_override ?? 0),
+      relevant_categories: row.relevant_categories ? String(row.relevant_categories) : "all",
+    }));
 
     return NextResponse.json({
       enabled: freshMap.get("agent_enabled") ?? true,
@@ -105,6 +121,9 @@ export async function GET() {
       pendingCount,
       appliedCount,
       festivalDishes,
+      dishOverrides,
+      offerOutcomes,
+      festivals,
     });
   } catch (error) {
     return NextResponse.json(

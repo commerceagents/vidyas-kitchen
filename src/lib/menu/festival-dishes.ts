@@ -7,6 +7,7 @@ import {
 } from "@/lib/menu/discount-pricing";
 
 export const FESTIVAL_DISHES_KEY = "festival_included_dishes";
+export const FESTIVAL_OVERRIDES_KEY = "festival_dish_overrides";
 
 const KNOWN_DISH_IDS = new Set(
   Object.values(MENU_BY_CATEGORY)
@@ -57,10 +58,38 @@ export function attachFestivalDishes(rows: FestivalRow[], map: Record<string, st
   return rows.map((row) => ({ ...row, included_dish_ids: map[row.id] ?? [] }));
 }
 
+export function parseFestivalOverrideMap(raw: unknown): Record<string, Record<string, number>> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, Record<string, number>> = {};
+  for (const [festivalId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const dishMap: Record<string, number> = {};
+    for (const [dishId, pct] of Object.entries(value as Record<string, unknown>)) {
+      if (!KNOWN_DISH_IDS.has(dishId)) continue;
+      const n = Number(pct);
+      if (n > 0 && n < 100) dishMap[dishId] = n;
+    }
+    out[festivalId] = dishMap;
+  }
+  return out;
+}
+
+export async function loadFestivalOverrideMap(
+  supabase: SupabaseClient,
+): Promise<Record<string, Record<string, number>>> {
+  const { data } = await supabase
+    .from("ai_pricing_config")
+    .select("value")
+    .eq("key", FESTIVAL_OVERRIDES_KEY)
+    .maybeSingle();
+  return parseFestivalOverrideMap(data?.value);
+}
+
 export async function loadActiveFestival(supabase: SupabaseClient): Promise<FestivalRow | null> {
-  const [{ data }, map] = await Promise.all([
+  const [{ data }, map, overrides] = await Promise.all([
     supabase.from("festivals").select("*").order("date_start", { ascending: true }),
     loadFestivalDishMap(supabase),
+    loadFestivalOverrideMap(supabase),
   ]);
   const rows: FestivalRow[] = (data ?? []).map((r: Record<string, unknown>) => ({
     id: String(r.id),
@@ -71,6 +100,8 @@ export async function loadActiveFestival(supabase: SupabaseClient): Promise<Fest
     chip_label: String(r.chip_label ?? ""),
     active: Boolean(r.active),
     included_dish_ids: map[String(r.id)] ?? [],
+    dish_overrides: overrides[String(r.id)] ?? {},
+    relevant_categories: r.relevant_categories ? String(r.relevant_categories) : "all",
   }));
   return pickActiveFestival(rows);
 }
@@ -120,6 +151,31 @@ export async function primeFestivalQuote(supabase: SupabaseClient): Promise<Fest
     quotedFestival = null;
   }
   return quotedFestival;
+}
+
+export async function saveFestivalOverrides(
+  supabase: SupabaseClient,
+  festivalId: string,
+  overrides: Record<string, number>,
+): Promise<{ ok: boolean; error?: string }> {
+  const map = await loadFestivalOverrideMap(supabase);
+  const clean: Record<string, number> = {};
+  for (const [dishId, pct] of Object.entries(overrides)) {
+    if (!KNOWN_DISH_IDS.has(dishId)) continue;
+    const n = Number(pct);
+    if (n > 0 && n < 100) clean[dishId] = n;
+  }
+  map[festivalId] = clean;
+  const { error } = await supabase.from("ai_pricing_config").upsert(
+    {
+      key: FESTIVAL_OVERRIDES_KEY,
+      value: map,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "key" },
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 export async function saveFestivalDishes(

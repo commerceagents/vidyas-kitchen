@@ -5,12 +5,15 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { runPricingAgentCore } from "@/lib/ai/run-pricing-agent";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
-import { saveFestivalDishes } from "@/lib/menu/festival-dishes";
+import { saveFestivalDishes, saveFestivalOverrides } from "@/lib/menu/festival-dishes";
+import { outcomesForApproval, loadOfferOutcomes, saveOfferOutcomes } from "@/lib/ai/offer-outcomes";
+import { isQualityDecision } from "@/lib/ai/pricing-tabs";
 
 export async function approvePricingDecisionAction(
   decisionId: string,
   overridePct?: number | null,
   dishIds?: string[],
+  dishOverrides?: Record<string, number>,
 ): Promise<{ ok: boolean; error?: string }> {
   const denied = await guardDashboardAction();
   if (denied) return denied;
@@ -27,6 +30,9 @@ export async function approvePricingDecisionAction(
 
     if (!decision) return { ok: false, error: "Decision not found" };
     if (decision.status !== "pending") return { ok: false, error: `Decision already ${decision.status}` };
+    if (isQualityDecision(decision.reasoning)) {
+      return { ok: false, error: "This dish needs a review, not a discount. Dismiss the card after you check the reviews." };
+    }
 
     const appliedPct =
       overridePct != null && Number.isFinite(overridePct)
@@ -43,6 +49,44 @@ export async function approvePricingDecisionAction(
       }
       const saved = await saveFestivalDishes(supabase, festivalId, chosen);
       if (!saved.ok) return saved;
+      const overrides = dishOverrides && typeof dishOverrides === "object" ? dishOverrides : {};
+      const savedOverrides = await saveFestivalOverrides(supabase, festivalId, overrides);
+      if (!savedOverrides.ok) return savedOverrides;
+      const { data: festival } = await supabase
+        .from("festivals")
+        .select("name, date_start, date_end")
+        .eq("id", festivalId)
+        .maybeSingle();
+      const { data: overlapping } = await supabase
+        .from("ai_pricing_decisions")
+        .select("id, reasoning, decision_type")
+        .in("dish_id", chosen)
+        .eq("status", "pending");
+      const replaced = (overlapping ?? [])
+        .filter(
+          (row: { reasoning?: string; decision_type?: string }) =>
+            !isQualityDecision(row.reasoning) &&
+            (row.decision_type === "increase_discount" || row.decision_type === "meal_boost"),
+        )
+        .map((row: { id: string }) => row.id);
+      if (replaced.length > 0) {
+        await supabase.from("ai_pricing_decisions").update({ status: "rejected" }).in("id", replaced);
+      }
+      if (festival) {
+        const existing = await loadOfferOutcomes(supabase);
+        await saveOfferOutcomes(
+          supabase,
+          outcomesForApproval(existing, {
+            festivalId,
+            festivalName: String(festival.name ?? "Festival"),
+            startDate: String(festival.date_start ?? "").slice(0, 10),
+            endDate: String(festival.date_end ?? "").slice(0, 10),
+            defaultPct: appliedPct ?? (Number(decision.new_discount) || 20),
+            dishIds: chosen,
+            overrides,
+          }),
+        );
+      }
       await supabase
         .from("festivals")
         .update({

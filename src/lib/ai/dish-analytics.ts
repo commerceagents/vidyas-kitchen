@@ -4,6 +4,7 @@ import { getOrderRevenueAmount } from "@/lib/order-pricing";
 import { type FestivalRow } from "@/lib/menu/discount-pricing";
 import { MENU_BY_CATEGORY } from "@/components/ui/mobile/mobileMenuData";
 import { variantIdToDishIdMap } from "@/lib/menu/best-selling";
+import { PRICING_AGENT_THRESHOLDS } from "@/lib/ai/pricing-agent.config";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export type DishPerformance = {
   ratingCount: number;
   /** Newest written complaint (3 stars or below), when there is one. */
   lowReview: string | null;
+  /** Mean of the newest reviews, up to 10. */
+  sentiment: "positive" | "mixed" | "negative" | "unknown";
 };
 
 export type CategoryStats = {
@@ -143,6 +146,7 @@ type DishBucket = {
   ratedOrders: Set<string>;
   lowReview: string | null;
   lowReviewAt: string | null;
+  recentRatings: { day: string; stars: number }[];
 };
 
 function emptyBucket(name: string, category: string | null): DishBucket {
@@ -158,6 +162,7 @@ function emptyBucket(name: string, category: string | null): DishBucket {
     ratedOrders: new Set(),
     lowReview: null,
     lowReviewAt: null,
+    recentRatings: [],
   };
 }
 
@@ -225,6 +230,7 @@ export function computeDishPerformance(
         entry.lowReview = comment;
         entry.lowReviewAt = day;
       }
+      entry.recentRatings.push({ day, stars });
       dishMap.set(meta.dishId, entry);
     }
   }
@@ -261,6 +267,7 @@ export function computeDishPerformance(
       avgRating: data.ratingCount > 0 ? Math.round((data.ratingSum / data.ratingCount) * 10) / 10 : null,
       ratingCount: data.ratingCount,
       lowReview: data.lowReview,
+      sentiment: sentimentOf(data.recentRatings),
     });
   }
 
@@ -383,6 +390,46 @@ export function identifyHighPerformers(
     if (!cat || cat.avgOrders === 0) return false;
     return d.totalOrders > cat.avgOrders * (1 / topPct);
   });
+}
+
+function sentimentOf(ratings: { day: string; stars: number }[]): DishPerformance["sentiment"] {
+  if (ratings.length === 0) return "unknown";
+  const recent = [...ratings].sort((a, b) => b.day.localeCompare(a.day)).slice(0, 10);
+  const avg = recent.reduce((sum, row) => sum + row.stars, 0) / recent.length;
+  if (avg >= 4) return "positive";
+  if (avg < 3) return "negative";
+  return "mixed";
+}
+
+/** This week's pace against the 30-day weekly average. */
+export function demandTrend(orders7d: number, orders30d: number): "rising" | "falling" | "flat" {
+  if (orders30d < 3) return "flat";
+  const expectedWeek = (orders30d / 30) * 7;
+  if (orders7d > expectedWeek * 1.15) return "rising";
+  if (expectedWeek > 0 && orders7d < expectedWeek * (1 - PRICING_AGENT_THRESHOLDS.declineDropRatio)) return "falling";
+  return "flat";
+}
+
+/** Distinct paid orders in [start, end] that included one of these dishes. */
+export function countOrdersForDishes(
+  orders: DashboardOrder[],
+  dishIds: string[],
+  startYmd: string,
+  endYmd: string,
+): number {
+  const wanted = new Set(dishIds);
+  if (wanted.size === 0) return 0;
+  const start = startYmd.slice(0, 10);
+  const end = endYmd.slice(0, 10);
+  let count = 0;
+  for (const order of orders) {
+    if (!orderCountsAsSale(order)) continue;
+    const day = orderKitchenDay(order);
+    if (day < start || day > end) continue;
+    const hit = order.items.some((item) => wanted.has(resolveDishMeta(item).dishId));
+    if (hit) count += 1;
+  }
+  return count;
 }
 
 export function identifyDormantDishes(

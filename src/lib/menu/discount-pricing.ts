@@ -11,7 +11,17 @@ export type FestivalRow = {
   active: boolean;
   /** Dishes that actually pay the festival %. Empty means the offer is on, but no dish is cut yet. */
   included_dish_ids?: string[];
+  /** Per-dish % when the kitchen overrode the festival default. */
+  dish_overrides?: Record<string, number>;
+  /** `all`, or a comma list such as `chicken,egg`. Missing means every category. */
+  relevant_categories?: string;
 };
+
+export function festivalPctForDish(festival: FestivalRow | null | undefined, dishId: string): number {
+  const override = festival?.dish_overrides?.[dishId];
+  const pct = override != null && Number(override) > 0 ? Number(override) : Number(festival?.discount_override);
+  return Number.isFinite(pct) ? pct : 0;
+}
 
 /** Row from `dish_discount_settings` (API / Supabase). */
 export type DishDiscountRow = {
@@ -102,7 +112,7 @@ export function payPriceForDish(
   now = new Date(),
 ): number {
   if (!festivalAppliesToDish(festival, dishId, now)) return menuPrice;
-  const pct = Number(festival?.discount_override);
+  const pct = festivalPctForDish(festival, dishId);
   if (!(pct > 0) || pct >= 100) return menuPrice;
   const pay = Math.round(menuPrice * (1 - pct / 100));
   return pay > 0 && pay < menuPrice ? pay : menuPrice;
@@ -177,7 +187,7 @@ export function discountChipDisplay(
   activeFestival: FestivalRow | null = null,
 ): DiscountChipDisplay {
   if (festivalAppliesToDish(activeFestival, item.id, now)) {
-    const pct = Math.round(Number(activeFestival?.discount_override));
+    const pct = Math.round(festivalPctForDish(activeFestival, item.id));
     if (pct > 0 && pct < 100) return { text: `${pct}%`, variant: "festival" };
   }
 

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
-import { saveFestivalDishes } from "@/lib/menu/festival-dishes";
+import { saveFestivalDishes, saveFestivalOverrides } from "@/lib/menu/festival-dishes";
 
 export type FestivalUpsertPayload = {
   id: string;
@@ -50,6 +50,7 @@ export async function upsertFestivalAction(row: FestivalUpsertPayload): Promise<
 export async function setFestivalDishesAction(
   festivalId: string,
   dishIds: string[],
+  dishOverrides?: Record<string, number>,
 ): Promise<{ ok: boolean; error?: string }> {
   const denied = await guardDashboardAction();
   if (denied) return denied;
@@ -60,6 +61,10 @@ export async function setFestivalDishesAction(
     const supabase = createServerSupabase();
     const saved = await saveFestivalDishes(supabase, id, dishIds);
     if (!saved.ok) return saved;
+    if (dishOverrides) {
+      const savedOverrides = await saveFestivalOverrides(supabase, id, dishOverrides);
+      if (!savedOverrides.ok) return savedOverrides;
+    }
     revalidatePath("/dashboard/pricing-agent");
     revalidatePath("/");
     return { ok: true };
