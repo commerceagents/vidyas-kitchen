@@ -122,52 +122,94 @@ function phoneDigits(value: string) {
   return digits.length >= 10 ? digits.slice(-10) : "";
 }
 
+function orderMatchesPlace(place: SavedPlace, order: PastGiftOrder): boolean {
+  const lat = Number(order.deliveryLat);
+  const lng = Number(order.deliveryLng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && sameSavedPoint(place, { lat, lng })) {
+    return true;
+  }
+
+  const orderAddr = normAddr(String(order.deliveryAddress || ""));
+  const placeAddr = normAddr(place.address);
+  if (orderAddr && placeAddr && (orderAddr === placeAddr || orderAddr.startsWith(placeAddr) || placeAddr.startsWith(orderAddr))) {
+    return true;
+  }
+
+  if (place.id !== "other") return false;
+  const orderName = normAddr(String(order.recipientName || ""));
+  const label = normAddr(place.label);
+  return Boolean(orderName && label && orderName !== "other" && (orderName === label || label.startsWith(orderName) || orderName.startsWith(label)));
+}
+
+/** Newest past gift order for this pin. `orders` must already be newest first. */
+export function latestGiftContact(
+  place: SavedPlace,
+  orders: PastGiftOrder[],
+): { name: string; phone: string } | null {
+  if (!isPlaceSet(place)) return null;
+  const hit = orders.find((order) => orderMatchesPlace(place, order));
+  if (!hit) return null;
+  const name = String(hit.recipientName || "").trim().slice(0, 40);
+  const phone = phoneDigits(String(hit.recipientPhone || ""));
+  if (!name && !phone) return null;
+  return { name, phone };
+}
+
+/** Nickname on the chip, when it is a person rather than Home / Work / Other. */
+export function savedPlacePersonName(place: SavedPlace): string {
+  const nickname = place.label.trim();
+  if (!nickname || ["home", "work", "other"].includes(nickname.toLowerCase())) return "";
+  return nickname.slice(0, 40);
+}
+
 /**
- * Past gift orders already have the recipient's number. Copy it onto the
- * matching saved place when that place was saved before we started remembering
- * the contact, so selecting it fills the phone as well as the name and pin.
+ * Past gift orders already have the recipient. A half-finished checkout must
+ * not keep a different name on the chip, so the latest real order wins.
  */
 export function backfillGiftContacts(orders: PastGiftOrder[]): boolean {
   const places = loadSavedPlaces();
   let changed = false;
   const next = places.map((place) => {
-    if (!isPlaceSet(place) || phoneDigits(place.recipientPhone || "").length === 10) return place;
-
-    const hit = orders.find((order) => {
-      const digits = phoneDigits(String(order.recipientPhone || ""));
-      if (digits.length !== 10) return false;
-
-      const lat = Number(order.deliveryLat);
-      const lng = Number(order.deliveryLng);
-      if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && sameSavedPoint(place, { lat, lng })) {
-        return true;
-      }
-
-      const orderAddr = normAddr(String(order.deliveryAddress || ""));
-      const placeAddr = normAddr(place.address);
-      if (orderAddr && placeAddr && (orderAddr === placeAddr || orderAddr.startsWith(placeAddr) || placeAddr.startsWith(orderAddr))) {
-        return true;
-      }
-
-      if (place.id !== "other") return false;
-      const orderName = normAddr(String(order.recipientName || ""));
-      const label = normAddr(place.label);
-      return Boolean(orderName && label && orderName !== "other" && (orderName === label || label.startsWith(orderName) || orderName.startsWith(label)));
-    });
+    if (!isPlaceSet(place)) return place;
+    const hit = latestGiftContact(place, orders);
     if (!hit) return place;
 
-    const recipientPhone = phoneDigits(String(hit.recipientPhone || ""));
-    const recipientName = String(hit.recipientName || "").trim().slice(0, 40) || place.recipientName;
+    const recipientName = hit.name || place.recipientName;
+    const recipientPhone = hit.phone || place.recipientPhone || "";
+    if ((recipientName || "") === (place.recipientName || "") && recipientPhone === (place.recipientPhone || "")) {
+      return place;
+    }
     changed = true;
     return {
       ...place,
       ...(recipientName ? { recipientName } : {}),
-      recipientPhone,
+      ...(hit.phone ? { recipientPhone: hit.phone } : {}),
     };
   });
 
   if (changed) savePlaces(next);
   return changed;
+}
+
+/** Replace the contact stored on one chip, including clearing a draft. */
+export function setPlaceGiftContact(placeId: SavedPlaceId, name: string, phone: string) {
+  const trimmed = name.trim().slice(0, 40);
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  const phoneOk = digits.length === 10 ? digits : "";
+  const places = loadSavedPlaces();
+  let changed = false;
+  const next = places.map((place) => {
+    if (place.id !== placeId) return place;
+    if ((place.recipientName || "") === trimmed && (place.recipientPhone || "") === phoneOk) return place;
+    changed = true;
+    const copy: SavedPlace = { ...place };
+    if (trimmed) copy.recipientName = trimmed;
+    else delete copy.recipientName;
+    if (phoneOk) copy.recipientPhone = phoneOk;
+    else delete copy.recipientPhone;
+    return copy;
+  });
+  if (changed) savePlaces(next);
 }
 
 /**

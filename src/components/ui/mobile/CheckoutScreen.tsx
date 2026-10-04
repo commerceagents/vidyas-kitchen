@@ -25,7 +25,17 @@ import {
   PencilSimple,
 } from "@phosphor-icons/react";
 
-import { backfillGiftContacts, loadSavedPlaces, rememberGiftContact, sameSavedPoint, type SavedPlace } from "@/lib/vk-saved-places";
+import {
+  backfillGiftContacts,
+  latestGiftContact,
+  loadSavedPlaces,
+  rememberGiftContact,
+  savedPlacePersonName,
+  setPlaceGiftContact,
+  sameSavedPoint,
+  type PastGiftOrder,
+  type SavedPlace,
+} from "@/lib/vk-saved-places";
 import {
   type DeliverySlotKind,
   iterDeliveryDateOptions,
@@ -515,11 +525,11 @@ export function CheckoutScreen({
     };
   }, [refreshSavedPlaces]);
 
-  const recipientPhoneRef = useRef(recipientPhone);
-  recipientPhoneRef.current = recipientPhone;
+  const giftOrdersRef = useRef<PastGiftOrder[] | null>(null);
+  const [giftOrders, setGiftOrders] = useState<PastGiftOrder[] | null>(null);
 
-  // Gift orders placed before the contact was stored on the place still have
-  // the number on the order. Copy it across so the selected chip can fill it.
+  // A finished gift order is the contact for that pin. A name typed and then
+  // abandoned must not stay on the chip.
   useEffect(() => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) return;
@@ -531,11 +541,14 @@ export function CheckoutScreen({
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { orders?: Parameters<typeof backfillGiftContacts>[0] };
+        const data = (await res.json()) as { orders?: PastGiftOrder[] };
         if (cancelled || !Array.isArray(data.orders)) return;
+        giftOrdersRef.current = data.orders;
+        setGiftOrders(data.orders);
         backfillGiftContacts(data.orders);
       } catch {
-        /* The chip still fills whatever is already on the saved place. */
+        giftOrdersRef.current = [];
+        setGiftOrders([]);
       }
     })();
     return () => {
@@ -544,12 +557,16 @@ export function CheckoutScreen({
   }, [phone]);
 
   useEffect(() => {
-    if (!recipientDrop) return;
-    const place = savedPlaces.find((item) => sameSavedPoint(item, recipientDrop));
-    if (!place?.recipientPhone) return;
-    if (recipientPhoneRef.current.replace(/\D/g, "").length >= 10) return;
-    setRecipientPhone(place.recipientPhone);
-  }, [savedPlaces, recipientDrop]);
+    if (!giftOrders || !recipientDrop) return;
+    const place = loadSavedPlaces().find((item) => sameSavedPoint(item, recipientDrop));
+    if (!place) return;
+    const fromOrder = latestGiftContact(place, giftOrders);
+    const savedName = fromOrder?.name || savedPlacePersonName(place);
+    const savedPhone = fromOrder?.phone || "";
+    setRecipientName(savedName);
+    setRecipientPhone(savedPhone);
+    setPlaceGiftContact(place.id, savedName, savedPhone);
+  }, [giftOrders, recipientDrop]);
 
   const cartEntries = useMemo(() => {
     return Object.entries(cart)
@@ -2132,14 +2149,14 @@ export function CheckoutScreen({
                                         lng: place.lng,
                                         inRange: true,
                                       });
-                                      const nickname = place.label.trim();
-                                      const savedName =
-                                        place.recipientName?.trim() ||
-                                        (nickname && !["home", "work", "other"].includes(nickname.toLowerCase())
-                                          ? nickname
-                                          : "");
+                                      const fromOrder = latestGiftContact(place, giftOrdersRef.current ?? []);
+                                      const savedName = fromOrder?.name || savedPlacePersonName(place);
+                                      const savedPhone = fromOrder?.phone || "";
                                       setRecipientName(savedName);
-                                      setRecipientPhone(place.recipientPhone || "");
+                                      setRecipientPhone(savedPhone);
+                                      if (giftOrdersRef.current) {
+                                        setPlaceGiftContact(place.id, savedName, savedPhone);
+                                      }
                                       showCheckoutError(null);
                                     }}
                                     style={{
