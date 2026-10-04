@@ -53,7 +53,154 @@ const DELIVERY_CITY = process.env.NEXT_PUBLIC_DELIVERY_CITY || "Sivakasi";
 /** Same fill as the Log Out button on this screen. */
 const ACCOUNT_MAROON = `linear-gradient(135deg, ${C.red} 0%, #8B1A18 100%)`;
 const CREDIT_TAP_WINDOW_MS = 1500;
-const CREDIT_VISIBLE_MS = 3000;
+const CREDIT_VISIBLE_MS = 3500;
+const CREDIT_DOT_COLORS = [
+  C.red,
+  "rgba(189,35,32,0.55)",
+  "rgba(189,35,32,0.22)",
+  "rgba(189,35,32,0.12)",
+] as const;
+
+type CreditDot = {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  delay: number;
+};
+
+function scatterCreditDots(): CreditDot[] {
+  const count = 10 + Math.floor(Math.random() * 5);
+  return Array.from({ length: count }, (_, id) => {
+    const angle = Math.random() * Math.PI * 2;
+    const reach = 86 + Math.random() * 78;
+    return {
+      id,
+      x: Math.cos(angle) * reach,
+      y: Math.sin(angle) * (22 + Math.random() * 26) - 4,
+      size: 4 + Math.random() * 10,
+      color: CREDIT_DOT_COLORS[Math.floor(Math.random() * CREDIT_DOT_COLORS.length)],
+      delay: id * (0.03 + Math.random() * 0.02),
+    };
+  });
+}
+
+function CreditSplash({ dots, onDismiss }: { dots: CreditDot[]; onDismiss: () => void }) {
+  const openedAt = useRef(Date.now());
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      variants={{
+        hidden: { opacity: 1 },
+        show: { opacity: 1 },
+        exit: { opacity: 1, transition: { duration: 0.34, when: "afterChildren" } },
+      }}
+      onPointerDown={() => {
+        if (Date.now() - openedAt.current < 400) return;
+        onDismiss();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 140,
+        background: "transparent",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
+          display: "flex",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <div style={{ position: "relative", maxWidth: "100%" }}>
+          {dots.map((dot) => (
+            <motion.span
+              key={dot.id}
+              aria-hidden
+              variants={{
+                hidden: { scale: 0, opacity: 0 },
+                show: {
+                  scale: 1,
+                  opacity: 1,
+                  transition: {
+                    scale: {
+                      type: "spring",
+                      stiffness: 620,
+                      damping: 12,
+                      mass: 0.55,
+                      delay: dot.delay,
+                    },
+                    opacity: { duration: 0.16, delay: dot.delay },
+                  },
+                },
+                exit: {
+                  scale: 0,
+                  opacity: 0,
+                  transition: { duration: 0.15, ease: "easeIn" },
+                },
+              }}
+              style={{
+                position: "absolute",
+                left: `calc(50% + ${dot.x}px)`,
+                top: `calc(50% + ${dot.y}px)`,
+                width: dot.size,
+                height: dot.size,
+                marginLeft: -dot.size / 2,
+                marginTop: -dot.size / 2,
+                borderRadius: "50%",
+                background: dot.color,
+                zIndex: 0,
+                willChange: "transform",
+              }}
+            />
+          ))}
+          <motion.div
+            role="status"
+            variants={{
+              hidden: { y: 80, opacity: 0 },
+              show: {
+                y: 0,
+                opacity: 1,
+                transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+              },
+              exit: {
+                y: 100,
+                opacity: 0,
+                transition: { duration: 0.28, ease: [0.4, 0, 1, 1] },
+              },
+            }}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              padding: "12px 18px",
+              borderRadius: 999,
+              background: ACCOUNT_MAROON,
+              color: C.white,
+              fontFamily: C.mono,
+              fontSize: 13,
+              fontWeight: 800,
+              lineHeight: 1.2,
+              textAlign: "center",
+              maxWidth: "100%",
+              boxShadow: `0 10px 28px ${C.redGlow}`,
+              willChange: "transform",
+            }}
+          >
+            Designed & Developed by Simon Santhosh
+          </motion.div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 /** The same green "Instant" treatment used on the Vidya Bot tile at home. */
 function VerifiedChip() {
@@ -210,8 +357,8 @@ export function AccountTabPanel({
   const [policy, setPolicy] = useState<"refund" | "terms" | "privacy" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [creditTick, setCreditTick] = useState(0);
+  const [creditDots, setCreditDots] = useState<CreditDot[]>([]);
   const creditTaps = useRef<number[]>([]);
-  const creditTipRef = useRef<HTMLSpanElement>(null);
   const creditOpen = creditTick > 0;
 
   useEffect(() => {
@@ -258,15 +405,14 @@ export function AccountTabPanel({
     return subscribePwaInstall(recompute);
   }, []);
 
-  const onFooterCreditTap = (event: { target: EventTarget | null }) => {
-    const node = event.target;
-    if (node instanceof Node && creditTipRef.current?.contains(node)) return;
+  const onFooterCreditTap = () => {
     const now = Date.now();
     const recent = creditTaps.current.filter((t) => now - t <= CREDIT_TAP_WINDOW_MS);
     recent.push(now);
     creditTaps.current = recent;
     if (recent.length < 3) return;
     creditTaps.current = [];
+    setCreditDots(scatterCreditDots());
     setCreditTick((n) => n + 1);
     try {
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
@@ -279,19 +425,8 @@ export function AccountTabPanel({
 
   useEffect(() => {
     if (!creditTick) return;
-    const openedAt = Date.now();
     const timer = window.setTimeout(() => setCreditTick(0), CREDIT_VISIBLE_MS);
-    const onPointerDown = (event: PointerEvent) => {
-      if (Date.now() - openedAt < 350) return;
-      const node = event.target;
-      if (node instanceof Node && creditTipRef.current?.contains(node)) return;
-      setCreditTick(0);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
+    return () => window.clearTimeout(timer);
   }, [creditTick]);
 
   const handleInstallApp = useCallback(async () => {
@@ -580,67 +715,11 @@ export function AccountTabPanel({
           fontWeight: 700,
           color: "rgba(0,0,0,0.42)",
           letterSpacing: "0.01em",
-          position: "relative",
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTapHighlightColor: "transparent",
         }}
       >
-        <span
-          ref={creditTipRef}
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "calc(100% + 10px)",
-            transform: "translateX(-50%)",
-            zIndex: 2,
-            width: "max-content",
-            maxWidth: "100%",
-            pointerEvents: creditOpen ? "auto" : "none",
-          }}
-        >
-          <AnimatePresence>
-            {creditOpen ? (
-              <motion.span
-                role="status"
-                initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                style={{
-                  display: "block",
-                  position: "relative",
-                  padding: "10px 14px",
-                  borderRadius: 15,
-                  background: ACCOUNT_MAROON,
-                  color: C.white,
-                  fontFamily: C.mono,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  lineHeight: 1.35,
-                  textAlign: "center",
-                  boxShadow: `0 8px 22px ${C.redGlow}`,
-                }}
-              >
-                Designed & Developed by Simon Santhosh
-                <span
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    bottom: -5,
-                    width: 12,
-                    height: 12,
-                    marginLeft: -6,
-                    background: ACCOUNT_MAROON,
-                    transform: "rotate(45deg)",
-                    borderRadius: 2,
-                  }}
-                />
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
-        </span>
         Version {APP_VERSION}
         <span aria-hidden style={{ color: "rgba(0,0,0,0.2)" }}>·</span>
         Made with
@@ -656,6 +735,16 @@ export function AccountTabPanel({
         in {DELIVERY_CITY}
       </p>
     </motion.div>
+
+    {mounted &&
+      createPortal(
+        <AnimatePresence>
+          {creditOpen ? (
+            <CreditSplash key={creditTick} dots={creditDots} onDismiss={() => setCreditTick(0)} />
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
 
     {mounted &&
       createPortal(
