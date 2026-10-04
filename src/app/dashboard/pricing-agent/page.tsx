@@ -125,9 +125,9 @@ export default function PricingAgentPage() {
   const [listTab, setListTab] = useState<PricingListTab>("upcoming");
   const msgTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (followup = false) => {
     const ctrl = new AbortController();
-    const timer = window.setTimeout(() => ctrl.abort(), 25000);
+    const timer = window.setTimeout(() => ctrl.abort(), 12000);
     try {
       const res = await fetch("/api/ai/pricing-agent-state", { cache: "no-store", signal: ctrl.signal });
       if (res.ok) {
@@ -135,7 +135,6 @@ export default function PricingAgentPage() {
         const decisions = Array.isArray(data.decisions) ? data.decisions : [];
         const pendingCount = decisions.filter((d: Decision) => d.status === "pending").length;
         const appliedCount = decisions.filter((d: Decision) => d.status === "applied" || d.status === "auto_applied").length;
-        // expired decisions are silently dropped from UI
         const festivalDishes =
           data.festivalDishes && typeof data.festivalDishes === "object" ? data.festivalDishes : {};
         const dishOverrides =
@@ -153,11 +152,18 @@ export default function PricingAgentPage() {
           festivals,
           loading: false,
         });
-      } else {
+        if (data.refreshing && !followup) {
+          window.setTimeout(() => {
+            void load(true);
+          }, 12000);
+        }
+      } else if (!followup) {
         setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
       }
     } catch {
-      setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
+      if (!followup) {
+        setState((s) => ({ ...s, decisions: [], pendingCount: 0, appliedCount: 0, loading: false }));
+      }
     } finally {
       window.clearTimeout(timer);
     }
