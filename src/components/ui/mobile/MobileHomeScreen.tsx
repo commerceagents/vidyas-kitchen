@@ -1004,7 +1004,7 @@ function DishDetailView({
     setHeroLoaded(false);
   }, [imgSrc]);
 
-  const detailDiscountChip = discountChipDisplay(item, new Date(), activeFestival);
+  const detailDiscountChip = discountChipDisplay(item, new Date(), activeFestival, "detail");
 
   const suggested = useMemo(() => {
     const cat = (item.category || "").toLowerCase();
@@ -1126,11 +1126,13 @@ function DishDetailView({
                 top: 10,
                 left: 10,
                 zIndex: 2,
-                padding: "4px 8px",
+                padding: "5px 10px",
                 borderRadius: 8,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 800,
-                letterSpacing: "0.02em",
+                letterSpacing: "0.01em",
+                whiteSpace: "nowrap",
+                maxWidth: "calc(100% - 20px)",
                 ...discountChipSurface(detailDiscountChip.variant),
               }}
             >

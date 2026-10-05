@@ -188,15 +188,27 @@ export type DiscountChipDisplay = {
   variant: "festival" | "normal";
 };
 
+/** Short festival name for the dish page, e.g. "Navaratri" → "Navaratri spl". */
+function festivalSpecialLabel(festival: FestivalRow): string {
+  const raw = (festival.name || festival.chip_label || "Festival").replace(/\s+20\d{2}\b/g, "").trim();
+  if (/\bspl\b|special/i.test(raw)) return raw;
+  return `${raw} spl`;
+}
+
 /** Chip label + visual tier. Festival wins over per-dish SEASONAL / % OFF when applicable. */
 export function discountChipDisplay(
   item: MenuItem,
   now = new Date(),
   activeFestival: FestivalRow | null = null,
+  surface: "home" | "detail" = "home",
 ): DiscountChipDisplay {
-  if (festivalAppliesToDish(activeFestival, item.id, now)) {
+  if (festivalAppliesToDish(activeFestival, item.id, now) && activeFestival) {
     const pct = Math.round(festivalPctForDish(activeFestival, item.id));
-    if (pct > 0 && pct < 100) return { text: `${pct}%`, variant: "festival" };
+    if (pct > 0 && pct < 100) {
+      const off = `${pct}% Off!`;
+      const text = surface === "detail" ? `${festivalSpecialLabel(activeFestival)} - ${off}` : off;
+      return { text, variant: "festival" };
+    }
   }
 
   if (!effectiveShowDiscount(item, now)) return { text: null, variant: "normal" };
