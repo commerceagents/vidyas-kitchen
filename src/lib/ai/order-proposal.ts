@@ -76,8 +76,41 @@ function tokens(text: string): string[] {
  * gravies so we can ask which one rather than silently pick.
  */
 const CATEGORY_WORDS = new Set(["chicken", "mutton", "egg"]);
+/** Words that mean the family, not a dish we failed to find. */
+const FAMILY_WORDS = new Set([
+  "gravy",
+  "gravies",
+  "curry",
+  "curries",
+  "dish",
+  "dishes",
+  "food",
+  "meal",
+  "meals",
+]);
 
-/** chicken / mutton / egg when the sentence names a category, even if the dish is not on the menu. */
+/**
+ * "1 mutton gravy, 500gm, tomorrow dinner" is an order for a family we cook.
+ * "mutton tandoori" is a dish we don't, and stays a missing-dish reply.
+ */
+export function bareCategoryOrder(menu: MenuItem[], query: string): "chicken" | "mutton" | "egg" | null {
+  const category = dishQueryCategory(query);
+  if (!category || mentionsKnownDish(menu, query)) return null;
+  const filler = new Set(["to", "it", "on", "at", "in", "is", "be", "do", "so", "up", "we", "us"]);
+  const extra = tokens(query).filter(
+    (w) => !CATEGORY_WORDS.has(w) && !FAMILY_WORDS.has(w) && !filler.has(w),
+  );
+  const specific = extra.filter(
+    (w) => !/^(tomorrow|today|tonight|dinner|lunch|breakfast|night|evening|morning|noon)$/.test(w),
+  );
+  if (specific.length === 0) return category;
+  const pool = menu.filter((item) => (item.category || "").toLowerCase() === category);
+  const named = specific.every((w) =>
+    pool.some((item) => tokens(item.name).some((n) => n.startsWith(w) || w.startsWith(n))),
+  );
+  return named ? category : null;
+}
+
 export function dishQueryCategory(query: string): "chicken" | "mutton" | "egg" | null {
   const t = String(query || "").toLowerCase();
   if (/\bchicken\b/.test(t)) return "chicken";

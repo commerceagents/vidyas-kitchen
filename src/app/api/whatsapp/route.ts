@@ -136,6 +136,7 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
+  bareCategoryOrder,
   buildProposal,
   dishQueryCategory,
   fillDraftFromReply,
@@ -364,6 +365,19 @@ function dateLabel(ymd: string): string {
 
 function slotLabel(kind: string): string {
   return DELIVERY_SLOT_DEFS[kind as DeliverySlotKind]?.label ?? kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+/** They already named the family, the size, and the meal. Ask only which dish. */
+function whichDishAsk(draft: ProposalDraft, source: string): string {
+  const family = dishQueryCategory(source) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
+  const noun =
+    family === "mutton" ? "mutton gravy" : family === "chicken" ? "chicken gravy" : family === "egg" ? "egg dish" : "dish";
+  const size = parsePackSize(String(draft.items?.[0]?.size || "")) || parsePackSize(source);
+  const slot = parseSlotWord(String(draft.slot || "")) || parseSlotWord(source);
+  const date = parseDateText(String(draft.date || "")) || parseDateText(source);
+  const noted = [size, slot ? slotLabel(slot) : null, date ? dateLabel(date) : null].filter(Boolean);
+  if (noted.length === 0) return `Which ${noun}?`;
+  return `Which ${noun}? ${noted.join(", ")} is already noted.`;
 }
 
 function upcomingDateRows(): { id: string; title: string; description?: string }[] {
@@ -1217,6 +1231,17 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
   return await handleIdle(from, text, { cart: [] }, profileName);
 }
 
+/** A category order already named the size. Don't ask for 500gm again. */
+async function continuePickedDish(from: string, session: WhatsAppSession, item: MenuItem) {
+  const draft = readStoredDraft(session.recent_turns);
+  const size = parsePackSize(String(draft?.items?.[0]?.size || ""));
+  if (size && draft) {
+    await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
+    return await applyVariant(from, size);
+  }
+  return await showVariantPicker(from, item);
+}
+
 async function handlePickingItem(from: string, text: string, profileName: string) {
   const num = parseInt(text, 10);
   const menu = await getMenu();
@@ -1227,11 +1252,11 @@ async function handlePickingItem(from: string, text: string, profileName: string
 
   if (itemId) {
     const item = menu.find((m) => m.id === itemId);
-    if (item) return await showVariantPicker(from, item);
+    if (item) return await continuePickedDish(from, sess, item);
   }
 
   const matched = findItemByName(menu, text);
-  if (matched) return await showVariantPicker(from, matched);
+  if (matched) return await continuePickedDish(from, sess, matched);
 
   await updateSession(from, { state: "ai_chat" });
   return await handleAiChat(from, text, profileName);
@@ -1955,6 +1980,22 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     !asksAboutExistingOrder(text) &&
     /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
   if (askingForFood && !mentionsKnownDish(menu, text) && !categoryChoice(text)) {
+    const family = bareCategoryOrder(menu, text);
+    if (family) {
+      const draft: ProposalDraft = {
+        items: [
+          {
+            dish: family,
+            size: parsePackSize(text) || undefined,
+            quantity: parseSpokenQuantity(text) || 1,
+          },
+        ],
+        date: parseDateText(text) || undefined,
+        slot: parseSlotWord(text) || undefined,
+      };
+      await updateSession(from, { state: "ai_chat" });
+      return await presentProposal(from, draft, text);
+    }
     await updateSession(from, { state: "ai_chat" });
     await sendLookalikeCarousel(from, text);
     return ack();
@@ -2110,7 +2151,7 @@ async function presentProposal(
     if (result.field === "dish" && result.dishOptions?.length) {
       await updateSession(from, { state: "picking_item" });
       await storeOptions(from, itemOptions(result.dishOptions));
-      await sendList(from, ask, "Pick A Dish", [
+      await sendList(from, whichDishAsk(draft, sourceText || ""), "Pick A Dish", [
         {
           title: "Did You Mean",
           rows: result.dishOptions.slice(0, 10).map((m) => {
@@ -2833,7 +2874,13 @@ async function applyVariant(from: string, variant: PackSize) {
   if (session.cart.length === 0 && session.state === "picking_variant" && selected) {
     const draft: ProposalDraft = {
       ...(stored || {}),
-      items: [{ dish: selected.name, size: variant, quantity: 1 }],
+      items: [
+        {
+          dish: selected.name,
+          size: variant,
+          quantity: Math.max(1, Math.floor(Number(stored?.items?.[0]?.quantity) || 1)),
+        },
+      ],
     };
     if (stored) return await presentProposal(from, draft);
   } else if (session.cart.length === 0 && (stored || (session.state === "ai_chat" && selected))) {
