@@ -596,15 +596,12 @@ export function buildCartUnchangedMessage(): string {
   });
 }
 
-export function buildUpsellMessage(favorite: string, suggested: string, discount: number): string {
+export function buildUpsellMessage(favorite: string, suggested: string, _discount: number): string {
   const fav = formatFullDishName(favorite);
   const dish = formatFullDishName(suggested);
   return msg({
     title: "Often ordered with",
-    lines: [
-      `${fav} often shares an order with ${dish}.`,
-      `${dish} is ${discount}% off right now.`,
-    ],
+    lines: [`${fav} often shares an order with ${dish}.`],
     note: "Tap Add More if you want it in this cart.",
   });
 }

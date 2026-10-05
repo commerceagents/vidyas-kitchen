@@ -146,39 +146,17 @@ export function pickActiveFestival(rows: FestivalRow[], now = new Date()): Festi
   return inWindow[0] ?? null;
 }
 
-function listPriceFromPercent(salePrice: number, p: number): number | null {
-  if (p <= 0 || p >= 100) return null;
-  const list = Math.round(salePrice / (1 - p / 100));
-  return list > salePrice ? list : null;
-}
-
 /**
- * List / MRP price shown struck-through next to the real price.
- * `null` when no discount should be shown.
- * When a festival is active and the dish already has everyday discount (`show_discount`),
- * `discount_override` replaces base % / manual for the strikethrough calculation.
+ * Struck-through “was” price. Per-dish percents do not change the bill, so
+ * they are not shown as a higher list price either.
  */
 export function listPriceForVariant(
-  item: MenuItem,
-  variantId: string,
-  salePrice: number,
-  now = new Date(),
-  activeFestival: FestivalRow | null = null,
+  _item: MenuItem,
+  _variantId: string,
+  _salePrice: number,
+  _now = new Date(),
+  _activeFestival: FestivalRow | null = null,
 ): number | null {
-  if (festivalAppliesToDish(activeFestival, item.id, now)) return null;
-  if (!effectiveShowDiscount(item, now)) return null;
-
-  const t = item.discount_type ?? null;
-  if (t === "manual") {
-    const m = item.manual_list_prices?.[variantId];
-    if (m == null || !(m > salePrice)) return null;
-    return Math.round(m);
-  }
-  if (t === "percentage") {
-    const p = item.discount_value;
-    if (p == null || p <= 0 || p >= 100) return null;
-    return listPriceFromPercent(salePrice, p);
-  }
   return null;
 }
 
@@ -195,7 +173,7 @@ function festivalSpecialLabel(festival: FestivalRow): string {
   return `${raw} spl`;
 }
 
-/** Chip label + visual tier. Festival wins over per-dish SEASONAL / % OFF when applicable. */
+/** Festival chip only. A percent saved on the dish itself does not change the bill, so it is not shown. */
 export function discountChipDisplay(
   item: MenuItem,
   now = new Date(),
@@ -211,15 +189,6 @@ export function discountChipDisplay(
     }
   }
 
-  if (!effectiveShowDiscount(item, now)) return { text: null, variant: "normal" };
-
-  if (item.seasonal_active && isWithinSeasonalWindow(item.seasonal_from, item.seasonal_until, now)) {
-    return { text: "SEASONAL", variant: "normal" };
-  }
-  if (item.discount_type === "percentage" && item.discount_value != null && item.discount_value > 0) {
-    return { text: `${Math.round(item.discount_value)}% OFF`, variant: "normal" };
-  }
-  if (item.discount_type === "manual") return { text: "OFFER", variant: "normal" };
   return { text: null, variant: "normal" };
 }
 
