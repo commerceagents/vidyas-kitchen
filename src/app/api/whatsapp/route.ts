@@ -136,12 +136,10 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
-  bareCategoryOrder,
   buildProposal,
   dishQueryCategory,
   fillDraftFromReply,
   isKnownDishQuery,
-  mentionsKnownDish,
   isProposalStillValid,
   listDraftGaps,
   looksLikeCompoundOrder,
@@ -1972,35 +1970,6 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     if (edited) return edited;
   }
 
-  const menu = await getMenu();
-  // "order" alone used to send the dish cards. "any pending order?" is a
-  // status question and is answered before this, but keep the guard here so
-  // a side question cannot fall through into the lookalike carousel.
-  const askingForFood =
-    !asksAboutExistingOrder(text) &&
-    /\b(order|want|need|biryani|biriyani|get me)\b/i.test(text);
-  if (askingForFood && !mentionsKnownDish(menu, text) && !categoryChoice(text)) {
-    const family = bareCategoryOrder(menu, text);
-    if (family) {
-      const draft: ProposalDraft = {
-        items: [
-          {
-            dish: family,
-            size: parsePackSize(text) || undefined,
-            quantity: parseSpokenQuantity(text) || 1,
-          },
-        ],
-        date: parseDateText(text) || undefined,
-        slot: parseSlotWord(text) || undefined,
-      };
-      await updateSession(from, { state: "ai_chat" });
-      return await presentProposal(from, draft, text);
-    }
-    await updateSession(from, { state: "ai_chat" });
-    await sendLookalikeCarousel(from, text);
-    return ack();
-  }
-
   const history = session.recent_turns || [];
   // An open cart is the order. A leftover draft must not redraw it.
   const stored = session.cart.length > 0 ? null : readStoredDraft(history);
@@ -2031,7 +2000,6 @@ async function handleAiChat(from: string, text: string, profileName: string) {
   // A draft means they were trying to order. Price it here — the model has
   // never seen a price and is not allowed to quote one.
   if (result.proposalDraft) {
-    if (result.reply) await sendText(from, result.reply);
     await updateSession(from, { recent_turns: turnsWithDraft(turns, result.proposalDraft) });
     return await presentProposal(from, result.proposalDraft, text);
   }

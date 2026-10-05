@@ -903,6 +903,13 @@ ${faqPromptBlock()}
 ORDERING
 - If they are trying to order, call propose_order with whatever you understood.
   Leave out anything they have not said — the server asks for what is missing.
+- A size, a count, a day, or breakfast/lunch/dinner they already said is known.
+  Never tell them to tap Add, and never ask them to pick a size or a meal they
+  already gave. The written reply stays empty when you call propose_order.
+  The server asks the one missing thing.
+- "Mutton gravy", "chicken gravy", and "egg" are families we cook. Call
+  propose_order with dish set to mutton, chicken, or egg, plus the size,
+  quantity, date, and slot they stated. Do not say we don't cook that family.
 - You never place orders and never quote a total. The server prices everything
   and the customer confirms with a tap. Do not invent prices or promise a slot.
 - Use search_menu when you are unsure a dish exists or which one they mean.
@@ -1022,7 +1029,7 @@ ${context}`;
           model: "gpt-4o",
           messages,
           tools,
-          temperature: 0.7,
+          temperature: 0.3,
         });
 
         const choice = response.choices[0].message;
