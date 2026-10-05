@@ -153,8 +153,11 @@ const MAP_PAD_BOTTOM_EXTRA = 20;
  * measure. The sheet is capped, so the map keeps the top half of the screen.
  */
 const INITIAL_SHEET_FALLBACK_H = 320;
-/** Drawer never takes more than this, so the map stays the larger view. */
-const SHEET_MAX_HEIGHT = "64dvh";
+/**
+ * Drawer cap. `svh` stays put when the phone browser bar shows and hides;
+ * `dvh` was resizing the sheet and dragging the map chip with it.
+ * The class in globals.css applies this, with a `vh` fallback.
+ */
 
 /** Camera easings — GPS route uses slower / “heavier” curves than normal taps. */
 function easeSmootherstep(t: number) {
@@ -400,7 +403,6 @@ export function LocationScreen({
   const searchSessionRef = useRef<string>("");
   /** Only the newest query may write results — slow responses from older ones are dropped. */
   const searchGenRef = useRef(0);
-  const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_FALLBACK_H);
   const sheetHeightRef = useRef(INITIAL_SHEET_FALLBACK_H); // always up-to-date inside async callbacks
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -505,25 +507,25 @@ export function LocationScreen({
     if (other && other.label !== "Other") setOtherName(other.label);
   }, []);
 
-  // Keep recenter button and padding ref synced with actual drawer height.
+  // Map padding follows the drawer. The chip itself is pinned to the drawer, not this number.
   useEffect(() => {
     const measure = () => {
-      if (sheetRef.current) {
-        const h = sheetRef.current.offsetHeight;
-        setSheetHeight(h);
-        sheetHeightRef.current = h;
-        // Keep padding in React viewState (same source as Map props) so the camera
-        // never renders one frame without insets then jumps when setPadding runs.
-        setViewState((v) => ({
-          ...v,
-          padding: {
-            top: MAP_PAD_TOP,
-            bottom: h + MAP_PAD_BOTTOM_EXTRA,
-            left: 0,
-            right: 0,
-          },
-        }));
-      }
+      if (!sheetRef.current) return;
+      const h = sheetRef.current.offsetHeight;
+      // Ignore 1px flicker so the camera inset does not twitch.
+      if (Math.abs(h - sheetHeightRef.current) < 2) return;
+      sheetHeightRef.current = h;
+      // Keep padding in React viewState (same source as Map props) so the camera
+      // never renders one frame without insets then jumps when setPadding runs.
+      setViewState((v) => ({
+        ...v,
+        padding: {
+          top: MAP_PAD_TOP,
+          bottom: h + MAP_PAD_BOTTOM_EXTRA,
+          left: 0,
+          right: 0,
+        },
+      }));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -1044,21 +1046,36 @@ export function LocationScreen({
         }}
       />
 
-      {/* Short fade at the sheet edge so the map above it stays readable */}
-      <div style={{
-        position: "absolute", left: 0, right: 0,
-        bottom: Math.max(0, sheetHeight - 12),
-        height: 56,
-        background: "linear-gradient(to top, rgba(245,245,247,0.55), transparent)",
-        pointerEvents: "none",
-        zIndex: 5,
-      }} />
-
       {/* Top bar pill removed — the search field in the sheet is sufficient */}
 
-      {/* Recenter sits on the map. While the camera travels it grows a short label; the label fades when the pin arrives. */}
+      {/* Sheet and the map chip share one box, so the chip stays 14px above the sheet instead of chasing a measured height. */}
+      <motion.div
+        variants={sheetReveal}
+        initial="hidden"
+        animate="show"
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: "calc(100% - 12px)",
+          height: 56,
+          background: "linear-gradient(to top, rgba(245,245,247,0.55), transparent)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
       <motion.button
-        layout
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 340, damping: 28, delay: 0.45 }}
@@ -1068,8 +1085,9 @@ export function LocationScreen({
         style={{
           position: "absolute",
           right: 14,
-          bottom: sheetHeight + 14,
-          zIndex: 25,
+          bottom: "calc(100% + 14px)",
+          zIndex: 2,
+          pointerEvents: "auto",
           background: "rgba(255,255,255,0.92)",
           backdropFilter: "blur(16px) saturate(180%)",
           WebkitBackdropFilter: "blur(16px) saturate(180%)",
@@ -1122,15 +1140,13 @@ export function LocationScreen({
       </motion.button>
 
       {/* ── BOTTOM GLASS SHEET ── */}
-      <motion.div
+      <div
         ref={sheetRef}
-        variants={sheetReveal}
-        initial="hidden"
-        animate="show"
+        className="vk-location-sheet"
         style={{
-          position: "absolute",
-          bottom: 0, left: 0, right: 0,
-          zIndex: 20,
+          position: "relative",
+          zIndex: 1,
+          pointerEvents: "auto",
           background: "#fff",
           borderRadius: "28px 28px 0 0",
           border: "none",
@@ -1138,7 +1154,6 @@ export function LocationScreen({
           padding: "12px 0 16px",
           display: "flex",
           flexDirection: "column",
-          maxHeight: SHEET_MAX_HEIGHT,
           overflow: "hidden",
         }}
       >
@@ -1229,7 +1244,7 @@ export function LocationScreen({
                     border: "1.5px solid rgba(189,35,32,0.25)",
                     borderTop: "none",
                     borderRadius: "0 0 16px 16px",
-                    maxHeight: `calc(${typeof window !== "undefined" && window.visualViewport ? `${window.visualViewport.height}px` : "100dvh"} - 200px)`,
+                    maxHeight: 240,
                     overflowY: "auto",
                     WebkitOverflowScrolling: "touch",
                     overscrollBehavior: "contain",
@@ -1614,6 +1629,7 @@ export function LocationScreen({
             </motion.button>
           )}
         </motion.div>
+      </div>
       </motion.div>
     </div>
 

@@ -215,6 +215,12 @@ body.vk-dashboard-viewport::-webkit-scrollbar {
   font-family: var(--font-outfit), system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* Location drawer cap. svh does not follow the mobile browser bar, so the map chip stays put. */
+.vk-location-sheet {
+  max-height: 64vh;
+  max-height: 64svh;
+}
+
 /* Mobile app shell: no rubber-band / pull-to-refresh chaining to the document */
 .vk-mobile-ui {
   overscroll-behavior: none;
