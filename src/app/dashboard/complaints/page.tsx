@@ -19,7 +19,6 @@ import {
   type ComplaintCard,
   type ComplaintCategory,
   type ComplaintRefund,
-  type ComplaintSort,
   type ComplaintStatus,
   complaintStats,
   isUpiId,
@@ -117,7 +116,6 @@ export default function ComplaintsPage() {
   const [complaints, setComplaints] = useState<ComplaintCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
-  const [sort, setSort] = useState<ComplaintSort>("newest");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [modal, setModal] = useState<ComplaintCard | null>(null);
   const [preview, setPreview] = useState<SamplePreview>({
@@ -165,7 +163,7 @@ export default function ComplaintsPage() {
     if (categoryFilter !== "all" && row.category !== categoryFilter) return false;
     return matchesQuery(row, query);
   });
-  const rows = sortComplaints(filtered, sort);
+  const rows = sortComplaints(filtered, "newest");
   const stats = complaintStats(showingSample ? [sampleCard] : real);
 
   const applySample = (patch: (current: SamplePreview) => SamplePreview, message: string) => {
@@ -261,10 +259,8 @@ export default function ComplaintsPage() {
         showingSample={showingSample}
         emptyBecauseSearch={Boolean(query) || categoryFilter !== "all"}
         categoryFilter={categoryFilter}
-        sort={sort}
         savingId={savingId}
         onCategoryFilter={setCategoryFilter}
-        onSort={setSort}
         onDone={onDone}
         onOpenRefund={(card) => setModal(card)}
         onCopyPhone={(phone) => void copyPhone(phone)}
@@ -362,10 +358,8 @@ function ComplaintWorkspace({
   showingSample,
   emptyBecauseSearch,
   categoryFilter,
-  sort,
   savingId,
   onCategoryFilter,
-  onSort,
   onDone,
   onOpenRefund,
   onCopyPhone,
@@ -376,10 +370,8 @@ function ComplaintWorkspace({
   showingSample: boolean;
   emptyBecauseSearch: boolean;
   categoryFilter: CategoryFilter;
-  sort: ComplaintSort;
   savingId: string | null;
   onCategoryFilter: (value: CategoryFilter) => void;
-  onSort: (value: ComplaintSort) => void;
   onDone: (card: ComplaintCard) => void;
   onOpenRefund: (card: ComplaintCard) => void;
   onCopyPhone: (phone: string) => void;
@@ -402,34 +394,19 @@ function ComplaintWorkspace({
         ))}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ ...chipRow, justifyContent: "space-between" }}>
-          <div style={chipRow}>
-            <FilterChip active={categoryFilter === "all"} onClick={() => onCategoryFilter("all")}>
-              All types
-            </FilterChip>
-            {CATEGORIES.map((category) => (
-              <FilterChip
-                key={category}
-                active={categoryFilter === category}
-                onClick={() => onCategoryFilter(categoryFilter === category ? "all" : category)}
-              >
-                {CATEGORY_LABEL[category]}
-              </FilterChip>
-            ))}
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#8a8a8a", fontSize: 12, fontFamily: FONT }}>
-            Sort
-            <select
-              value={sort}
-              onChange={(event) => onSort(event.target.value as ComplaintSort)}
-              style={selectStyle}
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest_unresolved">Oldest unresolved first</option>
-            </select>
-          </label>
-        </div>
+      <div style={chipRow}>
+        <FilterChip active={categoryFilter === "all"} onClick={() => onCategoryFilter("all")}>
+          All types
+        </FilterChip>
+        {CATEGORIES.map((category) => (
+          <FilterChip
+            key={category}
+            active={categoryFilter === category}
+            onClick={() => onCategoryFilter(categoryFilter === category ? "all" : category)}
+          >
+            {CATEGORY_LABEL[category]}
+          </FilterChip>
+        ))}
       </div>
 
       {showingSample && rows.some((row) => row.sample) ? (
@@ -868,17 +845,6 @@ const statButton = {
 };
 
 const chipRow = { display: "flex", flexWrap: "wrap" as const, gap: 8, alignItems: "center" };
-
-const selectStyle = {
-  background: "#1c1c1c",
-  color: "#fff",
-  border: "1px solid #2a2a2a",
-  borderRadius: 10,
-  padding: "7px 10px",
-  fontFamily: FONT,
-  fontSize: 12,
-  fontWeight: 700,
-} as const;
 
 const emptyIcon = {
   width: 56,
