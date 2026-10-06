@@ -76,6 +76,7 @@ import {
   buildReuseAddressPrompt,
   buildProposalMessage,
   buildInstantGapMessage,
+  buildPaymentAsk,
   buildProposalAskMessage,
   buildProposalExpiredMessage,
   buildRatingCommentPrompt,
@@ -1137,9 +1138,9 @@ async function handleResolvedId(
       return await showFullMenu(from);
     case "confirm_order":
     case "pay_online":
-      return await processConfirmOrder(from, session, "online");
+      return await payFromDraftOrCart(from, session, "online");
     case "pay_cod":
-      return await handlePayCodTap(from, session);
+      return await payFromDraftOrCart(from, session, "cod");
     case "edit_order":
       return await showCart(from, session.cart);
     case "usual_change":
@@ -1986,10 +1987,10 @@ async function handlePickingPayMethod(from: string, text: string, session: Whats
   const resolved = await resolveNumbered(from, text);
   const lower = text.toLowerCase().trim();
   if (resolved === "pay_online" || /online|upi|razor|pay now/i.test(lower)) {
-    return await processConfirmOrder(from, session, "online");
+    return await payFromDraftOrCart(from, session, "online");
   }
   if (resolved === "pay_cod" || /cash|cod/i.test(lower)) {
-    return await handlePayCodTap(from, session);
+    return await payFromDraftOrCart(from, session, "cod");
   }
   if (resolved === "edit_order" || /edit|change/i.test(lower)) {
     return await showCart(from, session.cart);
@@ -2025,7 +2026,7 @@ async function handleAwaitingPayment(from: string, text: string, session: WhatsA
 function understoodOrderLines(draft: ProposalDraft): string[] {
   const lines: string[] = [];
   for (const item of draft.items || []) {
-    const dish = String(item.dish || "").trim();
+    const dish = formatFullDishName(String(item.dish || "")).trim();
     if (!dish) continue;
     const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
     const size = parsePackSize(String(item.size || "")) || parsePackSize(dish);
@@ -2269,7 +2270,7 @@ async function presentProposal(
         { id: "pay_cod", title: BTN.payCash },
       ];
       await storeOptions(from, buttons);
-      await sendButtons(from, ask, buttons);
+      await sendButtons(from, buildPaymentAsk(understoodOrderLines(draft), lang), buttons);
       return ack();
     }
 
@@ -3314,6 +3315,30 @@ async function offerPayOrConfirm(from: string, session: WhatsAppSession) {
   await storeOptions(from, buttons);
   await sendButtons(from, buildPayMethodPrompt(total, langOf(from), { overLimit }), buttons);
   return ack();
+}
+
+/**
+ * Pay taps during a draft checkout have no cart yet. The dish, size, and day
+ * live on the stored draft. Treating that tap as a cart checkout said the
+ * cart was empty and dropped the order.
+ */
+async function payFromDraftOrCart(
+  from: string,
+  session: WhatsAppSession,
+  method: "online" | "cod",
+): Promise<Response> {
+  if (session.cart.length === 0) {
+    const draft = readStoredDraft(session.recent_turns);
+    const hasDish = (draft?.items || []).some((item) => String(item?.dish || "").trim());
+    if (draft && hasDish) {
+      return await presentProposal(from, {
+        ...draft,
+        payment: method === "cod" ? "cash" : "online",
+      });
+    }
+  }
+  if (method === "cod") return await handlePayCodTap(from, session);
+  return await processConfirmOrder(from, session, method);
 }
 
 async function handlePayCodTap(from: string, session: WhatsAppSession) {

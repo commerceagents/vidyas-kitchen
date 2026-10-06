@@ -903,12 +903,19 @@ export function buildProposalAskMessage(
     case "address":
       return buildAddressPrompt(lang);
     case "payment":
-      return pickLang(
-        lang,
-        msg({ lines: [`Pay online, or pay at the door (cash or UPI)? Door works up to ${COD_CAP}.`] }),
-        msg({ lines: [`Online pay illa door-la cash? Cash ${COD_CAP} varaikkum.`] }),
-      );
+      return buildPaymentAsk([], lang);
   }
+}
+
+/** Payment step. The lines above the question are the dish, size, and the day just picked. */
+export function buildPaymentAsk(known: string[], lang?: WaLang): string {
+  const pay = `Pay online, or pay at the door (cash or UPI)? Door works up to ${COD_CAP}.`;
+  const payTa = `Online pay illa door-la cash? Cash ${COD_CAP} varaikkum.`;
+  return pickLang(
+    lang,
+    msg({ lines: known.length ? [...known, "", pay] : [pay] }),
+    msg({ lines: known.length ? [...known, "", payTa] : [payTa] }),
+  );
 }
 
 export function buildProposalExpiredMessage(lang?: WaLang): string {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { bookableSlotSections } from "./delivery-slots";
-import { buildSlotListBody, dishPickedAside } from "./whatsapp-copy";
+import { buildPaymentAsk, buildSlotListBody, dishPickedAside } from "./whatsapp-copy";
 
 const now = Date.parse("2026-10-06T19:57:00+05:30");
 const { sections } = bookableSlotSections(null, now);
@@ -38,5 +38,10 @@ const pickedNext = dishPickedAside("Black Pepper Chicken Gravy", picked, 0);
 assert.notEqual(picked, "Good choice, that one's a favorite!");
 assert.notEqual(picked, pickedNext);
 assert.ok(picked.includes("Black Pepper"));
+
+const payAsk = buildPaymentAsk(["Black Pepper Chicken Gravy × 1 (500gm)", "Dinner · Thu, 8 Oct"]);
+assert.ok(payAsk.includes("Black Pepper Chicken Gravy"));
+assert.ok(payAsk.includes("Dinner · Thu, 8 Oct"));
+assert.ok(payAsk.includes("Pay online"));
 
 console.log("ok slot drawer groups days and speech rotates");
