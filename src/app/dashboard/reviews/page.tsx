@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Star, Trash2 } from "lucide-react";
 import {
   DashboardDesktopTopBar,
@@ -39,6 +40,7 @@ function formatWhen(iso: string | null): string {
 }
 
 export default function ReviewsPage() {
+  const router = useRouter();
   const {
     unreadCount,
     soundMuted,
@@ -75,6 +77,16 @@ export default function ReviewsPage() {
     }, 10_000);
     return () => window.clearInterval(t);
   }, [load]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const leave = () => {
+      if (mq.matches) router.replace("/dashboard");
+    };
+    leave();
+    mq.addEventListener("change", leave);
+    return () => mq.removeEventListener("change", leave);
+  }, [router]);
 
   const q = searchQuery.trim().toLowerCase();
   const shown = (reviews ?? []).filter((r) => {
@@ -228,7 +240,7 @@ export default function ReviewsPage() {
       <style jsx global>{`
         @media (max-width: 1023px) {
           .vk-dash-home-mobile {
-            display: flex !important;
+            display: none !important;
           }
           .vk-dash-home-desktop {
             display: none !important;

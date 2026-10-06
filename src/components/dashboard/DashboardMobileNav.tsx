@@ -8,8 +8,6 @@ import {
   TrendingUp,
   Tag,
   Truck,
-  Star,
-  MessageSquareWarning,
   Bot,
   Clock,
   ChefHat,
@@ -27,8 +25,6 @@ const MENU_ITEMS = [
   { href: "/dashboard/pricing-agent", label: "AI", icon: Bot, exact: false },
   { href: "/dashboard/offers", label: "Offers", icon: Tag, exact: false },
   { href: "/dashboard/drivers", label: "Drivers", icon: Truck, exact: false },
-  { href: "/dashboard/reviews", label: "Reviews", icon: Star, exact: false },
-  { href: "/dashboard/complaints", label: "Complaints", icon: MessageSquareWarning, exact: false },
 ] as const;
 
 function isActive(pathname: string, href: string, exact: boolean) {
@@ -38,16 +34,6 @@ function isActive(pathname: string, href: string, exact: boolean) {
 
 export function DashboardMobileNav() {
   const pathname = usePathname();
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const active = container.querySelector<HTMLElement>("[data-nav-active='true']");
-    if (!active) return;
-    const left = active.offsetLeft - container.clientWidth / 2 + active.offsetWidth / 2;
-    container.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
-  }, [pathname]);
 
   return (
     <>
@@ -69,11 +55,10 @@ export function DashboardMobileNav() {
         }}
       >
         <div
-          ref={scrollRef}
           style={{
             display: "flex",
             alignItems: "stretch",
-            justifyContent: "flex-start",
+            justifyContent: "space-around",
             gap: "2px",
             margin: "0 6px",
             padding: "4px 4px",
@@ -84,8 +69,6 @@ export function DashboardMobileNav() {
             WebkitBackdropFilter: "blur(16px)",
             boxShadow: "0 -4px 24px rgba(0,0,0,0.35)",
             position: "relative",
-            overflowX: "auto",
-            scrollbarWidth: "none",
           }}
         >
           {MENU_ITEMS.map(({ href, label, icon: Icon, exact }) => {
@@ -94,16 +77,14 @@ export function DashboardMobileNav() {
               <Link
                 key={href}
                 href={href}
-                data-nav-active={active ? "true" : "false"}
                 style={{
-                  flex: "0 0 auto",
+                  flex: 1,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "2px",
                   minHeight: "48px",
-                  minWidth: "64px",
                   borderRadius: "14px",
                   textDecoration: "none",
                   background: active ? "#f5e32d" : "transparent",
