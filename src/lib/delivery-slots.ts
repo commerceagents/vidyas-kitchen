@@ -114,22 +114,29 @@ export function slotCardsForIstDate(istYmd: string, nowMs?: number): CheckoutSlo
 export type SlotListRow = { id: string; title: string; description: string };
 export type SlotListSection = { title: string; rows: SlotListRow[] };
 
-function compactSlotDay(istYmd: string): string {
+/** "October 8". The list uses this once, as the group heading. */
+function slotMonthHeading(istYmd: string): string {
   return new Date(`${istYmd}T12:00:00${IST_OFFSET}`)
-    .toLocaleDateString("en-IN", {
-      weekday: "short",
+    .toLocaleDateString("en-US", {
+      month: "long",
       day: "numeric",
       timeZone: DELIVERY_SLOT_TIMEZONE,
-    })
-    .replace(/,/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    });
+}
+
+/** "7–9 AM" → "7-9am", matching the drawer lines under each meal. */
+function slotClockLine(rangeLabel: string): string {
+  return rangeLabel.replace("–", "-").replace(" AM", "am").replace(" PM", "pm");
 }
 
 /**
- * Bookable meals grouped under each day. A flat list made every row say
- * Breakfast / Lunch / Dinner, so the day was only in the small line.
- * Ten rows is the WhatsApp cap, so three days fit and a last row opens the rest.
+ * One WhatsApp list section per day:
+ *   October 8
+ *     Breakfast / 7-9am
+ *     Lunch / 12-2pm
+ *     Dinner / 7-9pm
+ * A single section hides its title, so each day has to be its own section.
+ * Ten rows is the cap, so three days fit and a last row opens the rest.
  */
 export function bookableSlotSections(
   afterYmd?: string | null,
@@ -139,13 +146,13 @@ export function bookableSlotSections(
   const bookable = days
     .map((day) => ({
       istYmd: day.istYmd,
-      title: day.weekendLabel,
+      title: slotMonthHeading(day.istYmd),
       rows: day.cards
         .filter((card) => card.available)
         .map((card) => ({
           id: `book_${day.istYmd}_${card.kind}`,
-          title: `${compactSlotDay(day.istYmd)} · ${card.label}`.slice(0, 24),
-          description: card.rangeLabel,
+          title: card.label,
+          description: slotClockLine(card.rangeLabel),
         })),
     }))
     .filter((day) => day.rows.length > 0);

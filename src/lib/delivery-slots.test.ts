@@ -8,10 +8,16 @@ const rows = sections.flatMap((section) => section.rows);
 const mealRows = rows.filter((row) => row.id.startsWith("book_"));
 
 assert.ok(sections.length >= 2, "days are separate groups");
+assert.equal(sections[0]?.title, "October 8");
 assert.equal(sections[0]?.rows[0]?.id, "book_2026-10-08_breakfast");
+assert.equal(sections[0]?.rows[0]?.title, "Breakfast");
+assert.equal(sections[0]?.rows[0]?.description, "7-9am");
+assert.equal(sections[0]?.rows[1]?.title, "Lunch");
+assert.equal(sections[0]?.rows[1]?.description, "12-2pm");
+assert.equal(sections[0]?.rows[2]?.title, "Dinner");
+assert.equal(sections[0]?.rows[2]?.description, "7-9pm");
+assert.equal(sections[1]?.title, "October 9");
 assert.equal(sections.some((section) => section.rows.some((row) => row.id.includes("2026-10-07"))), false);
-assert.ok(sections[0]?.title.includes("8") && sections[0]?.title.includes("Oct"));
-assert.ok(mealRows.every((row) => row.title.includes("·")));
 assert.ok(mealRows.every((row) => row.title.length <= 24 && row.description.length <= 72));
 assert.ok(sections.every((section) => section.title.length <= 24));
 assert.ok(rows.length <= 10, `list has ${rows.length} rows`);
