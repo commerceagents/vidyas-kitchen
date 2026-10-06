@@ -44,9 +44,11 @@ check(
   notedDeliveryDate({ date: "2026-10-08" }, "chicken gravy", today) === "2026-10-08",
 );
 
-const prompt = buildDishListPrompt("chicken");
-check("list prompt names the family", prompt.includes("chicken gravy options"));
-check("list prompt opens View options", prompt.includes("View options"));
+const prompt = buildDishListPrompt("chicken", null, 0);
+const promptAgain = buildDishListPrompt("chicken", prompt, 0);
+check("list prompt names the family", prompt.includes("chicken gravy options") && promptAgain.includes("chicken gravy options"));
+check("list prompt opens View options", prompt.includes("View options") && promptAgain.includes("View options"));
+check("list prompt does not repeat the same opener", prompt !== promptAgain);
 
 const moms = listRowLabel("Mom's Recipe - Chicken Gravy", "500gm ₹349 · 1kg ₹699");
 check("list title stays within 24", moms.title.length <= 24 && moms.description.length <= 72);

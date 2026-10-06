@@ -17,7 +17,7 @@ import {
   isOrderingWindowOpen,
   formatSlotLineForCustomer,
   slotWindowEnded,
-  iterDeliveryDateOptions,
+  bookableSlotSections,
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
@@ -86,6 +86,8 @@ import {
   buildPwaPromoBody,
   buildCodPlacedMessage,
   buildDishListPrompt,
+  buildMoreDaysBody,
+  buildSlotListBody,
   dishPickedAside,
   complaintPrompt,
   escalateHumanReply,
@@ -521,6 +523,14 @@ function turnsForAgent(turns: WhatsAppSession["recent_turns"]): Message[] {
 
 function chatTurns(turns: WhatsAppSession["recent_turns"]): SessionTurns {
   return (turns || []).filter((t) => !isHiddenTurn(t.content));
+}
+
+function lastAssistantText(turns: WhatsAppSession["recent_turns"]): string | null {
+  const chat = chatTurns(turns);
+  for (let i = chat.length - 1; i >= 0; i--) {
+    if (chat[i].role === "assistant" && chat[i].content.trim()) return chat[i].content;
+  }
+  return null;
 }
 
 function sessionNotes(turns: WhatsAppSession["recent_turns"]): SessionTurns {
@@ -1021,6 +1031,8 @@ async function handleResolvedId(
   if (id.startsWith("date_")) {
     return await applyDeliveryDate(from, id.replace(/^date_/, ""));
   }
+  const moreDays = id.match(/^slots_after_(\d{4}-\d{2}-\d{2})$/);
+  if (moreDays) return await showBookableSlots(from, null, moreDays[1]);
   const booked = id.match(/^book_(\d{4}-\d{2}-\d{2})_(breakfast|lunch|dinner)$/);
   if (booked) {
     return await applyBookedSlot(from, booked[1], booked[2] as DeliverySlotKind);
@@ -1226,7 +1238,7 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
 
 /** A category order already named the size. Don't ask for 500gm again. */
 async function continuePickedDish(from: string, session: WhatsAppSession, item: MenuItem) {
-  await sendText(from, dishPickedAside());
+  await sendText(from, dishPickedAside(item.name, lastAssistantText(session.recent_turns)));
   const draft = readStoredDraft(session.recent_turns);
   const size = parsePackSize(String(draft?.items?.[0]?.size || ""));
   if (size && draft) {
@@ -2165,7 +2177,7 @@ async function presentProposal(
   if (!result.ok && result.kind === "rejected") {
     if (result.code === "too_soon") {
       await updateSession(from, { state: "ai_chat", proposal: null, recent_turns: turns });
-      return await showBookableSlots(from, result.reason);
+      return await showBookableSlots(from, result.tooSoon);
     }
     await updateSession(from, { state: "idle", proposal: null });
     await sendText(from, result.reason);
@@ -2227,7 +2239,7 @@ async function presentProposal(
         });
         await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
         const section = family === "mutton" ? "Mutton gravy" : family === "egg" ? "Egg" : family === "chicken" ? "Chicken gravy" : "Dishes";
-        await sendList(from, buildDishListPrompt(family), "View options", [
+        await sendList(from, buildDishListPrompt(family, lastAssistantText(session.recent_turns)), "View options", [
           { title: section, rows },
         ]);
         return ack();
@@ -2662,30 +2674,22 @@ async function sendLookalikeCarousel(from: string, query: string): Promise<void>
   ]);
 }
 
-function bookableSlotRows(): { id: string; title: string; description: string }[] {
-  const rows: { id: string; title: string; description: string }[] = [];
-  for (const day of iterDeliveryDateOptions(6)) {
-    for (const card of day.cards) {
-      if (!card.available) continue;
-      rows.push({
-        id: `book_${day.istYmd}_${card.kind}`,
-        title: card.label.slice(0, 24),
-        description: `${day.weekendLabel} · ${card.rangeLabel}`.slice(0, 72),
-      });
-      if (rows.length >= 9) return rows;
-    }
-  }
-  return rows;
-}
-
-async function showBookableSlots(from: string, reason: string) {
-  const rows = bookableSlotRows();
+async function showBookableSlots(
+  from: string,
+  tooSoon?: { label: string; when: string; range: string } | null,
+  afterYmd?: string | null,
+) {
+  const { sections } = bookableSlotSections(afterYmd);
+  const rows = sections.flatMap((section) => section.rows);
   if (rows.length === 0) {
-    await sendText(from, reason);
+    await sendText(from, tooSoon ? buildSlotListBody(tooSoon) : "No open slots in the next few weeks. Message us and we'll sort a time.");
     return ack();
   }
+  const session = await getSession(from);
+  const avoid = lastAssistantText(session.recent_turns);
+  const body = afterYmd ? buildMoreDaysBody(avoid) : buildSlotListBody(tooSoon, avoid);
   await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
-  await sendList(from, reason, "Pick a slot", [{ title: "Open slots", rows }]);
+  await sendList(from, body, "Pick a slot", sections);
   return ack();
 }
 
@@ -3181,10 +3185,11 @@ async function applySlot(from: string, session: WhatsAppSession, slotKind: Deliv
     const slotIso = slotStartIsoFor(date, slotKind);
     if (!isSlotBookable(slotIso)) {
       const def = DELIVERY_SLOT_DEFS[slotKind];
-      return await showBookableSlots(
-        from,
-        `We cook every order fresh, so it has to be placed at least 24 hours before the slot. ${def.label} on ${dateLabel(date)} (${def.rangeLabel}) is too soon. Pick a later time below.`,
-      );
+      return await showBookableSlots(from, {
+        label: def.label,
+        when: dateLabel(date),
+        range: def.rangeLabel,
+      });
     }
   }
 

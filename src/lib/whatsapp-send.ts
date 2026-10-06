@@ -254,8 +254,15 @@ export async function sendList(
   const r = await metaSendList(to, bodyText, buttonLabel, sections);
   if (!r.success) {
     console.error("[whatsapp-send] list failed, sending numbered text:", r.error);
-    const rows = sections.flatMap((s) => s.rows);
-    const lines = rows.map((row, i) => `${i + 1}. ${row.title}${row.description ? ` — ${row.description}` : ""}`);
+    const lines: string[] = [];
+    let n = 1;
+    for (const section of sections) {
+      if (sections.length > 1 && section.title) lines.push(`*${section.title}*`);
+      for (const row of section.rows) {
+        lines.push(`${n}. ${row.title}${row.description ? ` — ${row.description}` : ""}`);
+        n += 1;
+      }
+    }
     return sendText(to, `${bodyText}\n\n${lines.join("\n")}\n\n_Reply with the number._`);
   }
   logWhatsAppMessageSoon({

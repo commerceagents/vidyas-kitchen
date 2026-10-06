@@ -6,7 +6,8 @@
  *    Built through `msg()` so nothing drifts into its own shape.
  *  - Money: always `formatInr` — "₹399", "₹2,099". Never "Rs", never a bare number.
  *    Price and quantity lines stay plain. Personality belongs on the line
- *    before or after them ("Good choice, that one's a favorite!", "On it! 🔥").
+ *    before or after them, and those lines rotate so the bot does not
+ *    repeat one sentence ("On it! 🔥").
  *  - Bold (`*like this*`): dish names and totals.
  *  - Italics (`_like this_`): soft helper lines, such as "Tap one below".
  *  - Sections split on `WA_SECTION_DIVIDER` (┄). A label and its amount still
@@ -1028,19 +1029,100 @@ export function buildCodPlacedMessage(shortId: string, amtStr: string, lang?: Wa
   );
 }
 
-/** Said once, when a dish from the choice list is the one they wanted. */
-export function dishPickedAside(): string {
-  return "Good choice, that one's a favorite!";
-}
-
 /** Section break. Money rows keep middle-dot leaders; this splits blocks. */
 export const WA_SECTION_DIVIDER = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄";
 
+/** Pick a line that was not just said. `roll` is 0–1 so tests can pin a line. */
+export function varyLine(options: readonly string[], avoid?: string | null, roll = Math.random()): string {
+  const fresh = avoid ? options.filter((line) => line !== avoid && !avoid.includes(line)) : [...options];
+  const choices = fresh.length > 0 ? fresh : [...options];
+  const index = Math.min(choices.length - 1, Math.max(0, Math.floor(roll * choices.length)));
+  return choices[index] || options[0] || "";
+}
+
 /** Body of the dish list. The rows carry the full names; this only opens the list. */
-export function buildDishListPrompt(family: "chicken" | "mutton" | "egg" | null): string {
+export function buildDishListPrompt(
+  family: "chicken" | "mutton" | "egg" | null,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
   const noun = family === "mutton" ? "mutton gravy" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
   const headerEmoji = family === "mutton" ? "🍖" : family === "egg" ? "🥚" : "🍗";
-  return `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?\n\n_Tap View options, or just type the name!_`;
+  const opener = varyLine(
+    [
+      `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?`,
+      `A few ${noun} options ${headerEmoji} are ready. Which one do you want?`,
+      `Here are the ${noun} options ${headerEmoji}. Take your pick.`,
+      `${headerEmoji} Which of these ${noun} options should we cook?`,
+    ],
+    avoid,
+    roll,
+  );
+  return `${opener}\n\n_Tap View options, or just type the name!_`;
+}
+
+/** Said when a dish from the choice list is the one they wanted. Wording rotates. */
+export function dishPickedAside(dishName?: string | null, avoid?: string | null, roll = Math.random()): string {
+  const name = formatFullDishName(String(dishName || "")).trim();
+  if (!name) {
+    return varyLine(
+      ["That's a favorite.", "Good pick.", "Locked in.", "Nice — we'll cook that."],
+      avoid,
+      roll,
+    );
+  }
+  return varyLine(
+    [
+      `${name} — that's a favorite.`,
+      `Ooh, ${name}. Good pick.`,
+      `${name} it is.`,
+      `Locked in. ${name} is a good one.`,
+      `Nice. We'll cook ${name}.`,
+    ],
+    avoid,
+    roll,
+  );
+}
+
+export function buildSlotListBody(
+  tooSoon?: { label: string; when: string; range: string } | null,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
+  if (!tooSoon) {
+    return varyLine(
+      [
+        "Open times are grouped by day. Tap Pick a slot.",
+        "Each day is a heading, with breakfast, lunch, and dinner under it.",
+        "Pick a time. The day is the group, the meal is the row.",
+      ],
+      avoid,
+      roll,
+    );
+  }
+  const { label, when, range } = tooSoon;
+  const meal = label.toLowerCase();
+  return varyLine(
+    [
+      `${label} on ${when} (${range}) is inside the 24 hours we need to cook. Later days are grouped below.`,
+      `We cook fresh, so ${meal} on ${when} is too close. Choose another day — meals sit under each date.`,
+      `${when} ${meal} (${range}) won't make the cook time. The next open days are below, one group each.`,
+    ],
+    avoid,
+    roll,
+  );
+}
+
+export function buildMoreDaysBody(avoid?: string | null, roll = Math.random()): string {
+  return varyLine(
+    [
+      "Here are the next dates.",
+      "More open days. Same meals under each date.",
+      "Further ahead. Pick the day and the meal.",
+    ],
+    avoid,
+    roll,
+  );
 }
 
 export { listRowLabel };

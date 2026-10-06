@@ -54,7 +54,13 @@ export type MissingField = "dish" | "size" | "date" | "slot" | "address" | "paym
 export type ProposalResult =
   | { ok: true; proposal: OrderProposal }
   | { ok: false; kind: "missing"; field: MissingField; dishOptions?: MenuItem[] }
-  | { ok: false; kind: "rejected"; reason: string; code?: "too_soon" };
+  | {
+      ok: false;
+      kind: "rejected";
+      reason: string;
+      code?: "too_soon";
+      tooSoon?: { label: string; when: string; range: string };
+    };
 
 // ─── Dish matching ───────────────────────────────────────────────────────────
 
@@ -623,9 +629,8 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
       ok: false,
       kind: "rejected",
       code: "too_soon",
-      reason:
-        `We cook every order fresh, so it has to be placed at least 24 hours before the slot. ` +
-        `${def.label} on ${when} (${def.rangeLabel}) is too soon. Pick a later time below.`,
+      reason: `${def.label} on ${when} (${def.rangeLabel}) is too soon.`,
+      tooSoon: { label: def.label, when, range: def.rangeLabel },
     };
   }
 

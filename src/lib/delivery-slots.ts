@@ -111,6 +111,75 @@ export function slotCardsForIstDate(istYmd: string, nowMs?: number): CheckoutSlo
   });
 }
 
+export type SlotListRow = { id: string; title: string; description: string };
+export type SlotListSection = { title: string; rows: SlotListRow[] };
+
+function compactSlotDay(istYmd: string): string {
+  return new Date(`${istYmd}T12:00:00${IST_OFFSET}`)
+    .toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      timeZone: DELIVERY_SLOT_TIMEZONE,
+    })
+    .replace(/,/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Bookable meals grouped under each day. A flat list made every row say
+ * Breakfast / Lunch / Dinner, so the day was only in the small line.
+ * Ten rows is the WhatsApp cap, so three days fit and a last row opens the rest.
+ */
+export function bookableSlotSections(
+  afterYmd?: string | null,
+  nowMs: number = Date.now(),
+): { sections: SlotListSection[] } {
+  const days = iterDeliveryDateOptions(21, nowMs).filter((day) => !afterYmd || day.istYmd > afterYmd);
+  const bookable = days
+    .map((day) => ({
+      istYmd: day.istYmd,
+      title: day.weekendLabel,
+      rows: day.cards
+        .filter((card) => card.available)
+        .map((card) => ({
+          id: `book_${day.istYmd}_${card.kind}`,
+          title: `${compactSlotDay(day.istYmd)} · ${card.label}`.slice(0, 24),
+          description: card.rangeLabel,
+        })),
+    }))
+    .filter((day) => day.rows.length > 0);
+
+  const sections: SlotListSection[] = [];
+  let count = 0;
+  let used = 0;
+  for (let i = 0; i < bookable.length; i++) {
+    const day = bookable[i];
+    const later = i < bookable.length - 1;
+    const cap = later ? 9 : 10;
+    if (count + day.rows.length > cap) break;
+    sections.push({ title: day.title.slice(0, 24), rows: day.rows });
+    count += day.rows.length;
+    used = i + 1;
+  }
+
+  if (used > 0 && used < bookable.length) {
+    const next = bookable[used];
+    sections.push({
+      title: "Later",
+      rows: [
+        {
+          id: `slots_after_${bookable[used - 1].istYmd}`,
+          title: "More days",
+          description: next ? `From ${next.title}`.slice(0, 72) : "The next open dates",
+        },
+      ],
+    });
+  }
+
+  return { sections };
+}
+
 /** Next N IST calendar days starting from today (Kolkata), each with the three slot cards. */
 export function iterDeliveryDateOptions(dayCount: number, nowMs: number = Date.now()) {
   const start = istCalendarYmd(new Date(nowMs));
