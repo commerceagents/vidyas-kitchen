@@ -2113,6 +2113,22 @@ export function olderOrderArrivedReply(): string {
   return "Glad it reached you. Enjoy.";
 }
 
+export function complaintReceivedReply(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Got it 🙏",
+      lines: ["I've passed that to the kitchen. They'll look at it and come back to you."],
+      note: SUPPORT_PHONE_E164,
+    }),
+    msg({
+      title: "Kidaichuduchu 🙏",
+      lines: ["Kitchen-ku anupiten. Dashboard-la paakalaam."],
+      note: SUPPORT_PHONE_E164,
+    }),
+  );
+}
+
 export function complaintPrompt(lang?: WaLang): string {
   return pickLang(
     lang,

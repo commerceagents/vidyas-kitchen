@@ -2,27 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Star, Trash2 } from "lucide-react";
+import { MessageSquareWarning } from "lucide-react";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
 } from "@/components/dashboard/DashboardChrome";
-import { DashboardConfirmDialog } from "@/components/dashboard/DashboardConfirmDialog";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
+import { formatPhoneDisplay } from "@/lib/dashboard/orders";
 import { formatOrderRef } from "@/lib/order-status";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
-type Review = {
+type Complaint = {
   id: string;
-  orderNumber: number | null;
   phone: string | null;
-  stars: number | null;
-  comment: string | null;
-  updatedAt: string | null;
+  body: string | null;
+  createdAt: string | null;
   customerName: string | null;
+  orderId: string | null;
+  orderNumber: number | null;
 };
 
 function formatWhen(iso: string | null): string {
@@ -38,7 +38,7 @@ function formatWhen(iso: string | null): string {
   });
 }
 
-export default function ReviewsPage() {
+export default function ComplaintsPage() {
   const {
     unreadCount,
     soundMuted,
@@ -51,20 +51,18 @@ export default function ReviewsPage() {
     setSearchQuery,
   } = useDashboardData();
 
-  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<Review | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/dashboard/reviews?_=${Date.now()}`, { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as { reviews?: Review[]; error?: string };
-      if (!res.ok) throw new Error(data.error || "Could not load reviews");
-      setReviews(data.reviews ?? []);
+      const res = await fetch(`/api/dashboard/complaints?_=${Date.now()}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { complaints?: Complaint[]; error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not load complaints");
+      setComplaints(data.complaints ?? []);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load reviews");
+      setError(e instanceof Error ? e.message : "Could not load complaints");
     }
   }, []);
 
@@ -77,37 +75,22 @@ export default function ReviewsPage() {
   }, [load]);
 
   const q = searchQuery.trim().toLowerCase();
-  const shown = (reviews ?? []).filter((r) => {
+  const shown = (complaints ?? []).filter((row) => {
     if (!q) return true;
-    const hay = `${r.customerName || ""} ${r.comment || ""} ${r.phone || ""} ${formatOrderRef(r.orderNumber, r.id)}`.toLowerCase();
+    const ref = row.orderId ? formatOrderRef(row.orderNumber, row.orderId) : "";
+    const hay = `${row.customerName || ""} ${row.body || ""} ${row.phone || ""} ${ref}`.toLowerCase();
     return hay.includes(q);
   });
 
-  const remove = async () => {
-    if (!pending) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/dashboard/reviews", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: pending.id }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || "Could not remove this review");
-      setReviews((list) => (list ?? []).filter((r) => r.id !== pending.id));
-      setPending(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not remove this review");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const list = reviews == null && !error ? (
-    <DashboardSpinner minHeight="240px" />
-  ) : (
-    <ReviewList reviews={shown} emptyBecauseSearch={Boolean(q) && (reviews?.length ?? 0) > 0} onRemove={setPending} />
-  );
+  const list =
+    complaints == null && !error ? (
+      <DashboardSpinner minHeight="240px" />
+    ) : (
+      <ComplaintList
+        complaints={shown}
+        emptyBecauseSearch={Boolean(q) && (complaints?.length ?? 0) > 0}
+      />
+    );
 
   return (
     <>
@@ -138,11 +121,11 @@ export default function ReviewsPage() {
             WebkitOverflowScrolling: "touch",
           }}
         >
-          <h1 style={titleStyle}>Reviews</h1>
+          <h1 style={titleStyle}>Complaints</h1>
           <p style={hintStyle}>
-            Star ratings after a delivery. A Something wrong note is on{" "}
-            <Link href="/dashboard/complaints" style={linkStyle}>
-              Complaints
+            Notes from Something wrong on WhatsApp. Star ratings stay on{" "}
+            <Link href="/dashboard/reviews" style={linkStyle}>
+              Reviews
             </Link>
             .
           </p>
@@ -176,7 +159,7 @@ export default function ReviewsPage() {
             flex: "0 0 auto",
           }}
         >
-          <h1 style={{ ...titleStyle, margin: 0, fontSize: "clamp(16px, 1.5vw, 22px)" }}>Reviews</h1>
+          <h1 style={{ ...titleStyle, margin: 0, fontSize: "clamp(16px, 1.5vw, 22px)" }}>Complaints</h1>
           <DashboardDesktopTopBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -199,31 +182,10 @@ export default function ReviewsPage() {
             padding: "clamp(16px, 1.5vw, 24px)",
           }}
         >
-          <p style={hintStyle}>
-            Star ratings after a delivery. A Something wrong note is on{" "}
-            <Link href="/dashboard/complaints" style={linkStyle}>
-              Complaints
-            </Link>
-            .
-          </p>
           {error ? <p style={errorStyle}>{error}</p> : null}
           {list}
         </div>
       </div>
-
-      <DashboardConfirmDialog
-        open={pending != null}
-        title="Remove this review?"
-        body="It comes off the dashboard and off the dish page. The order itself stays."
-        confirmLabel="Remove"
-        cancelLabel="Keep review"
-        confirmBusyLabel="Removing"
-        busy={busy}
-        onConfirm={() => void remove()}
-        onCancel={() => {
-          if (!busy) setPending(null);
-        }}
-      />
 
       <style jsx global>{`
         @media (max-width: 1023px) {
@@ -247,16 +209,14 @@ export default function ReviewsPage() {
   );
 }
 
-function ReviewList({
-  reviews,
+function ComplaintList({
+  complaints,
   emptyBecauseSearch,
-  onRemove,
 }: {
-  reviews: Review[];
+  complaints: Complaint[];
   emptyBecauseSearch: boolean;
-  onRemove: (review: Review) => void;
 }) {
-  if (reviews.length === 0) {
+  if (complaints.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "48px 16px", fontFamily: FONT }}>
         <div
@@ -272,15 +232,15 @@ function ReviewList({
             justifyContent: "center",
           }}
         >
-          <Star size={24} color="#F5C518" />
+          <MessageSquareWarning size={24} color="#F5C518" />
         </div>
         <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 16 }}>
-          {emptyBecauseSearch ? "No matching reviews" : "No reviews yet"}
+          {emptyBecauseSearch ? "No matching complaints" : "No complaints yet"}
         </p>
         <p style={{ margin: "8px 0 0", color: "#8a8a8a", fontSize: 14, lineHeight: 1.45 }}>
           {emptyBecauseSearch
-            ? "Try another name, order number, or word from the comment."
-            : "Stars customers leave after a delivery show up here."}
+            ? "Try another name, phone, or word from the note."
+            : "When a customer taps Something wrong and writes what happened, it shows up here."}
         </p>
       </div>
     );
@@ -288,11 +248,11 @@ function ReviewList({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {reviews.map((review) => {
-        const stars = Math.max(0, Math.min(5, Math.round(Number(review.stars) || 0)));
+      {complaints.map((row) => {
+        const ref = row.orderId ? formatOrderRef(row.orderNumber, row.orderId) : "";
         return (
           <article
-            key={review.id}
+            key={row.id}
             style={{
               background: "#1a1a1a",
               border: "1px solid #2a2a2a",
@@ -301,56 +261,19 @@ function ReviewList({
               fontFamily: FONT,
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
-                    {review.customerName || "Customer"}
-                  </span>
-                  <span style={{ color: "#F5C518", fontWeight: 800, fontSize: 13 }}>
-                    {formatOrderRef(review.orderNumber, review.id)}
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 2, marginTop: 8 }} aria-label={`${stars} of 5 stars`}>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <Star
-                      key={i}
-                      size={16}
-                      color="#F5C518"
-                      fill={i < stars ? "#F5C518" : "transparent"}
-                    />
-                  ))}
-                </div>
-                {review.comment ? (
-                  <p style={{ margin: "10px 0 0", color: "#e8e8e8", fontSize: 14, lineHeight: 1.5 }}>
-                    {review.comment}
-                  </p>
-                ) : (
-                  <p style={{ margin: "10px 0 0", color: "#6e6e6e", fontSize: 13 }}>No written comment</p>
-                )}
-                <p style={{ margin: "10px 0 0", color: "#6e6e6e", fontSize: 12 }}>{formatWhen(review.updatedAt)}</p>
-              </div>
-              <button
-                type="button"
-                aria-label="Remove review"
-                onClick={() => onRemove(review)}
-                style={{
-                  flex: "0 0 auto",
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  border: "1px solid #3a2424",
-                  background: "#241616",
-                  color: "#ff8a80",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
+                {row.customerName || "Customer"}
+              </span>
+              <span style={{ color: "#8a8a8a", fontSize: 13 }}>
+                {ref ? `Latest ${ref}` : formatPhoneDisplay(row.phone)}
+                {ref ? ` · ${formatPhoneDisplay(row.phone)}` : ""}
+              </span>
             </div>
+            <p style={{ margin: "10px 0 0", color: "#e8e8e8", fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {row.body || "No message"}
+            </p>
+            <p style={{ margin: "10px 0 0", color: "#6e6e6e", fontSize: 12 }}>{formatWhen(row.createdAt)}</p>
           </article>
         );
       })}

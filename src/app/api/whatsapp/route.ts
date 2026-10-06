@@ -91,6 +91,7 @@ import {
   buildSlotListBody,
   dishPickedAside,
   complaintPrompt,
+  complaintReceivedReply,
   escalateHumanReply,
   interruptCancelledMessage,
   interruptClarifyMessage,
@@ -153,6 +154,7 @@ import type { AppliedOffer } from "@/lib/offers";
 import { isCodBlocked, markOrderPaidAndNotify, transitionOrderStatusInDb } from "@/lib/order-transition";
 import { OrderStatus, PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { supportOrderNumber, supportTopic } from "@/lib/whatsapp-support";
+import { shouldStoreComplaint } from "@/lib/whatsapp-complaint";
 import { loadActiveFestival } from "@/lib/menu/festival-dishes";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
@@ -423,6 +425,78 @@ function phoneVariants(phone: string): string[] {
   return [...new Set([digits, `+${digits}`, last10, `91${last10}`, `+91${last10}`])].filter(
     (v) => v.length >= 10,
   );
+}
+
+async function complaintIsArmed(from: string): Promise<boolean> {
+  const { data, error } = await createServerSupabase()
+    .from("users")
+    .select("phone_number")
+    .in("phone_number", phoneVariants(from))
+    .eq("whatsapp_pending_action", "complaint")
+    .limit(1);
+  if (error) {
+    console.error("[WA] complaint arm", error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+async function clearComplaintArm(from: string) {
+  const { error } = await createServerSupabase()
+    .from("users")
+    .update({ whatsapp_pending_action: null })
+    .in("phone_number", phoneVariants(from))
+    .eq("whatsapp_pending_action", "complaint");
+  if (error) console.error("[WA] clear complaint arm", error);
+}
+
+async function beginComplaint(from: string) {
+  await updateSession(from, {
+    state: "ai_chat",
+    pending_options: null,
+    selected_item_id: null,
+    selected_variant: null,
+  });
+  const { error } = await createServerSupabase()
+    .from("users")
+    .upsert({ phone_number: from, whatsapp_pending_action: "complaint" }, { onConflict: "phone_number" });
+  if (error) console.error("[WA] complaint pending_action failed:", error);
+  await sendText(from, complaintPrompt(langOf(from)));
+  return ack();
+}
+
+/**
+ * The next free-text line after "Something wrong" is the complaint. A dish
+ * name in that line must not reopen the menu.
+ */
+async function captureArmedComplaint(from: string, text: string): Promise<Response | null> {
+  if (!(await complaintIsArmed(from))) return null;
+  if (!shouldStoreComplaint(text)) {
+    await clearComplaintArm(from);
+    return null;
+  }
+  const body = text.trim().slice(0, 2000);
+  const { error } = await createServerSupabase().from("customer_complaints").insert({
+    phone_number: from,
+    body,
+  });
+  if (error) {
+    console.error("[WA] save complaint", error);
+    await sendText(
+      from,
+      "I heard you, and I couldn't file that just now. Please send it once more, or call the kitchen.",
+    );
+    return ack();
+  }
+  await clearComplaintArm(from);
+  await updateSession(from, {
+    state: "idle",
+    pending_options: null,
+    selected_item_id: null,
+    selected_variant: null,
+  });
+  await sendText(from, complaintReceivedReply(langOf(from)));
+  return ack();
 }
 
 /** Status labels for a specific order lookup. */
@@ -1001,6 +1075,7 @@ export async function POST(req: Request) {
     const resolvedId = await resolveNumbered(from, text);
 
     if (interactiveReplyId) {
+      if (session.state === "ai_chat") await clearComplaintArm(from);
       const handled = await handleResolvedId(from, interactiveReplyId, session, profileName);
       if (handled) return handled;
     }
@@ -1011,6 +1086,10 @@ export async function POST(req: Request) {
     }
 
     if (!interactiveReplyId && !resolvedId) {
+      if (session.state === "ai_chat") {
+        const filed = await captureArmedComplaint(from, text);
+        if (filed) return filed;
+      }
       const supported = await answerSupport(from, text, session);
       if (supported) return supported;
     }
@@ -1267,28 +1346,14 @@ async function handleResolvedId(
     case "hs_cancel":
       return await showCancelChoice(from, "");
     case "hs_complaint":
-      await updateSession(from, { state: "ai_chat" });
-      try {
-        await createServerSupabase()
-          .from("users")
-          .upsert(
-            { phone_number: from, whatsapp_pending_action: "complaint" },
-            { onConflict: "phone_number" },
-          );
-      } catch (e) {
-        console.error("[WA] complaint pending_action failed:", e);
-      }
-      await sendText(from, complaintPrompt(langOf(from)));
-      return ack();
+      return await beginComplaint(from);
     case "hs_your_orders":
       return await showOrderHistory(from);
     case "hs_payments":
       return await showPaymentsSummary(from);
     case "stale_issue":
     case "stale_missing":
-      await updateSession(from, { state: "ai_chat" });
-      await sendText(from, complaintPrompt(langOf(from)));
-      return ack();
+      return await beginComplaint(from);
     case "stale_latest":
       return await showTrackOrder(from);
     case "stale_again":
