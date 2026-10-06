@@ -569,9 +569,55 @@ function complaintTargetItems(order: ComplaintOrder, itemIndex: number | "all" |
   return one ? [one] : order.items;
 }
 
+function readComplaintDraft(turns: WhatsAppSession["recent_turns"]): string | null {
+  const raw = [...(turns || [])].reverse().find((turn) => turn.content.startsWith(VK_COMPLAINT_NOTE_PREFIX));
+  const note = raw?.content.slice(VK_COMPLAINT_NOTE_PREFIX.length).trim() || "";
+  return note || null;
+}
+
+async function fileComplaint(
+  from: string,
+  order: ComplaintOrder | null,
+  itemIndex: number | "all" | null,
+  note: string,
+) {
+  const items = order ? complaintTargetItems(order, itemIndex) : [];
+  const body = order
+    ? buildComplaintRecord({ ref: order.ref, when: order.when, items }, note)
+    : note.trim().slice(0, 2000);
+  const detail = order ? [order.ref, complaintDishLine(items)].filter(Boolean).join(", ") : "";
+  const { error } = await createServerSupabase().from("customer_complaints").insert({
+    phone_number: from,
+    body,
+  });
+  if (error) {
+    console.error("[WA] save complaint", error);
+    await sendText(
+      from,
+      "I heard you, and I couldn't file that just now. Please send it once more, or call the kitchen.",
+    );
+    return ack();
+  }
+  await clearComplaintArm(from);
+  const session = await getSession(from);
+  await updateSession(from, {
+    state: "idle",
+    pending_options: null,
+    selected_item_id: null,
+    selected_variant: null,
+    recent_turns: (session.recent_turns || []).filter((turn) => !turn.content.startsWith(VK_COMPLAINT_NOTE_PREFIX)),
+  });
+  await sendText(from, complaintReceivedReply(detail || undefined, langOf(from)));
+  return ack();
+}
+
 async function askComplaintNote(from: string, order: ComplaintOrder, itemIndex: number | "all") {
+  const session = await getSession(from);
+  const draft = readComplaintDraft(session.recent_turns);
   const items = complaintTargetItems(order, itemIndex);
-  await setComplaintAction(from, complaintWriteAction(order.id, items.length === order.items.length ? "all" : itemIndex));
+  const index = items.length === order.items.length ? "all" : itemIndex;
+  if (draft) return await fileComplaint(from, order, index, draft);
+  await setComplaintAction(from, complaintWriteAction(order.id, index));
   await updateSession(from, {
     state: "ai_chat",
     pending_options: null,
@@ -630,7 +676,6 @@ async function beginComplaint(from: string) {
     await sendText(from, complaintPrompt(langOf(from)));
     return ack();
   }
-  if (orders.length === 1) return await focusComplaintOrder(from, orders[0]);
   return await showComplaintOrders(from, orders);
 }
 
@@ -670,37 +715,20 @@ async function captureArmedComplaint(from: string, text: string): Promise<Respon
   }
 
   const note = text.trim().slice(0, 2000);
-  let body = note;
-  let detail = "";
-  if (phase.orderId) {
-    const order = await loadComplaintOrder(from, phase.orderId);
-    if (order) {
-      const items = complaintTargetItems(order, phase.itemIndex);
-      body = buildComplaintRecord({ ref: order.ref, when: order.when, items }, note);
-      detail = [order.ref, complaintDishLine(items)].filter(Boolean).join(", ");
+  if (!phase.orderId) {
+    const orders = await loadComplaintOrders(from);
+    if (orders.length > 0) {
+      const session = await getSession(from);
+      const turns = [
+        ...(session.recent_turns || []).filter((turn) => !turn.content.startsWith(VK_COMPLAINT_NOTE_PREFIX)),
+        { role: "user" as const, content: `${VK_COMPLAINT_NOTE_PREFIX}${note}` },
+      ].slice(-16);
+      await updateSession(from, { recent_turns: turns });
+      return await showComplaintOrders(from, orders);
     }
   }
-  const { error } = await createServerSupabase().from("customer_complaints").insert({
-    phone_number: from,
-    body,
-  });
-  if (error) {
-    console.error("[WA] save complaint", error);
-    await sendText(
-      from,
-      "I heard you, and I couldn't file that just now. Please send it once more, or call the kitchen.",
-    );
-    return ack();
-  }
-  await clearComplaintArm(from);
-  await updateSession(from, {
-    state: "idle",
-    pending_options: null,
-    selected_item_id: null,
-    selected_variant: null,
-  });
-  await sendText(from, complaintReceivedReply(detail || undefined, langOf(from)));
-  return ack();
+  const order = phase.orderId ? await loadComplaintOrder(from, phase.orderId) : null;
+  return await fileComplaint(from, order, phase.itemIndex, note);
 }
 
 /** Status labels for a specific order lookup. */
@@ -867,11 +895,13 @@ async function showSpecificOrderStatus(from: string, refNum: string, profileName
 }
 
 const VK_DRAFT_PREFIX = "__vk_draft__:";
+const VK_COMPLAINT_NOTE_PREFIX = "__vk_complaint__:";
 const VK_USUAL_PAY_PREFIX = "__vk_usual_pay__:";
 
 function isHiddenTurn(content: string): boolean {
   return (
     content.startsWith(VK_DRAFT_PREFIX) ||
+    content.startsWith(VK_COMPLAINT_NOTE_PREFIX) ||
     content.startsWith(VK_INTERRUPT_PREFIX) ||
     content.startsWith(VK_USUAL_PAY_PREFIX)
   );
@@ -1155,22 +1185,22 @@ export async function POST(req: Request) {
             inboundKind = "button";
             console.log(`[WA] salvaged reply ${replyId} from type "${message.type}"`);
           } else {
-            inboundKind = message.type === "image" ? "image" : "media";
-            body = `[${message.type}]`;
+          inboundKind = message.type === "image" ? "image" : "media";
+          body = `[${message.type}]`;
             console.error(
               `[WA] unreadable inbound type "${message.type}" keys=${Object.keys(message).join(",")}`,
             );
-            await logWhatsAppMessage({
-              phone: from,
-              direction: "in",
-              kind: inboundKind,
-              body,
-              payload: { type: message.type, profileName: profileName || undefined },
-              provider: "meta",
-              waMessageId: messageId || null,
-            });
+          await logWhatsAppMessage({
+            phone: from,
+            direction: "in",
+            kind: inboundKind,
+            body,
+            payload: { type: message.type, profileName: profileName || undefined },
+            provider: "meta",
+            waMessageId: messageId || null,
+          });
             await replyUnreadableTap(from);
-            return ack();
+          return ack();
           }
         } else {
           return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
@@ -3121,13 +3151,13 @@ async function showSizedMenu(from: string) {
       const names = [...new Set(sections.map((section) => section.title.replace(/\s+\(.*\)$/, "")))];
       const header = names.length === 1 ? names[0] : `${names[0]} and ${names[1].toLowerCase()}`;
       const ok = await sendProductList(
-        from,
-        catalogId,
+      from,
+      catalogId,
         header,
         "Tap View items. 500gm is the first heading, then 1kg.",
-        sections,
-        "Vidya's Kitchen, Sivakasi",
-      );
+      sections,
+      "Vidya's Kitchen, Sivakasi",
+    );
       if (ok) sent = true;
     }
     if (sent) return ack();
@@ -3265,7 +3295,7 @@ async function showCategoryItems(from: string, cat: string) {
   const dishes = dishesInCategory(cat).slice(0, 10);
   if (dishes.length > 0) {
     await rememberDishCards(from, dishes);
-    await updateSession(from, { state: "picking_item" });
+  await updateSession(from, { state: "picking_item" });
     const rows = dishes.map((dish) => ({
       id: `add_${dish.retailerId}`,
       title: formatFullDishName(dish.name).slice(0, 24),
@@ -3287,9 +3317,9 @@ async function showCategoryItems(from: string, cat: string) {
   const rows = slice.map((m) => {
     const formatted = formatFullDishName(m.name);
     return {
-      id: m.id,
+    id: m.id,
       title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
-      description: packPriceLine(m, " / "),
+    description: packPriceLine(m, " / "),
     };
   });
   await sendList(from, body, "Pick A Dish", [{ title: catLabel, rows }]);
@@ -4339,12 +4369,12 @@ async function processConfirmOrder(
   }
 
   try {
-    const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", from);
-    if (paymentLinkId) {
-      await serverDb.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
-    }
-    await sendCtaUrl(from, buildPaymentMessage(total, short_url, lang), short_url, BTN.payNow);
-    await sendText(from, buildOrderIdPendingPaymentMessage(ref, lang));
+  const { short_url, id: paymentLinkId } = await createPaymentLink(total, order.id, "WhatsApp Customer", from);
+  if (paymentLinkId) {
+    await serverDb.from("orders").update({ payment_link_id: paymentLinkId }).eq("id", order.id);
+  }
+  await sendCtaUrl(from, buildPaymentMessage(total, short_url, lang), short_url, BTN.payNow);
+  await sendText(from, buildOrderIdPendingPaymentMessage(ref, lang));
   } catch (e) {
     console.error("[WA] payment link failed:", e);
     await releaseOffer(serverDb, order.id);

@@ -25,6 +25,16 @@ type Complaint = {
   customerName: string | null;
 };
 
+const SAMPLE_COMPLAINT: Complaint = {
+  id: "sample-complaint",
+  phone: null,
+  body: null,
+  target: "#00003 · Dinner · 7 Oct\nMom's Recipe Chicken Gravy · 500gm",
+  note: "The gravy was cold when it reached me.",
+  createdAt: "2026-10-07T02:10:00+05:30",
+  customerName: "Sample guest",
+};
+
 function formatWhen(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -92,14 +102,14 @@ export default function ComplaintsPage() {
     return hay.includes(q);
   });
 
+  const preview = !q && (complaints?.length ?? 0) === 0 && !error;
+  const rows = preview ? [SAMPLE_COMPLAINT] : shown;
+
   const list =
     complaints == null && !error ? (
       <DashboardSpinner minHeight="240px" />
     ) : (
-      <ComplaintList
-        complaints={shown}
-        emptyBecauseSearch={Boolean(q) && (complaints?.length ?? 0) > 0}
-      />
+      <ComplaintList complaints={rows} emptyBecauseSearch={Boolean(q) && (complaints?.length ?? 0) > 0} />
     );
 
   return (
@@ -190,10 +200,15 @@ export default function ComplaintsPage() {
             borderRadius: "clamp(14px, 1.5vw, 20px)",
             border: "1px solid #222222",
             padding: "clamp(16px, 1.5vw, 24px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: (complaints?.length ?? 0) > 1 ? "flex-start" : "center",
           }}
         >
-          {error ? <p style={errorStyle}>{error}</p> : null}
-          {list}
+          <div style={{ width: "min(520px, 100%)", margin: "0 auto" }}>
+            {error ? <p style={errorStyle}>{error}</p> : null}
+            {list}
+          </div>
         </div>
       </div>
 
@@ -257,34 +272,41 @@ function ComplaintList({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
       {complaints.map((row) => {
+        const sample = row.id === "sample-complaint";
         return (
           <article
             key={row.id}
             style={{
+              width: "100%",
               background: "#1a1a1a",
               border: "1px solid #2a2a2a",
               borderRadius: 16,
-              padding: "16px 16px 14px",
+              padding: "22px 22px 18px",
               fontFamily: FONT,
+              textAlign: "center",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
                 {row.customerName || "Customer"}
               </span>
-              <span style={{ color: "#8a8a8a", fontSize: 13 }}>{formatPhoneDisplay(row.phone)}</span>
+              {sample ? (
+                <span style={{ color: "#F5C518", fontWeight: 800, fontSize: 12, letterSpacing: "0.04em" }}>SAMPLE</span>
+              ) : (
+                <span style={{ color: "#8a8a8a", fontSize: 13 }}>{formatPhoneDisplay(row.phone)}</span>
+              )}
             </div>
             {row.target ? (
-              <p style={{ margin: "10px 0 0", color: "#F5C518", fontWeight: 800, fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+              <p style={{ margin: "12px 0 0", color: "#F5C518", fontWeight: 800, fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
                 {row.target}
               </p>
             ) : null}
-            <p style={{ margin: "10px 0 0", color: "#e8e8e8", fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            <p style={{ margin: "12px 0 0", color: "#e8e8e8", fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
               {row.note || row.body || "No message"}
             </p>
-            <p style={{ margin: "10px 0 0", color: "#6e6e6e", fontSize: 12 }}>{formatWhen(row.createdAt)}</p>
+            <p style={{ margin: "12px 0 0", color: "#6e6e6e", fontSize: 12 }}>{formatWhen(row.createdAt)}</p>
           </article>
         );
       })}

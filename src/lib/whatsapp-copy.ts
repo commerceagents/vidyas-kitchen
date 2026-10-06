@@ -2163,20 +2163,20 @@ export function complaintAboutReply(target: { ref: string; dishes: string; when:
 }
 
 export function complaintReceivedReply(detail?: string, lang?: WaLang): string {
+  const named = detail ? ` The kitchen has it on *${detail}*.` : "";
   return pickLang(
     lang,
     msg({
-      title: "Got it 🙏",
+      title: "I'm sorry. 🙏",
       lines: [
-        detail
-          ? `I've passed that to the kitchen. They can see it is about ${detail}.`
-          : "I've passed that to the kitchen. They'll look at it and come back to you.",
+        `This one fell short of what we cook for.${named}`,
+        "Next time, we'll amaze you.",
       ],
       note: SUPPORT_PHONE_E164,
     }),
     msg({
-      title: "Kidaichuduchu 🙏",
-      lines: ["Kitchen-ku anupiten."],
+      title: "Sorry. 🙏",
+      lines: ["Indha vaati miss aachu. Next time amaze pannuvom."],
       note: SUPPORT_PHONE_E164,
     }),
   );
