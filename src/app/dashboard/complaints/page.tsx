@@ -12,7 +12,6 @@ import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import { formatPhoneDisplay } from "@/lib/dashboard/orders";
-import { formatOrderRef } from "@/lib/order-status";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -20,10 +19,10 @@ type Complaint = {
   id: string;
   phone: string | null;
   body: string | null;
+  target: string | null;
+  note: string | null;
   createdAt: string | null;
   customerName: string | null;
-  orderId: string | null;
-  orderNumber: number | null;
 };
 
 function formatWhen(iso: string | null): string {
@@ -89,8 +88,7 @@ export default function ComplaintsPage() {
   const q = searchQuery.trim().toLowerCase();
   const shown = (complaints ?? []).filter((row) => {
     if (!q) return true;
-    const ref = row.orderId ? formatOrderRef(row.orderNumber, row.orderId) : "";
-    const hay = `${row.customerName || ""} ${row.body || ""} ${row.phone || ""} ${ref}`.toLowerCase();
+    const hay = `${row.customerName || ""} ${row.target || ""} ${row.note || ""} ${row.body || ""} ${row.phone || ""}`.toLowerCase();
     return hay.includes(q);
   });
 
@@ -252,7 +250,7 @@ function ComplaintList({
         <p style={{ margin: "8px 0 0", color: "#8a8a8a", fontSize: 14, lineHeight: 1.45 }}>
           {emptyBecauseSearch
             ? "Try another name, phone, or word from the note."
-            : "When a customer taps Something wrong and writes what happened, it shows up here."}
+            : "When a customer taps Something wrong, picks the order, and writes what happened, it shows up here."}
         </p>
       </div>
     );
@@ -261,7 +259,6 @@ function ComplaintList({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {complaints.map((row) => {
-        const ref = row.orderId ? formatOrderRef(row.orderNumber, row.orderId) : "";
         return (
           <article
             key={row.id}
@@ -277,13 +274,15 @@ function ComplaintList({
               <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
                 {row.customerName || "Customer"}
               </span>
-              <span style={{ color: "#8a8a8a", fontSize: 13 }}>
-                {ref ? `Latest ${ref}` : formatPhoneDisplay(row.phone)}
-                {ref ? ` · ${formatPhoneDisplay(row.phone)}` : ""}
-              </span>
+              <span style={{ color: "#8a8a8a", fontSize: 13 }}>{formatPhoneDisplay(row.phone)}</span>
             </div>
+            {row.target ? (
+              <p style={{ margin: "10px 0 0", color: "#F5C518", fontWeight: 800, fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>
+                {row.target}
+              </p>
+            ) : null}
             <p style={{ margin: "10px 0 0", color: "#e8e8e8", fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-              {row.body || "No message"}
+              {row.note || row.body || "No message"}
             </p>
             <p style={{ margin: "10px 0 0", color: "#6e6e6e", fontSize: 12 }}>{formatWhen(row.createdAt)}</p>
           </article>

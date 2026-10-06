@@ -92,6 +92,9 @@ import {
   dishPickedAside,
   complaintPrompt,
   complaintReceivedReply,
+  complaintPickOrdersReply,
+  complaintPickItemReply,
+  complaintAboutReply,
   escalateHumanReply,
   interruptCancelledMessage,
   interruptClarifyMessage,
@@ -154,7 +157,18 @@ import type { AppliedOffer } from "@/lib/offers";
 import { isCodBlocked, markOrderPaidAndNotify, transitionOrderStatusInDb } from "@/lib/order-transition";
 import { OrderStatus, PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { supportOrderNumber, supportTopic } from "@/lib/whatsapp-support";
-import { shouldStoreComplaint } from "@/lib/whatsapp-complaint";
+import { resolveOrderItemWeight } from "@/lib/menu/order-item-weight";
+import {
+  buildComplaintRecord,
+  complaintDishLine,
+  complaintItemRows,
+  complaintOrderRow,
+  complaintWriteAction,
+  parseComplaintAction,
+  parseComplaintChoice,
+  shouldStoreComplaint,
+  type ComplaintItem,
+} from "@/lib/whatsapp-complaint";
 import { loadActiveFestival } from "@/lib/menu/festival-dishes";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
@@ -427,55 +441,245 @@ function phoneVariants(phone: string): string[] {
   );
 }
 
-async function complaintIsArmed(from: string): Promise<boolean> {
+type ComplaintOrder = {
+  id: string;
+  ref: string;
+  meal: string;
+  day: string;
+  when: string;
+  items: ComplaintItem[];
+};
+
+async function readComplaintAction(from: string): Promise<string | null> {
   const { data, error } = await createServerSupabase()
     .from("users")
-    .select("phone_number")
-    .in("phone_number", phoneVariants(from))
-    .eq("whatsapp_pending_action", "complaint")
-    .limit(1);
+    .select("whatsapp_pending_action")
+    .in("phone_number", phoneVariants(from));
   if (error) {
     console.error("[WA] complaint arm", error);
-    return false;
+    return null;
   }
-  return (data?.length ?? 0) > 0;
+  for (const row of data || []) {
+    const action = String((row as { whatsapp_pending_action?: string | null }).whatsapp_pending_action || "");
+    if (parseComplaintAction(action)) return action;
+  }
+  return null;
+}
+
+async function setComplaintAction(from: string, action: string | null) {
+  const db = createServerSupabase();
+  const { error } = await db
+    .from("users")
+    .update({ whatsapp_pending_action: action })
+    .in("phone_number", phoneVariants(from))
+    .like("whatsapp_pending_action", "complaint%");
+  if (error) console.error("[WA] complaint pending_action failed:", error);
+  if (!action) return;
+  const { error: upsertError } = await db
+    .from("users")
+    .upsert({ phone_number: from, whatsapp_pending_action: action }, { onConflict: "phone_number" });
+  if (upsertError) console.error("[WA] complaint pending_action upsert failed:", upsertError);
 }
 
 async function clearComplaintArm(from: string) {
-  const { error } = await createServerSupabase()
-    .from("users")
-    .update({ whatsapp_pending_action: null })
-    .in("phone_number", phoneVariants(from))
-    .eq("whatsapp_pending_action", "complaint");
-  if (error) console.error("[WA] clear complaint arm", error);
+  await setComplaintAction(from, null);
 }
 
-async function beginComplaint(from: string) {
+function complaintWhen(row: OrderDetailRow): { meal: string; day: string; when: string } {
+  const kind = String(row.delivery_slot_kind || "").toLowerCase();
+  const meal = kind === "breakfast" || kind === "lunch" || kind === "dinner" ? kind[0].toUpperCase() + kind.slice(1) : "";
+  const source = row.delivery_slot || row.created_at;
+  const date = source ? new Date(source) : null;
+  const day =
+    date && !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" })
+      : "";
+  return { meal, day, when: [meal, day].filter(Boolean).join(" · ") };
+}
+
+function complaintItemsOf(row: OrderDetailRow): ComplaintItem[] {
+  return (Array.isArray(row.order_items) ? row.order_items : []).flatMap((item) => {
+    const name = joinedDishName(item);
+    if (!name) return [];
+    const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+    const unit = Number(item.unit_price);
+    const weight = resolveOrderItemWeight({
+      name,
+      unitPrice: Number.isFinite(unit) ? unit : 0,
+      menuItemId: item.menu_item_id,
+    });
+    return [{ name, weight, qty }];
+  });
+}
+
+function toComplaintOrder(row: OrderDetailRow): ComplaintOrder {
+  const when = complaintWhen(row);
+  return {
+    id: row.id,
+    ref: formatOrderRef(row.order_number, row.id),
+    meal: when.meal,
+    day: when.day,
+    when: when.when,
+    items: complaintItemsOf(row),
+  };
+}
+
+async function loadComplaintOrders(from: string): Promise<ComplaintOrder[]> {
+  const { data, error } = await createServerSupabase()
+    .from("orders")
+    .select(
+      "id, order_number, status, delivery_slot, delivery_slot_kind, created_at, order_items(quantity, unit_price, menu_item_id, menu_items(name))",
+    )
+    .in("phone_number", phoneVariants(from))
+    .order("created_at", { ascending: false })
+    .limit(12);
+  if (error) {
+    console.error("[WA] complaint orders", error);
+    return [];
+  }
+  return ((data || []) as OrderDetailRow[])
+    .filter((row) => row.status && !["cancelled", "rejected"].includes(String(row.status)))
+    .slice(0, 8)
+    .map(toComplaintOrder);
+}
+
+async function loadComplaintOrder(from: string, orderId: string): Promise<ComplaintOrder | null> {
+  const { data, error } = await createServerSupabase()
+    .from("orders")
+    .select(
+      "id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, created_at, order_items(quantity, unit_price, menu_item_id, menu_items(name))",
+    )
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.error("[WA] complaint order", error);
+    return null;
+  }
+  const row = data as OrderDetailRow & { phone_number?: string | null };
+  const owned = phoneVariants(from).includes(String(row.phone_number || ""));
+  const last10 = from.replace(/\D/g, "").slice(-10);
+  const rowLast10 = String(row.phone_number || "").replace(/\D/g, "").slice(-10);
+  if (!owned && last10 !== rowLast10) return null;
+  return toComplaintOrder(row);
+}
+
+function complaintTargetItems(order: ComplaintOrder, itemIndex: number | "all" | null): ComplaintItem[] {
+  if (itemIndex === "all" || itemIndex == null) return order.items;
+  const one = order.items[itemIndex];
+  return one ? [one] : order.items;
+}
+
+async function askComplaintNote(from: string, order: ComplaintOrder, itemIndex: number | "all") {
+  const items = complaintTargetItems(order, itemIndex);
+  await setComplaintAction(from, complaintWriteAction(order.id, items.length === order.items.length ? "all" : itemIndex));
   await updateSession(from, {
     state: "ai_chat",
     pending_options: null,
     selected_item_id: null,
     selected_variant: null,
   });
-  const { error } = await createServerSupabase()
-    .from("users")
-    .upsert({ phone_number: from, whatsapp_pending_action: "complaint" }, { onConflict: "phone_number" });
-  if (error) console.error("[WA] complaint pending_action failed:", error);
-  await sendText(from, complaintPrompt(langOf(from)));
+  await sendText(
+    from,
+    complaintAboutReply({
+      ref: order.ref,
+      when: order.when,
+      dishes: complaintDishLine(items),
+    }),
+  );
   return ack();
+}
+
+async function showComplaintOrders(from: string, orders: ComplaintOrder[]) {
+  const rows = orders.map((order) => complaintOrderRow(order));
+  await setComplaintAction(from, "complaint_pick");
+  await updateSession(from, {
+    state: "ai_chat",
+    pending_options: null,
+    selected_item_id: null,
+    selected_variant: null,
+  });
+  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  await sendList(from, complaintPickOrdersReply(langOf(from)), "Which order", [{ title: "Orders", rows }]);
+  return ack();
+}
+
+async function showComplaintItems(from: string, order: ComplaintOrder) {
+  const rows = complaintItemRows(order);
+  await setComplaintAction(from, `complaint_item:${order.id}`);
+  await updateSession(from, { state: "ai_chat", selected_item_id: null, selected_variant: null });
+  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  await sendList(from, complaintPickItemReply(order.ref, langOf(from)), "Which dish", [{ title: "Dishes", rows }]);
+  return ack();
+}
+
+async function focusComplaintOrder(from: string, order: ComplaintOrder) {
+  if (order.items.length > 1) return await showComplaintItems(from, order);
+  return await askComplaintNote(from, order, order.items.length === 1 ? 0 : "all");
+}
+
+async function beginComplaint(from: string) {
+  const orders = await loadComplaintOrders(from);
+  if (orders.length === 0) {
+    await setComplaintAction(from, "complaint");
+    await updateSession(from, {
+      state: "ai_chat",
+      pending_options: null,
+      selected_item_id: null,
+      selected_variant: null,
+    });
+    await sendText(from, complaintPrompt(langOf(from)));
+    return ack();
+  }
+  if (orders.length === 1) return await focusComplaintOrder(from, orders[0]);
+  return await showComplaintOrders(from, orders);
+}
+
+async function applyComplaintChoice(from: string, choice: NonNullable<ReturnType<typeof parseComplaintChoice>>) {
+  const order = await loadComplaintOrder(from, choice.orderId);
+  if (!order) {
+    await sendText(from, "I couldn't match that to one of your orders. Pick it from the list once more.");
+    return await beginComplaint(from);
+  }
+  if (choice.kind === "order") return await focusComplaintOrder(from, order);
+  if (choice.kind === "all") return await askComplaintNote(from, order, "all");
+  return await askComplaintNote(from, order, choice.itemIndex);
 }
 
 /**
  * The next free-text line after "Something wrong" is the complaint. A dish
- * name in that line must not reopen the menu.
+ * name in that line must not reopen the menu. A list of orders has to be
+ * tapped first, so a typed line is not filed against the wrong ticket.
  */
 async function captureArmedComplaint(from: string, text: string): Promise<Response | null> {
-  if (!(await complaintIsArmed(from))) return null;
+  const action = await readComplaintAction(from);
+  const phase = parseComplaintAction(action);
+  if (!phase) return null;
   if (!shouldStoreComplaint(text)) {
     await clearComplaintArm(from);
     return null;
   }
-  const body = text.trim().slice(0, 2000);
+  if (phase.phase === "pick") {
+    const orders = await loadComplaintOrders(from);
+    if (orders.length === 0) return await beginComplaint(from);
+    return await showComplaintOrders(from, orders);
+  }
+  if (phase.phase === "item") {
+    const order = await loadComplaintOrder(from, phase.orderId);
+    if (!order) return await beginComplaint(from);
+    return await showComplaintItems(from, order);
+  }
+
+  const note = text.trim().slice(0, 2000);
+  let body = note;
+  let detail = "";
+  if (phase.orderId) {
+    const order = await loadComplaintOrder(from, phase.orderId);
+    if (order) {
+      const items = complaintTargetItems(order, phase.itemIndex);
+      body = buildComplaintRecord({ ref: order.ref, when: order.when, items }, note);
+      detail = [order.ref, complaintDishLine(items)].filter(Boolean).join(", ");
+    }
+  }
   const { error } = await createServerSupabase().from("customer_complaints").insert({
     phone_number: from,
     body,
@@ -495,7 +699,7 @@ async function captureArmedComplaint(from: string, text: string): Promise<Respon
     selected_item_id: null,
     selected_variant: null,
   });
-  await sendText(from, complaintReceivedReply(langOf(from)));
+  await sendText(from, complaintReceivedReply(detail || undefined, langOf(from)));
   return ack();
 }
 
@@ -516,6 +720,7 @@ const STATUS_DETAIL: Record<string, string> = {
 type OrderItemJoin = {
   quantity?: number | null;
   unit_price?: number | null;
+  menu_item_id?: string | null;
   menu_items?: { name?: string | null } | { name?: string | null }[] | null;
 };
 
@@ -1206,6 +1411,8 @@ async function handleResolvedId(
   session: WhatsAppSession,
   profileName: string,
 ): Promise<Response | null> {
+  const complaintChoice = parseComplaintChoice(id);
+  if (complaintChoice) return await applyComplaintChoice(from, complaintChoice);
   if (id.startsWith("date_")) {
     return await applyDeliveryDate(from, id.replace(/^date_/, ""));
   }
@@ -1825,19 +2032,9 @@ async function handleInterrupt(
 
   if (decision.action === "complaint") {
     await updateSession(from, {
-      state: "ai_chat",
-      pending_options: null,
       recent_turns: withInterrupt(session.recent_turns, session.state, 0),
     });
-    try {
-      await createServerSupabase()
-        .from("users")
-        .upsert({ phone_number: from, whatsapp_pending_action: "complaint" }, { onConflict: "phone_number" });
-    } catch (err) {
-      console.error("[WA] interrupt complaint", err);
-    }
-    await sendText(from, complaintPrompt(langOf(from)));
-    return ack();
+    return await beginComplaint(from);
   }
 
   await rememberInterrupt(from, session, decision.nextInterruptCount);

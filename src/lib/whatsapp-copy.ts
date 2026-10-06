@@ -2113,17 +2113,70 @@ export function olderOrderArrivedReply(): string {
   return "Glad it reached you. Enjoy.";
 }
 
-export function complaintReceivedReply(lang?: WaLang): string {
+export function complaintPickOrdersReply(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: "Which order is this about? 🙏",
+      lines: ["Tap the one with the problem. The kitchen will see that order number and the dish."],
+      note: "Tap Which order.",
+    }),
+    msg({
+      title: "Edhu order? 🙏",
+      lines: ["Problem irukura order-a tap pannunga."],
+    }),
+  );
+}
+
+export function complaintPickItemReply(ref: string, lang?: WaLang): string {
+  return pickLang(
+    lang,
+    msg({
+      title: `Which dish on ${ref}? 🙏`,
+      lines: ["Tap the one that went wrong. Tap the whole order if it was the box."],
+    }),
+    msg({
+      title: `${ref} la edhu dish? 🙏`,
+      lines: ["Problem irukura dish-a tap pannunga."],
+    }),
+  );
+}
+
+export function complaintAboutReply(target: { ref: string; dishes: string; when: string }, lang?: WaLang): string {
+  const about = [target.dishes, target.when].filter(Boolean).join(" · ");
+  return pickLang(
+    lang,
+    msg({
+      title: `${target.ref} 🙏`,
+      lines: [
+        about ? `This note is for *${about}*.` : "Tell me what happened with this order.",
+        "Wrong dish, cold food, a missing box, timing. I'll pass this exact order to the kitchen.",
+      ],
+      note: `${SUPPORT_PHONE_E164} · ${SUPPORT_EMAIL}`,
+    }),
+    msg({
+      title: `${target.ref} 🙏`,
+      lines: ["Enna aachu-nu sollunga. Indha order-a kitchen-ku anupuren."],
+      note: SUPPORT_PHONE_E164,
+    }),
+  );
+}
+
+export function complaintReceivedReply(detail?: string, lang?: WaLang): string {
   return pickLang(
     lang,
     msg({
       title: "Got it 🙏",
-      lines: ["I've passed that to the kitchen. They'll look at it and come back to you."],
+      lines: [
+        detail
+          ? `I've passed that to the kitchen. They can see it is about ${detail}.`
+          : "I've passed that to the kitchen. They'll look at it and come back to you.",
+      ],
       note: SUPPORT_PHONE_E164,
     }),
     msg({
       title: "Kidaichuduchu 🙏",
-      lines: ["Kitchen-ku anupiten. Dashboard-la paakalaam."],
+      lines: ["Kitchen-ku anupiten."],
       note: SUPPORT_PHONE_E164,
     }),
   );

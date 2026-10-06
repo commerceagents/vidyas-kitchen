@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { requireDashboardSession } from "@/lib/dashboard-auth";
+import { splitComplaintBody } from "@/lib/whatsapp-complaint";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,47 +53,28 @@ export async function GET() {
     const variants = [...new Set(rows.flatMap((row) => phoneVariants(String(row.phone_number || ""))))];
 
     const names = new Map<string, string>();
-    const latestOrder = new Map<string, { id: string; orderNumber: number | null }>();
 
     if (variants.length > 0) {
-      const [{ data: users }, { data: orders }] = await Promise.all([
-        supabase.from("users").select("phone_number, full_name").in("phone_number", variants),
-        supabase
-          .from("orders")
-          .select("id, order_number, phone_number, created_at")
-          .in("phone_number", variants)
-          .order("created_at", { ascending: false })
-          .limit(400),
-      ]);
+      const { data: users } = await supabase.from("users").select("phone_number, full_name").in("phone_number", variants);
 
       for (const user of users ?? []) {
         const key = last10(String(user.phone_number || ""));
         const name = String(user.full_name || "").trim();
         if (key && name && !names.has(key)) names.set(key, name);
       }
-
-      for (const order of orders ?? []) {
-        const key = last10(String(order.phone_number || ""));
-        if (!key || latestOrder.has(key)) continue;
-        const orderNumber = order.order_number == null ? null : Number(order.order_number);
-        latestOrder.set(key, {
-          id: String(order.id),
-          orderNumber: Number.isFinite(orderNumber) ? orderNumber : null,
-        });
-      }
     }
 
     const complaints = rows.map((row) => {
       const key = last10(String(row.phone_number || ""));
-      const order = key ? latestOrder.get(key) : undefined;
+      const split = splitComplaintBody(String(row.body || ""));
       return {
         id: row.id,
         phone: row.phone_number,
         body: row.body,
+        target: split.target || null,
+        note: split.note,
         createdAt: row.created_at,
         customerName: (key && names.get(key)) || null,
-        orderId: order?.id ?? null,
-        orderNumber: order?.orderNumber ?? null,
       };
     });
 
