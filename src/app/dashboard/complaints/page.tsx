@@ -17,7 +17,6 @@ import {
   CATEGORY_LABEL,
   STATUS_LABEL,
   type ComplaintCard,
-  type ComplaintCategory,
   type ComplaintRefund,
   type ComplaintStatus,
   complaintStats,
@@ -28,8 +27,6 @@ import {
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#F5C518";
-
-const CATEGORIES: ComplaintCategory[] = ["cold_food", "wrong_item", "late_delivery", "rude_behavior", "other"];
 
 const SAMPLE: ComplaintCard = {
   id: "sample-complaint",
@@ -56,7 +53,6 @@ const SAMPLE: ComplaintCard = {
   paymentCollected: false,
 };
 
-type CategoryFilter = "all" | ComplaintCategory;
 type SamplePreview = {
   status: ComplaintStatus;
   resolvedAt: string | null;
@@ -115,7 +111,6 @@ export default function ComplaintsPage() {
 
   const [complaints, setComplaints] = useState<ComplaintCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [modal, setModal] = useState<ComplaintCard | null>(null);
   const [preview, setPreview] = useState<SamplePreview>({
@@ -159,10 +154,7 @@ export default function ComplaintsPage() {
   const showingSample = real.length === 0 && !error && !query && complaints != null;
   const sampleCard: ComplaintCard = showingSample ? { ...SAMPLE, ...preview } : SAMPLE;
   const source = showingSample ? [sampleCard] : real;
-  const filtered = source.filter((row) => {
-    if (categoryFilter !== "all" && row.category !== categoryFilter) return false;
-    return matchesQuery(row, query);
-  });
+  const filtered = source.filter((row) => matchesQuery(row, query));
   const rows = sortComplaints(filtered, "newest");
   const stats = complaintStats(showingSample ? [sampleCard] : real);
 
@@ -257,10 +249,8 @@ export default function ComplaintsPage() {
         stats={stats}
         error={error}
         showingSample={showingSample}
-        emptyBecauseSearch={Boolean(query) || categoryFilter !== "all"}
-        categoryFilter={categoryFilter}
+        emptyBecauseSearch={Boolean(query)}
         savingId={savingId}
-        onCategoryFilter={setCategoryFilter}
         onDone={onDone}
         onOpenRefund={(card) => setModal(card)}
         onCopyPhone={(phone) => void copyPhone(phone)}
@@ -357,9 +347,7 @@ function ComplaintWorkspace({
   error,
   showingSample,
   emptyBecauseSearch,
-  categoryFilter,
   savingId,
-  onCategoryFilter,
   onDone,
   onOpenRefund,
   onCopyPhone,
@@ -369,9 +357,7 @@ function ComplaintWorkspace({
   error: string | null;
   showingSample: boolean;
   emptyBecauseSearch: boolean;
-  categoryFilter: CategoryFilter;
   savingId: string | null;
-  onCategoryFilter: (value: CategoryFilter) => void;
   onDone: (card: ComplaintCard) => void;
   onOpenRefund: (card: ComplaintCard) => void;
   onCopyPhone: (phone: string) => void;
@@ -391,21 +377,6 @@ function ComplaintWorkspace({
             <span style={{ color: "#8a8a8a", fontSize: 12, fontWeight: 700 }}>{card.label}</span>
             <span style={{ color: card.color, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em" }}>{card.value}</span>
           </div>
-        ))}
-      </div>
-
-      <div style={chipRow}>
-        <FilterChip active={categoryFilter === "all"} onClick={() => onCategoryFilter("all")}>
-          All types
-        </FilterChip>
-        {CATEGORIES.map((category) => (
-          <FilterChip
-            key={category}
-            active={categoryFilter === category}
-            onClick={() => onCategoryFilter(categoryFilter === category ? "all" : category)}
-          >
-            {CATEGORY_LABEL[category]}
-          </FilterChip>
         ))}
       </div>
 
@@ -435,37 +406,6 @@ function ComplaintWorkspace({
   );
 }
 
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      style={{
-        border: "none",
-        borderRadius: 999,
-        padding: "7px 12px",
-        fontFamily: FONT,
-        fontSize: 12,
-        fontWeight: 800,
-        cursor: "pointer",
-        background: active ? YELLOW : "#1c1c1c",
-        color: active ? "#111" : "#cfcfcf",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function EmptyComplaints({ filtered }: { filtered: boolean }) {
   return (
     <div style={{ textAlign: "center", padding: "48px 16px", fontFamily: FONT }}>
@@ -477,7 +417,7 @@ function EmptyComplaints({ filtered }: { filtered: boolean }) {
       </p>
       <p style={{ margin: "8px 0 0", color: "#8a8a8a", fontSize: 14, lineHeight: 1.45 }}>
         {filtered
-          ? "Try another status, type, or search."
+          ? "Try another search."
           : "When a customer taps Something wrong, picks the order, and writes what happened, it shows up here."}
       </p>
     </div>
@@ -843,8 +783,6 @@ const statButton = {
   gap: 4,
   fontFamily: FONT,
 };
-
-const chipRow = { display: "flex", flexWrap: "wrap" as const, gap: 8, alignItems: "center" };
 
 const emptyIcon = {
   width: 56,
