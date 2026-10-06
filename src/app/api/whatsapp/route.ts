@@ -143,6 +143,7 @@ import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, 
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
   applySpokenDate,
+  applySpokenFamily,
   applySpokenSize,
   buildProposal,
   dishChoiceQuery,
@@ -2055,6 +2056,12 @@ async function handleAiChat(from: string, text: string, profileName: string) {
   const history = session.recent_turns || [];
   // An open cart is the order. A leftover draft must not redraw it.
   const stored = session.cart.length > 0 ? null : readStoredDraft(history);
+  const spokenFamily = dishQueryCategory(text);
+  const storedFamily = dishQueryCategory((stored?.items || []).map((item) => item.dish).filter(Boolean).join(" "));
+  if (spokenFamily && spokenFamily !== storedFamily) {
+    const base = stored || { items: [{ dish: spokenFamily }] };
+    return await presentProposal(from, applySpokenFamily(base, text), text);
+  }
   if (stored) {
     const last = await fetchLastAddressAndSlot(from);
     const filled = fillDraftFromReply(stored, text, last.address || session.delivery_address);
@@ -2142,7 +2149,7 @@ async function presentProposal(
   const menu = await getMenu();
   const last = await fetchLastAddressAndSlot(from);
   const session = await getSession(from);
-  let draft = applySpokenSize(applySpokenDate(incoming, sourceText), sourceText);
+  let draft = applySpokenFamily(applySpokenSize(applySpokenDate(incoming, sourceText), sourceText), sourceText);
   const proposalInput = {
     menu,
     sourceText,
@@ -2239,7 +2246,13 @@ async function presentProposal(
           recent_turns: turns,
         });
         await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
-        const section = family === "mutton" ? "Mutton gravy" : family === "egg" ? "Egg" : family === "chicken" ? "Chicken gravy" : "Dishes";
+        const section = family === "mutton"
+          ? (/\bgravy\b/i.test(query) ? "Mutton gravy" : "Mutton")
+          : family === "egg"
+            ? "Egg"
+            : family === "chicken"
+              ? (/\b(wings?|dry)\b/i.test(query) ? "Chicken" : "Chicken gravy")
+              : "Dishes";
         await sendList(from, buildDishListPrompt(family, lastAssistantText(session.recent_turns)), "View options", [
           { title: section, rows },
         ]);

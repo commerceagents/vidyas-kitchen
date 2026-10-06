@@ -1053,7 +1053,7 @@ export function buildDishListPrompt(
   avoid?: string | null,
   roll = Math.random(),
 ): string {
-  const noun = family === "mutton" ? "mutton gravy" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
+  const noun = family === "mutton" ? "mutton" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
   const headerEmoji = family === "mutton" ? "🍖" : family === "egg" ? "🥚" : "🍗";
   const opener = varyLine(
     [

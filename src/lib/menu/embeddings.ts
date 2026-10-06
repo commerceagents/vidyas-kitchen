@@ -367,6 +367,10 @@ export async function closeDishChoices<T extends ChoiceRow>(
   let pool = category
     ? menu.filter((item) => String(item.category || "").toLowerCase() === category)
     : menu;
+  // "mutton dish" and "egg" are the whole family, not a similarity guess.
+  if (category && phrase.toLowerCase() === category.toLowerCase()) {
+    return pickCanonicalRows(pool).slice(0, 10);
+  }
   // Hard filter before any similarity score. Embeddings only rank inside this set.
   if (gravyAsk) pool = pool.filter((item) => isGravyStyleDish(item.name));
   const ranked = await semanticMenuMatches(pool, phrase, gravyAsk ? 8 : CHOICE_LIMIT, gravyAsk ? SEARCH_THRESHOLD : CHOICE_THRESHOLD);

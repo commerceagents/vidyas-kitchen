@@ -130,14 +130,49 @@ export function dishQueryCategory(query: string): "chicken" | "mutton" | "egg" |
  * The phrase we match on. The model is told to store the family as "chicken",
  * which drops "gravy" and then ranks wings. The customer's own words win.
  */
+function stylePhrase(family: "chicken" | "mutton" | "egg", text: string): string | null {
+  const style = text.match(/\b(gravy|gravies|curry|curries|wings?|dry|chukka)\b/i);
+  if (!style) return null;
+  const word = style[1].toLowerCase();
+  if (word.startsWith("grav")) return `${family} gravy`;
+  if (word.startsWith("curr")) return `${family} curry`;
+  if (word.startsWith("wing")) return `${family} wings`;
+  return `${family} ${word}`;
+}
+
 export function dishChoiceQuery(draftDish: string, source?: string | null): string {
-  const blob = `${source || ""} ${draftDish}`.replace(/\s+/g, " ").trim();
-  const family = dishQueryCategory(blob);
+  const spoken = String(source || "").trim();
+  const spokenFamily = dishQueryCategory(spoken);
+  const draftFamily = dishQueryCategory(draftDish);
+  // "mutton dish" must not inherit "gravy" or "chicken" from the previous draft.
+  if (spokenFamily && draftFamily && spokenFamily !== draftFamily) {
+    return stylePhrase(spokenFamily, spoken) || spokenFamily;
+  }
+  const blob = `${spoken} ${draftDish}`.replace(/\s+/g, " ").trim();
+  const family = spokenFamily || draftFamily;
   if (family && /\b(gravy|gravies)\b/i.test(blob)) return `${family} gravy`;
   if (family && /\b(curry|curries)\b/i.test(blob)) return `${family} curry`;
   if (family && /\bwings?\b/i.test(blob)) return `${family} wings`;
   if (family && /\bdry\b/i.test(blob)) return `${family} dry`;
-  return String(draftDish || source || "").trim();
+  if (spokenFamily && !String(draftDish || "").trim()) return spokenFamily;
+  return String(draftDish || spoken).trim();
+}
+
+/** A new family in this message replaces the leftover dish. "mutton dish" drops chicken gravy. */
+export function applySpokenFamily(draft: ProposalDraft, source?: string | null): ProposalDraft {
+  const spokenFamily = dishQueryCategory(String(source || ""));
+  if (!spokenFamily) return draft;
+  const items = draft.items?.length ? draft.items : [{ dish: spokenFamily }];
+  const draftDish = items.map((item) => item.dish).filter(Boolean).join(" ");
+  if (dishQueryCategory(draftDish) === spokenFamily && dishChoiceQuery(draftDish, source) === draftDish.trim()) {
+    return draft;
+  }
+  const nextDish = dishChoiceQuery(draftDish, source);
+  if (!nextDish || nextDish === draftDish.trim()) return draft;
+  return {
+    ...draft,
+    items: items.map((item, index) => (index === 0 ? { ...item, dish: nextDish } : item)),
+  };
 }
 
 /**

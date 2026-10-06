@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { choiceButtonTitle, listRowLabel } from "../dish-name";
 import { allDishPricing, pickCanonicalRows } from "../menu/dish-pricing";
 import { istAddCalendarDays, istCalendarYmd } from "../delivery-slots";
-import { applySpokenSize, dishChoiceQuery, notedDeliveryDate } from "./order-proposal";
+import { applySpokenFamily, applySpokenSize, dishChoiceQuery, notedDeliveryDate } from "./order-proposal";
 import { isGravyStyleDish } from "../menu/embeddings";
 import { buildDishListPrompt } from "../whatsapp-copy";
 import { classifyTurn } from "../whatsapp-turn";
@@ -86,6 +86,27 @@ check(
   "a shortened draft still searches for chicken gravy",
   dishChoiceQuery("chicken", "i would like to order chicken gravy for tomo lunch") === "chicken gravy",
 );
+check(
+  "mutton in this message beats a leftover chicken draft",
+  dishChoiceQuery("chicken gravy", "I would like to order mutton dish") === "mutton",
+);
+check(
+  "egg in this message beats a leftover chicken draft",
+  dishChoiceQuery("Black Pepper Chicken Gravy", "I would like to order egg dish") === "egg",
+);
+check(
+  "mutton gravy stays mutton gravy",
+  dishChoiceQuery("chicken gravy", "mutton gravy for tomorrow") === "mutton gravy",
+);
+const switched = applySpokenFamily(
+  { items: [{ dish: "chicken gravy", size: "500gm" }] },
+  "I would like to order mutton dish",
+);
+check("a mutton sentence replaces the leftover chicken dish", switched.items?.[0]?.dish === "mutton");
+const muttonPrompt = buildDishListPrompt("mutton", null, 0);
+const eggPrompt = buildDishListPrompt("egg", null, 0);
+check("mutton prompt does not say chicken", muttonPrompt.includes("mutton options") && !muttonPrompt.includes("chicken"));
+check("egg prompt names egg", eggPrompt.includes("egg options") && !eggPrompt.includes("chicken"));
 
 const chickenNames = [
   "CHICKEN WINGS",
