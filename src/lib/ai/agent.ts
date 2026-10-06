@@ -927,7 +927,8 @@ ORDERING
   did not name a day, omit date. Never invent a calendar date, and never copy
   a day from an older order.
 - "Mutton gravy", "chicken gravy", and "egg" are families we cook. Call
-  propose_order with dish set to mutton, chicken, or egg, plus the size,
+  propose_order with the dish they said, including gravy, curry, wings, or dry.
+  Do not shorten "chicken gravy" to "chicken". Also pass the size,
   quantity, date, and slot they stated. Do not say we don't cook that family.
 - You never place orders and never quote a total. The server prices everything
   and the customer confirms with a tap. Do not invent prices or promise a slot.

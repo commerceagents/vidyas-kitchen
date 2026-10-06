@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { choiceButtonTitle } from "../dish-name";
 import { allDishPricing, pickCanonicalRows } from "../menu/dish-pricing";
 import { istAddCalendarDays, istCalendarYmd } from "../delivery-slots";
-import { notedDeliveryDate } from "./order-proposal";
+import { dishChoiceQuery, notedDeliveryDate } from "./order-proposal";
+import { isGravyStyleDish } from "../menu/embeddings";
 import { buildDishChoiceMessage } from "../whatsapp-copy";
 import { classifyTurn } from "../whatsapp-turn";
 
@@ -76,6 +77,30 @@ for (const dish of allDishPricing()) {
   const title = choiceButtonTitle(dish.name);
   check(`button title fits: ${dish.name} → ${title}`, title.length > 0 && title.length <= 20);
 }
+
+check(
+  "a shortened draft still searches for chicken gravy",
+  dishChoiceQuery("chicken", "i would like to order chicken gravy for tomo lunch") === "chicken gravy",
+);
+
+const chickenNames = [
+  "CHICKEN WINGS",
+  "Chilly Chicken (Dry)",
+  "CHILLY CHICKEN GRAVY",
+  "CHICKEN GRAVY (MOM'S RECIPE)",
+  "CHICKEN GRAVY SISTER'S RECIPE",
+  "PEPPER CHICKEN (SISTER-IN-LAW'S RECIPE)",
+  "BLACK PEPPER CHICKEN GRAVY",
+  "IDLI SPECIAL CHICKEN GRAVY",
+];
+const gravies = chickenNames.filter(isGravyStyleDish);
+check("wings are not a gravy", !gravies.includes("CHICKEN WINGS"));
+check("dry chicken is not a gravy", !gravies.includes("Chilly Chicken (Dry)"));
+check("chilly gravy stays", gravies.includes("CHILLY CHICKEN GRAVY"));
+check("mom's gravy stays", gravies.includes("CHICKEN GRAVY (MOM'S RECIPE)"));
+check("sister's gravy stays", gravies.includes("CHICKEN GRAVY SISTER'S RECIPE"));
+check("sister-in-law pepper stays, even without the word gravy", gravies.includes("PEPPER CHICKEN (SISTER-IN-LAW'S RECIPE)"));
+check("pepper gravy and idli gravy stay", gravies.includes("BLACK PEPPER CHICKEN GRAVY") && gravies.includes("IDLI SPECIAL CHICKEN GRAVY"));
 
 const duringDish = classifyTurn("tomorrow", "picking_item");
 check(

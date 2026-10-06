@@ -121,6 +121,20 @@ export function dishQueryCategory(query: string): "chicken" | "mutton" | "egg" |
 }
 
 /**
+ * The phrase we match on. The model is told to store the family as "chicken",
+ * which drops "gravy" and then ranks wings. The customer's own words win.
+ */
+export function dishChoiceQuery(draftDish: string, source?: string | null): string {
+  const blob = `${source || ""} ${draftDish}`.replace(/\s+/g, " ").trim();
+  const family = dishQueryCategory(blob);
+  if (family && /\b(gravy|gravies)\b/i.test(blob)) return `${family} gravy`;
+  if (family && /\b(curry|curries)\b/i.test(blob)) return `${family} curry`;
+  if (family && /\bwings?\b/i.test(blob)) return `${family} wings`;
+  if (family && /\bdry\b/i.test(blob)) return `${family} dry`;
+  return String(draftDish || source || "").trim();
+}
+
+/**
  * True when the words that are not just a category actually appear on a dish.
  * "chicken wings" is known. "chicken tandoori" and "biryani" are not.
  */

@@ -142,6 +142,7 @@ import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
   applySpokenDate,
   buildProposal,
+  dishChoiceQuery,
   dishQueryCategory,
   fillDraftFromReply,
   notedDeliveryDate,
@@ -2121,8 +2122,9 @@ async function presentProposal(
   let preparedChoices: MenuItem[] | null = null;
   let result = buildProposal({ ...proposalInput, draft });
   if (!result.ok && result.kind === "missing" && result.field === "dish") {
-    const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
-    const family = dishQueryCategory(query) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
+    const draftDish = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ");
+    const query = dishChoiceQuery(draftDish, sourceText);
+    const family = dishQueryCategory(query) || dishQueryCategory(sourceText || "") || dishQueryCategory(draftDish);
     const options = await closeDishChoices(menu, query, family);
     preparedChoices = options;
     if (options.length === 1) {
@@ -2188,8 +2190,9 @@ async function presentProposal(
     }
 
     if (result.field === "dish") {
-      const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
-      const family = dishQueryCategory(query) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
+      const draftDish = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ");
+      const query = dishChoiceQuery(draftDish, sourceText);
+      const family = dishQueryCategory(query) || dishQueryCategory(sourceText || "") || dishQueryCategory(draftDish);
       const options = preparedChoices ?? (await closeDishChoices(menu, query, family));
       if (options.length > 0) {
         const size = parsePackSize(String(draft.items?.[0]?.size || "")) || parsePackSize(sourceText || "");

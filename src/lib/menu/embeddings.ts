@@ -289,12 +289,18 @@ const SEARCH_THRESHOLD = 0.42;
 const CHOICE_THRESHOLD = 0.5;
 const CHOICE_LIMIT = 4;
 
-function wantsGravy(query: string): boolean {
+export function asksForGravy(query: string): boolean {
   return /\b(gravy|gravies|curry|curries)\b/i.test(query) && !/\b(wing|wings|dry|chukka)\b/i.test(query);
 }
 
-function isSideDish(name: string): boolean {
-  return /\b(wing|wings|dry|chukka)\b/i.test(name);
+/** Wings, dry, and chukka are a different preparation. A gravy request cannot return them. */
+export function isGravyStyleDish(name: string): boolean {
+  const n = name.toLowerCase();
+  if (/\b(wing|wings|dry|chukka|fried|kebab)\b/.test(n)) return false;
+  if (/\b(gravy|curry|keema|kheema|stew|chalna)\b/.test(n)) return true;
+  // Sister-in-law's pepper chicken is a gravy. The name does not contain the word.
+  if (/sister-in-law|sister in law/.test(n) && /\b(pepper|chicken)\b/.test(n)) return true;
+  return false;
 }
 
 function collapseRanked<T extends ChoiceRow>(ranked: { item: T; similarity: number }[], pool: T[]): T[] {
@@ -357,16 +363,25 @@ export async function closeDishChoices<T extends ChoiceRow>(
   category?: string | null,
 ): Promise<T[]> {
   const phrase = String(query || "").trim();
-  const pool = category
+  const gravyAsk = asksForGravy(phrase);
+  let pool = category
     ? menu.filter((item) => String(item.category || "").toLowerCase() === category)
     : menu;
-  const ranked = await semanticMenuMatches(pool, phrase, 8, CHOICE_THRESHOLD);
-  const scoped = wantsGravy(phrase) ? ranked.filter((item) => !isSideDish(item.name)) : ranked;
-  if (scoped.length > 0) return scoped.slice(0, CHOICE_LIMIT);
+  // Hard filter before any similarity score. Embeddings only rank inside this set.
+  if (gravyAsk) pool = pool.filter((item) => isGravyStyleDish(item.name));
+  const ranked = await semanticMenuMatches(pool, phrase, gravyAsk ? 8 : CHOICE_LIMIT, gravyAsk ? SEARCH_THRESHOLD : CHOICE_THRESHOLD);
+  const unique = pickCanonicalRows(pool);
+  if (!gravyAsk) return (ranked.length > 0 ? ranked : unique).slice(0, CHOICE_LIMIT);
 
-  let fallback = pickCanonicalRows(pool);
-  if (wantsGravy(phrase)) fallback = fallback.filter((item) => !isSideDish(item.name));
-  return fallback.slice(0, CHOICE_LIMIT);
+  const seen = new Set<string>();
+  const ordered: T[] = [];
+  for (const item of [...ranked, ...unique]) {
+    const key = canonicalDishKey(item) || item.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(item);
+  }
+  return ordered.slice(0, 6);
 }
 
 /** Direct check used after a backfill. Returns ranked names and scores, nothing else. */
