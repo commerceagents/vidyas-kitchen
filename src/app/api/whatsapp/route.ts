@@ -102,6 +102,21 @@ import {
   olderOrderButtons,
   type OlderOrderKind,
   helpAndSupportReply,
+  HELP_LIST_ROWS,
+  buildRefundAnswer,
+  buildCancelPolicyAnswer,
+  buildCancelClosedAnswer,
+  buildCancelConfirmAsk,
+  buildCancelDoneAnswer,
+  buildNothingToCancelAnswer,
+  buildDriverAnswer,
+  buildOfferAnswer,
+  buildAddressOnFileAnswer,
+  buildBestSellerAnswer,
+  buildSpicyAnswer,
+  buildBotAnswer,
+  buildPresenceAnswer,
+  buildResubscribeAnswer,
   callUsDialReply,
   languageSetReply,
   marketingOptOutReply,
@@ -135,8 +150,10 @@ import { DELIVERY_ZONE } from "@/lib/delivery-zone";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
 import type { AppliedOffer } from "@/lib/offers";
-import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
-import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
+import { isCodBlocked, markOrderPaidAndNotify, transitionOrderStatusInDb } from "@/lib/order-transition";
+import { OrderStatus, PaymentStatus, formatOrderRef } from "@/lib/order-status";
+import { supportOrderNumber, supportTopic } from "@/lib/whatsapp-support";
+import { loadActiveFestival } from "@/lib/menu/festival-dishes";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, pickCanonicalRows, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
@@ -993,6 +1010,11 @@ export async function POST(req: Request) {
       if (handled) return handled;
     }
 
+    if (!interactiveReplyId && !resolvedId) {
+      const supported = await answerSupport(from, text, session);
+      if (supported) return supported;
+    }
+
     if (isPendingState(session.state) && !interactiveReplyId && !resolvedId) {
       const diverted = await handleInterrupt(from, text, session, profileName);
       if (diverted) return diverted;
@@ -1137,6 +1159,9 @@ async function handleResolvedId(
   if (id.startsWith("order_")) {
     return await handleMarketingOrderTap(from, id.slice("order_".length));
   }
+  if (id.startsWith("hscancel_")) {
+    return await confirmSupportCancel(from, id.slice("hscancel_".length));
+  }
 
   const usualPick = id.match(/^buyusual_(\d+)$/);
   if (usualPick) return await startUsualDish(from, Number(usualPick[1]));
@@ -1237,6 +1262,10 @@ async function handleResolvedId(
     case "hs_call":
       await sendText(from, callUsDialReply(langOf(from)));
       return ack();
+    case "hs_refund":
+      return await showRefundAnswer(from);
+    case "hs_cancel":
+      return await showCancelChoice(from, "");
     case "hs_complaint":
       await updateSession(from, { state: "ai_chat" });
       try {
@@ -3447,20 +3476,277 @@ async function handlePayCodTap(from: string, session: WhatsAppSession) {
 }
 
 async function showHelpSupport(from: string) {
-  const hasActive = await hasActiveOrder(from);
-  const options: { id: string; title: string }[] = hasActive
-    ? [
-        { id: "hs_track", title: BTN.track },
-        { id: "hs_call", title: BTN.callUs },
-        { id: "hs_complaint", title: BTN.somethingWrong },
-      ]
-    : [
-        { id: "hs_your_orders", title: BTN.yourOrders },
-        { id: "hs_call", title: BTN.callUs },
-        { id: "hs_complaint", title: BTN.somethingWrong },
-      ];
-  await storeOptions(from, options);
-  await sendButtons(from, helpAndSupportReply(langOf(from)), options);
+  await storeOptions(
+    from,
+    HELP_LIST_ROWS.map((row) => ({ id: row.id, title: row.title })),
+  );
+  await sendList(from, helpAndSupportReply(langOf(from)), "Get help", [{ title: "Help", rows: HELP_LIST_ROWS }]);
+  return ack();
+}
+
+type SupportOrderRow = {
+  id: string;
+  order_number?: number | null;
+  status?: string | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+  refund_status?: string | null;
+  total_amount?: number | null;
+  cancellation_deadline?: string | null;
+  delivery_slot?: string | null;
+  delivery_slot_kind?: string | null;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  driver_name?: string | null;
+  driver_phone?: string | null;
+  driver_last_lat?: number | null;
+  driver_last_lng?: number | null;
+};
+
+async function supportOrders(from: string): Promise<SupportOrderRow[]> {
+  const db = createServerSupabase();
+  const phones = phoneVariants(from);
+  const full =
+    "id, order_number, status, payment_method, payment_status, refund_status, total_amount, cancellation_deadline, delivery_slot, delivery_slot_kind, delivery_lat, delivery_lng, driver_name, driver_phone, driver_last_lat, driver_last_lng";
+  const first = await db.from("orders").select(full).in("phone_number", phones).order("created_at", { ascending: false }).limit(5);
+  if (!first.error) return (first.data || []) as SupportOrderRow[];
+  const slim = await db
+    .from("orders")
+    .select("id, order_number, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind")
+    .in("phone_number", phones)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  return (slim.data || []) as SupportOrderRow[];
+}
+
+function supportRef(row: SupportOrderRow): string {
+  return formatOrderRef(row.order_number, row.id);
+}
+
+function cancelWindowOpen(row: SupportOrderRow, now = Date.now()): boolean {
+  const status = String(row.status || "").toLowerCase();
+  if (["cancelled", "rejected", "delivered", "undelivered"].includes(status)) return false;
+  if (status === "pending_payment") return true;
+  const deadline = row.cancellation_deadline ? Date.parse(row.cancellation_deadline) : NaN;
+  return Number.isFinite(deadline) && now < deadline;
+}
+
+async function answerSupport(from: string, text: string, session: WhatsAppSession): Promise<Response | null> {
+  const topic = supportTopic(text);
+  if (!topic) return null;
+  await updateSession(from, {
+    state: "idle",
+    pending_options: null,
+    selected_item_id: null,
+    selected_variant: null,
+  });
+  if (topic === "help") return await showHelpSupport(from);
+  if (topic === "refund") return await showRefundAnswer(from);
+  if (topic === "cancel_policy") {
+    await sendText(from, buildCancelPolicyAnswer());
+    return ack();
+  }
+  if (topic === "cancel_placed") return await showCancelChoice(from, text);
+  if (topic === "call") {
+    await sendText(from, callUsDialReply(langOf(from)));
+    return ack();
+  }
+  if (topic === "driver") return await showDriverAnswer(from);
+  if (topic === "offers") return await showOfferAnswer(from);
+  if (topic === "address") {
+    const last = await fetchLastAddressAndSlot(from);
+    await sendText(from, buildAddressOnFileAnswer(last.address || session.delivery_address));
+    return ack();
+  }
+  if (topic === "best_seller") {
+    await sendText(from, buildBestSellerAnswer("Mom's Recipe Chicken Gravy"));
+    return ack();
+  }
+  if (topic === "spicy") {
+    await sendText(from, buildSpicyAnswer());
+    return ack();
+  }
+  if (topic === "bot") {
+    await sendText(from, buildBotAnswer());
+    return ack();
+  }
+  if (topic === "presence") {
+    await sendText(from, buildPresenceAnswer());
+    return ack();
+  }
+  if (topic === "resubscribe") return await applyMarketingOptIn(from);
+  return null;
+}
+
+async function showRefundAnswer(from: string) {
+  const orders = await supportOrders(from);
+  const hit = orders.find((row) =>
+    ["initiated", "refunded", "refund_failed"].includes(String(row.refund_status || "").toLowerCase()),
+  );
+  await sendText(
+    from,
+    buildRefundAnswer(
+      hit
+        ? {
+            ref: supportRef(hit),
+            refundStatus: hit.refund_status || null,
+            payment: String(hit.payment_method || ""),
+            total: hit.total_amount != null ? formatInr(Number(hit.total_amount)) : "",
+          }
+        : null,
+    ),
+  );
+  return ack();
+}
+
+async function showCancelChoice(from: string, text: string) {
+  const wanted = supportOrderNumber(text);
+  let orders = await supportOrders(from);
+  if (wanted && !orders.some((row) => Number(row.order_number) === wanted)) {
+    const { data } = await createServerSupabase()
+      .from("orders")
+      .select("id, order_number, status, payment_method, payment_status, refund_status, total_amount, cancellation_deadline, delivery_slot, delivery_slot_kind")
+      .in("phone_number", phoneVariants(from))
+      .eq("order_number", wanted)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    orders = ((data || []) as SupportOrderRow[]).concat(orders);
+  }
+  const row = wanted
+    ? orders.find((item) => Number(item.order_number) === wanted)
+    : orders.find((item) => item.status && !["cancelled", "rejected", "delivered"].includes(String(item.status)));
+  if (!row) {
+    await sendText(from, buildNothingToCancelAnswer());
+    return ack();
+  }
+  const ref = supportRef(row);
+  if (!cancelWindowOpen(row)) {
+    await sendText(from, buildCancelClosedAnswer(ref));
+    return ack();
+  }
+  const when = formatSlotLineForCustomer(row.delivery_slot, row.delivery_slot_kind);
+  const buttons = [
+    { id: `hscancel_${row.id}`, title: "Cancel this order" },
+    { id: "hs_call", title: "Call the kitchen" },
+  ];
+  await storeOptions(from, buttons);
+  await sendButtons(from, buildCancelConfirmAsk(ref, when ? `Booked for ${when}.` : "The cooking window is still open."), buttons);
+  return ack();
+}
+
+async function confirmSupportCancel(from: string, orderId: string) {
+  const db = createServerSupabase();
+  const { data } = await db
+    .from("orders")
+    .select("id, order_number, status, phone_number, payment_method, payment_status, total_amount, cancellation_deadline")
+    .eq("id", orderId)
+    .maybeSingle();
+  const row = data as (SupportOrderRow & { phone_number?: string | null }) | null;
+  const owns =
+    row &&
+    String(row.phone_number || "").replace(/\D/g, "").slice(-10) === from.replace(/\D/g, "").slice(-10);
+  if (!row || !owns) {
+    await sendText(from, buildNothingToCancelAnswer());
+    return ack();
+  }
+  const ref = supportRef(row);
+  if (!cancelWindowOpen(row)) {
+    await sendText(from, buildCancelClosedAnswer(ref));
+    return ack();
+  }
+  const result = await transitionOrderStatusInDb(db, row.id, OrderStatus.CANCELLED, { notifyCustomer: false });
+  if (!result.ok) {
+    await sendText(from, buildCancelClosedAnswer(ref));
+    return ack();
+  }
+  const { data: after } = await db
+    .from("orders")
+    .select("refund_status, payment_method, payment_status, total_amount")
+    .eq("id", row.id)
+    .maybeSingle();
+  const refundStatus = String((after as { refund_status?: string | null } | null)?.refund_status || "").toLowerCase();
+  const method = String((after as { payment_method?: string | null } | null)?.payment_method || row.payment_method || "").toLowerCase();
+  const paid = String((after as { payment_status?: string | null } | null)?.payment_status || row.payment_status || "").toLowerCase() === "paid";
+  const total = Number((after as { total_amount?: number | null } | null)?.total_amount ?? row.total_amount);
+  const amount = Number.isFinite(total) && total > 0 ? formatInr(total) : "";
+  const moneyLine =
+    method === "cod" || method === "cash" || !paid
+      ? "You have not been charged."
+      : refundStatus === "refunded"
+        ? `A full refund of *${amount}* is going back to the same UPI or card. Food, packaging, delivery, and GST.`
+        : refundStatus === "refund_failed"
+          ? "The refund did not start. Call the kitchen and they will raise it."
+          : refundStatus === "initiated"
+            ? `The refund has started${amount ? ` for *${amount}*` : ""}. It goes back to the original payment.`
+            : "You have not been charged.";
+  await sendText(from, buildCancelDoneAnswer(ref, moneyLine));
+  return ack();
+}
+
+function kmBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function showDriverAnswer(from: string) {
+  const orders = await supportOrders(from);
+  const row = orders.find((item) => item.status && !["cancelled", "rejected", "delivered"].includes(String(item.status)));
+  if (!row) {
+    await sendText(from, buildDriverAnswer({ ref: null, name: null, phone: null, km: null, status: null }));
+    return ack();
+  }
+  const lat = Number(row.driver_last_lat);
+  const lng = Number(row.driver_last_lng);
+  const doorLat = Number(row.delivery_lat);
+  const doorLng = Number(row.delivery_lng);
+  const km =
+    [lat, lng, doorLat, doorLng].every((n) => Number.isFinite(n) && n !== 0) ? kmBetween(lat, lng, doorLat, doorLng) : null;
+  const phone = String(row.driver_phone || "").replace(/\D/g, "").slice(-10);
+  await sendText(
+    from,
+    buildDriverAnswer({
+      ref: supportRef(row),
+      name: String(row.driver_name || "").trim() || null,
+      phone: phone.length === 10 ? `+91 ${phone.slice(0, 5)} ${phone.slice(5)}` : null,
+      km,
+      status: row.status || null,
+    }),
+  );
+  return ack();
+}
+
+async function showOfferAnswer(from: string) {
+  const festival = await loadActiveFestival(createServerSupabase()).catch(() => null);
+  const pct = festival ? Math.round(Number(festival.discount_override) || 0) : 0;
+  const until = festival?.date_end
+    ? new Date(`${festival.date_end}T12:00:00+05:30`).toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric",
+        month: "short",
+      })
+    : "";
+  await sendText(
+    from,
+    buildOfferAnswer(festival && pct > 0 ? { name: festival.name, pct, until } : null),
+  );
+  return ack();
+}
+
+async function applyMarketingOptIn(from: string) {
+  try {
+    const { error } = await createServerSupabase()
+      .from("users")
+      .upsert({ phone_number: from, marketing_opt_out: false }, { onConflict: "phone_number" });
+    if (error) throw error;
+  } catch (e) {
+    console.error("[WA] marketing opt-in failed:", e);
+  }
+  await sendText(from, buildResubscribeAnswer());
   return ack();
 }
 

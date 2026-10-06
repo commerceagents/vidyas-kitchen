@@ -1805,33 +1805,253 @@ export function notifyOrderRejected(
 
 // ─── Help and support ────────────────────────────────────────────────────────
 
+export const HELP_LIST_ROWS: { id: string; title: string; description: string }[] = [
+  { id: "hs_track", title: "Track an order", description: "Where it is, and who is carrying it" },
+  { id: "hs_cancel", title: "Cancel an order", description: "Free up to 12 hours before the slot" },
+  { id: "hs_refund", title: "Refunds", description: "When the money comes back, and when it doesn't" },
+  { id: "hs_call", title: "Call the kitchen", description: `${SUPPORT_PHONE_E164}` },
+  { id: "hs_complaint", title: "Something wrong", description: "Wrong dish, cold food, a missing box" },
+  { id: "hs_your_orders", title: "Your orders", description: "The last few tickets on this number" },
+];
+
 export function helpAndSupportReply(lang?: WaLang): string {
   return pickLang(
     lang,
     msg({
-      title: "Help",
+      title: "Need a hand? 👋",
       lines: [
-        "Track an order, see your past ones, or call the kitchen.",
-        "",
-        "Late order, wrong dish, anything else — just type it. I'll sort it or bring in a human.",
+        "Track an order, cancel one, ask about a refund, or talk to a person.",
+        "The kitchen phone is on the list, so you never have to hunt for it.",
       ],
+      note: "Tap Get help, or just type the question.",
     }),
     msg({
-      title: "Help",
-      lines: [
-        "Order track pannunga, pazhaya order paarunga, kitchen-ku call pannunga, illa Language tap pannunga — English / Tanglish.",
-        "",
-        "Late, wrong dish, vera edhachum — type pannunga. Naan paarthukren, illa oru human-a kootitu varen.",
-      ],
+      title: "Help venuma? 👋",
+      lines: ["Order track, cancel, refund, illa kitchen-ku call."],
+      note: "Get help tap pannunga, illa question type pannunga.",
     }),
   );
 }
 
 export function callUsDialReply(lang?: WaLang): string {
   return msg({
-    title: pickLang(lang, "Call us", "Call pannunga"),
-    lines: [SUPPORT_PHONE_E164, "", `Email: ${SUPPORT_EMAIL}`],
-    note: pickLang(lang, "Kitchen hours, 9 AM to 8 PM.", "Kitchen hours, 9 AM to 8 PM."),
+    title: pickLang(lang, "The kitchen is a call away 📞", "Kitchen call 📞"),
+    lines: [
+      `*${SUPPORT_PHONE_E164}*`,
+      SUPPORT_EMAIL,
+      "",
+      "We're usually quick to pick up. Tell them the order number if you have one.",
+    ],
+    note: "Kitchen hours, 9 AM to 8 PM.",
+  });
+}
+
+export function buildRefundAnswer(
+  order?: {
+    ref: string;
+    refundStatus: string | null;
+    payment: string;
+    total: string;
+  } | null,
+): string {
+  const status = String(order?.refundStatus || "").toLowerCase();
+  const live =
+    order && status === "refunded"
+      ? `*${order.ref}* — the refund${order.total ? ` of *${order.total}*` : ""} has gone back to the same payment method. UPI is often the same day. Cards can take 5–7 working days. 💸`
+      : order && status === "initiated"
+        ? `*${order.ref}* — the refund has started${order.total ? ` for *${order.total}*` : ""}. It returns to the original UPI or card. I won't call it done until the bank does.`
+        : order && status === "refund_failed"
+          ? `*${order.ref}* — the refund did not start. Call the kitchen and they'll raise it. I won't pretend the money is already moving.`
+          : null;
+  return msg({
+    title: "Refunds 💸",
+    lines: [
+      live,
+      "Cancel at least 12 hours before the slot and a paid online order comes back in full: the food, ₹20 packaging, ₹35 delivery, and GST.",
+      "UPI is usually within 24–48 hours. Cards take 5–7 working days.",
+      "Cash at the door was never charged, so a cancel before delivery has nothing to send back.",
+      "Wrong dish, cold, or spoiled? Send photos on this chat within 1 hour. The kitchen looks at them before any refund starts.",
+      "https://vidyaskitchenhome.com/refund-policy",
+    ].filter((line): line is string => Boolean(line)),
+    note: `Kitchen ${SUPPORT_PHONE_E164} · ${SUPPORT_EMAIL}`,
+  });
+}
+
+export function buildCancelPolicyAnswer(): string {
+  return msg({
+    title: "Cancelling 🍳",
+    lines: [
+      "You can cancel up to 12 hours before the delivery slot. The kitchen buys fresh that morning, so inside those 12 hours the pot is already on and I can't pull it off.",
+      "A paid online order cancelled in time is refunded in full. Cash at the door was never charged.",
+      "Say *cancel* and the order number, like cancel #00003, and I'll check the window before anything is dropped.",
+    ],
+    note: `Rather talk it through? ${SUPPORT_PHONE_E164}`,
+  });
+}
+
+export function buildCancelClosedAnswer(ref: string): string {
+  return msg({
+    title: `${ref} is already cooking 🍲`,
+    lines: [
+      "The 12-hour window has closed, so I can't cancel this one from the chat.",
+      "Call the kitchen if something is genuinely wrong. They can still look at it. I just won't pretend the app let it through.",
+    ],
+    note: `${SUPPORT_PHONE_E164} · ${SUPPORT_EMAIL}`,
+  });
+}
+
+export function buildCancelConfirmAsk(ref: string, when: string): string {
+  return msg({
+    title: `Cancel ${ref}?`,
+    lines: [
+      when || "The slot is still outside the 12-hour cooking window.",
+      "Nothing is cancelled until you tap the button. Changed your mind? Ignore this and the order stays.",
+    ],
+    note: `Kitchen ${SUPPORT_PHONE_E164}`,
+  });
+}
+
+export function buildCancelDoneAnswer(ref: string, moneyLine: string): string {
+  return msg({
+    title: `${ref} is cancelled`,
+    lines: [
+      "Done. The kitchen has been told to stop. 🙏",
+      moneyLine,
+      "Whenever you're hungry again, just say the dish.",
+    ],
+    note: `Questions? ${SUPPORT_PHONE_E164}`,
+  });
+}
+
+export function buildNothingToCancelAnswer(): string {
+  return msg({
+    title: "Nothing to cancel 🤷",
+    lines: [
+      "I don't see a live order on this number that I can cancel.",
+      "If you were only halfway through a new one, say *cancel* on its own and I'll drop that draft. No charge, nothing saved.",
+    ],
+    note: `Kitchen ${SUPPORT_PHONE_E164}`,
+  });
+}
+
+export function buildDriverAnswer(input: {
+  ref: string | null;
+  name: string | null;
+  phone: string | null;
+  km: number | null;
+  status: string | null;
+}): string {
+  if (!input.ref) {
+    return msg({
+      title: "No rider yet 🛵",
+      lines: [
+        "Nothing is out for delivery on this number right now.",
+        "The kitchen names the rider when the dish actually leaves. Until then, this chat is the place to ask.",
+      ],
+      note: `Kitchen ${SUPPORT_PHONE_E164}`,
+    });
+  }
+  if (!input.name && !input.phone) {
+    return msg({
+      title: `${input.ref} has no rider yet`,
+      lines: [
+        "The kitchen hasn't assigned anyone. I won't invent a name or a minute count.",
+        "You'll get the rider when the order is on the way. If the map looks stuck later, call the kitchen and they'll check.",
+      ],
+      note: `Kitchen ${SUPPORT_PHONE_E164}`,
+    });
+  }
+  const who = input.name ? `*${input.name}*` : "Your rider";
+  const reach = input.phone ? `Call them on *${input.phone}*.` : "The kitchen has their phone if you need a patch-through.";
+  const where =
+    input.km == null
+      ? "I don't have a fresh pin, so I won't guess how many minutes away they are."
+      : input.km < 0.15
+        ? "Their last pin is at your door."
+        : `Their last pin was about ${input.km.toFixed(1)} km from your door. That's a pin, not a promise of minutes.`;
+  return msg({
+    title: `Rider for ${input.ref} 🛵`,
+    lines: [`${who} has this order.`, reach, where],
+    note: `Map stuck? Kitchen ${SUPPORT_PHONE_E164}`,
+  });
+}
+
+export function buildOfferAnswer(offer: { name: string; pct: number; until: string } | null): string {
+  if (!offer || !(offer.pct > 0)) {
+    return msg({
+      title: "Offers 🎉",
+      lines: [
+        "Nothing festive is running at this exact moment.",
+        "We say so here before a festival starts. I won't invent a percent to fill the silence.",
+        "Mom's Recipe Chicken Gravy is the house favourite while you wait.",
+      ],
+    });
+  }
+  return msg({
+    title: `${offer.name} is on 🎉`,
+    lines: [
+      `*${offer.pct}%* off the dishes the kitchen marked for it, through ${offer.until}.`,
+      "The bill shows the real saving. I won't quote a rupee amount until the order is priced.",
+    ],
+  });
+}
+
+export function buildAddressOnFileAnswer(address: string | null): string {
+  if (!address) {
+    return msg({
+      title: "No door saved yet 📍",
+      lines: ["I don't have an address on this number.", "When we get there, drop a pin. That's the one I can actually check."],
+    });
+  }
+  return msg({
+    title: "The door I have 📍",
+    lines: [`*${address}*`, "Want this one, or send a new pin? A one-time door won't overwrite this unless you say to save it."],
+  });
+}
+
+export function buildBestSellerAnswer(name: string): string {
+  return msg({
+    title: "House favourite 🍲",
+    lines: [
+      `*${name}* is the one the kitchen puts first.`,
+      "That's a house pick, not a made-up sales chart. Say the word and I'll start it, size and all.",
+    ],
+  });
+}
+
+export function buildSpicyAnswer(): string {
+  return msg({
+    title: "If you want it hot 🌶️",
+    lines: [
+      "Chilly Chicken Gravy is the spiciest pot we cook.",
+      "Spicy Mutton Gravy is the fiery one on the mutton side.",
+      "Tell me which, and whether you want 500gm or 1kg.",
+    ],
+  });
+}
+
+export function buildBotAnswer(): string {
+  return msg({
+    title: "Caught me 🤖",
+    lines: [
+      "Yes, I'm the Vidya's Kitchen bot. Hungry to take the order, and honest when I should hand you a person.",
+      `The kitchen itself is *${SUPPORT_PHONE_E164}*.`,
+    ],
+    note: "Now, what are we cooking?",
+  });
+}
+
+export function buildPresenceAnswer(): string {
+  return msg({
+    title: "Right here 👋",
+    lines: ["Vidya's Kitchen, live and ready.", "Say a dish, or tap Menu and I'll open the lot."],
+  });
+}
+
+export function buildResubscribeAnswer(): string {
+  return msg({
+    title: "Promos are back on 🎉",
+    lines: ["Festival notes will find you again.", "Order updates were never switched off. Those stay either way."],
   });
 }
 
@@ -1897,12 +2117,18 @@ export function complaintPrompt(lang?: WaLang): string {
   return pickLang(
     lang,
     msg({
-      title: "What happened?",
-      lines: ["Tell me in your own words — food, timing, wrong dish, anything. I'll read it properly."],
+      title: "I'm sorry, that's on us 🙏",
+      lines: [
+        "Tell me what happened, in your own words. Wrong dish, cold food, a missing box, timing. I'll pass it to the kitchen.",
+        "Photos help if the food itself was the problem. Send them within an hour of delivery.",
+        "If you'd rather talk it through, the kitchen will pick up.",
+      ],
+      note: `${SUPPORT_PHONE_E164} · ${SUPPORT_EMAIL}`,
     }),
     msg({
-      title: "Enna aachu?",
-      lines: ["Unga vaarthaila sollunga — saapadu, time, wrong dish, edhuvaanaalum. Naan sariya padikren."],
+      title: "Sorry, adhu enga thappu 🙏",
+      lines: ["Enna aachu-nu sollunga. Kitchen-ku anupuren."],
+      note: SUPPORT_PHONE_E164,
     }),
   );
 }

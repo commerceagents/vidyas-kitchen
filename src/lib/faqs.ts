@@ -21,7 +21,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "What is your refund policy?",
-    a: "If you cancel inside the 12-hour window or if the kitchen cannot fulfill your order, an automatic 100% refund (food total, ₹20 packaging, ₹35 delivery, and GST) is issued to your original payment method via Razorpay. UPI is typically instant or within 24-48 hours; cards take 5–7 business days. For quality issues, message WhatsApp (+91 75500 28179) with photos within 1 hour of delivery. Full policy: https://vidyaskitchenhome.com/refund-policy",
+    a: "Cancel at least 12 hours before the delivery slot and a paid online order is refunded in full (food total, ₹20 packaging, ₹35 delivery, and GST) to the original payment method via Razorpay. Once inside those 12 hours the kitchen has started and the order cannot be cancelled. UPI is typically within 24-48 hours; cards take 5–7 business days. Cash on delivery was never charged, so a cancel before the door has nothing to refund. For quality issues, message WhatsApp with photos within 1 hour of delivery. A refund is mentioned only after it has actually started. Full policy: https://vidyaskitchenhome.com/refund-policy",
   },
   {
     q: "What are your Terms of Service?",

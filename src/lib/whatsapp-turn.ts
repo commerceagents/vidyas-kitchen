@@ -76,7 +76,7 @@ export function isPendingState(state: SessionState): boolean {
 }
 
 const COMPLAINT_RE =
-  /\b(complaint|complain|refund|cheated|disgusting|spoiled|spoilt|stale|worst|terrible|food poisoning)\b/i;
+  /\b(complaint|complain|cheated|disgusting|spoiled|spoilt|stale|worst|terrible|food poisoning)\b/i;
 const CANCEL_RE = /^(please\s+)?(cancel|cancel (this |the |my )?order|stop this order)\b/i;
 const MENU_RE = /\b(menu|what do you (have|sell)|what's available|what is available|show (me )?(the )?dishes)\b/i;
 
