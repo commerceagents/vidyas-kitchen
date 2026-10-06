@@ -19,6 +19,13 @@ import {
 import { formatInr, unitPriceFor } from "../menu/dish-pricing";
 import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
 import { semanticMenuMatches } from "../menu/embeddings";
+import {
+  cartLinesFallback,
+  parseCartSummary,
+  phraseReply,
+  replyStaysOnProvidedData,
+  type ReplyInput,
+} from "./phrase-reply";
 import { formatOrderRef } from "../order-status";
 import { DELIVERY_ZONE } from "../delivery-zone";
 import { faqPromptBlock } from "../faqs";
@@ -568,6 +575,7 @@ export class VidyaAgent {
     phoneNumber?: string,
     displayName?: string,
     cartJson?: string,
+    conversationState?: string,
   ) {
     try {
       const lowerMessage = message.toLowerCase().trim();
@@ -920,6 +928,8 @@ ORDERING
   quantity, date, and slot they stated. Do not say we don't cook that family.
 - You never place orders and never quote a total. The server prices everything
   and the customer confirms with a tap. Do not invent prices or promise a slot.
+- Do not write the customer-facing reply. Leave the message empty and use tools.
+  A separate step phrases the reply from the server's JSON, not from this chat.
 - Use search_menu when you are unsure a dish exists or which one they mean.
 - Use get_orders for "where is my order" style questions.
 - When a tap would actually help, call offer_choices with 1 to 3 ids. Pick only what follows from this answer: a price question might offer the menu, a lost order might offer tracking, a complaint might offer help or a call. Do not offer checkout or add_more unless they are already ordering. A plain fact needs no taps. Never invent an id.
@@ -1029,15 +1039,18 @@ ${context}`;
       let reply = "";
       let proposalDraft: ProposalDraft | null = null;
       const offeredIds: string[] = [];
+      let menuLookup: { name: string; variant?: string | null }[] = [];
+      let ordersLookup: string | null = null;
 
       // Two rounds is enough for "look it up, then answer". More than that and
       // the customer is waiting on a webhook that Meta will retry.
+      // gpt-4o-mini only classifies and calls tools. Claude phrases the reply.
       for (let round = 0; round < 3; round += 1) {
         const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages,
           tools,
-          temperature: 0.3,
+          temperature: 0,
         });
 
         const choice = response.choices[0].message;
@@ -1084,6 +1097,7 @@ ${context}`;
             const query = String((args as { query?: string }).query || "");
             const semantic = await semanticMenuMatches(menu, query, 6);
             const hits = semantic.length ? semantic : searchMenuDishes(menu, query, 6);
+            menuLookup = hits.map((hit) => ({ name: hit.name }));
             messages.push({
               role: "tool",
               tool_call_id: call.id,
@@ -1101,10 +1115,11 @@ ${context}`;
           }
 
           if (call.function.name === "get_orders") {
+            ordersLookup = phoneNumber ? await this.recentOrdersJson(phoneNumber) : "No phone number on this conversation.";
             messages.push({
               role: "tool",
               tool_call_id: call.id,
-              content: phoneNumber ? await this.recentOrdersJson(phoneNumber) : "No phone number on this conversation.",
+              content: ordersLookup,
             });
             continue;
           }
@@ -1113,6 +1128,26 @@ ${context}`;
         }
 
         if (stop) break;
+      }
+
+      if (proposalDraft) {
+        reply = "";
+      } else {
+        const cart = parseCartSummary(cartJson);
+        const phrasing: ReplyInput = {
+          cart,
+          matchedDish: menuLookup[0] ?? null,
+          conversationState: conversationState || "ai_chat",
+          customerMessage: message,
+          lookup: { menu: menuLookup, orders: ordersLookup },
+        };
+        const phrased = await phraseReply(phrasing);
+        if (phrased) reply = phrased;
+        else if (!(reply && replyStaysOnProvidedData(reply, phrasing))) {
+          reply = /\b(cart|remove|take off|delete)\b/i.test(message)
+            ? cartLinesFallback(cart)
+            : "Could you say that once more?";
+        }
       }
 
       return {

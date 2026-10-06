@@ -156,6 +156,7 @@ import {
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
 import { resolveCartIntent } from "@/lib/ai/cart-intent";
+import { phraseReply } from "@/lib/ai/phrase-reply";
 import { semanticMenuMatches } from "@/lib/menu/embeddings";
 import { cartUpsellMessage } from "@/lib/ai/cart-upsell";
 import {
@@ -1328,7 +1329,7 @@ async function dropCartDraft(from: string, session: WhatsAppSession, cart: CartI
   });
 }
 
-async function removeMatchedLine(from: string, menuItemId: string, variant: string) {
+async function removeMatchedLine(from: string, menuItemId: string, variant: string, said?: string) {
   const session = await getSession(from);
   const hit = session.cart.find((line) => line.menu_item_id === menuItemId && line.variant === variant);
   if (!hit) {
@@ -1337,7 +1338,14 @@ async function removeMatchedLine(from: string, menuItemId: string, variant: stri
   }
   const next = removeLines(session.cart, [hit]);
   await dropCartDraft(from, session, next);
-  await sendText(from, buildLineRemovedMessage(hit.name, hit.variant));
+  const spoken = await phraseReply({
+    cart: getCartSummary(next),
+    matchedDish: null,
+    conversationState: "cart_review",
+    customerMessage: said || "remove",
+    removed: [{ name: hit.name, variant: hit.variant, qty: hit.quantity }],
+  });
+  await sendText(from, spoken || buildLineRemovedMessage(hit.name, hit.variant));
   if (next.length === 0) {
     await updateSession(from, { recent_turns: withInterrupt(session.recent_turns, session.state, 0) });
     await sendText(from, buildCartMessage([], langOf(from)));
@@ -1398,7 +1406,7 @@ async function applySpokenCartEdit(
     if (!named.ambiguous && named.hits.length === 1) {
       const hit = named.hits[0];
       const target = pending.find((row) => row.menuId === hit.menu_item_id && row.variant === hit.variant);
-      if (target?.kind === "rm") return await removeMatchedLine(from, target.menuId, target.variant);
+      if (target?.kind === "rm") return await removeMatchedLine(from, target.menuId, target.variant, text);
       if (target?.kind === "uq" && target.qty) {
         return await updateMatchedLine(from, target.menuId, target.variant, target.qty);
       }
@@ -1423,7 +1431,7 @@ async function applySpokenCartEdit(
       return await showCart(from, session.cart);
     }
     if (match.ambiguous) return await askWhichLine(from, match.hits, "remove");
-    return await removeMatchedLine(from, match.hits[0].menu_item_id, match.hits[0].variant);
+    return await removeMatchedLine(from, match.hits[0].menu_item_id, match.hits[0].variant, text);
   }
   if (intent.action === "update_qty") {
     const qty = intent.quantity ?? parseSpokenQuantity(text);
@@ -1463,15 +1471,27 @@ async function applyScopedCartEdit(
 
   const hit = match.hits[0];
   let next = removeLines(session.cart, [hit]);
-  const notes = [buildLineRemovedMessage(hit.name, hit.variant)];
+  const updated: { name: string; variant: string; qty: number }[] = [];
   if (plan.keep) {
     const keepLine = next.find(
       (line) => line.menu_item_id === hit.menu_item_id && parsePackSize(line.variant) === plan.keep?.size,
     );
     if (keepLine) {
       next = setLineQty(next, keepLine, plan.keep.quantity);
-      notes.push(buildLineUpdatedMessage(keepLine.name, keepLine.variant, plan.keep.quantity));
+      updated.push({ name: keepLine.name, variant: keepLine.variant, qty: plan.keep.quantity });
     }
+  }
+  const removedLine = await phraseReply({
+    cart: getCartSummary(next),
+    matchedDish: null,
+    conversationState: "cart_review",
+    customerMessage: plan.itemReference || "remove",
+    removed: [{ name: hit.name, variant: hit.variant, qty: hit.quantity }],
+    updated,
+  });
+  const notes = [removedLine || buildLineRemovedMessage(hit.name, hit.variant)];
+  if (!removedLine) {
+    for (const line of updated) notes.push(buildLineUpdatedMessage(line.name, line.variant, line.qty));
   }
 
   await dropCartDraft(from, session, next);
@@ -1675,6 +1695,7 @@ async function answerWithVidya(
     from,
     profileName,
     JSON.stringify(getCartSummary(session.cart)),
+    session.state,
   );
   const turns: SessionTurns = [
     ...chatTurns(session.recent_turns),
@@ -1996,6 +2017,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     from,
     profileName,
     JSON.stringify(getCartSummary(session.cart)),
+    session.state,
   );
 
   const turns: NonNullable<WhatsAppSession["recent_turns"]> = [
