@@ -1044,7 +1044,7 @@ ${context}`;
 
       // Two rounds is enough for "look it up, then answer". More than that and
       // the customer is waiting on a webhook that Meta will retry.
-      // gpt-4o-mini only classifies and calls tools. Claude phrases the reply.
+      // gpt-4o-mini only classifies and calls tools. Gemini phrases the reply.
       for (let round = 0; round < 3; round += 1) {
         const response = await this.openai.chat.completions.create({
           model: "gpt-4o-mini",

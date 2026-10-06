@@ -1,17 +1,15 @@
 import { getCartSummary } from "../whatsapp-cart";
 
-export const REPLY_MODEL = "claude-sonnet-5-5";
+/** Current free-tier Flash model. gemini-2.0-flash was shut down on 1 June 2026. */
+export const REPLY_MODEL = "gemini-3.5-flash-lite";
 
 /**
  * The only instructions the reply model sees. It does not receive chat history.
  */
 export const REPLY_SYSTEM = [
-  "You write one short WhatsApp reply for Vidya, who runs Vidya's Kitchen in Sivakasi.",
-  "Only use the data provided in this JSON. Never add, remove, or infer items not present in the cart JSON. Never invent dish names, prices, or availability.",
+  "You are generating a WhatsApp order summary. Use ONLY the data in this JSON. Never add, remove, or infer items not present in the cart JSON. Never invent dish names, prices, discounts, or availability. If the cart is empty, say so plainly — do not suggest or mention any dish not explicitly passed to you.",
   "A dish may be mentioned only if its name appears in cart.items, removed, updated, or matchedDish.",
-  "If cart.items is empty, the cart is empty. Do not fill it from the customer's words.",
   "One or two sentences. Plain text. No emojis, no markdown, no bullet list.",
-  "Do not quote a total unless that number is in the JSON.",
 ].join("\n");
 
 export type CartSummary = ReturnType<typeof getCartSummary>;
@@ -79,11 +77,9 @@ export function buildReplyRequest(input: ReplyInput) {
   const payload = buildReplyPayload(input);
   return {
     model: REPLY_MODEL,
-    max_tokens: 400,
-    thinking: { type: "between_tools" as const },
-    output_config: { effort: "low" as const },
-    system: REPLY_SYSTEM,
-    messages: [{ role: "user" as const, content: JSON.stringify(payload) }],
+    systemInstruction: { parts: [{ text: REPLY_SYSTEM }] },
+    contents: [{ role: "user" as const, parts: [{ text: JSON.stringify(payload) }] }],
+    generationConfig: { maxOutputTokens: 400, temperature: 0 },
   };
 }
 
@@ -94,7 +90,6 @@ function allowedBlob(input: ReplyInput): string {
     matchedDish: payload.matchedDish,
     removed: payload.removed,
     updated: payload.updated,
-    lookup: payload.lookup,
   }).toLowerCase();
 }
 
@@ -114,15 +109,16 @@ export function replyStaysOnProvidedData(reply: string, input: ReplyInput): bool
   return true;
 }
 
-function textFromAnthropic(body: unknown): string {
+function textFromGemini(body: unknown): string {
   if (!body || typeof body !== "object") return "";
-  const content = (body as { content?: unknown }).content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((block) => {
-      if (!block || typeof block !== "object") return "";
-      const row = block as { type?: string; text?: string };
-      return row.type === "text" ? String(row.text || "") : "";
+  const candidates = (body as { candidates?: unknown }).candidates;
+  if (!Array.isArray(candidates) || !candidates[0] || typeof candidates[0] !== "object") return "";
+  const parts = (candidates[0] as { content?: { parts?: unknown } }).content?.parts;
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .map((part) => {
+      if (!part || typeof part !== "object") return "";
+      return String((part as { text?: string }).text || "");
     })
     .join("")
     .trim();
@@ -133,31 +129,37 @@ function textFromAnthropic(body: unknown): string {
  * Returns "" when the key is missing, the call fails, or the text names a dish the JSON does not.
  */
 export async function phraseReply(input: ReplyInput): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    console.error("[phrase] ANTHROPIC_API_KEY is not set");
+    console.error("[phrase] GEMINI_API_KEY is not set");
     return "";
   }
   const request = buildReplyRequest(input);
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${REPLY_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": key,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          systemInstruction: request.systemInstruction,
+          contents: request.contents,
+          generationConfig: request.generationConfig,
+        }),
+        signal: AbortSignal.timeout(8000),
       },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(8000),
-    });
+    );
     if (!response.ok) {
       const detail = await response.text();
-      console.error("[phrase] Claude reply failed:", response.status, detail.slice(0, 300));
+      console.error("[phrase] Gemini reply failed:", response.status, detail.slice(0, 300));
       return "";
     }
-    const text = textFromAnthropic(await response.json());
+    const text = textFromGemini(await response.json());
     if (!text || !replyStaysOnProvidedData(text, input)) {
-      console.error("[phrase] reply discarded because it left the provided JSON");
+      console.error("[phrase] reply discarded because it named a dish outside the cart JSON");
       return "";
     }
     return text;

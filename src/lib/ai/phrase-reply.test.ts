@@ -46,16 +46,16 @@ assert.equal(payload.cart.items.length, 0, "cart is empty after Mom's is removed
 assert.equal(packed.includes("Chicken Wings"), false, "Chicken Wings is not in the JSON");
 assert.equal(packed.includes(wings.name), false);
 assert.equal("history" in payload, false);
-assert.equal(request.messages.length, 1);
-assert.equal(request.messages[0].role, "user");
-assert.equal(request.messages[0].content, packed);
-assert.equal(REPLY_SYSTEM.includes("Only use the data provided in this JSON."), true);
+assert.equal(request.contents.length, 1);
+assert.equal(request.contents[0].role, "user");
+assert.equal(request.contents[0].parts[0].text, packed);
+assert.equal(REPLY_SYSTEM.includes("Use ONLY the data in this JSON."), true);
 assert.equal(
   REPLY_SYSTEM.includes("Never add, remove, or infer items not present in the cart JSON."),
   true,
 );
 assert.equal(
-  REPLY_SYSTEM.includes("Never invent dish names, prices, or availability."),
+  REPLY_SYSTEM.includes("Never invent dish names, prices, discounts, or availability."),
   true,
 );
 
@@ -70,13 +70,13 @@ assert.equal(
 assert.equal(replyStaysOnProvidedData("That will be ₹849.", input), false);
 
 async function liveIfConfigured() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log("ok phrase-reply (structural; Claude key is not on this machine)");
+  if (!process.env.GEMINI_API_KEY) {
+    console.log("ok phrase-reply (structural; Gemini key is not on this machine)");
     return;
   }
   const live = await phraseReply(input);
   assert.equal(/chicken wings/i.test(live), false, live);
-  assert.equal(live.length > 0, true, "Claude returned a reply");
+  assert.equal(live.length > 0, true, "Gemini returned a reply");
   assert.equal(replyStaysOnProvidedData(live, input), true);
   console.log("live:", live);
 }
