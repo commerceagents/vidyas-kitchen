@@ -68,6 +68,7 @@ export const PENDING_STATES: SessionState[] = [
   "confirming_proposal",
   "picking_variant",
   "picking_qty",
+  "picking_item",
 ];
 
 export function isPendingState(state: SessionState): boolean {
@@ -131,6 +132,9 @@ function directAnswer(state: SessionState, text: string): string | null {
   if (state === "confirming_proposal" && /^(yes|confirm|ok|okay|no|correct|sari|seri)\b/i.test(lower)) return lower;
   if (state === "picking_variant" && /\b(500|1\s*kg|half)\b/i.test(lower) && !REMOVE_WORD.test(raw)) return raw;
   if (state === "picking_qty" && /^([1-9]|10)$/.test(raw)) return raw;
+  // A numbered tap answers "which dish?". A day or a meal does not — that
+  // corrects the noted slot and the dish question is asked again.
+  if (state === "picking_item" && /^([1-9]|10)$/.test(raw)) return raw;
   return null;
 }
 

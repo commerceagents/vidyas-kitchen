@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { canonicalDishKey, pickCanonicalRows } from "./dish-pricing";
 import { createServerSupabase } from "../supabase-server";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -281,14 +282,46 @@ export async function refreshMenuItemEmbeddings(ids: string[]): Promise<number> 
 
 type MatchRow = { id: string; name: string; similarity: number };
 
+type ChoiceRow = { id: string; name: string; category?: string | null; created_at?: string | null };
+
+const SEARCH_THRESHOLD = 0.42;
+/** Disambiguation stays strict so a family phrase does not open the whole menu. */
+const CHOICE_THRESHOLD = 0.5;
+const CHOICE_LIMIT = 4;
+
+function wantsGravy(query: string): boolean {
+  return /\b(gravy|gravies|curry|curries)\b/i.test(query) && !/\b(wing|wings|dry|chukka)\b/i.test(query);
+}
+
+function isSideDish(name: string): boolean {
+  return /\b(wing|wings|dry|chukka)\b/i.test(name);
+}
+
+function collapseRanked<T extends ChoiceRow>(ranked: { item: T; similarity: number }[], pool: T[]): T[] {
+  const best = new Map<string, { item: T; similarity: number }>();
+  for (const hit of ranked) {
+    const key = canonicalDishKey(hit.item) || hit.item.id;
+    const prev = best.get(key);
+    if (!prev || hit.similarity > prev.similarity) best.set(key, hit);
+  }
+  return [...best.values()]
+    .sort((a, b) => b.similarity - a.similarity)
+    .map((hit) => {
+      const key = canonicalDishKey(hit.item) || hit.item.id;
+      const siblings = pool.filter((item) => (canonicalDishKey(item) || item.id) === key);
+      return pickCanonicalRows(siblings)[0] || hit.item;
+    });
+}
+
 /**
  * Ranked dishes for a typed phrase. Empty when nothing is close enough —
- * callers fall back to the name search.
+ * callers fall back to the name search. Size rows of the same dish collapse.
  */
-export async function semanticMenuMatches<T extends { id: string }>(
+export async function semanticMenuMatches<T extends ChoiceRow>(
   menu: T[],
   query: string,
   limit = 6,
+  threshold = SEARCH_THRESHOLD,
 ): Promise<T[]> {
   const phrase = String(query || "").trim();
   if (!phrase) return [];
@@ -297,21 +330,43 @@ export async function semanticMenuMatches<T extends { id: string }>(
     const supabase = createServerSupabase();
     const { data, error } = await supabase.rpc("match_menu_items", {
       query_embedding: vectorLiteral(vector),
-      match_threshold: 0.42,
-      match_count: limit,
+      match_threshold: threshold,
+      match_count: Math.max(limit * 4, 16),
     });
     if (error || !Array.isArray(data)) return [];
     const byId = new Map(menu.map((item) => [item.id, item]));
-    const hits: T[] = [];
+    const ranked: { item: T; similarity: number }[] = [];
     for (const row of data as MatchRow[]) {
       const item = byId.get(row.id);
-      if (item && !hits.some((hit) => hit.id === item.id)) hits.push(item);
+      if (item) ranked.push({ item, similarity: Number(row.similarity) || 0 });
     }
-    return hits;
+    return collapseRanked(ranked, menu).slice(0, limit);
   } catch (err) {
     console.error("[menu embeddings] match failed:", err);
     return [];
   }
+}
+
+/**
+ * The dishes to offer when a family phrase is ambiguous. Top matches in that
+ * category above 0.5, one row per dish — never the whole catalog.
+ */
+export async function closeDishChoices<T extends ChoiceRow>(
+  menu: T[],
+  query: string,
+  category?: string | null,
+): Promise<T[]> {
+  const phrase = String(query || "").trim();
+  const pool = category
+    ? menu.filter((item) => String(item.category || "").toLowerCase() === category)
+    : menu;
+  const ranked = await semanticMenuMatches(pool, phrase, 8, CHOICE_THRESHOLD);
+  const scoped = wantsGravy(phrase) ? ranked.filter((item) => !isSideDish(item.name)) : ranked;
+  if (scoped.length > 0) return scoped.slice(0, CHOICE_LIMIT);
+
+  let fallback = pickCanonicalRows(pool);
+  if (wantsGravy(phrase)) fallback = fallback.filter((item) => !isSideDish(item.name));
+  return fallback.slice(0, CHOICE_LIMIT);
 }
 
 /** Direct check used after a backfill. Returns ranked names and scores, nothing else. */

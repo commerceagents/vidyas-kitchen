@@ -42,6 +42,12 @@ export function istCalendarYmd(d: Date = new Date()): string {
   }).format(d);
 }
 
+/** Weekday of the IST calendar date. `Date#getDay` follows the server zone, which is UTC on Vercel. */
+export function istWeekdayIndex(d: Date = new Date()): number {
+  const [year, month, day] = istCalendarYmd(d).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
 /** Add whole calendar days in IST (Anchored at noon IST to avoid edge quirks). */
 export function istAddCalendarDays(istYmd: string, deltaDays: number): string {
   const anchor = new Date(`${istYmd}T12:00:00${IST_OFFSET}`);

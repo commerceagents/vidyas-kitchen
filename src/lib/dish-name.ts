@@ -44,6 +44,29 @@ export function formatFullDishName(name: string): string {
 
 const RECIPE_TAG = /[(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|SISTER\s+IN\s+LAW'S|MOTHER-IN-LAW'S|MOTHER\s+IN\s+LAW'S|GRANDMA'S|GRANDMA|CHEFS?|SIL)\s+RECIPE)[)]?/i;
 
+/** WhatsApp reply buttons allow 20 characters. Prefer the recipe tag when the full name does not fit. */
+export function choiceButtonTitle(name: string): string {
+  const full = formatFullDishName(name);
+  const tag = parseRecipeTag(name).tag;
+  const recipe = tag ? toTitleCase(tag) : "";
+  const candidates = [
+    full,
+    recipe,
+    full.replace(/\s+gravy$/i, ""),
+    full.replace(/\s+chicken gravy$/i, ""),
+    recipe.replace(/\s+recipe$/i, ""),
+  ];
+  const fit = candidates.find((value) => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 && trimmed.length <= 20;
+  });
+  if (fit) return fit.trim();
+  const words = full.split(/\s+/).filter(Boolean);
+  while (words.length > 1 && words.join(" ").length > 20) words.pop();
+  const shortened = words.join(" ");
+  return shortened.length <= 20 ? shortened : shortened.slice(0, 20);
+}
+
 export function parseRecipeTag(name: string): { cleanName: string; tag: string | null } {
   const match = name.match(RECIPE_TAG);
   if (!match) return { cleanName: name, tag: null };

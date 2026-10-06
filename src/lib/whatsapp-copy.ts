@@ -5,12 +5,16 @@
  *  - Structure: bold title, blank line, body, then an optional italic footnote.
  *    Built through `msg()` so nothing drifts into its own shape.
  *  - Money: always `formatInr` — "₹399", "₹2,099". Never "Rs", never a bare number.
- *  - Bold: the title, the total, and nothing else. It stops meaning anything
- *    when every second word has stars around it.
- *  - Emojis stay off buttons, bills, and system notes. The missing-dish
- *    line is the exception: a few, woven into the sentence.
- *  - Button labels: `BTN`, kept under WhatsApp's 20 characters, and the same
- *    label always means the same thing.
+ *    Price and quantity lines stay plain. Personality belongs on the line
+ *    before or after them ("Good choice, that one's a favorite!", "On it! 🔥").
+ *  - Bold (`*like this*`): dish names and totals.
+ *  - Italics (`_like this_`): soft helper lines, such as "Tap one below".
+ *  - Sections split on `WA_SECTION_DIVIDER` (┄). A label and its amount still
+ *    use middle dots (`Items ··· ₹349`) so the figure stays on the same line.
+ *  - One emoji per message block (🍗 chicken, 🛵 delivery, 💰 payment). The
+ *    dish-choice list is the exception: the header has one, and each option
+ *    has one, because that emoji is the option's label.
+ *  - Emojis stay off buttons. Button labels stay within WhatsApp's 20 characters.
  *  - English only. Tanglish variants in this file are unused leftovers.
  *
  * Client components import from this file, so it must stay free of anything
@@ -22,7 +26,7 @@ import { computeOrderBreakdownFromItemSubtotal } from "./order-pricing";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 import { formatInr, packPriceLine } from "./menu/dish-pricing";
-import { formatFullDishName } from "./dish-name";
+import { choiceButtonTitle, formatFullDishName } from "./dish-name";
 import { COD_MAX_ORDER_VALUE } from "./cod-policy";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
@@ -118,10 +122,10 @@ function money(amount: number): string {
   return formatInr(amount);
 }
 
-/** `Mutton Curry (1kg) x 2 — ₹3,898` — the one shape for a cart line. */
+/** `*Mutton Curry* (1kg) x 2 — ₹3,898` — the one shape for a cart line. */
 function cartLine(item: CartItem): string {
   const name = formatFullDishName(item.name);
-  return `${name} (${item.variant}) x ${item.quantity} — ${money(item.unit_price * item.quantity)}`;
+  return `*${name}* (${item.variant}) x ${item.quantity} — ${money(item.unit_price * item.quantity)}`;
 }
 
 /**
@@ -1007,19 +1011,69 @@ export function buildCodPlacedMessage(shortId: string, amtStr: string, lang?: Wa
   return pickLang(
     lang,
     msg({
-      title: `Order ${shortId} is in`,
-      lines: [`Cash on delivery — please have *${amtStr}* ready. The kitchen has it.`],
+      title: "On it! 🔥",
+      lines: [`Order ${shortId} is in.`, `Cash on delivery — please have *${amtStr}* ready. The kitchen has it.`],
     }),
     msg({
-      title: `Order ${shortId} sethuruchu`,
-      lines: [`Cash on delivery — *${amtStr}* ready-a vachukonga. Kitchen-ku theriyum.`],
+      title: "On it! 🔥",
+      lines: [`Order ${shortId} sethuruchu.`, `Cash on delivery — *${amtStr}* ready-a vachukonga. Kitchen-ku theriyum.`],
     }),
   );
 }
 
+/** Said once, when a dish from the choice list is the one they wanted. */
+export function dishPickedAside(): string {
+  return "Good choice, that one's a favorite!";
+}
+
+/** Section break. Money rows keep middle-dot leaders; this splits blocks. */
+export const WA_SECTION_DIVIDER = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄";
+
+function choiceEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (/mom/.test(n)) return "👩‍🍳";
+  if (/sister-in-law|sister in law/.test(n)) return "👩";
+  if (/sister/.test(n)) return "👧";
+  if (/chill|pepper/.test(n)) return "🌶️";
+  if (/wing/.test(n)) return "🍗";
+  if (/egg/.test(n)) return "🥚";
+  if (/mutton|keema|stew/.test(n)) return "🍖";
+  return "•";
+}
+
+/**
+ * Ambiguous family order. Three or fewer options get quick-reply buttons
+ * under this text. More than three is a numbered list, because WhatsApp
+ * allows only three reply buttons.
+ */
+export function buildDishChoiceMessage(
+  family: "chicken" | "mutton" | "egg" | null,
+  choices: { name: string; priceLine: string }[],
+  numbered: boolean,
+): string {
+  const noun = family === "mutton" ? "mutton gravy" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
+  const headerEmoji = family === "mutton" ? "🍖" : family === "egg" ? "🥚" : "🍗";
+  const lines = choices.map((choice, index) => {
+    const label = choiceButtonTitle(choice.name);
+    const row = `${choiceEmoji(choice.name)} *${label}* — ${choice.priceLine}`;
+    return numbered ? `${index + 1}. ${row}` : row;
+  });
+  return [
+    `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?`,
+    "",
+    WA_SECTION_DIVIDER,
+    ...lines,
+    WA_SECTION_DIVIDER,
+    "",
+    numbered ? "_Reply with the number, or just type the name!_" : "_Tap one below, or just type the name!_",
+  ].join("\n");
+}
+
+export { choiceButtonTitle };
+
 // ─── Order status notifications ──────────────────────────────────────────────
 
-const RULE = "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈";
+const RULE = WA_SECTION_DIVIDER;
 
 export type WaBillLine = {
   name: string;

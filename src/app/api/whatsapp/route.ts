@@ -10,6 +10,7 @@ import { createPaymentLink } from "@/lib/payments";
 import {
   istCalendarYmd,
   istAddCalendarDays,
+  istWeekdayIndex,
   slotStartIsoFor,
   isSlotBookable,
   isValidSlotKind,
@@ -84,6 +85,9 @@ import {
   buildOpenAppBody,
   buildPwaPromoBody,
   buildCodPlacedMessage,
+  buildDishChoiceMessage,
+  choiceButtonTitle,
+  dishPickedAside,
   complaintPrompt,
   escalateHumanReply,
   interruptCancelledMessage,
@@ -133,14 +137,14 @@ import { isCodBlocked, markOrderPaidAndNotify } from "@/lib/order-transition";
 import { PaymentStatus, formatOrderRef } from "@/lib/order-status";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
-import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
+import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, pickCanonicalRows, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
-  bareCategoryOrder,
+  applySpokenDate,
   buildProposal,
   dishQueryCategory,
   fillDraftFromReply,
-  isKnownDishQuery,
+  notedDeliveryDate,
   isProposalStillValid,
   listDraftGaps,
   looksLikeCompoundOrder,
@@ -157,7 +161,7 @@ import {
 } from "@/lib/ai/order-proposal";
 import { resolveCartIntent } from "@/lib/ai/cart-intent";
 import { phraseReply } from "@/lib/ai/phrase-reply";
-import { semanticMenuMatches } from "@/lib/menu/embeddings";
+import { closeDishChoices } from "@/lib/menu/embeddings";
 import { cartUpsellMessage } from "@/lib/ai/cart-upsell";
 import {
   cartLineButtonTitle,
@@ -329,8 +333,7 @@ function parseDateInput(text: string): string | null {
 
   for (const [key, target] of Object.entries(dayMap)) {
     if (lower.startsWith(key)) {
-      const now = new Date();
-      const current = now.getDay();
+      const current = istWeekdayIndex();
       let diff = target - current;
       if (diff <= 0) diff += 7;
       return istAddCalendarDays(today, diff);
@@ -366,19 +369,6 @@ function dateLabel(ymd: string): string {
 
 function slotLabel(kind: string): string {
   return DELIVERY_SLOT_DEFS[kind as DeliverySlotKind]?.label ?? kind.charAt(0).toUpperCase() + kind.slice(1);
-}
-
-/** They already named the family, the size, and the meal. Ask only which dish. */
-function whichDishAsk(draft: ProposalDraft, source: string): string {
-  const family = dishQueryCategory(source) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
-  const noun =
-    family === "mutton" ? "mutton gravy" : family === "chicken" ? "chicken gravy" : family === "egg" ? "egg dish" : "dish";
-  const size = parsePackSize(String(draft.items?.[0]?.size || "")) || parsePackSize(source);
-  const slot = parseSlotWord(String(draft.slot || "")) || parseSlotWord(source);
-  const date = parseDateText(String(draft.date || "")) || parseDateText(source);
-  const noted = [size, slot ? slotLabel(slot) : null, date ? dateLabel(date) : null].filter(Boolean);
-  if (noted.length === 0) return `Which ${noun}?`;
-  return `Which ${noun}? ${noted.join(", ")} is already noted.`;
 }
 
 function upcomingDateRows(): { id: string; title: string; description?: string }[] {
@@ -1197,9 +1187,10 @@ async function handleResolvedId(
     default: {
       const menu = await getMenu();
       const item = menu.find((m) => m.id === id);
-      if (item) {
-        return await showVariantPicker(from, item);
+      if (item && (session.state === "picking_item" || readStoredDraft(session.recent_turns))) {
+        return await continuePickedDish(from, session, item);
       }
+      if (item) return await showVariantPicker(from, item);
       return null;
     }
   }
@@ -1234,6 +1225,7 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
 
 /** A category order already named the size. Don't ask for 500gm again. */
 async function continuePickedDish(from: string, session: WhatsAppSession, item: MenuItem) {
+  await sendText(from, dishPickedAside());
   const draft = readStoredDraft(session.recent_turns);
   const size = parsePackSize(String(draft?.items?.[0]?.size || ""));
   if (size && draft) {
@@ -1524,6 +1516,8 @@ function pendingQuestion(state: SessionState): string {
       return "500gm or 1kg?";
     case "picking_qty":
       return "How many?";
+    case "picking_item":
+      return "Which dish?";
     default:
       return "";
   }
@@ -1548,6 +1542,28 @@ async function handleInterrupt(
   _profileName: string,
 ): Promise<Response | null> {
   if (!isPendingState(session.state)) return null;
+
+  if (session.state === "picking_item") {
+    const menu = await getMenu();
+    const trimmed = text.trim();
+    const asNumber = /^([1-9]|10)$/.test(trimmed);
+    const named = !asNumber && findItemByName(menu, trimmed);
+    if (asNumber || named) {
+      await rememberInterrupt(from, session, 0);
+      return null;
+    }
+    const spoken = notedDeliveryDate({}, text);
+    const slot = parseSlotWord(text);
+    const short = trimmed.split(/\s+/).filter(Boolean).length <= 6;
+    if (short && (spoken || slot) && !dishQueryCategory(text) && !named) {
+      const stored = readStoredDraft(session.recent_turns) || {};
+      const next: ProposalDraft = { ...stored };
+      if (spoken) next.date = spoken;
+      if (slot) next.slot = slot;
+      await rememberInterrupt(from, session, 0);
+      return await presentProposal(from, next, text);
+    }
+  }
 
   let classification: TurnClassification = classifyTurn(text, session.state);
   if (classification.intent === "unclear" && text.trim().split(/\s+/).length >= 3) {
@@ -1752,6 +1768,11 @@ async function reaskPending(from: string, state: SessionState): Promise<Response
     const menu = await getMenu();
     const item = menu.find((row) => row.id === session.selected_item_id);
     if (item) return await showVariantPicker(from, item);
+  }
+  if (state === "picking_item") {
+    const draft = readStoredDraft(session.recent_turns);
+    if (draft) return await presentProposal(from, draft);
+    return await showCategoryBrowser(from);
   }
   return await showDatePicker(from);
 }
@@ -1979,7 +2000,7 @@ function understoodOrderLines(draft: ProposalDraft): string[] {
     const size = parsePackSize(String(item.size || "")) || parsePackSize(dish);
     lines.push(`${dish} × ${qty}${size ? ` (${size})` : ""}`);
   }
-  const date = parseDateText(String(draft.date || "")) || parseDateText(String(draft.time || ""));
+  const date = notedDeliveryDate(draft);
   const slot =
     parseSlotWord(String(draft.slot || "")) ||
     parseSlotWord(String(draft.time || "")) ||
@@ -2082,22 +2103,44 @@ function agentChoices(buttons: { id: string; title: string }[] | undefined) {
 /** Price and rule-check a draft, then either ask for what's missing or show it. */
 async function presentProposal(
   from: string,
-  draft: ProposalDraft,
+  incoming: ProposalDraft,
   sourceText?: string | null,
 ) {
   const lang = langOf(from);
   const menu = await getMenu();
   const last = await fetchLastAddressAndSlot(from);
   const session = await getSession(from);
-  const turns = turnsWithDraft(session.recent_turns, draft);
-
-  const result = buildProposal({
+  let draft = applySpokenDate(incoming, sourceText);
+  const proposalInput = {
     menu,
-    draft,
     sourceText,
     lastAddress: last.address || session.delivery_address,
     lastSlotKind: (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null,
-  });
+  };
+
+  let preparedChoices: MenuItem[] | null = null;
+  let result = buildProposal({ ...proposalInput, draft });
+  if (!result.ok && result.kind === "missing" && result.field === "dish") {
+    const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
+    const family = dishQueryCategory(query) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
+    const options = await closeDishChoices(menu, query, family);
+    preparedChoices = options;
+    if (options.length === 1) {
+      const named: ProposalDraft = {
+        ...draft,
+        items: (draft.items || []).map((item, index) =>
+          index === 0 ? { ...item, dish: options[0].name } : item,
+        ),
+      };
+      const again = buildProposal({ ...proposalInput, draft: named });
+      if (again.ok || again.kind !== "missing" || again.field !== "dish") {
+        draft = named;
+        result = again;
+      }
+    }
+  }
+
+  const turns = turnsWithDraft(session.recent_turns, draft);
 
   if (!result.ok && result.kind === "rejected") {
     if (result.code === "too_soon") {
@@ -2146,31 +2189,29 @@ async function presentProposal(
 
     if (result.field === "dish") {
       const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
-      const listed = result.dishOptions || [];
-      const family = bareCategoryOrder(menu, query);
-      let options = listed.length > 0 && isKnownDishQuery(menu, query) ? listed : [];
-      if (options.length === 0 && family) {
-        options = menu.filter((item) => (item.category || "").toLowerCase() === family);
-      }
-      if (options.length === 0) {
-        options = await semanticMenuMatches(menu, query, 8);
-      }
+      const family = dishQueryCategory(query) || dishQueryCategory(String(draft.items?.[0]?.dish || ""));
+      const options = preparedChoices ?? (await closeDishChoices(menu, query, family));
       if (options.length > 0) {
-        await updateSession(from, { state: "picking_item" });
-        await storeOptions(from, itemOptions(options));
-        await sendList(from, whichDishAsk(draft, sourceText || query), "Pick A Dish", [
-          {
-            title: "Did You Mean",
-            rows: options.slice(0, 10).map((m) => {
-              const formatted = formatFullDishName(m.name);
-              return {
-                id: m.id,
-                title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
-                description: packPriceLine(m, " / "),
-              };
-            }),
-          },
-        ]);
+        const size = parsePackSize(String(draft.items?.[0]?.size || "")) || parsePackSize(sourceText || "");
+        const choices = options.map((item) => ({
+          id: item.id,
+          name: item.name,
+          title: choiceButtonTitle(item.name),
+          priceLine: size ? `${formatInr(unitPriceFor(item, size))} (${size})` : packPriceLine(item, " / "),
+        }));
+        const numbered = choices.length > 3;
+        await updateSession(from, {
+          state: "picking_item",
+          recent_turns: turns,
+        });
+        await storeOptions(from, choices.map((choice) => ({ id: choice.id, title: choice.title })));
+        const body = buildDishChoiceMessage(
+          family,
+          choices.map((choice) => ({ name: choice.name, priceLine: choice.priceLine })),
+          numbered,
+        );
+        if (numbered) await sendText(from, body);
+        else await sendButtons(from, body, choices.slice(0, 3).map((choice) => ({ id: choice.id, title: choice.title })));
         return ack();
       }
       await sendLookalikeCarousel(from, query);
@@ -2833,7 +2874,7 @@ async function showCategoryItems(from: string, cat: string) {
     return ack();
   }
 
-  const slice = items.slice(0, 10);
+  const slice = pickCanonicalRows(items).slice(0, 10);
   await storeOptions(from, itemOptions(slice));
   await updateSession(from, { state: "picking_item" });
   let body = buildDishListBody(catLabel, lang);

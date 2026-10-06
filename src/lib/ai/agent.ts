@@ -923,6 +923,9 @@ ORDERING
   Never tell them to tap Add, and never ask them to pick a size or a meal they
   already gave. The written reply stays empty when you call propose_order.
   The server asks the one missing thing.
+- Pass date only as the customer said it: tomorrow, Thursday, today. If they
+  did not name a day, omit date. Never invent a calendar date, and never copy
+  a day from an older order.
 - "Mutton gravy", "chicken gravy", and "egg" are families we cook. Call
   propose_order with dish set to mutton, chicken, or egg, plus the size,
   quantity, date, and slot they stated. Do not say we don't cook that family.
@@ -1019,7 +1022,7 @@ ${context}`;
                     required: ["dish"],
                   },
                 },
-                date: { type: "string", description: "Day, as said: tomorrow, Monday, 2026-09-08." },
+                date: { type: "string", description: "The day in the customer's own words, such as tomorrow or Thursday. Omit when they did not name a day. Never invent a date." },
                 time: { type: "string", description: "Time of day, as said: 8pm, evening." },
                 address: { type: "string" },
                 payment: { type: "string", description: "online or cod, if stated." },

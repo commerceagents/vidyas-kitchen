@@ -219,6 +219,44 @@ export function unitPriceFor(row: PriceableRow, size: PackSize): number {
   return size === "1kg" ? Math.round(kiloPrice) : Math.round(kiloPrice / 2);
 }
 
+/** One key for the base row, the 500gm row, and the 1kg row of the same dish. */
+export function canonicalDishKey(row: PriceableRow & { id?: string | null }): string {
+  const resolved = resolveDishPricing(row);
+  if (resolved) return resolved.dish.dishId;
+  const base = splitPackSizeFromName(String(row.name || "")).base;
+  return normalizeName(base) || String(row.id || "");
+}
+
+/**
+ * One row per dish. Prefer the app's dish id, then the unsized row, then the
+ * oldest id. The 500gm and 1kg rows stay in the table — orders point at them —
+ * but a picker must not show all three.
+ */
+export function pickCanonicalRows<T extends PriceableRow & { id: string; created_at?: string | null }>(
+  rows: T[],
+): T[] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = canonicalDishKey(row) || row.id;
+    const list = groups.get(key) || [];
+    list.push(row);
+    groups.set(key, list);
+  }
+  const picked: T[] = [];
+  for (const list of groups.values()) {
+    const exact = list.find((row) => resolveDishPricing(row)?.dish.dishId === row.id);
+    const unsized = list.filter((row) => !splitPackSizeFromName(String(row.name || "")).size);
+    const pool = exact ? [exact] : unsized.length ? unsized : list;
+    pool.sort(
+      (a, b) =>
+        String(a.created_at || "9999").localeCompare(String(b.created_at || "9999")) ||
+        a.id.localeCompare(b.id),
+    );
+    picked.push(pool[0]);
+  }
+  return picked;
+}
+
 export function packPricesFor(row: PriceableRow): PackPrices {
   return { "500gm": unitPriceFor(row, "500gm"), "1kg": unitPriceFor(row, "1kg") };
 }

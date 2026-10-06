@@ -13,6 +13,7 @@ import {
   isValidSlotKind,
   istAddCalendarDays,
   istCalendarYmd,
+  istWeekdayIndex,
   slotStartIsoFor,
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
@@ -229,13 +230,51 @@ export function parseDateText(text: string): string | null {
   };
   for (const [word, target] of Object.entries(days)) {
     if (new RegExp(`\\b${word}\\b`).test(t)) {
-      const current = new Date().getDay();
+      const current = istWeekdayIndex();
       let diff = target - current;
       if (diff <= 0) diff += 7;
       return istAddCalendarDays(today, diff);
     }
   }
   return null;
+}
+
+/** A calendar day before today in IST. Lexicographic compare works for YYYY-MM-DD. */
+export function isPastIstDate(ymd: string, today = istCalendarYmd()): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(ymd) && ymd < today;
+}
+
+/**
+ * The day named in this message wins. A stored date from an older session
+ * (for example 11 June, still sitting on the draft) is ignored once the
+ * customer has said tomorrow, and a past date is never "already noted".
+ */
+export function notedDeliveryDate(
+  draft: ProposalDraft,
+  source?: string | null,
+  today = istCalendarYmd(),
+): string | null {
+  const spoken = source ? parseDateText(source) : null;
+  if (spoken && !isPastIstDate(spoken, today)) return spoken;
+  const stored = parseDateText(String(draft.date || "")) || parseDateText(String(draft.time || ""));
+  if (stored && !isPastIstDate(stored, today)) return stored;
+  return null;
+}
+
+/** Write the noted day onto the draft, and drop a leftover past date. */
+export function applySpokenDate(draft: ProposalDraft, source?: string | null): ProposalDraft {
+  const date = notedDeliveryDate(draft, source);
+  if (!date) {
+    const stored = parseDateText(String(draft.date || ""));
+    if (stored && isPastIstDate(stored)) {
+      const next = { ...draft };
+      delete next.date;
+      return next;
+    }
+    return draft;
+  }
+  if (draft.date === date) return draft;
+  return { ...draft, date };
 }
 
 export function parsePackSize(text: string): PackSize | null {
@@ -333,7 +372,7 @@ function draftHasSlot(draft: ProposalDraft, lastSlotKind?: DeliverySlotKind | nu
 }
 
 function draftHasDate(draft: ProposalDraft): boolean {
-  return Boolean(parseDateText(String(draft.date || "")) || parseDateText(String(draft.time || "")));
+  return Boolean(notedDeliveryDate(draft));
 }
 
 function itemHasSize(item: { dish?: string; size?: string }): boolean {
@@ -398,12 +437,10 @@ export function fillDraftFromReply(
     changed = true;
   }
 
-  if (!draftHasDate(next)) {
-    const date = parseDateText(text);
-    if (date) {
-      next.date = date;
-      changed = true;
-    }
+  const date = parseDateText(text);
+  if (date && !isPastIstDate(date) && next.date !== date) {
+    next.date = date;
+    changed = true;
   }
 
   if (!draftHasSlot(next)) {
@@ -531,7 +568,7 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
     null;
   if (!slotKind) return { ok: false, kind: "missing", field: "slot" };
 
-  const deliveryDate = parseDateText(String(draft.date || "")) ?? parseDateText(String(draft.time || ""));
+  const deliveryDate = notedDeliveryDate(draft, input.sourceText);
   if (!deliveryDate) return { ok: false, kind: "missing", field: "date" };
 
   const slotStartIso = slotStartIsoFor(deliveryDate, slotKind);
