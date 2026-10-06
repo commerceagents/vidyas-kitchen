@@ -275,6 +275,30 @@ export function notedDeliveryDate(
   return null;
 }
 
+/**
+ * A size in this message wins. A new dish sentence that never names 500gm or
+ * 1kg drops a size left over from an earlier turn, so we ask again.
+ */
+export function applySpokenSize(draft: ProposalDraft, source?: string | null): ProposalDraft {
+  const spoken = source ? parsePackSize(source) : null;
+  if (spoken) {
+    return {
+      ...draft,
+      items: (draft.items || []).map((item) => ({ ...item, size: spoken })),
+    };
+  }
+  const freshDish = dishQueryCategory(String(source || "")) != null || /\b(gravy|gravies|curry|curries|wings?|dry)\b/i.test(String(source || ""));
+  if (!freshDish) return draft;
+  return {
+    ...draft,
+    items: (draft.items || []).map((item) => {
+      const next = { ...item };
+      delete next.size;
+      return next;
+    }),
+  };
+}
+
 /** Write the noted day onto the draft, and drop a leftover past date. */
 export function applySpokenDate(draft: ProposalDraft, source?: string | null): ProposalDraft {
   const date = notedDeliveryDate(draft, source);

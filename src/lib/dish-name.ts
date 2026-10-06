@@ -44,6 +44,30 @@ export function formatFullDishName(name: string): string {
 
 const RECIPE_TAG = /[(]?((?:MOM'S|SISTER'S|SISTER-IN-LAW'S|SISTER\s+IN\s+LAW'S|MOTHER-IN-LAW'S|MOTHER\s+IN\s+LAW'S|GRANDMA'S|GRANDMA|CHEFS?|SIL)\s+RECIPE)[)]?/i;
 
+/**
+ * List-message row. Title is at most 24 characters, cut on a word.
+ * Anything that does not fit, plus the price, goes in the 72-character description
+ * so the full dish name is still on screen.
+ */
+export function listRowLabel(name: string, detail: string): { title: string; description: string } {
+  const full = formatFullDishName(name);
+  const price = detail.trim();
+  if (full.length <= 24) {
+    return { title: full, description: price.slice(0, 72) };
+  }
+  const words = full.split(/\s+/).filter(Boolean);
+  const titleWords: string[] = [];
+  for (const word of words) {
+    const next = [...titleWords, word].join(" ");
+    if (next.length > 24) break;
+    titleWords.push(word);
+  }
+  const title = (titleWords.join(" ") || full.slice(0, 24)).slice(0, 24);
+  const rest = words.slice(titleWords.length).join(" ");
+  const description = [rest, price].filter(Boolean).join(" · ").slice(0, 72);
+  return { title, description };
+}
+
 /** WhatsApp reply buttons allow 20 characters. Prefer the recipe tag when the full name does not fit. */
 export function choiceButtonTitle(name: string): string {
   const full = formatFullDishName(name);

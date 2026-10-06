@@ -85,8 +85,7 @@ import {
   buildOpenAppBody,
   buildPwaPromoBody,
   buildCodPlacedMessage,
-  buildDishChoiceMessage,
-  choiceButtonTitle,
+  buildDishListPrompt,
   dishPickedAside,
   complaintPrompt,
   escalateHumanReply,
@@ -114,7 +113,7 @@ import {
 import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
 import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
-import { formatFullDishName } from "@/lib/dish-name";
+import { formatFullDishName, listRowLabel } from "@/lib/dish-name";
 import {
   saveWaLang,
   langForPhone,
@@ -141,6 +140,7 @@ import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, 
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
   applySpokenDate,
+  applySpokenSize,
   buildProposal,
   dishChoiceQuery,
   dishQueryCategory,
@@ -2111,7 +2111,7 @@ async function presentProposal(
   const menu = await getMenu();
   const last = await fetchLastAddressAndSlot(from);
   const session = await getSession(from);
-  let draft = applySpokenDate(incoming, sourceText);
+  let draft = applySpokenSize(applySpokenDate(incoming, sourceText), sourceText);
   const proposalInput = {
     menu,
     sourceText,
@@ -2195,26 +2195,23 @@ async function presentProposal(
       const family = dishQueryCategory(query) || dishQueryCategory(sourceText || "") || dishQueryCategory(draftDish);
       const options = preparedChoices ?? (await closeDishChoices(menu, query, family));
       if (options.length > 0) {
-        const size = parsePackSize(String(draft.items?.[0]?.size || "")) || parsePackSize(sourceText || "");
-        const choices = options.map((item) => ({
-          id: item.id,
-          name: item.name,
-          title: choiceButtonTitle(item.name),
-          priceLine: size ? `${formatInr(unitPriceFor(item, size))} (${size})` : packPriceLine(item, " / "),
-        }));
-        const numbered = choices.length > 3;
+        const statedSize = parsePackSize(sourceText || "");
+        const rows = options.slice(0, 10).map((item) => {
+          const priceLine = statedSize
+            ? `${formatInr(unitPriceFor(item, statedSize))} (${statedSize})`
+            : `500gm ${formatInr(unitPriceFor(item, "500gm"))} · 1kg ${formatInr(unitPriceFor(item, "1kg"))}`;
+          const label = listRowLabel(item.name, priceLine);
+          return { id: item.id, title: label.title, description: label.description };
+        });
         await updateSession(from, {
           state: "picking_item",
           recent_turns: turns,
         });
-        await storeOptions(from, choices.map((choice) => ({ id: choice.id, title: choice.title })));
-        const body = buildDishChoiceMessage(
-          family,
-          choices.map((choice) => ({ name: choice.name, priceLine: choice.priceLine })),
-          numbered,
-        );
-        if (numbered) await sendText(from, body);
-        else await sendButtons(from, body, choices.slice(0, 3).map((choice) => ({ id: choice.id, title: choice.title })));
+        await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+        const section = family === "mutton" ? "Mutton gravy" : family === "egg" ? "Egg" : family === "chicken" ? "Chicken gravy" : "Dishes";
+        await sendList(from, buildDishListPrompt(family), "View options", [
+          { title: section, rows },
+        ]);
         return ack();
       }
       await sendLookalikeCarousel(from, query);

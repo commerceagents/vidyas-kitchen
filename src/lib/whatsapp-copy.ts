@@ -26,7 +26,7 @@ import { computeOrderBreakdownFromItemSubtotal } from "./order-pricing";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 import { formatInr, packPriceLine } from "./menu/dish-pricing";
-import { choiceButtonTitle, formatFullDishName } from "./dish-name";
+import { formatFullDishName, listRowLabel } from "./dish-name";
 import { COD_MAX_ORDER_VALUE } from "./cod-policy";
 
 export const SUPPORT_PHONE_E164 = "+919384020119";
@@ -526,11 +526,18 @@ export function buildVariantMessage(
 ): string {
   return pickLang(
     lang,
-    msg({
-      title: itemName,
-      lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
-      note: "Pick a size, or type both: 500gm 2 and 1kg 1.",
-    }),
+    [
+      `*${itemName}*`,
+      "",
+      "Which size would you like?",
+      "",
+      WA_SECTION_DIVIDER,
+      `500gm — ${money(prices["500gm"])}`,
+      `1kg — ${money(prices["1kg"])}`,
+      WA_SECTION_DIVIDER,
+      "",
+      "_Tap Choose size, or type both: 500gm 2 and 1kg 1._",
+    ].join("\n"),
     msg({
       title: itemName,
       lines: [`500gm — ${money(prices["500gm"])}`, `1kg — ${money(prices["1kg"])}`],
@@ -1029,47 +1036,14 @@ export function dishPickedAside(): string {
 /** Section break. Money rows keep middle-dot leaders; this splits blocks. */
 export const WA_SECTION_DIVIDER = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄";
 
-function choiceEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (/mom/.test(n)) return "👩‍🍳";
-  if (/sister-in-law|sister in law/.test(n)) return "👩";
-  if (/sister/.test(n)) return "👧";
-  if (/chill|pepper/.test(n)) return "🌶️";
-  if (/wing/.test(n)) return "🍗";
-  if (/egg/.test(n)) return "🥚";
-  if (/mutton|keema|stew/.test(n)) return "🍖";
-  return "•";
-}
-
-/**
- * Ambiguous family order. Three or fewer options get quick-reply buttons
- * under this text. More than three is a numbered list, because WhatsApp
- * allows only three reply buttons.
- */
-export function buildDishChoiceMessage(
-  family: "chicken" | "mutton" | "egg" | null,
-  choices: { name: string; priceLine: string }[],
-  numbered: boolean,
-): string {
+/** Body of the dish list. The rows carry the full names; this only opens the list. */
+export function buildDishListPrompt(family: "chicken" | "mutton" | "egg" | null): string {
   const noun = family === "mutton" ? "mutton gravy" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
   const headerEmoji = family === "mutton" ? "🍖" : family === "egg" ? "🥚" : "🍗";
-  const lines = choices.map((choice, index) => {
-    const label = choiceButtonTitle(choice.name);
-    const row = `${choiceEmoji(choice.name)} *${label}* — ${choice.priceLine}`;
-    return numbered ? `${index + 1}. ${row}` : row;
-  });
-  return [
-    `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?`,
-    "",
-    WA_SECTION_DIVIDER,
-    ...lines,
-    WA_SECTION_DIVIDER,
-    "",
-    numbered ? "_Reply with the number, or just type the name!_" : "_Tap one below, or just type the name!_",
-  ].join("\n");
+  return `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?\n\n_Tap View options, or just type the name!_`;
 }
 
-export { choiceButtonTitle };
+export { listRowLabel };
 
 // ─── Order status notifications ──────────────────────────────────────────────
 
