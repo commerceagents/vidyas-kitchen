@@ -95,7 +95,7 @@ import {
   interruptCancelledMessage,
   interruptClarifyMessage,
   interruptMenuAside,
-  interruptStatusMessage,
+  buildCurrentOrdersMessage,
   interruptStillOpenMessage,
   olderOrderAskReply,
   olderOrderArrivedReply,
@@ -421,6 +421,81 @@ const STATUS_DETAIL: Record<string, string> = {
   rejected: "not accepted by the kitchen (we'll reach out if needed).",
   undelivered: "couldn't be handed over — we'll be in touch.",
 };
+
+type OrderItemJoin = {
+  quantity?: number | null;
+  unit_price?: number | null;
+  menu_items?: { name?: string | null } | { name?: string | null }[] | null;
+};
+
+type OrderDetailRow = {
+  id: string;
+  order_number?: number | null;
+  status?: string | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+  total_amount?: number | null;
+  delivery_slot?: string | null;
+  delivery_slot_kind?: string | null;
+  delivery_address?: string | null;
+  created_at?: string | null;
+  order_items?: OrderItemJoin[] | null;
+};
+
+function joinedDishName(item: OrderItemJoin): string {
+  const menu = item.menu_items;
+  const raw = Array.isArray(menu) ? menu[0]?.name : menu?.name;
+  return formatFullDishName(String(raw || "")).trim();
+}
+
+function paymentPhrase(method: string | null | undefined, paymentStatus: string | null | undefined): string {
+  const m = String(method || "").toLowerCase();
+  const p = String(paymentStatus || "").toLowerCase();
+  if (m === "cod" || m === "cash") return p === "paid" ? "Cash, collected" : "Cash on delivery";
+  if (m === "online") return p === "paid" ? "Paid online" : "Pay online";
+  if (p === "paid") return "Paid";
+  if (p === "pending") return "Payment still open";
+  return "";
+}
+
+async function currentOrderCards(from: string) {
+  const { data: orders } = await createServerSupabase()
+    .from("orders")
+    .select(
+      "id, order_number, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, delivery_address, created_at, order_items(quantity, unit_price, menu_items(name))",
+    )
+    .in("phone_number", phoneVariants(from))
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  return ((orders || []) as OrderDetailRow[])
+    .filter((row) => row.status && !["cancelled", "rejected"].includes(row.status))
+    .slice(0, 3)
+    .map((row) => {
+      const items = (Array.isArray(row.order_items) ? row.order_items : []).flatMap((item) => {
+        const name = joinedDishName(item);
+        if (!name) return [];
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        const unit = Number(item.unit_price);
+        const line = Number.isFinite(unit) && unit > 0 ? formatInr(unit * qty) : "";
+        return [{ name, qty, line }];
+      });
+      const when =
+        formatSlotLineForCustomer(row.delivery_slot, row.delivery_slot_kind) ||
+        (row.created_at
+          ? `Placed ${new Date(row.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" })}`
+          : "");
+      return {
+        ref: formatOrderRef(row.order_number, row.id),
+        status: STATUS_DETAIL[row.status || ""] || String(row.status || "").replace(/_/g, " "),
+        payment: paymentPhrase(row.payment_method, row.payment_status),
+        total: row.total_amount != null ? formatInr(Number(row.total_amount)) : "",
+        when,
+        address: String(row.delivery_address || "").trim(),
+        items,
+      };
+    });
+}
 
 /** Past the booked window, an open order is no longer a live trip. */
 function olderKindForAskedOrder(status: string, slotStartIso: string | null | undefined): OlderOrderKind | null {
@@ -1696,17 +1771,18 @@ async function handleInterrupt(
   }
 
   if (decision.action === "answer_status_then_reask") {
-    const { data: orders } = await createServerSupabase()
-      .from("orders")
-      .select("id, order_number, status")
-      .in("phone_number", phoneVariants(from))
-      .order("created_at", { ascending: false })
-      .limit(3);
-    const lines = ((orders || []) as { id: string; order_number?: number | null; status?: string }[])
-      .filter((row) => row.status && !["delivered", "cancelled", "rejected"].includes(row.status))
-      .map((row) => `${formatOrderRef(row.order_number, row.id)} · ${(row.status || "").replace(/_/g, " ")}`);
-    await sendText(from, interruptStatusMessage(lines));
-    return reaskPending(from, session.state);
+    const cards = await currentOrderCards(from);
+    // They asked for their orders. Do not reopen the dish list that was waiting.
+    await updateSession(from, {
+      state: "idle",
+      pending_options: null,
+      proposal: null,
+      selected_item_id: null,
+      selected_variant: null,
+      recent_turns: chatTurns(session.recent_turns).slice(-8),
+    });
+    await sendText(from, buildCurrentOrdersMessage(cards));
+    return ack();
   }
 
   if (decision.action === "clarify" || (decision.action === "reask" && classification.intent !== "small_talk")) {

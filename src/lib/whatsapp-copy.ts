@@ -2100,6 +2100,39 @@ export function interruptMenuAside(): string {
   });
 }
 
+export type CurrentOrderCard = {
+  ref: string;
+  status: string;
+  payment: string;
+  total: string;
+  when: string;
+  address: string;
+  items: { name: string; qty: number; line: string }[];
+};
+
+/** A full ticket per order: dishes, slot, address, money, and where it stands. */
+export function buildCurrentOrdersMessage(orders: CurrentOrderCard[]): string {
+  if (orders.length === 0) {
+    return msg({
+      title: "Your orders",
+      lines: ["Nothing on this number yet.", "Tell me a dish when you want one."],
+    });
+  }
+  const blocks = orders.map((order) => {
+    const itemLines = order.items.length
+      ? order.items.map((item) => `*${item.name}* × ${item.qty}${item.line ? ` — ${item.line}` : ""}`)
+      : ["The dishes are not on this ticket."];
+    const where = [order.when, order.address].filter(Boolean);
+    const money = [order.total, order.payment].filter(Boolean).join(" · ");
+    return [`*${order.ref}*`, ...itemLines, ...where, money, order.status].filter(Boolean).join("\n");
+  });
+  return msg({
+    title: "Your orders",
+    lines: [blocks.join(`\n\n${WA_SECTION_DIVIDER}\n\n`)],
+    note: "Send an order number, like #00003, if you want just that one.",
+  });
+}
+
 export function interruptStatusMessage(lines: string[]): string {
   return msg({
     title: "Your orders",

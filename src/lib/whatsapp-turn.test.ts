@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { CartItem } from "./whatsapp-cart";
 import { matchCartLines, planScopedCartEdit } from "./whatsapp-cart-ops";
 import { asksAboutExistingOrder, classifyTurn, INTERRUPT_ESCALATE_AT, routeTurn } from "./whatsapp-turn";
+import { buildCurrentOrdersMessage } from "./whatsapp-copy";
 
 const moms1kg: CartItem = {
   menu_item_id: "37c30dfd-3be1-46a1-9780-8f65e6112259",
@@ -74,6 +75,25 @@ check(
   asksAboutExistingOrder("Is there any pending order of me?") &&
     classifyTurn("Is there any pending order of me?", "browsing_category").intent === "ask_status",
 );
+check(
+  "current orders is a status question",
+  classifyTurn("Can you send me the current orders i have", "picking_item").intent === "ask_status",
+);
+const ticket = buildCurrentOrdersMessage([
+  {
+    ref: "#00003",
+    status: "received by us and queued for the kitchen.",
+    payment: "Cash on delivery",
+    total: "₹421",
+    when: "Dinner · Wed, 7 Oct, 7:00 pm",
+    address: "12 Temple Street, Sivakasi",
+    items: [{ name: "Mom's Recipe Chicken Gravy", qty: 1, line: "₹349" }],
+  },
+]);
+check("order ticket names the dish", ticket.includes("Mom's Recipe Chicken Gravy"));
+check("order ticket names the slot", ticket.includes("Dinner · Wed, 7 Oct, 7:00 pm"));
+check("order ticket names the money", ticket.includes("₹421") && ticket.includes("Cash on delivery"));
+check("order ticket is not a one-line status", !ticket.includes("#00003 · paid"));
 check("placing an order is not a status question", asksAboutExistingOrder("I want to order chicken gravy") === false);
 
 const menu = classifyTurn("what's on the menu", "picking_date");
