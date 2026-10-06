@@ -1,10 +1,12 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { guardDashboardAction } from "@/lib/dashboard-auth";
 import { roundToDiscountPreset } from "@/lib/menu/discount-presets";
 import { saveFestivalDishes, saveFestivalOverrides } from "@/lib/menu/festival-dishes";
+import { embedMissingMenuItems, refreshMenuItemEmbeddings } from "@/lib/menu/embeddings";
 
 export type FestivalUpsertPayload = {
   id: string;
@@ -67,6 +69,13 @@ export async function setFestivalDishesAction(
     }
     revalidatePath("/dashboard/pricing-agent");
     revalidatePath("/");
+    after(() => {
+      void embedMissingMenuItems()
+        .then(() => refreshMenuItemEmbeddings(dishIds))
+        .catch((err) => {
+          console.error("[menu embeddings] dish save refresh failed:", err);
+        });
+    });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Save failed" };
