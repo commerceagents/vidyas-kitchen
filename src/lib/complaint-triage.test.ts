@@ -7,6 +7,7 @@ import {
   isDeliveryRelated,
   packStoredComplaint,
   presentTarget,
+  isUpiId,
   sortComplaints,
   splitStoredComplaint,
 } from "./complaint-triage";
@@ -102,6 +103,8 @@ check("full ticket is still refundable", refundableRemainder(421, null, null) ==
 check("a finished refund is not sent twice", refundableRemainder(421, "refunded", 421) === 0);
 check("a partial refund leaves the rest", refundableRemainder(421, "refunded", 100) === 321);
 check("a refund with no amount on file is treated as finished", refundableRemainder(421, "refunded", null) === 0);
+check("a upi id is an account", isUpiId("vidya@okhdfcbank") === true);
+check("a phone is not a upi id", isUpiId("9384020119") === false);
 
 if (process.exitCode) {
   console.error("complaint triage tests failed");

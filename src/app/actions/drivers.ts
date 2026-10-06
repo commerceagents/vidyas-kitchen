@@ -7,7 +7,6 @@ import {
   hasDashboardSession,
 } from "@/lib/dashboard-auth";
 import { hashDriverPin, isValidDriverPin } from "@/lib/driver-auth";
-import { driverFlagsFromBodies } from "@/lib/complaint-triage";
 import { sendCtaUrl } from "@/lib/whatsapp-send";
 
 /**
@@ -23,7 +22,6 @@ export type DashboardDriver = {
   phone: string;
   hasPin: boolean;
   hasInstalledApp: boolean;
-  flags: { note: string; at: string; orderRef: string | null }[];
 };
 
 export type DriverActionResult = { ok: boolean; error?: string };
@@ -51,12 +49,6 @@ export async function listDashboardDrivers(): Promise<{
     }
 
     const rows = (data || []) as { id: string; name: string; phone: string; pin_hash?: string | null; has_installed_app?: boolean }[];
-    const { data: complaints } = await supabase
-      .from("customer_complaints")
-      .select("body")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    const flags = driverFlagsFromBodies(complaints ?? []);
     return {
       ok: true,
       drivers: rows.map((d) => ({
@@ -65,7 +57,6 @@ export async function listDashboardDrivers(): Promise<{
         phone: d.phone,
         hasPin: Boolean(d.pin_hash),
         hasInstalledApp: Boolean(d.has_installed_app),
-        flags: flags.get(d.name.trim().toLowerCase()) ?? [],
       })),
     };
   } catch (e) {

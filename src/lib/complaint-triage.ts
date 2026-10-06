@@ -20,9 +20,17 @@ export type ComplaintCategory =
 export type ComplaintRefund = {
   amount: number;
   reason: string;
-  mode: "credit" | "razorpay";
+  mode: "credit" | "razorpay" | "upi";
   at: string;
+  /** UPI id, or the card / bank the online refund returns to. */
+  account?: string | null;
 };
+
+export type PaymentKind = "cod" | "online" | "none";
+
+export function isUpiId(value: string): boolean {
+  return /^[a-z0-9][a-z0-9._-]{1,}@[a-z][a-z0-9]{1,}$/i.test(value.trim());
+}
 
 export type ComplaintDriverFlag = {
   driverName: string;
@@ -59,6 +67,8 @@ export type ComplaintCard = {
   refund: ComplaintRefund | null;
   driverFlag: ComplaintDriverFlag | null;
   canRefundMoney: boolean;
+  paymentKind: PaymentKind;
+  paymentCollected: boolean;
 };
 
 export const CATEGORY_LABEL: Record<ComplaintCategory, string> = {
@@ -72,7 +82,7 @@ export const CATEGORY_LABEL: Record<ComplaintCategory, string> = {
 export const STATUS_LABEL: Record<ComplaintStatus, string> = {
   new: "New",
   in_progress: "In Progress",
-  resolved: "Resolved",
+  resolved: "Done",
 };
 
 const RUDE = /\b(rude|behaviour|behavior|shouted|yelled|abusive|impolite)\b/i;
@@ -95,10 +105,11 @@ function asRefund(value: unknown): ComplaintRefund | null {
   const row = value as Record<string, unknown>;
   const amount = Number(row.amount);
   const reason = String(row.reason || "").trim();
-  const mode = row.mode === "razorpay" ? "razorpay" : row.mode === "credit" ? "credit" : null;
+  const mode = row.mode === "razorpay" || row.mode === "upi" || row.mode === "credit" ? row.mode : null;
   const at = String(row.at || "");
+  const account = String(row.account || "").trim();
   if (!mode || !Number.isFinite(amount) || amount <= 0 || !reason || !at) return null;
-  return { amount, reason, mode, at };
+  return { amount, reason, mode, at, account: account || null };
 }
 
 function asFlag(value: unknown): ComplaintDriverFlag | null {

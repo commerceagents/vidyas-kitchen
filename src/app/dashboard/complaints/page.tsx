@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Clock, Flag, IndianRupee, MessageSquareWarning, Phone, RotateCcw, Truck } from "lucide-react";
+import { Check, IndianRupee, MessageSquareWarning, Phone, Truck } from "lucide-react";
 import {
   DashboardDesktopTopBar,
   DashboardMobileHeader,
@@ -18,11 +18,11 @@ import {
   STATUS_LABEL,
   type ComplaintCard,
   type ComplaintCategory,
-  type ComplaintDriverFlag,
   type ComplaintRefund,
   type ComplaintSort,
   type ComplaintStatus,
   complaintStats,
+  isUpiId,
   sortComplaints,
   telHref,
 } from "@/lib/complaint-triage";
@@ -53,16 +53,15 @@ const SAMPLE: ComplaintCard = {
   refund: null,
   driverFlag: null,
   canRefundMoney: false,
+  paymentKind: "cod",
+  paymentCollected: false,
 };
 
-type StatusFilter = "all" | ComplaintStatus;
 type CategoryFilter = "all" | ComplaintCategory;
-type ModalState = { kind: "refund" | "flag"; card: ComplaintCard } | null;
 type SamplePreview = {
   status: ComplaintStatus;
   resolvedAt: string | null;
   refund: ComplaintRefund | null;
-  driverFlag: ComplaintDriverFlag | null;
 };
 
 function rupees(amount: number): string {
@@ -117,16 +116,14 @@ export default function ComplaintsPage() {
 
   const [complaints, setComplaints] = useState<ComplaintCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [sort, setSort] = useState<ComplaintSort>("newest");
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [modal, setModal] = useState<ModalState>(null);
+  const [modal, setModal] = useState<ComplaintCard | null>(null);
   const [preview, setPreview] = useState<SamplePreview>({
     status: "new",
     resolvedAt: null,
     refund: null,
-    driverFlag: null,
   });
 
   const load = useCallback(async () => {
@@ -165,7 +162,6 @@ export default function ComplaintsPage() {
   const sampleCard: ComplaintCard = showingSample ? { ...SAMPLE, ...preview } : SAMPLE;
   const source = showingSample ? [sampleCard] : real;
   const filtered = source.filter((row) => {
-    if (statusFilter !== "all" && row.status !== statusFilter) return false;
     if (categoryFilter !== "all" && row.category !== categoryFilter) return false;
     return matchesQuery(row, query);
   });
@@ -199,22 +195,28 @@ export default function ComplaintsPage() {
     }
   };
 
-  const onStatus = (card: ComplaintCard, status: ComplaintStatus) => {
+  const onDone = (card: ComplaintCard) => {
     if (card.sample) {
       applySample(
-        (current) => ({
-          ...current,
-          status,
-          resolvedAt: status === "resolved" ? new Date().toISOString() : null,
-        }),
-        status === "resolved" ? "Marked resolved." : status === "in_progress" ? "Moved to in progress." : "Reopened.",
+        (current) => ({ ...current, status: "resolved", resolvedAt: new Date().toISOString() }),
+        "Marked as done.",
       );
       return;
     }
-    void save(card, { action: "status", status });
+    void save(card, { action: "status", status: "resolved" });
   };
 
-  const onRefund = (card: ComplaintCard, amount: string, reason: string) => {
+  const onRefund = (card: ComplaintCard, amount: string, reason: string, upi: string) => {
+    const needsUpi = card.sample || card.paymentKind !== "online" || !card.canRefundMoney;
+    if (needsUpi && !isUpiId(upi)) {
+      show(
+        card.paymentKind === "cod" || card.sample
+          ? "Enter the customer's UPI ID. Cash on delivery has no account to reverse."
+          : "Enter the customer's UPI ID.",
+        "error",
+      );
+      return;
+    }
     if (card.sample) {
       const value = Number(amount);
       if (!Number.isFinite(value) || value <= 0 || reason.trim().length < 3) {
@@ -224,33 +226,19 @@ export default function ComplaintsPage() {
       applySample(
         (current) => ({
           ...current,
-          status: current.status === "new" ? "in_progress" : current.status,
-          refund: { amount: value, reason: reason.trim(), mode: "credit", at: new Date().toISOString() },
+          refund: {
+            amount: value,
+            reason: reason.trim(),
+            mode: "upi",
+            at: new Date().toISOString(),
+            account: upi.trim(),
+          },
         }),
-        "Credit preview added.",
+        "UPI saved on the sample. Nothing was sent.",
       );
       return;
     }
-    void save(card, { action: "refund", amount, reason });
-  };
-
-  const onFlag = (card: ComplaintCard, note: string) => {
-    if (card.sample) {
-      if (note.trim().length < 3) {
-        show("Add a short note about the driver.", "error");
-        return;
-      }
-      applySample(
-        (current) => ({
-          ...current,
-          status: current.status === "new" ? "in_progress" : current.status,
-          driverFlag: { driverName: card.driverName || "Sample driver", note: note.trim(), at: new Date().toISOString() },
-        }),
-        "Driver flag preview added.",
-      );
-      return;
-    }
-    void save(card, { action: "flag", note });
+    void save(card, { action: "refund", amount, reason, upi });
   };
 
   const copyPhone = async (phone: string) => {
@@ -271,17 +259,14 @@ export default function ComplaintsPage() {
         stats={stats}
         error={error}
         showingSample={showingSample}
-        emptyBecauseSearch={Boolean(query) || statusFilter !== "all" || categoryFilter !== "all"}
-        statusFilter={statusFilter}
+        emptyBecauseSearch={Boolean(query) || categoryFilter !== "all"}
         categoryFilter={categoryFilter}
         sort={sort}
         savingId={savingId}
-        onStatusFilter={setStatusFilter}
         onCategoryFilter={setCategoryFilter}
         onSort={setSort}
-        onStatus={onStatus}
-        onOpenRefund={(card) => setModal({ kind: "refund", card })}
-        onOpenFlag={(card) => setModal({ kind: "flag", card })}
+        onDone={onDone}
+        onOpenRefund={(card) => setModal(card)}
         onCopyPhone={(phone) => void copyPhone(phone)}
       />
     );
@@ -329,15 +314,14 @@ export default function ComplaintsPage() {
       </div>
 
       {modal ? (
-        <ActionModal
-          modal={modal}
-          busy={savingId === modal.card.id}
+        <RefundModal
+          card={modal}
+          busy={savingId === modal.id}
           onClose={() => {
             if (savingId) return;
             setModal(null);
           }}
           onRefund={onRefund}
-          onFlag={onFlag}
         />
       ) : null}
 
@@ -358,7 +342,7 @@ export default function ComplaintsPage() {
         }
         .vk-complaint-stats {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
         }
         @media (max-width: 1280px) {
@@ -377,16 +361,13 @@ function ComplaintWorkspace({
   error,
   showingSample,
   emptyBecauseSearch,
-  statusFilter,
   categoryFilter,
   sort,
   savingId,
-  onStatusFilter,
   onCategoryFilter,
   onSort,
-  onStatus,
+  onDone,
   onOpenRefund,
-  onOpenFlag,
   onCopyPhone,
 }: {
   rows: ComplaintCard[];
@@ -394,68 +375,34 @@ function ComplaintWorkspace({
   error: string | null;
   showingSample: boolean;
   emptyBecauseSearch: boolean;
-  statusFilter: StatusFilter;
   categoryFilter: CategoryFilter;
   sort: ComplaintSort;
   savingId: string | null;
-  onStatusFilter: (value: StatusFilter) => void;
   onCategoryFilter: (value: CategoryFilter) => void;
   onSort: (value: ComplaintSort) => void;
-  onStatus: (card: ComplaintCard, status: ComplaintStatus) => void;
+  onDone: (card: ComplaintCard) => void;
   onOpenRefund: (card: ComplaintCard) => void;
-  onOpenFlag: (card: ComplaintCard) => void;
   onCopyPhone: (phone: string) => void;
 }) {
   const statCards = [
-    { id: "new" as const, label: "New", value: String(stats.fresh), color: "#ff8a80" },
-    { id: "in_progress" as const, label: "In Progress", value: String(stats.progress), color: "#7dd3fc" },
-    { id: "resolved" as const, label: "Resolved (30d)", value: String(stats.resolved), color: "#86efac" },
-    { id: "response" as const, label: "Avg response", value: stats.response, color: YELLOW },
+    { id: "new", label: "New", value: String(stats.fresh), color: "#ff8a80" },
+    { id: "resolved", label: "Done (30d)", value: String(stats.resolved), color: "#86efac" },
+    { id: "response", label: "Avg response", value: stats.response, color: YELLOW },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {error ? <p style={errorStyle}>{error}</p> : null}
       <div className="vk-complaint-stats">
-        {statCards.map((card) => {
-          const active = card.id !== "response" && statusFilter === card.id;
-          return (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => {
-                if (card.id === "response") return;
-                onStatusFilter(statusFilter === card.id ? "all" : card.id);
-              }}
-              aria-pressed={active}
-              style={{
-                ...statButton,
-                borderColor: active ? YELLOW : "#2a2a2a",
-                cursor: card.id === "response" ? "default" : "pointer",
-              }}
-            >
-              <span style={{ color: "#8a8a8a", fontSize: 12, fontWeight: 700 }}>{card.label}</span>
-              <span style={{ color: card.color, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em" }}>{card.value}</span>
-            </button>
-          );
-        })}
+        {statCards.map((card) => (
+          <div key={card.id} style={statButton}>
+            <span style={{ color: "#8a8a8a", fontSize: 12, fontWeight: 700 }}>{card.label}</span>
+            <span style={{ color: card.color, fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em" }}>{card.value}</span>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={chipRow}>
-          <FilterChip active={statusFilter === "all"} onClick={() => onStatusFilter("all")}>
-            All
-          </FilterChip>
-          {(["new", "in_progress", "resolved"] as const).map((status) => (
-            <FilterChip
-              key={status}
-              active={statusFilter === status}
-              onClick={() => onStatusFilter(statusFilter === status ? "all" : status)}
-            >
-              {STATUS_LABEL[status]}
-            </FilterChip>
-          ))}
-        </div>
         <div style={{ ...chipRow, justifyContent: "space-between" }}>
           <div style={chipRow}>
             <FilterChip active={categoryFilter === "all"} onClick={() => onCategoryFilter("all")}>
@@ -500,9 +447,8 @@ function ComplaintWorkspace({
               key={row.id}
               row={row}
               busy={savingId === row.id}
-              onStatus={onStatus}
+              onDone={onDone}
               onOpenRefund={onOpenRefund}
-              onOpenFlag={onOpenFlag}
               onCopyPhone={onCopyPhone}
             />
           ))}
@@ -564,16 +510,14 @@ function EmptyComplaints({ filtered }: { filtered: boolean }) {
 function ComplaintRow({
   row,
   busy,
-  onStatus,
+  onDone,
   onOpenRefund,
-  onOpenFlag,
   onCopyPhone,
 }: {
   row: ComplaintCard;
   busy: boolean;
-  onStatus: (card: ComplaintCard, status: ComplaintStatus) => void;
+  onDone: (card: ComplaintCard) => void;
   onOpenRefund: (card: ComplaintCard) => void;
-  onOpenFlag: (card: ComplaintCard) => void;
   onCopyPhone: (phone: string) => void;
 }) {
   const call = telHref(row.phone);
@@ -633,14 +577,7 @@ function ComplaintRow({
         </p>
 
         {row.refund ? (
-          <p style={{ margin: "8px 0 0", color: "#86efac", fontSize: 12 }}>
-            {row.refund.mode === "razorpay" ? "Refund sent" : "Kitchen credit"} {rupees(row.refund.amount)} · {row.refund.reason}
-          </p>
-        ) : null}
-        {row.driverFlag ? (
-          <p style={{ margin: "6px 0 0", color: "#fbbf24", fontSize: 12 }}>
-            Flag on {row.driverFlag.driverName}: {row.driverFlag.note}
-          </p>
+          <p style={{ margin: "8px 0 0", color: "#86efac", fontSize: 12 }}>{refundLine(row.refund)}</p>
         ) : null}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
@@ -653,34 +590,14 @@ function ComplaintRow({
               <Phone size={14} /> Call customer
             </button>
           )}
-          {row.status === "new" ? (
-            <button type="button" disabled={busy} onClick={() => onStatus(row, "in_progress")} style={actionButton}>
-              <Clock size={14} /> In progress
-            </button>
-          ) : null}
           {row.status !== "resolved" ? (
-            <button type="button" disabled={busy} onClick={() => onStatus(row, "resolved")} style={primaryButton}>
-              <Check size={14} /> Mark resolved
-            </button>
-          ) : (
-            <button type="button" disabled={busy} onClick={() => onStatus(row, "new")} style={actionButton}>
-              <RotateCcw size={14} /> Reopen
-            </button>
-          )}
-          <button type="button" disabled={busy || Boolean(row.refund)} onClick={() => onOpenRefund(row)} style={actionButton}>
-            <IndianRupee size={14} /> {row.refund ? "Refund noted" : "Refund / credit"}
-          </button>
-          {row.deliveryRelated ? (
-            <button
-              type="button"
-              disabled={busy || !row.driverName}
-              title={row.driverName ? "Save a note on this driver" : "No driver on this order"}
-              onClick={() => onOpenFlag(row)}
-              style={{ ...actionButton, opacity: row.driverName ? 1 : 0.4, cursor: row.driverName ? "pointer" : "default" }}
-            >
-              <Flag size={14} /> {row.driverFlag ? "Update flag" : "Flag driver"}
+            <button type="button" disabled={busy} onClick={() => onDone(row)} style={primaryButton}>
+              <Check size={14} /> Mark as done
             </button>
           ) : null}
+          <button type="button" disabled={busy || Boolean(row.refund)} onClick={() => onOpenRefund(row)} style={actionButton}>
+            <IndianRupee size={14} /> {row.refund ? "Refunded" : "Refund"}
+          </button>
         </div>
       </div>
     </article>
@@ -726,22 +643,29 @@ function DishThumb({ src, alt }: { src: string | null; alt: string }) {
   );
 }
 
-function ActionModal({
-  modal,
+function refundLine(refund: ComplaintRefund): string {
+  const money = rupees(refund.amount);
+  if (refund.mode === "upi") return `Pay ${money} to ${refund.account || "their UPI"} · ${refund.reason}`;
+  if (refund.mode === "razorpay") return `Refunded ${money} to ${refund.account || "the original payment"} · ${refund.reason}`;
+  return `Kitchen credit ${money} · ${refund.reason}`;
+}
+
+function RefundModal({
+  card,
   busy,
   onClose,
   onRefund,
-  onFlag,
 }: {
-  modal: { kind: "refund" | "flag"; card: ComplaintCard };
+  card: ComplaintCard;
   busy: boolean;
   onClose: () => void;
-  onRefund: (card: ComplaintCard, amount: string, reason: string) => void;
-  onFlag: (card: ComplaintCard, note: string) => void;
+  onRefund: (card: ComplaintCard, amount: string, reason: string, upi: string) => void;
 }) {
-  const [amount, setAmount] = useState(modal.card.totalAmount != null ? String(modal.card.totalAmount) : "");
+  const [amount, setAmount] = useState(card.totalAmount != null ? String(card.totalAmount) : "");
   const [reason, setReason] = useState("");
-  const [note, setNote] = useState(modal.card.driverFlag?.note || "");
+  const [upi, setUpi] = useState("");
+  const [source, setSource] = useState<string | null>(null);
+  const [loadingSource, setLoadingSource] = useState(!card.sample && card.paymentKind === "online");
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -751,11 +675,38 @@ function ActionModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const refundCopy = modal.card.sample
-    ? "This is the sample card. Nothing is charged."
-    : modal.card.canRefundMoney
-      ? "This sends the amount back through Razorpay to the original payment, up to the order total."
-      : "This order was not paid online. The amount is saved as a kitchen credit. No money is sent to a bank.";
+  useEffect(() => {
+    if (card.sample || card.paymentKind !== "online") return;
+    let cancelled = false;
+    void fetch(`/api/dashboard/complaints?source=${encodeURIComponent(card.id)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { source?: string | null }) => {
+        if (!cancelled) setSource(data.source || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSource(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSource(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [card.id, card.paymentKind, card.sample]);
+
+  const reverseOnline = !card.sample && card.paymentKind === "online" && card.canRefundMoney;
+  const paidAccount = source || (loadingSource ? "Looking up the payment…" : "the original UPI, card, or bank");
+  const copy = card.sample
+    ? "This sample is cash on delivery, like order #00003. Cash has no UPI or card to reverse. Enter the UPI ID the customer gives you. Nothing is sent from here."
+    : reverseOnline
+      ? `Paid from ${paidAccount}. The refund goes back to that same account.`
+      : card.paymentKind === "cod"
+        ? card.paymentCollected
+          ? "Cash on delivery. The customer paid in cash, so there is no UPI or card on the order to reverse. Enter the UPI ID they give you. Saving this does not move the money. Pay that UPI from the kitchen account."
+          : "Cash on delivery. Nothing was paid online, and the cash is not marked as collected. If they already handed cash to the driver, enter their UPI ID. Pay that UPI from the kitchen account. Saving this does not transfer the money."
+        : card.paymentKind === "online"
+          ? "This order was started online, but the payment is not marked as received. There is no captured account to reverse. Enter the customer's UPI ID if money still needs to go back."
+          : "There is no online payment on this order to reverse. Enter the customer's UPI ID. Pay that UPI from the kitchen account.";
 
   return (
     <div
@@ -775,10 +726,10 @@ function ActionModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="complaint-action-title"
+        aria-labelledby="complaint-refund-title"
         onClick={(event) => event.stopPropagation()}
         style={{
-          width: "min(440px, 100%)",
+          width: "min(460px, 100%)",
           background: "#161616",
           border: "1px solid #2a2a2a",
           borderRadius: 18,
@@ -786,43 +737,50 @@ function ActionModal({
           fontFamily: FONT,
         }}
       >
-        <h2 id="complaint-action-title" style={{ margin: 0, color: "#fff", fontSize: 18 }}>
-          {modal.kind === "refund" ? "Refund or credit" : `Flag ${modal.card.driverName || "driver"}`}
+        <h2 id="complaint-refund-title" style={{ margin: 0, color: "#fff", fontSize: 18 }}>
+          Refund
         </h2>
-        <p style={{ margin: "8px 0 0", color: "#8a8a8a", fontSize: 13, lineHeight: 1.45 }}>
-          {modal.kind === "refund" ? refundCopy : "This note stays on the driver so a repeat problem is easy to see."}
+        <p style={{ margin: "8px 0 0", color: "#cfcfcf", fontSize: 13, lineHeight: 1.5 }}>{copy}</p>
+        <p style={{ margin: "12px 0 0", color: YELLOW, fontWeight: 800, fontSize: 14 }}>
+          {card.paymentKind === "cod" || card.sample
+            ? "Cash on delivery"
+            : card.paymentKind === "online"
+              ? loadingSource
+                ? "Checking the payment…"
+                : source || "Paid online"
+              : "No online payment"}
         </p>
-        {modal.kind === "refund" ? (
-          <>
-            <label style={fieldLabel}>
-              Amount (₹)
-              <input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} style={fieldInput} />
-            </label>
-            <label style={fieldLabel}>
-              Reason
-              <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} style={fieldInput} />
-            </label>
-          </>
-        ) : (
+        <label style={fieldLabel}>
+          Amount (₹)
+          <input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} style={fieldInput} />
+        </label>
+        {reverseOnline ? null : (
           <label style={fieldLabel}>
-            Note
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} style={fieldInput} />
+            Customer UPI ID
+            <input
+              value={upi}
+              placeholder="name@okhdfcbank"
+              autoCapitalize="none"
+              onChange={(event) => setUpi(event.target.value)}
+              style={fieldInput}
+            />
           </label>
         )}
+        <label style={fieldLabel}>
+          Reason
+          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} style={fieldInput} />
+        </label>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button type="button" onClick={onClose} disabled={busy} style={actionButton}>
             Cancel
           </button>
           <button
             type="button"
-            disabled={busy}
-            onClick={() => {
-              if (modal.kind === "refund") onRefund(modal.card, amount, reason);
-              else onFlag(modal.card, note);
-            }}
+            disabled={busy || loadingSource}
+            onClick={() => onRefund(card, amount, reason, upi)}
             style={primaryButton}
           >
-            {busy ? "Saving…" : "Save"}
+            {busy ? "Saving…" : reverseOnline ? "Send refund" : "Save UPI"}
           </button>
         </div>
       </div>

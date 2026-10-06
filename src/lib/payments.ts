@@ -99,6 +99,35 @@ export async function refundPayment(
   }
 }
 
+/** Short label for the account that actually paid. UPI id, card last 4, or bank. */
+export async function describeCapturedPayment(paymentId: string): Promise<string | null> {
+  if (!paymentId.startsWith("pay_")) return null;
+  try {
+    const payment = (await razorpay.payments.fetch(paymentId)) as {
+      method?: string;
+      vpa?: string;
+      bank?: string;
+      wallet?: string;
+      card?: { network?: string; last4?: string } | null;
+      upi?: { vpa?: string } | null;
+    };
+    const method = String(payment.method || "").toLowerCase();
+    const vpa = String(payment.vpa || payment.upi?.vpa || "").trim();
+    if (method === "upi") return vpa ? `UPI · ${vpa}` : "UPI";
+    if (method === "card") {
+      const network = payment.card?.network || "Card";
+      const last4 = payment.card?.last4 ? ` ••${payment.card.last4}` : "";
+      return `${network}${last4}`;
+    }
+    if (method === "netbanking") return payment.bank ? `Netbanking · ${payment.bank}` : "Netbanking";
+    if (method === "wallet") return payment.wallet ? `Wallet · ${payment.wallet}` : "Wallet";
+    return method ? method.toUpperCase() : null;
+  } catch (e) {
+    console.error("[describeCapturedPayment]", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /** Kitchen VPA for door-step UPI. Empty until KITCHEN_UPI_ID is set. */
 export function kitchenUpiVpa(): string | null {
   const vpa = (process.env.KITCHEN_UPI_ID || "").trim();

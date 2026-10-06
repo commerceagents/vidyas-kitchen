@@ -4,14 +4,16 @@ import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { splitComplaintBody } from "@/lib/whatsapp-complaint";
 import { formatFullDishName } from "@/lib/dish-name";
 import { resolveOrderItemWeight } from "@/lib/menu/order-item-weight";
-import { refundPayment } from "@/lib/payments";
+import { describeCapturedPayment, refundPayment } from "@/lib/payments";
 import { refundableRemainder } from "@/lib/refund-amount";
 import {
   type ComplaintCard,
   type ComplaintTriage,
+  type PaymentKind,
   categorizeComplaint,
   imageForDish,
   isDeliveryRelated,
+  isUpiId,
   packStoredComplaint,
   presentTarget,
   splitStoredComplaint,
@@ -115,9 +117,9 @@ function toCard(
   const note = split.note;
   const category = categorizeComplaint(`${note}\n${dishLine || ""}`);
   const driverName = String(order?.driver_name || "").trim() || null;
-  const paidOnline =
-    String(order?.payment_status || "").toLowerCase() === "paid" &&
-    String(order?.payment_id || "").startsWith("pay_");
+  const paymentKind = paymentKindOf(order);
+  const paymentCollected = String(order?.payment_status || "").toLowerCase() === "paid";
+  const paidOnline = paymentKind === "online" && paymentCollected && String(order?.payment_id || "").startsWith("pay_");
   const key = last10(String(row.phone_number || ""));
   return {
     id: row.id,
@@ -140,7 +142,17 @@ function toCard(
     refund: stored.triage.refund,
     driverFlag: stored.triage.driverFlag,
     canRefundMoney: Boolean(order && paidOnline && refundableRemainder(Number(order.total_amount) || 0, order.refund_status, order.refund_amount) > 0),
+    paymentKind,
+    paymentCollected,
   };
+}
+
+function paymentKindOf(order: OrderRow | undefined): PaymentKind {
+  if (!order) return "none";
+  const method = String(order.payment_method || "").toLowerCase();
+  if (method === "cod") return "cod";
+  if (String(order.payment_id || "").startsWith("pay_") || method === "online" || method === "upi") return "online";
+  return "none";
 }
 
 async function loadContext(rows: { phone_number: string | null; body: string | null }[]) {
@@ -193,12 +205,49 @@ async function loadContext(rows: { phone_number: string | null; body: string | n
   return { supabase, nameByPhone, orderByNumber, menu };
 }
 
-export async function GET() {
+async function paymentSource(complaintId: string) {
+  if (!UUID.test(complaintId)) return jsonError("That complaint was not found.", 404);
+  try {
+    const supabase = createServerSupabase();
+    const { data: row, error } = await supabase
+      .from("customer_complaints")
+      .select("id, phone_number, body, created_at")
+      .eq("id", complaintId)
+      .maybeSingle();
+    if (error || !row) return jsonError("That complaint was not found.", 404);
+    const { orderByNumber } = await loadContext([row]);
+    const stored = splitStoredComplaint(String(row.body || ""));
+    const presented = presentTarget(splitComplaintBody(stored.visible).target);
+    const order = presented.orderNumber != null ? orderByNumber.get(presented.orderNumber) : undefined;
+    const paymentKind = paymentKindOf(order);
+    const paymentCollected = String(order?.payment_status || "").toLowerCase() === "paid";
+    const paymentId = String(order?.payment_id || "");
+    const source =
+      paymentKind === "online" && paymentId.startsWith("pay_") ? await describeCapturedPayment(paymentId) : null;
+    return NextResponse.json(
+      {
+        paymentKind,
+        paymentCollected,
+        source,
+        totalAmount: order?.total_amount != null ? Number(order.total_amount) : null,
+      },
+      { headers: NO_STORE },
+    );
+  } catch (e) {
+    console.error("[dashboard/complaints] source", e);
+    return jsonError("Could not read how this order was paid.", 500);
+  }
+}
+
+export async function GET(request: Request) {
   const gate = await requireDashboardSession();
   if (!gate.ok) {
     gate.response.headers.set("Cache-Control", NO_STORE["Cache-Control"]);
     return gate.response;
   }
+
+  const sourceId = new URL(request.url).searchParams.get("source");
+  if (sourceId) return paymentSource(sourceId);
 
   try {
     const supabase = createServerSupabase();
@@ -256,7 +305,7 @@ export async function POST(request: Request) {
     status?: unknown;
     amount?: unknown;
     reason?: unknown;
-    note?: unknown;
+    upi?: unknown;
   };
   try {
     payload = await request.json();
@@ -267,7 +316,7 @@ export async function POST(request: Request) {
   const id = String(payload.id || "");
   const action = String(payload.action || "");
   if (!UUID.test(id)) return jsonError("That complaint was not found.", 404);
-  if (action !== "status" && action !== "refund" && action !== "flag") {
+  if (action !== "status" && action !== "refund") {
     return jsonError("That action is not available.", 400);
   }
 
@@ -286,16 +335,13 @@ export async function POST(request: Request) {
     let message = "Saved.";
 
     if (action === "status") {
-      const status = String(payload.status || "");
-      if (status !== "new" && status !== "in_progress" && status !== "resolved") {
-        return jsonError("Pick New, In Progress, or Resolved.", 400);
-      }
-      triage = nextStatus(triage, status, now);
-      message = status === "resolved" ? "Marked resolved." : status === "in_progress" ? "Moved to in progress." : "Reopened.";
+      if (payload.status !== "resolved") return jsonError("Mark the complaint as done.", 400);
+      triage = nextStatus(triage, "resolved", now);
+      message = "Marked as done.";
     }
 
     if (action === "refund") {
-      if (triage.refund) return jsonError("A refund or credit is already saved on this complaint.", 400);
+      if (triage.refund) return jsonError("A refund is already saved on this complaint.", 400);
       const amount = parseAmount(payload.amount);
       const reason = String(payload.reason || "").trim();
       if (amount == null) return jsonError("Enter an amount greater than zero.", 400);
@@ -310,74 +356,55 @@ export async function POST(request: Request) {
       }
       if (amount > 20000) return jsonError("That amount is too high to save from here.", 400);
 
-      const remainder = order
-        ? refundableRemainder(Number(order.total_amount) || 0, order.refund_status, order.refund_amount)
-        : 0;
+      const kind = paymentKindOf(order);
       const paidOnline =
+        kind === "online" &&
         String(order?.payment_status || "").toLowerCase() === "paid" &&
         String(order?.payment_id || "").startsWith("pay_");
+      const rupees = `₹${Math.round(amount).toLocaleString("en-IN")}`;
 
-      if (paidOnline && order && remainder <= 0) {
-        const recorded = Number(order.refund_amount) > 0 ? Number(order.refund_amount) : amount;
-        triage = {
-          ...triage,
-          refund: { amount: recorded, reason, mode: "razorpay", at: now },
-          status: triage.status === "new" ? "in_progress" : triage.status,
-          inProgressAt: triage.status === "new" ? now : triage.inProgressAt,
-        };
-        message = "This order was already refunded. Nothing more was sent. The reason is saved on the complaint.";
-      } else if (paidOnline && order && remainder > 0) {
-        const send = Math.min(amount, remainder);
-        const result = await refundPayment(String(order.payment_id), send, "complaint");
-        if (!result.ok) {
-          console.error("[dashboard/complaints] refund", result.error);
-          return jsonError("The bank refund did not start. The complaint is still open.", 502);
+      if (paidOnline && order) {
+        const remainder = refundableRemainder(Number(order.total_amount) || 0, order.refund_status, order.refund_amount);
+        const account = (await describeCapturedPayment(String(order.payment_id))) || "the original payment";
+        if (remainder <= 0) {
+          const recorded = Number(order.refund_amount) > 0 ? Number(order.refund_amount) : amount;
+          triage = { ...triage, refund: { amount: recorded, reason, mode: "razorpay", at: now, account } };
+          message = `This order was already refunded to ${account}. Nothing more was sent.`;
+        } else {
+          const send = Math.min(amount, remainder);
+          const result = await refundPayment(String(order.payment_id), send, "complaint");
+          if (!result.ok) {
+            console.error("[dashboard/complaints] refund", result.error);
+            return jsonError("The refund did not start. The complaint is still open.", 502);
+          }
+          const already = String(order.refund_status || "") === "refunded" ? Number(order.refund_amount) || 0 : 0;
+          await supabase
+            .from("orders")
+            .update({
+              refund_status: "refunded",
+              refund_amount: Math.round((already + send) * 100) / 100,
+              refund_id: result.refundId,
+            })
+            .eq("id", order.id);
+          triage = { ...triage, refund: { amount: send, reason, mode: "razorpay", at: now, account } };
+          message = `Sent ₹${Math.round(send).toLocaleString("en-IN")} back to ${account}.`;
         }
-        const already = String(order.refund_status || "") === "refunded" ? Number(order.refund_amount) || 0 : 0;
-        await supabase
-          .from("orders")
-          .update({
-            refund_status: "refunded",
-            refund_amount: Math.round((already + send) * 100) / 100,
-            refund_id: result.refundId,
-          })
-          .eq("id", order.id);
-        triage = {
-          ...triage,
-          refund: { amount: send, reason, mode: "razorpay", at: now },
-          status: triage.status === "new" ? "in_progress" : triage.status,
-          inProgressAt: triage.status === "new" ? now : triage.inProgressAt,
-        };
-        message = `Sent ₹${Math.round(send).toLocaleString("en-IN")} back to the original payment.`;
       } else {
-        triage = {
-          ...triage,
-          refund: { amount, reason, mode: "credit", at: now },
-          status: triage.status === "new" ? "in_progress" : triage.status,
-          inProgressAt: triage.status === "new" ? now : triage.inProgressAt,
-        };
-        const rupees = `₹${Math.round(amount).toLocaleString("en-IN")}`;
-        message = order
-          ? `Saved a kitchen credit of ${rupees}. This order was not paid online, so nothing was sent back through the bank.`
-          : `Saved a kitchen credit of ${rupees}. No matching order was found, so nothing was sent to the bank.`;
+        const upi = String(payload.upi || "").trim();
+        if (!isUpiId(upi)) {
+          return jsonError(
+            kind === "cod"
+              ? "Cash on delivery has no card or UPI to reverse. Enter the customer's UPI ID."
+              : "Enter the customer's UPI ID. There is no online payment to reverse.",
+            400,
+          );
+        }
+        triage = { ...triage, refund: { amount, reason, mode: "upi", at: now, account: upi } };
+        message =
+          kind === "cod"
+            ? `Saved. Pay ${rupees} to ${upi} from the kitchen account. Cash on delivery cannot be reversed on its own.`
+            : `Saved. Pay ${rupees} to ${upi} from the kitchen account.`;
       }
-    }
-
-    if (action === "flag") {
-      const note = String(payload.note || "").trim();
-      if (note.length < 3 || note.length > 240) return jsonError("Add a short note about the driver.", 400);
-      const { orderByNumber } = await loadContext([row]);
-      const presented = presentTarget(splitComplaintBody(stored.visible).target);
-      const order = presented.orderNumber != null ? orderByNumber.get(presented.orderNumber) : undefined;
-      const driverName = String(order?.driver_name || triage.driverFlag?.driverName || "").trim();
-      if (!driverName) return jsonError("No driver is on this order.", 400);
-      triage = {
-        ...triage,
-        driverFlag: { driverName, note, at: now },
-        status: triage.status === "new" ? "in_progress" : triage.status,
-        inProgressAt: triage.status === "new" ? now : triage.inProgressAt,
-      };
-      message = `Flag saved on ${driverName}.`;
     }
 
     const { error: writeError } = await supabase
