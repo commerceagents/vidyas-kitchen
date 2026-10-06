@@ -29,6 +29,7 @@ type Driver = {
   name: string;
   phone: string;
   hasInstalledApp: boolean;
+  flags: { note: string; at: string; orderRef: string | null }[];
 };
 
 export default function DriversPage() {
@@ -70,7 +71,13 @@ export default function DriversPage() {
       return;
     }
     setListError("");
-    const next = rows.map(({ id, name, phone, hasInstalledApp }) => ({ id, name, phone, hasInstalledApp }));
+    const next = rows.map(({ id, name, phone, hasInstalledApp, flags }) => ({
+      id,
+      name,
+      phone,
+      hasInstalledApp,
+      flags: flags ?? [],
+    }));
     setDrivers(next);
     setSavedDrivers(next);
     setPinFlags(Object.fromEntries(rows.map((d) => [d.id, d.hasPin])));
@@ -101,7 +108,7 @@ export default function DriversPage() {
       return;
     }
     const id = `new-${Date.now()}`;
-    setDrivers((prev) => [{ id, name: "", phone: "", hasInstalledApp: false }, ...prev]);
+    setDrivers((prev) => [{ id, name: "", phone: "", hasInstalledApp: false, flags: [] }, ...prev]);
     showToast("New driver is at the top. Add a name, phone and PIN, then Save Drivers.", "success");
     setReveal({ id, n: Date.now() });
   };
@@ -409,6 +416,20 @@ export default function DriversPage() {
                       </button>
                     )}
                   </div>
+
+                  {d.flags.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10, padding: "8px 10px" }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", fontFamily: FONT }}>
+                        {d.flags.length === 1 ? "1 complaint flag" : `${d.flags.length} complaint flags`}
+                      </span>
+                      {d.flags.slice(0, 2).map((flag) => (
+                        <span key={`${flag.at}-${flag.note}`} style={{ fontSize: 12, color: "#e7e7e7", fontFamily: FONT, lineHeight: 1.4 }}>
+                          {flag.orderRef ? `${flag.orderRef} · ` : ""}
+                          {flag.note}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {/* Expandable PIN Section */}
                   {isEditingPin && (

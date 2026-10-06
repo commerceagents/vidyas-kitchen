@@ -57,7 +57,7 @@ export async function createPaymentLink(amount: number, orderId: string, custome
 export async function refundPayment(
   paymentId: string,
   amountInr: number,
-  reason: "kitchen_reject" | "customer_cancel" = "kitchen_reject",
+  reason: "kitchen_reject" | "customer_cancel" | "complaint" = "kitchen_reject",
 ): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
   if (!paymentId.startsWith("pay_")) {
     return { ok: false, error: "Not a Razorpay payment id — cannot refund" };
@@ -67,7 +67,12 @@ export async function refundPayment(
     return { ok: false, error: "Refund amount is empty" };
   }
   const notes = {
-    reason: reason === "customer_cancel" ? "Customer cancelled the order" : "Kitchen could not accept the order",
+    reason:
+      reason === "customer_cancel"
+        ? "Customer cancelled the order"
+        : reason === "complaint"
+          ? "Kitchen refund for a complaint"
+          : "Kitchen could not accept the order",
   };
 
   try {

@@ -12,6 +12,7 @@ import {
   OrderNotifyEvent,
 } from "@/lib/whatsapp-order-notify";
 import { refundPayment } from "@/lib/payments";
+import { refundableRemainder } from "@/lib/refund-amount";
 import { sendOrderPushNotifications } from "@/lib/push-order-notify";
 import { sendDashboardPushNotifications } from "@/lib/push-dashboard-notify";
 import { countDashboardNewOrders } from "@/lib/push-badge-counts";
@@ -19,7 +20,7 @@ import { countDashboardNewOrders } from "@/lib/push-badge-counts";
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
 const ORDER_NOTIFY_COLUMNS =
-  "id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, payment_method, payment_status, total_amount";
+  "id, order_number, status, phone_number, delivery_slot, delivery_slot_kind, payment_id, payment_method, payment_status, total_amount, refund_status, refund_amount";
 
 export type TransitionOptions = {
   /**
@@ -98,33 +99,43 @@ export async function transitionOrderStatusInDb(
     const paymentId = (row as { payment_id?: string | null }).payment_id;
     const totalAmount = (row as { total_amount?: number | null }).total_amount;
     const paymentStatus = String((row as { payment_status?: string | null }).payment_status || "");
+    const priorStatus = String((row as { refund_status?: string | null }).refund_status || "");
+    const priorAmount = Number((row as { refund_amount?: number | null }).refund_amount) || 0;
     // Only an actually-collected online payment can be refunded. A COD order
     // was never charged, so there is nothing to send back — same as Swiggy
-    // cash-on-delivery. The amount we do send back is the full ticket
-    // (items + packaging + delivery + GST) to the original UPI / card.
+    // cash-on-delivery. The amount we do send back is whatever is still
+    // unrefunded on the ticket (items + packaging + delivery + GST).
     if (isCod || !paymentId || paymentStatus !== PaymentStatus.PAID) {
-      await supabase.from("orders").update({ refund_status: null }).eq("id", orderId);
-    } else if (totalAmount != null && totalAmount > 0) {
-      const refResult = await refundPayment(
-        paymentId,
-        Number(totalAmount),
-        next === OrderStatus.CANCELLED ? "customer_cancel" : "kitchen_reject",
-      ).catch((e) => {
-        console.error("[order-transition] Razorpay refund error", e);
-        return { ok: false as const, error: "Refund exception" };
-      });
-      if (!refResult.ok) {
-        console.error(`[order-transition] REFUND FAILED order=${orderId} payment=${paymentId}: ${refResult.error}`);
+      if (priorStatus !== "refunded") {
+        await supabase.from("orders").update({ refund_status: null }).eq("id", orderId);
       }
-      await supabase
-        .from("orders")
-        .update({
-          refund_status: refResult.ok ? "refunded" : "refund_failed",
-          refund_amount: totalAmount,
-          refund_id: refResult.ok ? refResult.refundId : null,
-        })
-        .eq("id", orderId);
-      refundStatus = refResult.ok ? "refunded" : "refund_failed";
+    } else if (totalAmount != null && totalAmount > 0) {
+      const remainder = refundableRemainder(Number(totalAmount), priorStatus, priorAmount);
+      if (remainder <= 0) {
+        refundStatus = "refunded";
+      } else {
+        const refResult = await refundPayment(
+          paymentId,
+          remainder,
+          next === OrderStatus.CANCELLED ? "customer_cancel" : "kitchen_reject",
+        ).catch((e) => {
+          console.error("[order-transition] Razorpay refund error", e);
+          return { ok: false as const, error: "Refund exception" };
+        });
+        if (!refResult.ok) {
+          console.error(`[order-transition] REFUND FAILED order=${orderId} payment=${paymentId}: ${refResult.error}`);
+        }
+        const already = priorStatus === "refunded" ? priorAmount : 0;
+        await supabase
+          .from("orders")
+          .update({
+            refund_status: refResult.ok ? "refunded" : "refund_failed",
+            refund_amount: refResult.ok ? Math.round((already + remainder) * 100) / 100 : totalAmount,
+            refund_id: refResult.ok ? refResult.refundId : null,
+          })
+          .eq("id", orderId);
+        refundStatus = refResult.ok ? "refunded" : "refund_failed";
+      }
     }
   }
 
