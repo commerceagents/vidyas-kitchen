@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/expire-pending-payments",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/whatsapp-nudges",
+      "schedule": "30 2 * * *"
     }
   ]
 }
