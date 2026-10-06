@@ -37,7 +37,7 @@ import {
   type SessionState,
   type WhatsAppSession,
 } from "@/lib/whatsapp-session";
-import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
+import { cartGrandTotal, cartItemsSubtotal, getCartSummary, type CartItem } from "@/lib/whatsapp-cart";
 import {
   BTN,
   buildUsualChangeMessage,
@@ -136,6 +136,7 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
+  bareCategoryOrder,
   buildProposal,
   dishQueryCategory,
   fillDraftFromReply,
@@ -155,6 +156,7 @@ import {
   type ProposalDraft,
 } from "@/lib/ai/order-proposal";
 import { resolveCartIntent } from "@/lib/ai/cart-intent";
+import { semanticMenuMatches } from "@/lib/menu/embeddings";
 import { cartUpsellMessage } from "@/lib/ai/cart-upsell";
 import {
   cartLineButtonTitle,
@@ -1667,7 +1669,13 @@ async function answerWithVidya(
 
   const session = await getSession(from);
   const agent = new VidyaAgent();
-  const result = await agent.processMessage(text, turnsForAgent(session.recent_turns), from, profileName);
+  const result = await agent.processMessage(
+    text,
+    turnsForAgent(session.recent_turns),
+    from,
+    profileName,
+    JSON.stringify(getCartSummary(session.cart)),
+  );
   const turns: SessionTurns = [
     ...chatTurns(session.recent_turns),
     { role: "user", content: text },
@@ -1982,7 +1990,13 @@ async function handleAiChat(from: string, text: string, profileName: string) {
   }
 
   const agent = new VidyaAgent();
-  const result = await agent.processMessage(text, turnsForAgent(history), from, profileName);
+  const result = await agent.processMessage(
+    text,
+    turnsForAgent(history),
+    from,
+    profileName,
+    JSON.stringify(getCartSummary(session.cart)),
+  );
 
   const turns: NonNullable<WhatsAppSession["recent_turns"]> = [
     ...history,
@@ -2110,28 +2124,34 @@ async function presentProposal(
 
     if (result.field === "dish") {
       const query = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ") || sourceText || "";
-      if (!isKnownDishQuery(menu, query)) {
-        await sendLookalikeCarousel(from, query);
+      const listed = result.dishOptions || [];
+      const family = bareCategoryOrder(menu, query);
+      let options = listed.length > 0 && isKnownDishQuery(menu, query) ? listed : [];
+      if (options.length === 0 && family) {
+        options = menu.filter((item) => (item.category || "").toLowerCase() === family);
+      }
+      if (options.length === 0) {
+        options = await semanticMenuMatches(menu, query, 8);
+      }
+      if (options.length > 0) {
+        await updateSession(from, { state: "picking_item" });
+        await storeOptions(from, itemOptions(options));
+        await sendList(from, whichDishAsk(draft, sourceText || query), "Pick A Dish", [
+          {
+            title: "Did You Mean",
+            rows: options.slice(0, 10).map((m) => {
+              const formatted = formatFullDishName(m.name);
+              return {
+                id: m.id,
+                title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
+                description: packPriceLine(m, " / "),
+              };
+            }),
+          },
+        ]);
         return ack();
       }
-    }
-
-    if (result.field === "dish" && result.dishOptions?.length) {
-      await updateSession(from, { state: "picking_item" });
-      await storeOptions(from, itemOptions(result.dishOptions));
-      await sendList(from, whichDishAsk(draft, sourceText || ""), "Pick A Dish", [
-        {
-          title: "Did You Mean",
-          rows: result.dishOptions.slice(0, 10).map((m) => {
-            const formatted = formatFullDishName(m.name);
-            return {
-              id: m.id,
-              title: formatted.length > 24 ? `${formatted.slice(0, 21)}...` : formatted,
-              description: packPriceLine(m, " / "),
-            };
-          }),
-        },
-      ]);
+      await sendLookalikeCarousel(from, query);
       return ack();
     }
 

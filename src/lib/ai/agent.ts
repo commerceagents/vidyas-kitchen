@@ -18,6 +18,7 @@ import {
 } from "../whatsapp-copy";
 import { formatInr, unitPriceFor } from "../menu/dish-pricing";
 import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
+import { semanticMenuMatches } from "../menu/embeddings";
 import { formatOrderRef } from "../order-status";
 import { DELIVERY_ZONE } from "../delivery-zone";
 import { faqPromptBlock } from "../faqs";
@@ -565,7 +566,8 @@ export class VidyaAgent {
     message: string,
     history: Message[] = [],
     phoneNumber?: string,
-    displayName?: string
+    displayName?: string,
+    cartJson?: string,
   ) {
     try {
       const lowerMessage = message.toLowerCase().trim();
@@ -900,6 +902,12 @@ COMMON QUESTIONS
   say you will pass it to the kitchen rather than guessing.
 ${faqPromptBlock()}
 
+CART
+This is the cart as stored right now. It is the only cart. Never add, remove, or
+rename a dish from memory or from an earlier message. If they ask what is in
+the cart, phrase only this list. If it says empty, the cart is empty.
+${cartJson?.trim() ? cartJson : "empty"}
+
 ORDERING
 - If they are trying to order, call propose_order with whatever you understood.
   Leave out anything they have not said — the server asks for what is missing.
@@ -1073,7 +1081,9 @@ ${context}`;
           }
 
           if (call.function.name === "search_menu") {
-            const hits = searchMenuDishes(menu, String((args as { query?: string }).query || ""), 6);
+            const query = String((args as { query?: string }).query || "");
+            const semantic = await semanticMenuMatches(menu, query, 6);
+            const hits = semantic.length ? semantic : searchMenuDishes(menu, query, 6);
             messages.push({
               role: "tool",
               tool_call_id: call.id,

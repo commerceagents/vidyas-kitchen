@@ -28,6 +28,26 @@ export function cartBreakdown(cart: CartItem[]): OrderFeeBreakdown {
 }
 
 /**
+ * The only cart the model is allowed to talk about. Built from the session
+ * row just read from the database — never from earlier chat turns.
+ */
+export function getCartSummary(cart: CartItem[]) {
+  const fees = cartBreakdown(cart);
+  return {
+    items: cart.map((item) => ({
+      name: item.name,
+      variant: item.variant,
+      qty: item.quantity,
+      unitPrice: item.unit_price,
+    })),
+    itemsTotal: fees.itemsSubtotal,
+    packaging: fees.packaging,
+    delivery: fees.delivery,
+    gst: fees.gst,
+  };
+}
+
+/**
  * What the customer is quoted, charged, and what lands in
  * `orders.total_amount`. There is deliberately no bare-sum "cartTotal" export:
  * every caller has to say whether it wants the subtotal or the real total.
