@@ -1,7 +1,8 @@
 /**
  * One-time fill of menu_items.embedding and aliases.
- * Run with production env injected, for example:
- *   vercel env run -e production -- npx tsx scripts/backfill-menu-embeddings.ts
+ * The production build on 6 Oct 2026 already ran this (51 dishes).
+ * Run again only when the menu text itself changes and the dashboard save did not:
+ *   npx tsx scripts/backfill-menu-embeddings.ts
  */
 import { backfillMenuEmbeddings, matchMenuProbe } from "../src/lib/menu/embeddings";
 
