@@ -11,7 +11,7 @@
  */
 
 import type { SessionState } from "./whatsapp-session";
-import { parseDateText } from "./ai/order-proposal";
+import { parseDateText, parsePackQuantities, parsePackSize } from "./ai/order-proposal";
 import { localCartIntent, planScopedCartEdit } from "./whatsapp-cart-ops";
 
 export const INTERRUPT_ESCALATE_AT = 3;
@@ -130,7 +130,12 @@ function directAnswer(state: SessionState, text: string): string | null {
   if (state === "awaiting_payment" && /^(pay|paid|done|yes|confirm)\b/i.test(lower)) return lower;
   if (state === "confirming_last" && /^(same|yes|ok|okay|change|edit|no)\b/i.test(lower)) return lower;
   if (state === "confirming_proposal" && /^(yes|confirm|ok|okay|no|correct|sari|seri)\b/i.test(lower)) return lower;
-  if (state === "picking_variant" && /\b(500|1\s*kg|half)\b/i.test(lower) && !REMOVE_WORD.test(raw)) return raw;
+  // "500gm", "1", "1 500gm", and "500gm 2" all answer the size list.
+  // A bare \b500\b misses "500gm" because the g stays attached to the number.
+  if (state === "picking_variant" && !REMOVE_WORD.test(raw)) {
+    if (/^[12]$/.test(lower)) return raw;
+    if (parsePackQuantities(raw).length > 0 || parsePackSize(raw)) return raw;
+  }
   if (state === "picking_qty" && /^([1-9]|10)$/.test(raw)) return raw;
   // A numbered tap answers "which dish?". A day or a meal does not — that
   // corrects the noted slot and the dish question is asked again.

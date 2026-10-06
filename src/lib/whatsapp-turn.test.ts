@@ -80,6 +80,12 @@ const menu = classifyTurn("what's on the menu", "picking_date");
 check("menu question is not a day", menu.intent === "ask_menu");
 check("menu is answered then re-asked", routeTurn("picking_date", menu, 0).action === "answer_menu_then_reask");
 
+const sizeAnswer = classifyTurn("1 500gm", "picking_variant");
+check("1 500gm answers the size list", sizeAnswer.matches_pending_state === true && sizeAnswer.intent === "answer_pending_question");
+check("500gm answers the size list", classifyTurn("500gm", "picking_variant").matches_pending_state === true);
+check("1 answers the first size", classifyTurn("1", "picking_variant").matches_pending_state === true);
+check("a size answer is accepted", routeTurn("picking_variant", sizeAnswer, 0).action === "accept_answer");
+
 const junk = classifyTurn("asdf qwer zxcv", "picking_date");
 check("gibberish is unclear", junk.intent === "unclear" && junk.matches_pending_state === false);
 check("gibberish asks about that message", routeTurn("picking_date", junk, 0).action === "clarify");

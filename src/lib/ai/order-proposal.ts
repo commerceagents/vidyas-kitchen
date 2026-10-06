@@ -316,9 +316,10 @@ export function applySpokenDate(draft: ProposalDraft, source?: string | null): P
 }
 
 export function parsePackSize(text: string): PackSize | null {
-  const t = String(text || "").toLowerCase().replace(/\s+/g, "");
-  if (/1kg|onekg|1kilo|full/.test(t)) return "1kg";
-  if (/500g|500gm|halfkg|½kg|1\/2kg/.test(t)) return "500gm";
+  const t = String(text || "").toLowerCase();
+  // Keep the quantity digit separate from the size: "1 500gm" is 500gm, not 1500g.
+  if (/\b(?:1\s*(?:kg|kgs|kilo|kilograms?)|one\s*kg|full)\b/.test(t)) return "1kg";
+  if (/\b(?:500\s*(?:g|gm|gms|grams?)|half\s*kg|½\s*kg|1\s*\/\s*2\s*kg)\b/.test(t)) return "500gm";
   return null;
 }
 

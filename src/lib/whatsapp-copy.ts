@@ -536,7 +536,7 @@ export function buildVariantMessage(
       `1kg — ${money(prices["1kg"])}`,
       WA_SECTION_DIVIDER,
       "",
-      "_Tap Choose size, or type both: 500gm 2 and 1kg 1._",
+      "_Tap Choose size, or type 500gm or 1kg. For more than one: 500gm 2._",
     ].join("\n"),
     msg({
       title: itemName,

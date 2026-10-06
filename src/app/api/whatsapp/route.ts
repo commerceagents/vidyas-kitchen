@@ -1258,6 +1258,24 @@ async function handlePickingItem(from: string, text: string, profileName: string
 
 async function handlePickingVariant(from: string, text: string, session: WhatsAppSession) {
   const packs = parsePackQuantities(text);
+  const stored = session.cart.length === 0 ? readStoredDraft(session.recent_turns) : null;
+  // "1 500gm" during checkout stays on this order. Passing the typed line back
+  // in would look like a fresh "chicken gravy" request and show the dish list again.
+  if (packs.length > 0 && session.selected_item_id && stored) {
+    const menu = await getMenu();
+    const item = menu.find((row) => row.id === session.selected_item_id);
+    if (item) {
+      const draft: ProposalDraft = {
+        ...stored,
+        items: packs.map((pack) => ({
+          dish: item.name,
+          size: pack.size,
+          quantity: pack.quantity,
+        })),
+      };
+      return await presentProposal(from, draft);
+    }
+  }
   if (packs.length > 0 && session.selected_item_id) {
     return await setPackLines(from, session, session.selected_item_id, packs);
   }
