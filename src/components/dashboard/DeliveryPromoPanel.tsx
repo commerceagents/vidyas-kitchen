@@ -15,7 +15,6 @@ import {
   type DeliveryPromoMode,
   type DeliveryPromoSettings,
 } from "@/lib/delivery-promo";
-import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
@@ -47,18 +46,26 @@ function formatRupeeInput(n: number): string {
   return String(Math.round(n));
 }
 
-export function DeliveryPromoPanel() {
-  const [loading, setLoading] = useState(true);
+type Props = {
+  settings: DeliveryPromoSettings;
+  loadError?: string;
+};
+
+export function DeliveryPromoPanel({ settings, loadError = "" }: Props) {
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState<DeliveryPromoSettings | null>(null);
-  const [mode, setMode] = useState<DeliveryPromoMode>("free_over_min");
-  const [valueText, setValueText] = useState("500");
-  const [draft, setDraft] = useState<DeliveryPromoUpsertPayload>({
-    active: false,
-    discountInr: BASE_DELIVERY_INR,
-    minOrderInr: 500,
+  const [error, setError] = useState(loadError);
+  const [saved, setSaved] = useState<DeliveryPromoSettings>(settings);
+  const [mode, setMode] = useState<DeliveryPromoMode>(() => deliveryPromoMode(settings));
+  const [valueText, setValueText] = useState(() => {
+    const m = deliveryPromoMode(settings);
+    const n = m === "free_over_min" ? settings.minOrderInr : settings.discountInr;
+    return formatRupeeInput(n);
   });
+  const [draft, setDraft] = useState<DeliveryPromoUpsertPayload>(() => ({
+    active: settings.active,
+    discountInr: settings.discountInr,
+    minOrderInr: settings.minOrderInr,
+  }));
 
   const applyMode = useCallback((nextMode: DeliveryPromoMode, valueInr: number, active: boolean) => {
     const { discountInr, minOrderInr } = deliveryPromoFromMode(nextMode, valueInr);
@@ -67,31 +74,25 @@ export function DeliveryPromoPanel() {
     setDraft({ active, discountInr, minOrderInr });
   }, []);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    const res = await loadDeliveryPromoAction();
-    if (res.ok) {
-      const settings = res.settings;
-      setSaved(settings);
-      const nextMode = deliveryPromoMode(settings);
-      const valueInr = nextMode === "free_over_min" ? settings.minOrderInr : settings.discountInr;
-      applyMode(nextMode, valueInr, settings.active);
-      setError("");
-    } else {
-      setError(res.error || "Could not load delivery promo");
-    }
-    setLoading(false);
-  }, [applyMode]);
+  const hydrate = useCallback(
+    (next: DeliveryPromoSettings) => {
+      setSaved(next);
+      const nextMode = deliveryPromoMode(next);
+      const valueInr = nextMode === "free_over_min" ? next.minOrderInr : next.discountInr;
+      applyMode(nextMode, valueInr, next.active);
+    },
+    [applyMode],
+  );
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    hydrate(settings);
+    setError(loadError);
+  }, [settings, loadError, hydrate]);
 
   const dirty =
-    saved != null &&
-    (draft.active !== saved.active ||
-      draft.discountInr !== saved.discountInr ||
-      draft.minOrderInr !== saved.minOrderInr);
+    draft.active !== saved.active ||
+    draft.discountInr !== saved.discountInr ||
+    draft.minOrderInr !== saved.minOrderInr;
 
   const updateValue = (raw: string) => {
     const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
@@ -136,16 +137,12 @@ export function DeliveryPromoPanel() {
       setError(res.error || "Save failed");
       return;
     }
-    await refresh();
+    const loaded = await loadDeliveryPromoAction();
+    if (loaded.ok) {
+      hydrate(loaded.settings);
+      setError("");
+    }
   };
-
-  if (loading) {
-    return (
-      <div style={{ marginBottom: 16, flexShrink: 0 }}>
-        <DashboardSpinner minHeight={120} />
-      </div>
-    );
-  }
 
   const modeBtn = (id: DeliveryPromoMode, label: string, hint: string) => {
     const on = mode === id;

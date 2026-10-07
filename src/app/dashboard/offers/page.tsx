@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Tag, Ticket, Trash2, X } from "lucide-react";
+import { loadDeliveryPromoAction } from "@/app/actions/delivery-promo";
 import {
   deleteOfferAction,
   listOffersAction,
@@ -9,6 +10,7 @@ import {
   upsertOfferAction,
   type OfferUpsertPayload,
 } from "@/app/actions/offers";
+import { DEFAULT_DELIVERY_PROMO, type DeliveryPromoSettings } from "@/lib/delivery-promo";
 import { isOfferLive, offerCalendarStatus, offerTerms, type OfferRow } from "@/lib/offers";
 import { useDashboardData } from "@/hooks/DashboardDataContext";
 import {
@@ -283,14 +285,24 @@ export default function OffersPage() {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
+  const [promoSettings, setPromoSettings] = useState<DeliveryPromoSettings>(DEFAULT_DELIVERY_PROMO);
+  const [promoError, setPromoError] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
   const refresh = useCallback(async () => {
-    const { ok, rows, error } = await listOffersAction();
-    setOffers(ok ? rows : []);
-    setListError(ok ? "" : error || "Could not load offers");
+    setLoading(true);
+    const [offersRes, promoRes] = await Promise.all([listOffersAction(), loadDeliveryPromoAction()]);
+    setOffers(offersRes.ok ? offersRes.rows : []);
+    setListError(offersRes.ok ? "" : offersRes.error || "Could not load offers");
+    if (promoRes.ok) {
+      setPromoSettings(promoRes.settings);
+      setPromoError("");
+    } else {
+      setPromoSettings(DEFAULT_DELIVERY_PROMO);
+      setPromoError(promoRes.error || "Could not load delivery promo");
+    }
     setLoading(false);
   }, []);
 
@@ -385,12 +397,9 @@ export default function OffersPage() {
           </button>
       </div>
 
-      {loading ? (
-        <DashboardSpinner minHeight="100%" />
-      ) : (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1, minHeight: 0 }}
-        >
+      <div
+        style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1, minHeight: 0 }}
+      >
           {listError && (
             <div
               style={{
@@ -581,7 +590,6 @@ export default function OffersPage() {
             );
           })}
         </div>
-      )}
     </div>
   );
 
@@ -609,7 +617,7 @@ export default function OffersPage() {
           <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONT }}>
             Offers
           </h2>
-          {content}
+          {loading ? <DashboardSpinner minHeight="50vh" /> : content}
         </div>
         <DashboardMobileNav />
       </div>
@@ -677,8 +685,14 @@ export default function OffersPage() {
             boxSizing: "border-box",
           }}
         >
-          <DeliveryPromoPanel />
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{content}</div>
+          {loading ? (
+            <DashboardSpinner minHeight="100%" />
+          ) : (
+            <>
+              <DeliveryPromoPanel settings={promoSettings} loadError={promoError} />
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{content}</div>
+            </>
+          )}
         </div>
       </div>
 
