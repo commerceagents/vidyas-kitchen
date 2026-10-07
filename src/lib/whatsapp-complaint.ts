@@ -21,7 +21,23 @@ export function looksLikeNewOrder(text: string): boolean {
   }
   if (/^order\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|idli|biryani|dish|meal)\b/.test(t)) return true;
   if (/\b(get|send|book)\s+me\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|dish|meal)\b/.test(t)) return true;
+  if (/\bi\s+want\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|keema|stew|chalna|dish)\b/.test(t)) return true;
   return false;
+}
+
+/** Names a dish and sounds like ordering or asking if we cook it — not a cart question. */
+export function looksLikeFoodOrder(text: string): boolean {
+  if (looksLikeNewOrder(text)) return true;
+  const t = String(text || "").trim().toLowerCase();
+  const namesFood =
+    Boolean(dishQueryCategory(t)) ||
+    /\b(gravy|curry|wings|keema|stew|chukka|chalna)\b/.test(t);
+  if (!namesFood) return false;
+  return (
+    /\b(i\s+want|i\s+need|can i get|could i get|do you have|have you got|got any)\b/.test(t) ||
+    /\b(is it available|is .{0,40} available|available)\b/.test(t) ||
+    /\b(order|send me|book|get me)\b/.test(t)
+  );
 }
 
 /** Order and food chat should go through the agent, not a bare list picker. */

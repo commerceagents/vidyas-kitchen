@@ -99,6 +99,10 @@ export async function sendDishPicker(
   if (slice.length >= 2) {
     const cards = buildDishCarouselCards(slice, opts.statedSize);
     if (await sendCarousel(from, bodyText, cards)) return "carousel";
+    console.warn("[whatsapp-dish-picker] carousel rejected — falling back to list", {
+      count: slice.length,
+      titles: slice.map((entry) => entry.name),
+    });
   }
 
   const rows = buildDishListRows(slice, opts.statedSize);

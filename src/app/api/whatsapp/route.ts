@@ -170,6 +170,7 @@ import {
   matchComplaintItemIndex,
   matchComplaintOrderFromText,
   parseComplaintChoice,
+  looksLikeFoodOrder,
   prefersConversationalPath,
   shouldStoreComplaint,
   type ComplaintItem,
@@ -2640,6 +2641,13 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     const last = await fetchLastAddressAndSlot(from);
     const filled = fillDraftFromReply(stored, text, last.address || session.delivery_address);
     if (filled.changed) return await presentProposal(from, filled.draft, text);
+    // Same dish family again ("I want mutton gravy is it available?") must
+    // reopen the picker, not tell them the cart is empty.
+    if (looksLikeFoodOrder(text)) return await presentProposal(from, filled.draft, text);
+  } else if (looksLikeFoodOrder(text)) {
+    const family = spokenFamily || dishQueryCategory(text);
+    const base = { items: [{ dish: family || text }] };
+    return await presentProposal(from, applySpokenFamily(base, text), text);
   } else if (parsePackSize(text) && session.selected_item_id) {
     return await applyVariant(from, parsePackSize(text)!);
   }
@@ -2817,15 +2825,6 @@ async function presentProposal(
           state: "ai_chat",
           recent_turns: turns,
         });
-        if (pick.length <= 3) {
-          const buttons = pick.map((item) => ({
-            id: item.id,
-            title: choiceButtonTitle(item.name),
-          }));
-          await storeOptions(from, buttons);
-          await sendButtons(from, prompt, buttons);
-          return ack();
-        }
         const entries = pick
           .map((item) => dishPickerFromMenuRow(item))
           .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));

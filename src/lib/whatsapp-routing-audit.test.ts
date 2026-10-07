@@ -4,7 +4,7 @@
  */
 import { classifyTurn, routeTurn } from "./whatsapp-turn";
 import { supportTopic } from "./whatsapp-support";
-import { looksLikeNewOrder, prefersConversationalPath, shouldStoreComplaint } from "./whatsapp-complaint";
+import { looksLikeFoodOrder, looksLikeNewOrder, prefersConversationalPath, shouldStoreComplaint } from "./whatsapp-complaint";
 
 type Expect = "complaint" | "exit_complaint" | "support" | "order" | `turn:${string}`;
 
@@ -120,6 +120,12 @@ check("egg gravy prefers conversation", prefersConversationalPath("I would like 
 check("chicken gravy prefers conversation", prefersConversationalPath("chicken gravy for tomorrow dinner") === true);
 check("hi prefers conversation", prefersConversationalPath("hi") === true);
 check("refund question prefers conversation", prefersConversationalPath("what is your refund policy?") === true);
+check(
+  "mutton availability is food order",
+  looksLikeFoodOrder("I want mutton gravy is it available") === true,
+);
+check("i want chicken is food order", looksLikeFoodOrder("I want chicken gravy") === true);
+check("refund is not food order", looksLikeFoodOrder("what is your refund policy?") === false);
 
 check("menu while picking date is answered then re-asked", menuWhileDate.action === "answer_menu_then_reask");
 
