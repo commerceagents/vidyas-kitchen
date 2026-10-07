@@ -45,6 +45,7 @@ import {
   buildUsualListBody,
   buildUsualPayNote,
   buildUsualTeaseLine,
+  buildVoiceNoteFallback,
   buildWelcomeMessage,
   conversationalRoll,
   welcomeLogoImageUrl,
@@ -195,6 +196,7 @@ import {
   parseHour,
   parsePackSize,
   parsePackQuantities,
+  parsePaymentMethod,
   parseSpokenQuantity,
   parseSlotWord,
   repriceProposal,
@@ -204,6 +206,7 @@ import {
 } from "@/lib/ai/order-proposal";
 import { resolveCartIntent } from "@/lib/ai/cart-intent";
 import { phraseReply } from "@/lib/ai/phrase-reply";
+import { transcribeWhatsAppAudio } from "@/lib/whatsapp-voice";
 import { closeDishChoices } from "@/lib/menu/embeddings";
 import { cartUpsellMessage } from "@/lib/ai/cart-upsell";
 import {
@@ -978,6 +981,21 @@ function proposalDraftFromSession(session: WhatsAppSession): ProposalDraft | nul
   };
 }
 
+/** Open conversational order draft — cart checkout uses the session cart instead. */
+function readOpenDraft(session: WhatsAppSession): ProposalDraft | null {
+  if (session.cart.length > 0) return null;
+  return readStoredDraft(session.recent_turns) ?? proposalDraftFromSession(session);
+}
+
+async function continueDraftOrder(
+  from: string,
+  draft: ProposalDraft,
+  sourceText?: string | null,
+): Promise<Response> {
+  await updateSession(from, { state: "ai_chat" });
+  return await presentProposal(from, draft, sourceText);
+}
+
 function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalDraft): SessionTurns {
   const kept = chatTurns(turns);
   const interrupt = (turns || []).filter((t) => t.content.startsWith(VK_INTERRUPT_PREFIX));
@@ -1118,6 +1136,34 @@ export async function POST(req: Request) {
           profileName = contact?.profile?.name || "";
           messageId = message.id || "";
           console.log(`[Meta WA] From=${from} Body="${body}" Name=${profileName} MsgId=${messageId}`);
+        } else if (message && (message.type === "audio" || message.type === "voice")) {
+          from = fromMetaWebhook(message.from);
+          profileName = contact?.profile?.name || "";
+          messageId = message.id || "";
+          const mediaId =
+            (message.audio as { id?: string } | undefined)?.id ||
+            (message.voice as { id?: string } | undefined)?.id ||
+            "";
+          const transcribed = mediaId ? await transcribeWhatsAppAudio(mediaId) : null;
+          if (transcribed) {
+            body = transcribed;
+            inboundKind = "text";
+            console.log(`[Meta WA Voice] From=${from} Text="${transcribed.slice(0, 120)}"`);
+          } else {
+            inboundKind = "media";
+            body = "[voice note]";
+            await logWhatsAppMessage({
+              phone: from,
+              direction: "in",
+              kind: inboundKind,
+              body,
+              payload: { type: message.type, profileName: profileName || undefined },
+              provider: "meta",
+              waMessageId: messageId || null,
+            });
+            await sendText(from, buildVoiceNoteFallback(langOf(from)));
+            return ack();
+          }
         } else if (message && message.type === "interactive") {
           from = fromMetaWebhook(message.from);
           const interactive = message.interactive;
@@ -1600,10 +1646,17 @@ async function handleResolvedId(
       await updateSession(from, { proposal: null, state: "idle" });
       return await showFullMenu(from);
     case "confirm_order":
-    case "pay_online":
       return await payFromDraftOrCart(from, session, "online");
-    case "pay_cod":
+    case "pay_online": {
+      const open = readOpenDraft(session);
+      if (open) return await continueDraftOrder(from, { ...open, payment: "online" });
+      return await payFromDraftOrCart(from, session, "online");
+    }
+    case "pay_cod": {
+      const open = readOpenDraft(session);
+      if (open) return await continueDraftOrder(from, { ...open, payment: "cash" });
       return await payFromDraftOrCart(from, session, "cod");
+    }
     case "edit_order":
       return await showCart(from, session.cart);
     case "usual_change":
@@ -1664,16 +1717,12 @@ async function handleResolvedId(
 }
 
 async function handleIdle(from: string, text: string, session: { cart: CartItem[] }, profileName: string) {
-  if (prefersConversationalPath(text)) {
-    await updateSession(from, { state: "ai_chat" });
-    return await handleAiChat(from, text, profileName);
-  }
-
   const menu = await getMenu();
   const matched = findItemByName(menu, text);
 
-  if (matched && !looksLikeCompoundOrder(text)) {
-    return await showVariantPicker(from, matched);
+  if (matched && !looksLikeCompoundOrder(text) && session.cart.length === 0) {
+    await updateSession(from, { state: "ai_chat", selected_item_id: matched.id });
+    return await continuePickedDish(from, await getSession(from), matched);
   }
 
   await updateSession(from, { state: "ai_chat" });
@@ -1698,13 +1747,23 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
 /** A category order already named the size. Don't ask for 500gm again. */
 async function continuePickedDish(from: string, session: WhatsAppSession, item: MenuItem) {
   await sendText(from, dishPickedAside(item.name, lastAssistantText(session.recent_turns)));
-  const draft = readStoredDraft(session.recent_turns);
-  const size = parsePackSize(String(draft?.items?.[0]?.size || ""));
-  if (size && draft) {
-    await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
-    return await applyVariant(from, size);
-  }
-  return await showVariantPicker(from, item);
+  const draft = readOpenDraft(session);
+  const size =
+    parsePackSize(String(draft?.items?.[0]?.size || "")) ||
+    parsePackSize(String(draft?.items?.[0]?.dish || "")) ||
+    "500gm";
+  const next: ProposalDraft = {
+    ...(draft || {}),
+    items: [
+      {
+        dish: item.name,
+        size,
+        quantity: Math.max(1, Math.floor(Number(draft?.items?.[0]?.quantity) || 1)),
+      },
+    ],
+  };
+  await updateSession(from, { selected_item_id: item.id, state: "ai_chat" });
+  return await continueDraftOrder(from, next);
 }
 
 async function handlePickingItem(from: string, text: string, profileName: string) {
@@ -2207,7 +2266,7 @@ async function answerWithVidya(
     { role: "user", content: text },
     ...(result.reply ? [{ role: "assistant" as const, content: result.reply }] : []),
     ...sessionNotes(session.recent_turns),
-  ].slice(-16);
+  ].slice(-20);
 
   if (result.proposalDraft && session.cart.length === 0) {
     await updateSession(from, { recent_turns: turnsWithDraft(turns, result.proposalDraft) });
@@ -2370,7 +2429,17 @@ async function handleConfirmingProposal(
   return await handleAiChat(from, text, profileName);
 }
 
-async function handlePickingDate(from: string, text: string, _session: WhatsAppSession) {
+async function handlePickingDate(from: string, text: string, session: WhatsAppSession) {
+  const draft = readOpenDraft(session);
+  if (draft) {
+    const last = await fetchLastAddressAndSlot(from);
+    const filled = fillDraftFromReply(draft, text, last.address || session.delivery_address);
+    if (filled.changed) return await continueDraftOrder(from, filled.draft, text);
+    const ymd = parseDateInput(text) || parseDateText(text);
+    if (ymd) return await continueDraftOrder(from, { ...draft, date: ymd }, text);
+    return await continueDraftOrder(from, draft, text);
+  }
+
   const date = parseDateInput(text);
   if (!date) {
     await sendText(from, buildDatePickerMessage(langOf(from)));
@@ -2387,6 +2456,15 @@ async function handlePickingSlot(from: string, text: string, session: WhatsAppSe
   if (resolved === "slot_lunch") slotKind = "lunch";
   if (resolved === "slot_dinner") slotKind = "dinner";
 
+  const draft = readOpenDraft(session);
+  if (draft) {
+    const last = await fetchLastAddressAndSlot(from);
+    const filled = fillDraftFromReply(draft, text, last.address || session.delivery_address);
+    if (filled.changed) return await continueDraftOrder(from, filled.draft, text);
+    if (slotKind) return await continueDraftOrder(from, { ...draft, slot: slotKind }, text);
+    return await continueDraftOrder(from, draft, text);
+  }
+
   if (!slotKind) {
     await sendText(from, buildProposalAskMessage("slot", langOf(from)));
     return ack();
@@ -2396,6 +2474,14 @@ async function handlePickingSlot(from: string, text: string, session: WhatsAppSe
 }
 
 async function handlePickingAddress(from: string, text: string, session: WhatsAppSession) {
+  const draft = readOpenDraft(session);
+  if (draft) {
+    const last = await fetchLastAddressAndSlot(from);
+    const filled = fillDraftFromReply(draft, text, last.address || session.delivery_address);
+    if (filled.changed) return await continueDraftOrder(from, filled.draft, text);
+    if (text.length >= 5) return await continueDraftOrder(from, { ...draft, address: text.trim() }, text);
+  }
+
   if (text.length < 5) return await askForAddress(from);
   const check = checkTypedAddress(text);
   if (check.status !== "ok") {
@@ -2459,6 +2545,17 @@ async function handleSharedLocation(
 }
 
 async function handlePickingPayMethod(from: string, text: string, session: WhatsAppSession) {
+  const draft = readOpenDraft(session);
+  if (draft) {
+    const last = await fetchLastAddressAndSlot(from);
+    const filled = fillDraftFromReply(draft, text, last.address || session.delivery_address);
+    if (filled.changed) return await continueDraftOrder(from, filled.draft, text);
+    const pay = parsePaymentMethod(text);
+    if (pay) {
+      return await continueDraftOrder(from, { ...draft, payment: pay === "cod" ? "cash" : "online" }, text);
+    }
+  }
+
   const resolved = await resolveNumbered(from, text);
   const lower = text.toLowerCase().trim();
   if (resolved === "pay_online" || /online|upi|razor|pay now/i.test(lower)) {
@@ -2558,7 +2655,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     ...history,
     { role: "user" as const, content: text },
     ...(result.reply ? [{ role: "assistant" as const, content: result.reply }] : []),
-  ].slice(-16);
+  ].slice(-20);
 
   // A model draft is not allowed to replace a cart that already has dishes.
   if (result.proposalDraft && session.cart.length > 0) {
@@ -2694,9 +2791,11 @@ async function presentProposal(
         { id: "var_1kg", title: BTN.size1kg },
       ];
       const only = result.dishOptions?.[0];
-      if (only) {
-        await updateSession(from, { selected_item_id: only.id, state: "ai_chat", recent_turns: turns });
-      }
+      await updateSession(from, {
+        selected_item_id: only?.id ?? session.selected_item_id,
+        state: "ai_chat",
+        recent_turns: turns,
+      });
       await storeOptions(from, buttons);
       await sendButtons(from, ask, buttons);
       return ack();
@@ -2712,7 +2811,7 @@ async function presentProposal(
         const pick = options.slice(0, 10);
         const prompt = buildDishListPrompt(family, avoid, conversationalRoll(from, "dish"));
         await updateSession(from, {
-          state: "picking_item",
+          state: "ai_chat",
           recent_turns: turns,
         });
         if (pick.length <= 3) {
@@ -2752,13 +2851,29 @@ async function presentProposal(
         { id: "slot_lunch", title: BTN.lunch },
         { id: "slot_dinner", title: BTN.dinner },
       ];
+      await updateSession(from, { state: "ai_chat", recent_turns: turns });
       await storeOptions(from, buttons);
       await sendButtons(from, ask, buttons);
       return ack();
     }
 
     if (result.field === "date") {
-      return await showDatePicker(from);
+      const quickDates = upcomingDateRows().slice(0, 3);
+      const buttons = quickDates.map((row) => ({ id: row.id, title: row.title.slice(0, 20) }));
+      await updateSession(from, { state: "ai_chat", recent_turns: turns });
+      await storeOptions(from, buttons);
+      await sendButtons(from, ask, buttons);
+      return ack();
+    }
+
+    if (result.field === "address") {
+      const saved = (await fetchUsualProfile(from).catch(() => null))?.addresses ?? [];
+      if (saved.length > 0) {
+        await updateSession(from, { state: "picking_proposal_address", recent_turns: turns });
+        return await askForProposalAddress(from);
+      }
+      await sendText(from, ask);
+      return ack();
     }
 
     if (result.field === "payment") {
@@ -2766,6 +2881,7 @@ async function presentProposal(
         { id: "pay_online", title: BTN.payOnline },
         { id: "pay_cod", title: BTN.payCash },
       ];
+      await updateSession(from, { state: "ai_chat", recent_turns: turns });
       await storeOptions(from, buttons);
       await sendButtons(from, buildPaymentAsk(understoodOrderLines(draft), lang), buttons);
       return ack();
@@ -3734,6 +3850,10 @@ async function applyDeliveryDate(from: string, ymd: string) {
     await sendText(from, buildDatePickerMessage(langOf(from)));
     return ack();
   }
+  const session = await getSession(from);
+  const draft = readOpenDraft(session);
+  if (draft) return await continueDraftOrder(from, { ...draft, date: ymd });
+
   const buttons = [
     { id: "slot_breakfast", title: BTN.breakfast },
     { id: "slot_lunch", title: BTN.lunch },
@@ -3751,6 +3871,9 @@ async function applyDeliveryDate(from: string, ymd: string) {
 }
 
 async function applySlot(from: string, session: WhatsAppSession, slotKind: DeliverySlotKind) {
+  const draft = readOpenDraft(session);
+  if (draft) return await continueDraftOrder(from, { ...draft, slot: slotKind });
+
   const date = session.delivery_date;
   if (date) {
     const slotIso = slotStartIsoFor(date, slotKind);

@@ -912,6 +912,14 @@ const GAP_LINE: Record<"size" | "date" | "slot" | "address" | "payment", string>
 };
 
 /** One message for every gap, so a single reply can finish the order. */
+export function buildVoiceNoteFallback(lang?: WaLang): string {
+  return pickLang(
+    lang,
+    "_I caught a voice note but couldn't make out the words — type it in one line, or send another note a little slower?_ 🎤",
+    "_Voice note puriyala — oru line-la type pannunga, illa konjam slow-a mela send pannunga?_ 🎤",
+  );
+}
+
 export function buildInstantGapMessage(
   known: string[],
   missing: ("size" | "date" | "slot" | "address" | "payment")[],
