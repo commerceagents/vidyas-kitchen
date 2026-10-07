@@ -184,6 +184,7 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, pickCanonicalRows, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import {
   applyFastLaneDefaults,
+  applySpokenCheckout,
   applySpokenDate,
   applySpokenFamily,
   applySpokenSize,
@@ -2780,7 +2781,7 @@ async function presentProposal(
   const lastSlotKind = (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null;
   const usualProfile = await fetchUsualProfile(from).catch(() => null);
   let draft = applyFastLaneDefaults(
-    applySpokenFamily(applySpokenSize(applySpokenDate(incoming, sourceText), sourceText), sourceText),
+    applySpokenFamily(applySpokenCheckout(incoming, sourceText), sourceText),
     {
       lastAddress,
       lastSlotKind,

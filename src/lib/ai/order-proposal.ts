@@ -141,6 +141,37 @@ function stylePhrase(family: "chicken" | "mutton" | "egg", text: string): string
   return `${family} ${word}`;
 }
 
+const ORDER_FILLER = new Set([
+  "to", "it", "on", "at", "in", "is", "be", "do", "so", "up", "we", "us",
+  "like", "would", "can", "get", "send", "book", "place", "start", "make",
+  "tomorrow", "today", "tonight", "tomo", "tmr", "tmrw", "naalai", "nalai",
+  "dinner", "lunch", "breakfast", "night", "evening", "morning", "noon",
+  "cash", "cod", "online", "upi", "card",
+  "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+  "january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december",
+]);
+
+/** Words that pick one dish out of a family: "black pepper", not just "chicken gravy". */
+function identifyingWords(text: string): string[] {
+  return tokens(text).filter((word) => {
+    if (CATEGORY_WORDS.has(word) || FAMILY_WORDS.has(word) || ORDER_FILLER.has(word)) return false;
+    if (/^\d/.test(word)) return false;
+    return true;
+  });
+}
+
+function withIdentifyingWords(
+  spoken: string,
+  draftDish: string,
+  family: "chicken" | "mutton" | "egg",
+  style: string,
+): string {
+  const spokenIds = identifyingWords(spoken);
+  const ids = spokenIds.length > 0 ? spokenIds : identifyingWords(draftDish);
+  if (ids.length === 0) return `${family} ${style}`;
+  return `${ids.join(" ")} ${family} ${style}`.replace(/\s+/g, " ").trim();
+}
+
 export function dishChoiceQuery(draftDish: string, source?: string | null): string {
   const spoken = String(source || "").trim();
   const spokenFamily = dishQueryCategory(spoken);
@@ -151,10 +182,10 @@ export function dishChoiceQuery(draftDish: string, source?: string | null): stri
   }
   const blob = `${spoken} ${draftDish}`.replace(/\s+/g, " ").trim();
   const family = spokenFamily || draftFamily;
-  if (family && /\b(gravy|gravies)\b/i.test(blob)) return `${family} gravy`;
-  if (family && /\b(curry|curries)\b/i.test(blob)) return `${family} curry`;
-  if (family && /\bwings?\b/i.test(blob)) return `${family} wings`;
-  if (family && /\bdry\b/i.test(blob)) return `${family} dry`;
+  if (family && /\b(gravy|gravies)\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "gravy");
+  if (family && /\b(curry|curries)\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "curry");
+  if (family && /\bwings?\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "wings");
+  if (family && /\bdry\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "dry");
   if (spokenFamily && !String(draftDish || "").trim()) return spokenFamily;
   return String(draftDish || spoken).trim();
 }
@@ -279,6 +310,28 @@ export function parseDateText(text: string): string | null {
   if (/\b(tomorrow|tomo|tmr|tmrw|naalai|nalai|naalaiku)\b/.test(t)) return istAddCalendarDays(today, 1);
   if (/\b(day after tomorrow|day after|naalaimarunaal)\b/.test(t)) return istAddCalendarDays(today, 2);
 
+  const monthNames =
+    "january|february|march|april|june|july|august|september|october|november|december|sept|sep|oct|nov|dec|jan|feb|mar|apr|jun|jul|aug|may";
+  const months: Record<string, number> = {
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5,
+    jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9,
+    oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
+  };
+  const dayMonth = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+of)?\\s+(${monthNames})\\b`));
+  const monthDay = t.match(new RegExp(`\\b(${monthNames})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`));
+  const day = dayMonth ? Number(dayMonth[1]) : monthDay ? Number(monthDay[2]) : NaN;
+  const monthWord = dayMonth ? dayMonth[2] : monthDay ? monthDay[1] : "";
+  const month = months[monthWord];
+  if (month && day >= 1 && day <= 31) {
+    const year = Number(today.slice(0, 4));
+    const pad = (n: number) => String(n).padStart(2, "0");
+    let ymd = `${year}-${pad(month)}-${pad(day)}`;
+    const stamped = new Date(`${ymd}T12:00:00+05:30`);
+    if (stamped.getUTCDate() !== day) return null;
+    if (isPastIstDate(ymd, today)) ymd = `${year + 1}-${pad(month)}-${pad(day)}`;
+    return ymd;
+  }
+
   const days: Record<string, number> = {
     sunday: 0, sun: 0, monday: 1, mon: 1, tuesday: 2, tue: 2, tues: 2,
     wednesday: 3, wed: 3, thursday: 4, thu: 4, thurs: 4,
@@ -339,6 +392,20 @@ export function applySpokenSize(draft: ProposalDraft, source?: string | null): P
       return next;
     }),
   };
+}
+
+/**
+ * Date, size, slot, and payment named in this sentence overwrite leftovers.
+ * "8th oct lunch, cash" must not keep yesterday's dinner slot.
+ */
+export function applySpokenCheckout(draft: ProposalDraft, source?: string | null): ProposalDraft {
+  const text = String(source || "");
+  let next = applySpokenSize(applySpokenDate(draft, text), text);
+  const slot = parseSlotWord(text);
+  if (slot) next = { ...next, slot };
+  const pay = parsePaymentMethod(text);
+  if (pay) next = { ...next, payment: pay === "cod" ? "cash" : "online" };
+  return next;
 }
 
 /** Write the noted day onto the draft, and drop a leftover past date. */
@@ -639,16 +706,29 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
     if (matches.length === 0) {
       return { ok: false, kind: "missing", field: "dish" };
     }
-    // Two plausible dishes is a question, not a guess.
-    if (matches.length > 1 && tokens(String(raw.dish)).length < 3) {
-      const tight = matches.filter(
-        (m) => m.name.toLowerCase() === String(raw.dish).toLowerCase().trim(),
-      );
-      if (tight.length !== 1) {
-        return { ok: false, kind: "missing", field: "dish", dishOptions: matches.slice(0, 8) };
+    const named = identifyingWords(String(raw.dish));
+    let covering = named.length
+      ? matches.filter((item) => {
+          const name = tokens(item.name);
+          return named.every((word) => name.some((part) => part.startsWith(word) || word.startsWith(part)));
+        })
+      : matches;
+    const tight = matches.filter((m) => m.name.toLowerCase() === String(raw.dish).toLowerCase().trim());
+    if (tight.length === 1) covering = tight;
+    // "black pepper" is one dish. "chicken gravy" is the whole family.
+    if (covering.length !== 1) {
+      const bareFamily = named.length === 0 && matches.length > 1 && tokens(String(raw.dish)).length < 3;
+      const namedButUnclear = named.length > 0;
+      if (bareFamily || namedButUnclear) {
+        return {
+          ok: false,
+          kind: "missing",
+          field: "dish",
+          dishOptions: (covering.length > 0 ? covering : matches).slice(0, 8),
+        };
       }
     }
-    const item = matches[0];
+    const item = covering[0] || matches[0];
 
     const size =
       parsePackSize(String(raw.size || "")) ??

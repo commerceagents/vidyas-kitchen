@@ -4,10 +4,12 @@ import { allDishPricing, pickCanonicalRows } from "../menu/dish-pricing";
 import { istAddCalendarDays, istCalendarYmd } from "../delivery-slots";
 import {
   applyFastLaneDefaults,
+  applySpokenCheckout,
   applySpokenFamily,
   applySpokenSize,
   dishChoiceQuery,
   notedDeliveryDate,
+  parseDateText,
 } from "./order-proposal";
 import { isGravyStyleDish } from "../menu/embeddings";
 import { buildDishListPrompt } from "../whatsapp-copy";
@@ -114,6 +116,21 @@ check(
   "mutton gravy stays mutton gravy",
   dishChoiceQuery("chicken gravy", "mutton gravy for tomorrow") === "mutton gravy",
 );
+check(
+  "black pepper is not flattened to chicken gravy",
+  dishChoiceQuery(
+    "chicken",
+    "I need to order black pepper chicken gravy for 8th oct lunch 500gm, cash",
+  ) === "black pepper chicken gravy",
+);
+check("8th oct is a calendar day", parseDateText("for 8th oct lunch")?.endsWith("-10-08") === true);
+const spoken = applySpokenCheckout(
+  { items: [{ dish: "chicken gravy" }], slot: "dinner", payment: "online" },
+  "I need to order black pepper chicken gravy for 8th oct lunch 500gm, cash",
+);
+check("spoken lunch replaces a leftover dinner slot", spoken.slot === "lunch");
+check("spoken cash replaces a leftover online payment", spoken.payment === "cash");
+check("spoken 8th oct is the delivery date", spoken.date?.endsWith("-10-08") === true);
 const switched = applySpokenFamily(
   { items: [{ dish: "chicken gravy", size: "500gm" }] },
   "I would like to order mutton dish",
