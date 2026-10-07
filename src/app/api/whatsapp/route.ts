@@ -181,7 +181,6 @@ import { loadActiveFestival } from "@/lib/menu/festival-dishes";
 import { hasAppInstalledSignal } from "@/lib/whatsapp-app-signal";
 import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-log";
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, pickCanonicalRows, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
-import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
   applyFastLaneDefaults,
   applySpokenDate,
