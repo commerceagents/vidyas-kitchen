@@ -9,6 +9,7 @@ import {
   slotStartIsoFor,
 } from "@/lib/delivery-slots";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { loadDeliveryPromoSettings } from "@/lib/delivery-promo";
 import { markOrderPaidAndNotify, isCodBlocked } from "@/lib/order-transition";
 import { PaymentStatus } from "@/lib/order-status";
 import { COD_MAX_ORDER_VALUE } from "@/lib/cod-policy";
@@ -150,7 +151,10 @@ export async function POST(request: Request) {
     const discount = festivalWins ? festivalCut!.amount : promoOffer?.amount ?? 0;
     const billLabel = festivalWins ? festivalCut!.label : promoOffer?.label ?? null;
     const billCode = festivalWins ? null : promoOffer?.code ?? null;
-    const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal - discount);
+    const deliveryPromo = await loadDeliveryPromoSettings(supabase);
+    const { computedTotal: grandTotal } = computeOrderBreakdownFromItemSubtotal(itemTotal - discount, {
+      deliveryPromo,
+    });
 
     // Re-check COD eligibility server-side: the client hides the option, but the
     // total is only trustworthy once it's been recomputed from the menu here.

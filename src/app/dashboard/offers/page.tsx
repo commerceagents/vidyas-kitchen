@@ -18,6 +18,7 @@ import {
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 import { DashboardMobileNav } from "@/components/dashboard/DashboardMobileNav";
 import { DashboardDropdown } from "@/components/dashboard/DashboardDropdown";
+import { DeliveryPromoPanel } from "@/components/dashboard/DeliveryPromoPanel";
 const FONT = "var(--font-outfit), system-ui, sans-serif";
 const YELLOW = "#f5e32d";
 const CARD_BG = "#1a1a1a";
@@ -676,6 +677,7 @@ export default function OffersPage() {
             boxSizing: "border-box",
           }}
         >
+          <DeliveryPromoPanel />
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{content}</div>
         </div>
       </div>

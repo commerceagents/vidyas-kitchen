@@ -22,6 +22,9 @@ check("how do I cancel is the policy", supportTopic("how do I cancel") === "canc
 check("kitchen phone is a call", supportTopic("can I connect with the kitchen") === "call");
 check("call the kitchen is a call", supportTopic("Call the kitchen") === "call");
 check("call us is a call", supportTopic("call") === "call");
+check("customer care opens help", supportTopic("customer care") === "help");
+check("best seller question", supportTopic("what do people order") === "best_seller");
+check("spicy suggestion", supportTopic("suggest something spicy") === "spicy");
 check("driver question", supportTopic("where is my driver") === "driver");
 check("offers", supportTopic("any offers today") === "offers");
 check("bot", supportTopic("are you a bot?") === "bot");

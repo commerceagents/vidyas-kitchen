@@ -1,7 +1,13 @@
+import type { DeliveryPromoSettings } from "./delivery-promo";
+
 /** Must stay in sync with checkout fee logic (orders/checkout). */
 export const ORDER_PACKAGING_INR = 20;
 export const ORDER_DELIVERY_INR = 35;
 export const ORDER_GST_RATE = 0.05;
+
+export type OrderFeeOptions = {
+  deliveryPromo?: DeliveryPromoSettings | null;
+};
 
 export type OrderFeeBreakdown = {
   itemsSubtotal: number;
@@ -18,14 +24,23 @@ export function orderItemsSubtotal(items: OrderLineItem[]): number {
   return items.reduce((s, it) => s + (Number(it.unit_price) || 0) * (Number(it.quantity) || 0), 0);
 }
 
-export function computeOrderBreakdownFromItemSubtotal(itemsSubtotal: number): OrderFeeBreakdown {
+function effectiveDeliveryFee(itemsSubtotal: number, promo?: DeliveryPromoSettings | null): number {
+  if (!promo?.active || itemsSubtotal < promo.minOrderInr) return ORDER_DELIVERY_INR;
+  return Math.max(0, ORDER_DELIVERY_INR - Math.min(Math.round(promo.discountInr), ORDER_DELIVERY_INR));
+}
+
+export function computeOrderBreakdownFromItemSubtotal(
+  itemsSubtotal: number,
+  opts?: OrderFeeOptions,
+): OrderFeeBreakdown {
+  const delivery = effectiveDeliveryFee(itemsSubtotal, opts?.deliveryPromo);
   const gst = Math.round(itemsSubtotal * ORDER_GST_RATE);
   const computedTotal =
-    Math.round((itemsSubtotal + ORDER_PACKAGING_INR + ORDER_DELIVERY_INR + gst) * 100) / 100;
+    Math.round((itemsSubtotal + ORDER_PACKAGING_INR + delivery + gst) * 100) / 100;
   return {
     itemsSubtotal,
     packaging: ORDER_PACKAGING_INR,
-    delivery: ORDER_DELIVERY_INR,
+    delivery,
     gst,
     computedTotal,
   };

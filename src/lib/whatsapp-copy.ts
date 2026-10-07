@@ -23,7 +23,7 @@
  */
 
 import { publicSiteOrigin } from "./site-url";
-import { computeOrderBreakdownFromItemSubtotal } from "./order-pricing";
+import { computeOrderBreakdownFromItemSubtotal, type OrderFeeOptions } from "./order-pricing";
 import { type CartItem, cartBreakdown, cartGrandTotal } from "./whatsapp-cart";
 import { pickLang, type WaLang } from "./whatsapp-lang";
 import { formatInr, packPriceLine } from "./menu/dish-pricing";
@@ -136,23 +136,25 @@ function cartLine(item: CartItem): string {
  * raised for the grand total and the app charges the same stack. Quoting the
  * bare item sum here would surprise the customer at the payment screen.
  */
-function totalLines(cart: CartItem[], lang?: WaLang, offer?: { label: string; amount: number } | null): string[] {
+function totalLines(
+  cart: CartItem[],
+  lang?: WaLang,
+  offer?: { label: string; amount: number } | null,
+  feeOpts?: OrderFeeOptions,
+): string[] {
   const b = cartBreakdown(cart);
   const discount = offer ? Math.min(b.itemsSubtotal, Math.max(0, Math.round(offer.amount))) : 0;
-  const priced = discount > 0 ? computeOrderBreakdownFromItemSubtotal(b.itemsSubtotal - discount) : null;
-  const packaging = priced ? priced.packaging : b.packaging;
-  const delivery = priced ? priced.delivery : b.delivery;
-  const gst = priced ? priced.gst : b.gst;
-  const total = priced ? Math.round(priced.computedTotal) : cartGrandTotal(cart);
+  const itemsAfter = Math.max(0, b.itemsSubtotal - discount);
+  const priced = computeOrderBreakdownFromItemSubtotal(itemsAfter, feeOpts);
   return [
     "",
     `Items ${money(b.itemsSubtotal)}`,
     ...(discount > 0 ? [`Offer -${money(discount)}`] : []),
-    pickLang(lang, `Packaging ${money(packaging)}`, `Packing ${money(packaging)}`),
-    `Delivery ${money(delivery)}`,
-    `GST ${money(gst)}`,
+    pickLang(lang, `Packaging ${money(priced.packaging)}`, `Packing ${money(priced.packaging)}`),
+    `Delivery ${money(priced.delivery)}`,
+    `GST ${money(priced.gst)}`,
     "",
-    `*Total ${money(total)}*`,
+    `*Total ${money(Math.round(priced.computedTotal))}*`,
   ];
 }
 
@@ -165,14 +167,11 @@ function invoiceLines(
   lang: WaLang | undefined,
   offer: { label: string; amount: number } | null | undefined,
   footer: string[],
+  feeOpts?: OrderFeeOptions,
 ): string[] {
   const b = cartBreakdown(cart);
   const discount = offer ? Math.min(b.itemsSubtotal, Math.max(0, Math.round(offer.amount))) : 0;
-  const priced = discount > 0 ? computeOrderBreakdownFromItemSubtotal(b.itemsSubtotal - discount) : null;
-  const packaging = priced ? priced.packaging : b.packaging;
-  const delivery = priced ? priced.delivery : b.delivery;
-  const gst = priced ? priced.gst : b.gst;
-  const total = priced ? Math.round(priced.computedTotal) : cartGrandTotal(cart);
+  const priced = computeOrderBreakdownFromItemSubtotal(Math.max(0, b.itemsSubtotal - discount), feeOpts);
   const items = cart.flatMap((item) => {
     const qty = Math.max(1, item.quantity);
     const name = formatFullDishName(item.name);
@@ -183,11 +182,11 @@ function invoiceLines(
     "",
     `_${dottedRow(pickLang(lang, "Items", "Items"), money(b.itemsSubtotal))}_`,
     ...(discount > 0 ? [`_${dottedRow(offer!.label, `-${money(discount)}`)}_`] : []),
-    `_${dottedRow(pickLang(lang, "Packaging", "Packing"), money(packaging))}_`,
-    `_${dottedRow("Delivery", money(delivery))}_`,
-    `_${dottedRow("GST (5%)", money(gst))}_`,
+    `_${dottedRow(pickLang(lang, "Packaging", "Packing"), money(priced.packaging))}_`,
+    `_${dottedRow("Delivery", money(priced.delivery))}_`,
+    `_${dottedRow("GST (5%)", money(priced.gst))}_`,
     RULE,
-    `*${dottedRow("Total", money(total))}*`,
+    `*${dottedRow("Total", money(Math.round(priced.computedTotal)))}*`,
     "",
     ...footer.filter(Boolean).map((line) => `_${line}_`),
   ];
@@ -715,7 +714,7 @@ export function buildUpsellMessage(favorite: string, suggested: string, _discoun
   });
 }
 
-export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
+export function buildCartMessage(cart: CartItem[], lang?: WaLang, feeOpts?: OrderFeeOptions): string {
   if (cart.length === 0) {
     return pickLang(
       lang,
@@ -727,7 +726,7 @@ export function buildCartMessage(cart: CartItem[], lang?: WaLang): string {
   return msg({
     title: pickLang(lang, "Your cart", "Unga cart"),
     lines: [
-      ...invoiceLines(cart, lang, null, []),
+      ...invoiceLines(cart, lang, null, [], feeOpts),
       cart.length >= WA_CART_MAX
         ? pickLang(
             lang,
@@ -809,12 +808,13 @@ export function buildReuseLastPrompt(
   address: string | null,
   slotLine: string | null,
   lang?: WaLang,
+  feeOpts?: OrderFeeOptions,
 ): string {
   return msg({
     title: pickLang(lang, "Same as last time?", "Last time maadhiri-ya?"),
     lines: [
       ...cart.map(cartLine),
-      ...totalLines(cart, lang),
+      ...totalLines(cart, lang, null, feeOpts),
       "",
       slotLine ? pickLang(lang, `Slot: ${slotLine}`, `Slot: ${slotLine}`) : null,
       address ? pickLang(lang, `Address: ${address}`, `Address: ${address}`) : null,
@@ -889,13 +889,14 @@ export function buildOrderSummaryMessage(
   address: string,
   lang?: WaLang,
   offer?: { label: string; amount: number } | null,
+  feeOpts?: OrderFeeOptions,
 ): string {
   return msg({
     title: pickLang(lang, "Does this look right?", "Idhu sari-ya iruka?"),
     lines: invoiceLines(cart, lang, offer, [
       `${dateStr} · ${slotKind.charAt(0).toUpperCase() + slotKind.slice(1)}`,
       address,
-    ]),
+    ], feeOpts),
   });
 }
 
@@ -914,10 +915,11 @@ export function buildProposalMessage(
   paymentLabel: string,
   lang?: WaLang,
   offer?: { label: string; amount: number } | null,
+  feeOpts?: OrderFeeOptions,
 ): string {
   return msg({
     title: pickLang(lang, "Here's what I've got", "Naan puinjukittadhu idhu"),
-    lines: invoiceLines(cart, lang, offer, [`${dateStr} · ${slotLabel}`, address, paymentLabel]),
+    lines: invoiceLines(cart, lang, offer, [`${dateStr} · ${slotLabel}`, address, paymentLabel], feeOpts),
     note: pickLang(
       lang,
       "Nothing is booked until you tap Confirm order.",

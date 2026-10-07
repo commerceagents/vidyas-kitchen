@@ -696,10 +696,34 @@ export function CheckoutScreen({
       cancel = true;
     };
   }, [itemTotal, phone]);
+
   const discount = Math.min(appliedOffer?.amount ?? 0, itemTotal);
   const discountedItems = Math.max(0, itemTotal - discount);
   const packagingFee = 20;
-  const deliveryFee = 35;
+  const [deliveryFee, setDeliveryFee] = useState(35);
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState(35);
+
+  useEffect(() => {
+    let cancel = false;
+    const q = new URLSearchParams({ subtotal: String(Math.round(discountedItems)) });
+    void fetch(`/api/delivery-promo?${q}`)
+      .then((res) => res.json())
+      .then((data: { deliveryFee?: number; baseDeliveryFee?: number }) => {
+        if (cancel) return;
+        setDeliveryFee(Number(data.deliveryFee) || 35);
+        setBaseDeliveryFee(Number(data.baseDeliveryFee) || 35);
+      })
+      .catch(() => {
+        if (!cancel) {
+          setDeliveryFee(35);
+          setBaseDeliveryFee(35);
+        }
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [discountedItems]);
+
   const tax = Math.round(discountedItems * 0.05);
   const otherCharges = packagingFee + tax;
   const grandTotal = discountedItems + packagingFee + deliveryFee + tax;
@@ -1616,7 +1640,18 @@ export function CheckoutScreen({
                       )}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
                         <span style={{ color: C.muted, fontWeight: 600 }}>Delivery fee</span>
-                        <span style={{ fontWeight: 700 }}>₹{deliveryFee}</span>
+                        <span style={{ fontWeight: 700 }}>
+                          {deliveryFee < baseDeliveryFee ? (
+                            <>
+                              <span style={{ color: C.muted, textDecoration: "line-through", marginRight: 6 }}>
+                                ₹{baseDeliveryFee}
+                              </span>
+                              ₹{deliveryFee}
+                            </>
+                          ) : (
+                            <>₹{deliveryFee}</>
+                          )}
+                        </span>
                       </div>
                       <button
                         type="button"

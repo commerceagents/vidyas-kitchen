@@ -153,7 +153,9 @@ import { isCodAllowedForTotal } from "@/lib/cod-policy";
 import { checkSharedPin, checkTypedAddress } from "@/lib/delivery-area";
 import { reverseGeocode } from "@/lib/places-search";
 import { DELIVERY_ZONE } from "@/lib/delivery-zone";
-import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { computeOrderBreakdownFromItemSubtotal, type OrderFeeOptions } from "@/lib/order-pricing";
+import { loadDeliveryPromoSettings } from "@/lib/delivery-promo";
+import { allMenuDishes, KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import { redeemOffer, releaseOffer, resolveOfferForCheckout } from "@/lib/offers-server";
 import type { AppliedOffer } from "@/lib/offers";
 import { isCodBlocked, markOrderPaidAndNotify, transitionOrderStatusInDb } from "@/lib/order-transition";
@@ -2976,6 +2978,7 @@ async function presentProposal(
       proposal.paymentMethod === "cod" ? "Cash on delivery" : "Pay online",
       lang,
       quoted.offer,
+      quoted.feeOpts,
     ),
     buttons,
   );
@@ -3849,7 +3852,8 @@ async function showCart(from: string, cart: CartItem[]) {
     { id: "clear_cart", title: BTN.clearCart },
   ];
   await storeOptions(from, buttons);
-  await sendButtons(from, buildCartMessage(cart, lang), buttons);
+  const feeOpts = { deliveryPromo: await loadDeliveryPromoSettings() };
+  await sendButtons(from, buildCartMessage(cart, lang, feeOpts), buttons);
   return ack();
 }
 
@@ -3874,7 +3878,8 @@ async function afterCartReady(from: string, session: WhatsAppSession) {
       { id: "edit_order", title: BTN.editCart },
     ];
     await storeOptions(from, buttons);
-    await sendButtons(from, buildReuseLastPrompt(session.cart, last.address, line, langOf(from)), buttons);
+    const feeOpts = { deliveryPromo: await loadDeliveryPromoSettings() };
+    await sendButtons(from, buildReuseLastPrompt(session.cart, last.address, line, langOf(from), feeOpts), buttons);
     return ack();
   }
   return await showDatePicker(from);
@@ -3997,6 +4002,7 @@ async function finishAddress(
     address,
     langOf(from),
     quoted.offer,
+    quoted.feeOpts,
   );
   const usualPayment = opts?.usualPayment ?? readUsualPay((await getSession(from)).recent_turns) ?? undefined;
   return await showSummaryButtons(from, session.cart, summary, quoted.total, usualPayment);
@@ -4161,8 +4167,7 @@ async function answerSupport(
     selected_item_id: null,
     selected_variant: null,
   });
-  const bare = text.trim().toLowerCase();
-  if (topic === "help" && /^(help|support)\s*$/i.test(bare)) {
+  if (topic === "help") {
     await updateSession(from, { state: "idle" });
     return await showHelpSupport(from);
   }
@@ -4200,6 +4205,27 @@ async function answerSupport(
     await updateSession(from, { state: "idle" });
     const profile = await fetchUsualProfile(from).catch(() => null);
     await sendText(from, buildAddressOnFileAnswer(profile?.addresses?.[0] ?? null));
+    return ack();
+  }
+  if (topic === "bot") {
+    await updateSession(from, { state: "idle" });
+    await sendText(from, buildBotAnswer());
+    return ack();
+  }
+  if (topic === "presence") {
+    await updateSession(from, { state: "idle" });
+    await sendText(from, buildPresenceAnswer());
+    return ack();
+  }
+  if (topic === "best_seller") {
+    await updateSession(from, { state: "idle" });
+    const pick = allMenuDishes().find((d) => d.id === KITCHEN_PICK_DISH_IDS[0]);
+    await sendText(from, buildBestSellerAnswer(pick?.name ?? "Mom's Recipe Chicken Gravy"));
+    return ack();
+  }
+  if (topic === "spicy") {
+    await updateSession(from, { state: "idle" });
+    await sendText(from, buildSpicyAnswer());
     return ack();
   }
 
@@ -4578,24 +4604,33 @@ async function showQuickReorder(from: string) {
     { id: "edit_order", title: BTN.editCart },
   ];
   await storeOptions(from, buttons);
-  await sendButtons(from, buildReuseLastPrompt(snap.cart, snap.address, line, langOf(from)), buttons);
+  const feeOpts = { deliveryPromo: await loadDeliveryPromoSettings() };
+  await sendButtons(from, buildReuseLastPrompt(snap.cart, snap.address, line, langOf(from), feeOpts), buttons);
   return ack();
 }
 
 async function quoteCart(
   cart: CartItem[],
   phone: string,
-): Promise<{ total: number; offer: { label: string; amount: number } | null; applied: AppliedOffer | null }> {
+): Promise<{
+  total: number;
+  offer: { label: string; amount: number } | null;
+  applied: AppliedOffer | null;
+  feeOpts: OrderFeeOptions;
+}> {
   const subtotal = cartItemsSubtotal(cart);
+  const deliveryPromo = await loadDeliveryPromoSettings();
+  const feeOpts = { deliveryPromo };
   const { applied } = await resolveOfferForCheckout({ subtotal, phone });
   const discount = applied && applied.amount > 0 ? Math.min(subtotal, applied.amount) : 0;
   const total = Math.round(
-    computeOrderBreakdownFromItemSubtotal(Math.max(0, subtotal - discount)).computedTotal,
+    computeOrderBreakdownFromItemSubtotal(Math.max(0, subtotal - discount), feeOpts).computedTotal,
   );
   return {
     total,
     offer: discount > 0 && applied ? { label: applied.label, amount: discount } : null,
     applied: discount > 0 && applied ? applied : null,
+    feeOpts,
   };
 }
 
