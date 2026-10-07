@@ -47,7 +47,7 @@ check(
 const prompt = buildDishListPrompt("chicken", null, 0);
 const promptAgain = buildDishListPrompt("chicken", prompt, 0);
 check("list prompt names the family", prompt.includes("chicken gravy options") && promptAgain.includes("chicken gravy options"));
-check("list prompt opens View options", prompt.includes("View options") && promptAgain.includes("View options"));
+check("dish prompt mentions photo cards", prompt.includes("photo cards") && promptAgain.includes("photo cards"));
 check("list prompt does not repeat the same opener", prompt !== promptAgain);
 
 const moms = listRowLabel("Mom's Recipe - Chicken Gravy", "500gm ₹349 · 1kg ₹699");
@@ -60,7 +60,6 @@ check("a short gravy name fits the list title", chilly.title === "Chilly Chicken
 
 const sil = listRowLabel("PEPPER CHICKEN (SISTER-IN-LAW'S RECIPE)", "500gm ₹425 · 1kg ₹849");
 check("sister-in-law is not cut down to a first name", sil.title.length <= 24 && `${sil.title} ${sil.description}`.includes("Pepper"));
-
 const stale = applySpokenSize(
   { items: [{ dish: "chicken gravy", size: "500gm" }] },
   "i would like to order chicken gravy for tomo lunch",

@@ -1170,15 +1170,14 @@ export function varyLine(options: readonly string[], avoid?: string | null, roll
   return choices[index] || options[0] || "";
 }
 
-/** Body of the dish list. The rows carry the full names; this only opens the list. */
-export function buildDishListPrompt(
+function dishChoiceOpener(
   family: "chicken" | "mutton" | "egg" | null,
   avoid?: string | null,
   roll = Math.random(),
 ): string {
   const noun = family === "mutton" ? "mutton" : family === "egg" ? "egg" : family === "chicken" ? "chicken gravy" : "dish";
   const headerEmoji = family === "mutton" ? "🍖" : family === "egg" ? "🥚" : "🍗";
-  const opener = varyLine(
+  return varyLine(
     [
       `We've got a few ${noun} options ${headerEmoji} — which one's calling you today?`,
       `A few ${noun} options ${headerEmoji} are ready. Which one do you want?`,
@@ -1188,7 +1187,33 @@ export function buildDishListPrompt(
     avoid,
     roll,
   );
-  return `${opener}\n\n_Tap View options, or just type the name!_`;
+}
+
+/** Body above dish cards or the list fallback. Full names live on carousel cards. */
+export function buildDishChoicePrompt(
+  family: "chicken" | "mutton" | "egg" | null,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
+  return `${dishChoiceOpener(family, avoid, roll)}\n\n_Swipe the photo cards, tap Choose size, or type the dish name!_`;
+}
+
+/** @deprecated Use buildDishChoicePrompt — kept for tests. */
+export function buildDishCarouselPrompt(
+  family: "chicken" | "mutton" | "egg" | null,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
+  return buildDishChoicePrompt(family, avoid, roll);
+}
+
+/** @deprecated Use buildDishChoicePrompt — kept for tests. */
+export function buildDishListPrompt(
+  family: "chicken" | "mutton" | "egg" | null,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
+  return buildDishChoicePrompt(family, avoid, roll);
 }
 
 /** Said when a dish from the choice list is the one they wanted. Wording rotates. */

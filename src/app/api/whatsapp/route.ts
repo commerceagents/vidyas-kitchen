@@ -26,7 +26,6 @@ import {
   sendButtons,
   sendCtaUrl,
   sendList,
-  sendCarousel,
   sendProductList,
   sendLocationRequest,
 } from "@/lib/whatsapp-send";
@@ -89,7 +88,7 @@ import {
   buildOpenAppBody,
   buildPwaPromoBody,
   buildCodPlacedMessage,
-  buildDishListPrompt,
+  buildDishChoicePrompt,
   buildMoreDaysBody,
   buildSlotListBody,
   dishPickedAside,
@@ -138,7 +137,7 @@ import {
 import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
 import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
-import { choiceButtonTitle, formatFullDishName, listRowLabel } from "@/lib/dish-name";
+import { choiceButtonTitle, formatFullDishName } from "@/lib/dish-name";
 import {
   saveWaLang,
   langForPhone,
@@ -236,10 +235,14 @@ import {
   parseCatalogProductId,
   retailerIdForCsvPrefix,
   guessRetailerId,
-  publicDishImageUrl,
   whatsappCatalogId,
   catalogPackDrawers,
 } from "@/lib/whatsapp-catalog";
+import {
+  dishPickerFromMenuRow,
+  dishPickerFromPricing,
+  sendDishPicker,
+} from "@/lib/whatsapp-dish-picker";
 
 /**
  * WhatsApp webhook — tap-first checkout, Meta primary with a Twilio fallback.
@@ -2809,7 +2812,7 @@ async function presentProposal(
       if (options.length > 0) {
         const statedSize = parsePackSize(sourceText || "");
         const pick = options.slice(0, 10);
-        const prompt = buildDishListPrompt(family, avoid, conversationalRoll(from, "dish"));
+        const prompt = buildDishChoicePrompt(family, avoid, conversationalRoll(from, "dish"));
         await updateSession(from, {
           state: "ai_chat",
           recent_turns: turns,
@@ -2823,14 +2826,9 @@ async function presentProposal(
           await sendButtons(from, prompt, buttons);
           return ack();
         }
-        const rows = pick.map((item) => {
-          const priceLine = statedSize
-            ? `${formatInr(unitPriceFor(item, statedSize))} (${statedSize})`
-            : `500gm ${formatInr(unitPriceFor(item, "500gm"))} · 1kg ${formatInr(unitPriceFor(item, "1kg"))}`;
-          const label = listRowLabel(item.name, priceLine);
-          return { id: item.id, title: label.title, description: label.description };
-        });
-        await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+        const entries = pick
+          .map((item) => dishPickerFromMenuRow(item))
+          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
         const section = family === "mutton"
           ? (/\bgravy\b/i.test(query) ? "Mutton gravy" : "Mutton")
           : family === "egg"
@@ -2838,7 +2836,15 @@ async function presentProposal(
             : family === "chicken"
               ? (/\b(wings?|dry)\b/i.test(query) ? "Chicken" : "Chicken gravy")
               : "Dishes";
-        await sendList(from, prompt, "View options", [{ title: section, rows }]);
+        await sendDishPicker(from, prompt, entries, {
+          listButton: "View options",
+          sectionTitle: section,
+          statedSize,
+        });
+        await storeOptions(
+          from,
+          entries.map((entry) => ({ id: entry.id, title: entry.name })),
+        );
         return ack();
       }
       await sendLookalikeCarousel(from, query);
@@ -3302,18 +3308,6 @@ async function showInstallApp(from: string, profileName: string) {
  * chain below degrades one step at a time and always ends in something
  * readable: catalog → category carousel → interactive list → numbered text.
  */
-function dishCards(dishes: DishPricing[]): { id: string; title: string; body: string; imageUrl: string; buttonTitle: string }[] {
-  return dishes.map((dish) => {
-    const name = formatFullDishName(dish.name);
-    return {
-      id: `add_${dish.retailerId}`,
-      title: name,
-      body: `${name}\n500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 160),
-      imageUrl: publicDishImageUrl({ image_url: dish.imagePath, retailer_id: dish.retailerId }),
-      buttonTitle: "Choose size",
-    };
-  });
-}
 
 function dishesInCategory(category: string): DishPricing[] {
   return allDishPricing().filter((dish) => dish.category === category);
@@ -3343,22 +3337,16 @@ async function sendLookalikeCarousel(from: string, query: string): Promise<void>
   const category = dishQueryCategory(query);
   const dishes = lookalikeDishes(query);
   const heading = await new VidyaAgent().writeMissingDishLine(query, category);
-  if (dishes.length > 0) await rememberDishCards(from, dishes);
-  if (dishes.length >= 2 && (await sendCarousel(from, heading, dishCards(dishes)))) return;
   if (dishes.length === 0) {
     await sendText(from, heading);
     return;
   }
-  await sendList(from, heading, "See dishes", [
-    {
-      title: category ? categoryDisplayLabel(category) : "House favourites",
-      rows: dishes.map((dish) => ({
-        id: `add_${dish.retailerId}`,
-        title: formatFullDishName(dish.name).slice(0, 24),
-        description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
-      })),
-    },
-  ]);
+  if (dishes.length > 0) await rememberDishCards(from, dishes);
+  const entries = dishes.map(dishPickerFromPricing);
+  await sendDishPicker(from, heading, entries, {
+    listButton: "See dishes",
+    sectionTitle: category ? categoryDisplayLabel(category) : "House favourites",
+  });
 }
 
 async function showBookableSlots(
@@ -3456,19 +3444,22 @@ async function showSizedMenu(from: string) {
 }
 
 async function showSizedSectionItems(from: string, category: string, variant: PackSize) {
-  const dishes = dishesInCategory(category);
-  const rows = dishes.slice(0, 10).map((dish) => ({
-    id: `${variant === "1kg" ? "sz1kg" : "sz500"}_${dish.retailerId}`,
-    title: formatFullDishName(dish.name).slice(0, 24),
-    description: formatInr(dish.prices[variant]),
-  }));
-  if (rows.length === 0) {
+  const dishes = dishesInCategory(category).slice(0, 10);
+  if (dishes.length === 0) {
     await sendText(from, notUnderstoodReply(langOf(from)));
     return ack();
   }
-  await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
+  const entries = dishes.map((dish) => ({
+    ...dishPickerFromPricing(dish),
+    id: `${variant === "1kg" ? "sz1kg" : "sz500"}_${dish.retailerId}`,
+  }));
+  await storeOptions(from, entries.map((entry) => ({ id: entry.id, title: entry.name })));
   const heading = `${categoryDisplayLabel(category)} (${variant})`;
-  await sendList(from, heading, "Menu", [{ title: heading.slice(0, 24), rows }]);
+  await sendDishPicker(from, `${heading}\nSwipe the photo cards or tap Select.`, entries, {
+    listButton: "Menu",
+    sectionTitle: heading,
+    statedSize: variant,
+  });
   return ack();
 }
 
@@ -3508,21 +3499,15 @@ async function showFullMenu(from: string) {
   for (const category of MENU_SECTION_ORDER) {
     const dishes = dishesInCategory(category).slice(0, 10);
     if (dishes.length === 0) continue;
-    const rows = dishes.map((dish) => ({
-      id: `add_${dish.retailerId}`,
-      title: formatFullDishName(dish.name).slice(0, 24),
-      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
-    }));
-    const ok = await sendList(
-      from,
-      `${categoryDisplayLabel(category)}\nTap a dish, then pick 500gm or 1kg.`,
-      "View menu",
-      [{ title: categoryDisplayLabel(category).slice(0, 24), rows }],
-    );
-    if (ok) {
-      sent = true;
-      shown.push(...dishes);
-    }
+    const label = categoryDisplayLabel(category);
+    const body = `${label}\nSwipe the photo cards, tap Choose size, then pick 500gm or 1kg.`;
+    const entries = dishes.map(dishPickerFromPricing);
+    await sendDishPicker(from, body, entries, {
+      listButton: "View menu",
+      sectionTitle: label,
+    });
+    sent = true;
+    shown.push(...dishes);
   }
   if (sent) {
     await rememberDishCards(from, shown.slice(0, 10));
@@ -3571,15 +3556,12 @@ async function showCategoryItems(from: string, cat: string) {
   const dishes = dishesInCategory(cat).slice(0, 10);
   if (dishes.length > 0) {
     await rememberDishCards(from, dishes);
-  await updateSession(from, { state: "picking_item" });
-    const rows = dishes.map((dish) => ({
-      id: `add_${dish.retailerId}`,
-      title: formatFullDishName(dish.name).slice(0, 24),
-      description: `500gm ${formatInr(dish.prices["500gm"])} · 1kg ${formatInr(dish.prices["1kg"])}`.slice(0, 72),
-    }));
-    await sendList(from, `${catLabel}\nTap a dish, then pick 500gm or 1kg.`, "View menu", [
-      { title: catLabel.slice(0, 24), rows },
-    ]);
+    await updateSession(from, { state: "picking_item" });
+    const entries = dishes.map(dishPickerFromPricing);
+    await sendDishPicker(from, `${catLabel}\nSwipe the photo cards, tap Choose size, then pick 500gm or 1kg.`, entries, {
+      listButton: "View menu",
+      sectionTitle: catLabel,
+    });
     return ack();
   }
 
