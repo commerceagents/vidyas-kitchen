@@ -50,7 +50,8 @@ export function dishPickerFromMenuRow(item: PriceableRow & { id: string }): Dish
     id: item.id,
   });
 
-  return { id: item.id, name, prices, imageUrl };
+  const cardId = resolved?.dish.retailerId ? `add_${resolved.dish.retailerId}` : item.id;
+  return { id: cardId, name, prices, imageUrl };
 }
 
 function priceLine(entry: DishPickerEntry, statedSize?: PackSize | null): string {

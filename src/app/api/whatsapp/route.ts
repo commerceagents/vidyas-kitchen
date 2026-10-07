@@ -1014,7 +1014,11 @@ const BOT_REPLY_ID =
   /^(add_|addmore_|szsec_|sz500_|sz1kg_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_|change_proposal_)/;
 
 function isBotReplyId(value: string): boolean {
-  return BOT_REPLY_ID.test(value);
+  const id = String(value || "").trim();
+  if (!id) return false;
+  if (BOT_REPLY_ID.test(id)) return true;
+  // Carousel quick replies carry menu-item UUIDs from semantic search.
+  return /^[0-9a-f-]{36}$/i.test(id);
 }
 
 /** Pull a button or list id out of whatever shape Meta used for the tap. */
@@ -1047,30 +1051,40 @@ function findReplyId(value: unknown, depth = 0): string | null {
  * A card tap that never included a button id. Offer the same dishes as a list,
  * which WhatsApp does deliver back to us.
  */
+function pendingDishListRow(option: { id: string; title: string }, menu: MenuItem[]) {
+  if (option.id.startsWith("add_")) {
+    const pricing = dishPricingForRetailerId(option.id.slice(4));
+    const name = pricing ? formatFullDishName(pricing.name) : option.title;
+    return {
+      id: option.id,
+      title: name.slice(0, 24),
+      description: pricing
+        ? `500gm ${formatInr(pricing.prices["500gm"])} · 1kg ${formatInr(pricing.prices["1kg"])}`.slice(0, 72)
+        : undefined,
+    };
+  }
+  const item = menu.find((row) => row.id === option.id);
+  const pricing = item ? dishPricingForRetailerId(item.retailer_id || "") : null;
+  const name = item ? formatFullDishName(item.name) : option.title;
+  return {
+    id: option.id,
+    title: name.slice(0, 24),
+    description: pricing
+      ? `500gm ${formatInr(pricing.prices["500gm"])} · 1kg ${formatInr(pricing.prices["1kg"])}`.slice(0, 72)
+      : undefined,
+  };
+}
+
 async function replyUnreadableTap(from: string): Promise<void> {
   const session = await getSession(from);
-  const dishes = (session.pending_options || []).filter((option) => option.id.startsWith("add_"));
+  const dishes = session.pending_options || [];
   if (dishes.length > 0) {
+    const menu = await getMenu();
     await sendList(
       from,
       "Oops — that tap stayed on your phone and never reached the kitchen. Pick the dish here, and I'll ask 500gm or 1kg.",
       "Pick a dish",
-      [
-        {
-          title: "On the cards",
-          rows: dishes.slice(0, 10).map((option) => {
-            const pricing = dishPricingForRetailerId(option.id.slice(4));
-            const name = pricing ? formatFullDishName(pricing.name) : option.title;
-            return {
-              id: option.id,
-              title: name.slice(0, 24),
-              description: pricing
-                ? `500gm ${formatInr(pricing.prices["500gm"])} · 1kg ${formatInr(pricing.prices["1kg"])}`.slice(0, 72)
-                : undefined,
-            };
-          }),
-        },
-      ],
+      [{ title: "On the cards", rows: dishes.slice(0, 10).map((option) => pendingDishListRow(option, menu)) }],
     );
     return;
   }
@@ -1308,6 +1322,19 @@ export async function POST(req: Request) {
     const lower = text.toLowerCase();
 
     const session = await getSession(from);
+
+    if (
+      !interactiveReplyId &&
+      /^(choose size|select)$/i.test(text) &&
+      (session.pending_options?.length || 0) > 0
+    ) {
+      const pending = session.pending_options!;
+      if (pending.length === 1) {
+        return await handleResolvedId(from, pending[0].id, session, profileName);
+      }
+      await replyUnreadableTap(from);
+      return ack();
+    }
 
     // A dropped pin is the only address we can actually verify on WhatsApp,
     // so it takes priority over whatever state the chat was in.
@@ -3394,6 +3421,10 @@ async function addDishByRetailer(from: string, retailerId: string) {
       category: pricing.category,
       image_url: pricing.imagePath,
     } satisfies MenuItem);
+  const session = await getSession(from);
+  if (session.state === "ai_chat" && readStoredDraft(session.recent_turns)) {
+    return await continuePickedDish(from, session, item);
+  }
   return await showVariantPicker(from, item);
 }
 

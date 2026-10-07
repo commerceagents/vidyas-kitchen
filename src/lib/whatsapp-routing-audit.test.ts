@@ -126,6 +126,11 @@ check(
 );
 check("i want chicken is food order", looksLikeFoodOrder("I want chicken gravy") === true);
 check("refund is not food order", looksLikeFoodOrder("what is your refund policy?") === false);
+check(
+  "carousel menu uuid is a known reply id",
+  /^[0-9a-f-]{36}$/i.test("38a96232-c038-4fb8-a399-fcbb4a3e1e2e"),
+);
+check("add_ retailer id is a known reply id", /^add_/.test("add_mut-spicy-gravy"));
 
 check("menu while picking date is answered then re-asked", menuWhileDate.action === "answer_menu_then_reask");
 
