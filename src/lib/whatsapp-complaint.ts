@@ -1,3 +1,6 @@
+import { classifyTurn } from "@/lib/whatsapp-turn";
+import { supportTopic } from "@/lib/whatsapp-support";
+
 /**
  * A fresh order beats an open complaint arm. "I would like to order egg gravy"
  * must not reopen the order picker or stash a complaint note.
@@ -6,6 +9,7 @@ export function looksLikeNewOrder(text: string): boolean {
   const t = String(text || "").trim().toLowerCase();
   if (!t) return false;
   if (t === "menu" || t === "show me the menu" || t === "todays specials") return true;
+  if (/\bhelp me order\b/.test(t)) return true;
   if (/\b(new|fresh|another|complete)\s+order\b/.test(t)) return true;
   if (
     /\b(i('d|\s+would|\s+want|\s+need|'ll|\s+will)\s+(like\s+to\s+)?|let('s|\s+me)\s+|can\s+i\s+|please\s+)(place\s+|start\s+|make\s+|send\s+)?(a\s+|an\s+|my\s+|the\s+)?order\b/.test(
@@ -20,6 +24,39 @@ export function looksLikeNewOrder(text: string): boolean {
 }
 
 /**
+ * When the complaint arm is open, these messages should drop it and let the
+ * normal bot answer — menu, track, help, a new order, and the rest.
+ */
+export function complaintShouldYield(text: string): boolean {
+  const t = String(text || "").trim();
+  if (t.length < 2) return true;
+  if (looksLikeNewOrder(t)) return true;
+  if (supportTopic(t) && !looksLikeComplaintNote(t)) return true;
+  if (
+    /^(help|support|menu|hi|hello|hey|vanakkam|namaste|track|stop|unsubscribe|opt out|call|call us)$/i.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  if (/\b(menu|what do you (have|sell)|what's available|show (me )?(the )?(dishes|menu))\b/i.test(t)) return true;
+  if (/^(hs_|stale_|back_|rating_|browse_|buy_|cat_|hscmp)/i.test(t)) return true;
+  if (/\b(never mind|nevermind|not now|forget it|leave it|wrong button|mistake)\b/i.test(t)) return true;
+
+  if (looksLikeComplaintNote(t)) return false;
+
+  const intent = classifyTurn(t, "ai_chat").intent;
+  if (intent === "complaint") return false;
+  return intent === "add_item" || intent === "ask_menu" || intent === "ask_status" || intent === "checkout";
+}
+
+function looksLikeComplaintNote(text: string): boolean {
+  return /\b(cold|hot|warm|wrong|missing|late|rude|bad|terrible|spoiled|stale|disgusting|not what|didn't get|never came|never arrived|packaging)\b/i.test(
+    text,
+  );
+}
+
+/**
  * The message after "Something wrong" is the complaint, even when it names a
  * dish. Short navigation words leave the flow so "menu" still opens the menu.
  *
@@ -28,19 +65,7 @@ export function looksLikeNewOrder(text: string): boolean {
  * different order from the same phone.
  */
 export function shouldStoreComplaint(text: string): boolean {
-  const t = String(text || "").trim();
-  if (t.length < 2) return false;
-  if (looksLikeNewOrder(t)) return false;
-  if (
-    /^(help|support|menu|hi|hello|hey|vanakkam|namaste|track|stop|unsubscribe|opt out|call|call us)$/i.test(
-      t,
-    )
-  ) {
-    return false;
-  }
-  if (/^(hs_|stale_|back_|rating_|browse_|buy_|cat_|hscmp)/i.test(t)) return false;
-  if (/\b(never mind|nevermind|not now|forget it|leave it|wrong button|mistake)\b/i.test(t)) return false;
-  return true;
+  return !complaintShouldYield(text);
 }
 
 const ORDER_ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";

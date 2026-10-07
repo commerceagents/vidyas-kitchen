@@ -27,6 +27,10 @@ check("a cold chicken note is a complaint", shouldStoreComplaint("the chicken wa
 check("a gravy note is a complaint", shouldStoreComplaint("gravy was missing from the box") === true);
 check("a refund sentence is still filed", shouldStoreComplaint("I want a refund, the food was cold") === true);
 check("an order sentence leaves the complaint flow", shouldStoreComplaint("I would like to order egg gravy") === false);
+check("help me order leaves the complaint flow", shouldStoreComplaint("help me order chicken gravy") === false);
+check("menu question leaves the complaint flow", shouldStoreComplaint("what's on the menu") === false);
+check("track leaves the complaint flow", shouldStoreComplaint("track my order") === false);
+check("driver question leaves the complaint flow", shouldStoreComplaint("where is my driver") === false);
 check("help leaves the flow", shouldStoreComplaint("help") === false);
 check("menu leaves the flow", shouldStoreComplaint("menu") === false);
 check("a button id is not the complaint", shouldStoreComplaint("hs_complaint") === false);
