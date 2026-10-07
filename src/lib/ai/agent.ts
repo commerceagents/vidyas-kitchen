@@ -16,6 +16,7 @@ import {
   menuContextFooter,
   welcomeLogoImageUrl,
 } from "../whatsapp-copy";
+import { looksLikeNewOrder } from "../whatsapp-complaint";
 import { formatInr, unitPriceFor } from "../menu/dish-pricing";
 import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
 import { semanticMenuMatches } from "../menu/embeddings";
@@ -598,9 +599,7 @@ export class VidyaAgent {
         }
         const lower = lowerMessage;
         const exitsComplaint =
-          message.startsWith("I would like to order ") ||
-          lower === "show me the menu" ||
-          lower === "todays specials" ||
+          looksLikeNewOrder(message) ||
           lower === "help & support" ||
           lower === "help_support" ||
           lower === "open app" ||

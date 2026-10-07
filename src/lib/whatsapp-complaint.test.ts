@@ -3,6 +3,7 @@ import {
   complaintDishLine,
   complaintItemRows,
   complaintOrderRow,
+  looksLikeNewOrder,
   parseComplaintAction,
   parseComplaintChoice,
   shouldStoreComplaint,
@@ -20,9 +21,12 @@ function check(name: string, ok: boolean) {
 
 const ORDER = "37c30dfd-3be1-46a1-9780-8f65e6112259";
 
+check("egg gravy order is not a complaint", looksLikeNewOrder("I would like to order egg gravy") === true);
+check("a new complete order is not a complaint", looksLikeNewOrder("I would like to order egg a new complete order") === true);
 check("a cold chicken note is a complaint", shouldStoreComplaint("the chicken was cold") === true);
 check("a gravy note is a complaint", shouldStoreComplaint("gravy was missing from the box") === true);
 check("a refund sentence is still filed", shouldStoreComplaint("I want a refund, the food was cold") === true);
+check("an order sentence leaves the complaint flow", shouldStoreComplaint("I would like to order egg gravy") === false);
 check("help leaves the flow", shouldStoreComplaint("help") === false);
 check("menu leaves the flow", shouldStoreComplaint("menu") === false);
 check("a button id is not the complaint", shouldStoreComplaint("hs_complaint") === false);

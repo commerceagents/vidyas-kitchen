@@ -1,4 +1,25 @@
 /**
+ * A fresh order beats an open complaint arm. "I would like to order egg gravy"
+ * must not reopen the order picker or stash a complaint note.
+ */
+export function looksLikeNewOrder(text: string): boolean {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  if (t === "menu" || t === "show me the menu" || t === "todays specials") return true;
+  if (/\b(new|fresh|another|complete)\s+order\b/.test(t)) return true;
+  if (
+    /\b(i('d|\s+would|\s+want|\s+need|'ll|\s+will)\s+(like\s+to\s+)?|let('s|\s+me)\s+|can\s+i\s+|please\s+)(place\s+|start\s+|make\s+|send\s+)?(a\s+|an\s+|my\s+|the\s+)?order\b/.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  if (/^order\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|idli|biryani|dish|meal)\b/.test(t)) return true;
+  if (/\b(get|send|book)\s+me\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|dish|meal)\b/.test(t)) return true;
+  return false;
+}
+
+/**
  * The message after "Something wrong" is the complaint, even when it names a
  * dish. Short navigation words leave the flow so "menu" still opens the menu.
  *
@@ -9,6 +30,7 @@
 export function shouldStoreComplaint(text: string): boolean {
   const t = String(text || "").trim();
   if (t.length < 2) return false;
+  if (looksLikeNewOrder(t)) return false;
   if (
     /^(help|support|menu|hi|hello|hey|vanakkam|namaste|track|stop|unsubscribe|opt out|call|call us)$/i.test(
       t,
@@ -17,6 +39,7 @@ export function shouldStoreComplaint(text: string): boolean {
     return false;
   }
   if (/^(hs_|stale_|back_|rating_|browse_|buy_|cat_|hscmp)/i.test(t)) return false;
+  if (/\b(never mind|nevermind|not now|forget it|leave it|wrong button|mistake)\b/i.test(t)) return false;
   return true;
 }
 
