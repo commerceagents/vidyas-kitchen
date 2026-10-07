@@ -45,6 +45,7 @@ import {
   buildUsualListBody,
   buildUsualPayNote,
   buildWelcomeMessage,
+  conversationalRoll,
   welcomeLogoImageUrl,
   buildCategoryListBody,
   buildCategoryMessage,
@@ -135,7 +136,7 @@ import {
 import { AGAINST_ORDER_CATEGORIES } from "@/lib/menu/against-order";
 import { staticMenuItems, staticMenuByCategory } from "@/lib/menu/whatsapp-menu";
 import { createAutoLoginToken } from "@/lib/wa-auto-login";
-import { formatFullDishName, listRowLabel } from "@/lib/dish-name";
+import { choiceButtonTitle, formatFullDishName, listRowLabel } from "@/lib/dish-name";
 import {
   saveWaLang,
   langForPhone,
@@ -166,6 +167,7 @@ import {
   complaintWriteAction,
   parseComplaintAction,
   parseComplaintChoice,
+  prefersConversationalPath,
   shouldStoreComplaint,
   type ComplaintItem,
 } from "@/lib/whatsapp-complaint";
@@ -1334,6 +1336,16 @@ export async function POST(req: Request) {
       if (diverted) return diverted;
     }
 
+    if (
+      !interactiveReplyId &&
+      !resolvedId &&
+      prefersConversationalPath(text) &&
+      (session.state === "idle" || session.state === "browsing_category" || session.state === "ai_chat")
+    ) {
+      await updateSession(from, { state: "ai_chat" });
+      return await handleAiChat(from, text, profileName);
+    }
+
     if (isMenuCmd) {
       await updateSession(from, { state: "browsing_category", proposal: null });
       return await showFullMenu(from);
@@ -1618,6 +1630,11 @@ async function handleResolvedId(
 }
 
 async function handleIdle(from: string, text: string, session: { cart: CartItem[] }, profileName: string) {
+  if (prefersConversationalPath(text)) {
+    await updateSession(from, { state: "ai_chat" });
+    return await handleAiChat(from, text, profileName);
+  }
+
   const menu = await getMenu();
   const matched = findItemByName(menu, text);
 
@@ -2067,6 +2084,12 @@ async function handleInterrupt(
     return await beginComplaint(from);
   }
 
+  if (prefersConversationalPath(text)) {
+    await rememberInterrupt(from, session, 0);
+    await updateSession(from, { state: "ai_chat" });
+    return await handleAiChat(from, text, _profileName);
+  }
+
   await rememberInterrupt(from, session, decision.nextInterruptCount);
 
     if (decision.action === "mutate_cart_then_reask") {
@@ -2156,7 +2179,7 @@ async function answerWithVidya(
   }
 
   if (!result.reply) return { kind: "skip" };
-  await updateSession(from, { recent_turns: turns });
+  await updateSession(from, { state: "ai_chat", recent_turns: turns });
   await sendText(from, result.reply);
   return { kind: "said" };
 }
@@ -2505,7 +2528,7 @@ async function handleAiChat(from: string, text: string, profileName: string) {
     await sendText(from, result.reply);
   }
 
-  await updateSession(from, { state: "idle", recent_turns: turns });
+  await updateSession(from, { state: "ai_chat", recent_turns: turns });
   return ack();
 }
 
@@ -2608,7 +2631,8 @@ async function presentProposal(
       );
       return ack();
     }
-    const ask = buildProposalAskMessage(result.field, lang);
+    const avoid = lastAssistantText(session.recent_turns);
+    const ask = buildProposalAskMessage(result.field, lang, avoid, conversationalRoll(from, result.field));
 
     if (result.field === "size") {
       const buttons = [
@@ -2631,16 +2655,27 @@ async function presentProposal(
       const options = preparedChoices ?? (await closeDishChoices(menu, query, family));
       if (options.length > 0) {
         const statedSize = parsePackSize(sourceText || "");
-        const rows = options.slice(0, 10).map((item) => {
+        const pick = options.slice(0, 10);
+        const prompt = buildDishListPrompt(family, avoid, conversationalRoll(from, "dish"));
+        await updateSession(from, {
+          state: "picking_item",
+          recent_turns: turns,
+        });
+        if (pick.length <= 3) {
+          const buttons = pick.map((item) => ({
+            id: item.id,
+            title: choiceButtonTitle(item.name),
+          }));
+          await storeOptions(from, buttons);
+          await sendButtons(from, prompt, buttons);
+          return ack();
+        }
+        const rows = pick.map((item) => {
           const priceLine = statedSize
             ? `${formatInr(unitPriceFor(item, statedSize))} (${statedSize})`
             : `500gm ${formatInr(unitPriceFor(item, "500gm"))} · 1kg ${formatInr(unitPriceFor(item, "1kg"))}`;
           const label = listRowLabel(item.name, priceLine);
           return { id: item.id, title: label.title, description: label.description };
-        });
-        await updateSession(from, {
-          state: "picking_item",
-          recent_turns: turns,
         });
         await storeOptions(from, rows.map((row) => ({ id: row.id, title: row.title })));
         const section = family === "mutton"
@@ -2650,9 +2685,7 @@ async function presentProposal(
             : family === "chicken"
               ? (/\b(wings?|dry)\b/i.test(query) ? "Chicken" : "Chicken gravy")
               : "Dishes";
-        await sendList(from, buildDishListPrompt(family, lastAssistantText(session.recent_turns)), "View options", [
-          { title: section, rows },
-        ]);
+        await sendList(from, prompt, "View options", [{ title: section, rows }]);
         return ack();
       }
       await sendLookalikeCarousel(from, query);
@@ -2971,20 +3004,24 @@ async function resumeUsualPayment(from: string) {
 async function showWelcome(from: string, profileName: string) {
   const firstName = profileName?.trim().split(/\s+/)[0];
   const lang = langOf(from);
+  const session = await getSession(from);
+  const avoid = lastAssistantText(session.recent_turns);
+  const roll = conversationalRoll(from, "welcome");
 
   const [active, returning] = await Promise.all([hasActiveOrder(from), hasOrders(from)]);
   const kind = active ? "active" : returning ? "returning" : "new";
   const buttons = await homeButtons(from);
+  const welcome = buildWelcomeMessage(firstName, kind, lang, avoid, roll);
 
   try {
-    await sendButtons(from, buildWelcomeMessage(firstName, kind, lang), buttons, {
+    await sendButtons(from, welcome, buttons, {
       headerImageUrl: welcomeLogoImageUrl(),
     });
     console.log(`[WA] Welcome (${kind}) sent to ${from}`);
   } catch (e) {
     console.error("[WA] welcome send failed, text fallback:", e);
     try {
-      await sendText(from, buildWelcomeMessage(firstName, kind, lang));
+      await sendText(from, welcome);
     } catch (textErr) {
       console.error("[WA] welcome text fallback failed:", textErr);
     }

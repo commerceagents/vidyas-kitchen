@@ -9,6 +9,7 @@ import {
 } from "../menu/against-order";
 import {
   buildWelcomeMessage,
+  conversationalRoll,
   callUsDialReply,
   dishAskLabel,
   helpAndSupportReply,
@@ -749,7 +750,14 @@ export class VidyaAgent {
         const isNew = phoneNumber ? await this.isNewUser(phoneNumber) : true;
         const isActive = !isNew && phoneNumber ? await this.hasActiveUpcomingOrder(phoneNumber) : false;
         const kind = isActive ? "active" : isNew ? "new" : "returning";
-        let replyBody = buildWelcomeMessage(first, kind);
+        const avoid = history.filter((turn) => turn.role === "assistant").slice(-1)[0]?.content || null;
+        let replyBody = buildWelcomeMessage(
+          first,
+          kind,
+          undefined,
+          avoid,
+          conversationalRoll(phoneNumber || "guest", "welcome"),
+        );
         if (isActive && phoneNumber) {
           const name = encodeURIComponent(displayName?.trim() || "Friend");
           replyBody += `\n\n_Open the full menu in your browser:_\n${publicSiteOrigin()}?phone=${phoneNumber}&name=${name}`;

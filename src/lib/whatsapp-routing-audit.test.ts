@@ -4,7 +4,7 @@
  */
 import { classifyTurn, routeTurn } from "./whatsapp-turn";
 import { supportTopic } from "./whatsapp-support";
-import { looksLikeNewOrder, shouldStoreComplaint } from "./whatsapp-complaint";
+import { looksLikeNewOrder, prefersConversationalPath, shouldStoreComplaint } from "./whatsapp-complaint";
 
 type Expect = "complaint" | "exit_complaint" | "support" | "order" | `turn:${string}`;
 
@@ -116,6 +116,10 @@ for (const row of PENDING) {
 }
 
 const menuWhileDate = routeTurn("picking_date", classifyTurn("what's on the menu", "picking_date"), 0);
+check("egg gravy prefers conversation", prefersConversationalPath("I would like to order egg gravy") === true);
+check("chicken gravy prefers conversation", prefersConversationalPath("chicken gravy for tomorrow dinner") === true);
+check("bare hi does not prefer conversation", prefersConversationalPath("hi") === false);
+
 check("menu while picking date is answered then re-asked", menuWhileDate.action === "answer_menu_then_reask");
 
 const orderWhileDate = routeTurn("picking_date", classifyTurn("I would like to order chicken gravy", "picking_date"), 0);

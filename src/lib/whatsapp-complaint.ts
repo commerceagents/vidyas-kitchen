@@ -1,3 +1,4 @@
+import { dishQueryCategory } from "@/lib/ai/order-proposal";
 import { classifyTurn } from "@/lib/whatsapp-turn";
 import { supportTopic } from "@/lib/whatsapp-support";
 
@@ -21,6 +22,18 @@ export function looksLikeNewOrder(text: string): boolean {
   if (/^order\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|idli|biryani|dish|meal)\b/.test(t)) return true;
   if (/\b(get|send|book)\s+me\b/.test(t) && /\b(chicken|mutton|egg|gravy|curry|wings|dish|meal)\b/.test(t)) return true;
   return false;
+}
+
+/** Order and food chat should go through the agent, not a bare list picker. */
+export function prefersConversationalPath(text: string): boolean {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (looksLikeNewOrder(t)) return true;
+  if (dishQueryCategory(t)) return true;
+  if (/\b(gravy|curry|wings|chicken|mutton|egg|500gm|1kg|tomorrow|today|lunch|dinner|breakfast|order|saapadu)\b/i.test(t)) {
+    return true;
+  }
+  return t.split(/\s+/).length >= 4;
 }
 
 /**

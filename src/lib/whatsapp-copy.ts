@@ -277,51 +277,95 @@ export function languageSetReply(lang: WaLang): string {
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
-export function buildWelcomeMessage(firstName?: string, kind: WelcomeKind = "new", lang?: WaLang): string {
+export function buildWelcomeMessage(
+  firstName?: string,
+  kind: WelcomeKind = "new",
+  lang?: WaLang,
+  avoid?: string | null,
+  roll = Math.random(),
+): string {
   const name = greetName(firstName);
+  const noteEn = "Everything is cooked to order, so we need 24 hours. No rush orders.";
+  const noteTa = "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.";
 
   if (kind === "active") {
     return pickLang(
       lang,
-      msg({
-        title: `Hello${name}`,
-        lines: ["Your order is still on the move. Track it, or start the next one."],
-      }),
-      msg({
-        title: `Vanakkam${name}`,
-        lines: ["Unga order innum vandhukondu iruku. Track pannunga, illa adutha order start pannunga."],
-      }),
+      varyLine(
+        [
+          msg({ title: `Hello${name}`, lines: ["Your order is still on the move. Track it, or start the next one."] }),
+          msg({ title: `Still cooking for you${name}`, lines: ["That order is live. Track it here, or tell me the next dish."] }),
+          msg({ title: `Hey${name}`, lines: ["Your plate is in the works. Want a status check or a fresh order?"] }),
+        ],
+        avoid,
+        roll,
+      ),
+      varyLine(
+        [
+          msg({ title: `Vanakkam${name}`, lines: ["Unga order innum vandhukondu iruku. Track pannunga, illa adutha order start pannunga."] }),
+        ],
+        avoid,
+        roll,
+      ),
     );
   }
 
   if (kind === "returning") {
     return pickLang(
       lang,
-      msg({
-        title: `Welcome back${name}`,
-        lines: ["The usual, or shall we tempt you with something else today?"],
-        note: "Everything is cooked to order, so we need 24 hours. No rush orders.",
-      }),
-      msg({
-        title: `Vanakkam${name}`,
-        lines: ["Regular order-a, illa indha vaatti vera edhachum try pannalama?"],
-        note: "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.",
-      }),
+      varyLine(
+        [
+          msg({ title: `Welcome back${name}`, lines: ["The usual, or shall we tempt you with something else today?"], note: noteEn }),
+          msg({ title: `Good to see you again${name}`, lines: ["Same order as last time, or feeling adventurous?"], note: noteEn }),
+          msg({ title: `Hey${name} 👋`, lines: ["Kitchen's open. Your usual, or something new from the stove?"], note: noteEn }),
+        ],
+        avoid,
+        roll,
+      ),
+      varyLine(
+        [
+          msg({ title: `Vanakkam${name}`, lines: ["Regular order-a, illa indha vaatti vera edhachum try pannalama?"], note: noteTa }),
+        ],
+        avoid,
+        roll,
+      ),
     );
   }
 
   return pickLang(
     lang,
-    msg({
-      title: `Welcome to Vidya's Kitchen${name}`,
-      lines: ["Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg."],
-      note: "Everything is cooked to order, so we need 24 hours. No rush orders.",
-    }),
-    msg({
-      title: `Vidya's Kitchen-ku vanga${name}`,
-      lines: ["Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg."],
-      note: "Ellame fresh-a cook pannuvom, so 24 hours venum. Rush order illa.",
-    }),
+    varyLine(
+      [
+        msg({
+          title: `Welcome to Vidya's Kitchen${name}`,
+          lines: ["Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg."],
+          note: noteEn,
+        }),
+        msg({
+          title: `Hey${name} 👋`,
+          lines: ["Vidya's Kitchen — against-order food from Sivakasi. Tell me a dish when you're hungry."],
+          note: noteEn,
+        }),
+        msg({
+          title: `Vanakkam${name}`,
+          lines: ["Home-style chicken, mutton and egg gravies. Say what you'd like and we'll cook it fresh."],
+          note: noteEn,
+        }),
+      ],
+      avoid,
+      roll,
+    ),
+    varyLine(
+      [
+        msg({
+          title: `Vidya's Kitchen-ku vanga${name}`,
+          lines: ["Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg."],
+          note: noteTa,
+        }),
+      ],
+      avoid,
+      roll,
+    ),
   );
 }
 
@@ -874,30 +918,60 @@ export function buildInstantGapMessage(
 export function buildProposalAskMessage(
   field: "dish" | "size" | "date" | "slot" | "address" | "payment",
   lang?: WaLang,
+  avoid?: string | null,
+  roll = Math.random(),
 ): string {
   switch (field) {
     case "dish":
       return pickLang(
         lang,
-        msg({ lines: ["Which dish did you have in mind? Tap Menu to see them all."] }),
+        varyLine(
+          [
+            msg({ lines: ["Which dish did you have in mind? Tap Menu to see them all."] }),
+            msg({ lines: ["What should we cook? Name a dish, or tap Menu for the full list."] }),
+            msg({ lines: ["Tell me the dish — or open Menu if you want to browse."] }),
+          ],
+          avoid,
+          roll,
+        ),
         msg({ lines: ["Endha dish venum? Menu tap pannunga, ellame irukum."] }),
       );
     case "size":
       return pickLang(
         lang,
-        msg({ lines: ["500gm or 1kg?"] }),
+        varyLine(
+          [msg({ lines: ["500gm or 1kg?"] }), msg({ lines: ["Half kilo or full kilo?"] }), msg({ lines: ["Which pack — 500gm or 1kg?"] })],
+          avoid,
+          roll,
+        ),
         msg({ lines: ["500gm illa 1kg?"] }),
       );
     case "date":
       return pickLang(
         lang,
-        msg({ lines: ["Which day should it arrive?"] }),
+        varyLine(
+          [
+            msg({ lines: ["Which day should it arrive?"] }),
+            msg({ lines: ["What day works — tomorrow, or a weekday?"] }),
+            msg({ lines: ["When should we deliver? We need 24 hours to cook."] }),
+          ],
+          avoid,
+          roll,
+        ),
         msg({ lines: ["Endha naal deliver pannanum?"] }),
       );
     case "slot":
       return pickLang(
         lang,
-        msg({ lines: ["Breakfast, lunch or dinner?"] }),
+        varyLine(
+          [
+            msg({ lines: ["Breakfast, lunch or dinner?"] }),
+            msg({ lines: ["Which meal slot — morning, afternoon, or evening?"] }),
+            msg({ lines: ["7–9am, 12–2pm, or 7–9pm?"] }),
+          ],
+          avoid,
+          roll,
+        ),
         msg({ lines: ["Breakfast, lunch, illa dinner?"] }),
       );
     case "address":
@@ -1038,6 +1112,17 @@ export function buildCodPlacedMessage(shortId: string, amtStr: string, lang?: Wa
 
 /** Section break. Money rows keep middle-dot leaders; this splits blocks. */
 export const WA_SECTION_DIVIDER = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄";
+
+/** Stable 0–1 roll from phone + salt + IST day so greetings rotate but stay testable. */
+export function conversationalRoll(phone: string, salt: string, at = Date.now()): number {
+  const day = new Date(at).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  let h = 2166136261;
+  for (const ch of `${phone}:${salt}:${day}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967296;
+}
 
 /** Pick a line that was not just said. `roll` is 0–1 so tests can pin a line. */
 export function varyLine(options: readonly string[], avoid?: string | null, roll = Math.random()): string {
