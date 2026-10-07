@@ -18,6 +18,7 @@ import {
   welcomeLogoImageUrl,
 } from "../whatsapp-copy";
 import { looksLikeNewOrder } from "../whatsapp-complaint";
+import { buildTasteContextForAgent, fetchUsualProfile } from "../whatsapp-usual";
 import { formatInr, unitPriceFor } from "../menu/dish-pricing";
 import { searchMenuDishes, type ProposalDraft } from "./order-proposal";
 import { semanticMenuMatches } from "../menu/embeddings";
@@ -438,14 +439,17 @@ export class VidyaAgent {
    */
   private async customerContext(phoneNumber: string): Promise<string> {
     try {
-      const { data } = await supabase
-        .from("orders")
-        .select("id, order_number, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
-        .in("phone_number", this.phoneVariants(phoneNumber))
-        .order("created_at", { ascending: false })
-        .limit(3);
+      const [ordersRes, profile] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("id, order_number, status, created_at, delivery_slot, order_items(quantity, menu_items(name))")
+          .in("phone_number", this.phoneVariants(phoneNumber))
+          .order("created_at", { ascending: false })
+          .limit(5),
+        fetchUsualProfile(phoneNumber).catch(() => null),
+      ]);
 
-      const rows = (data || []) as {
+      const rows = (ordersRes.data || []) as {
         id: string;
         order_number?: number | null;
         status: string;
@@ -453,14 +457,18 @@ export class VidyaAgent {
         delivery_slot?: string | null;
         order_items?: { quantity?: number; menu_items?: { name?: string } | null }[] | null;
       }[];
-      if (rows.length === 0) return "- This is a new customer. No orders yet.";
+
+      const taste = buildTasteContextForAgent(profile);
+      if (rows.length === 0) {
+        return [taste, "- No orders on this number yet."].join("\n");
+      }
 
       const live = rows.filter((o) => !["delivered", "cancelled", "rejected"].includes(String(o.status)));
       const dishes = [
         ...new Set(rows.flatMap((o) => (o.order_items || []).map((oi) => oi.menu_items?.name).filter(Boolean))),
       ];
 
-      const lines = ["- Ordered before: " + (dishes.join(", ") || "unknown dishes") + "."];
+      const lines = [taste, "- Recent dishes: " + (dishes.join(", ") || "unknown") + "."];
       if (live.length) {
         lines.push(
           "- Live right now: " +
@@ -874,19 +882,29 @@ sentence. Everything else comes after.
 - Read what they wrote and respond to *that*. If they ask one thing, answer that
   one thing. Never reply with a generic greeting or a list of options when they
   asked something specific.
-- Warm, direct, quietly funny. Like a friend who happens to run the kitchen.
-- Real English, natural rhythm. Vary how you phrase things — never reuse the same
-  stock sentence twice in a conversation.
-- Keep it tight: usually 1–3 sentences. Go longer only when they genuinely asked
-  for detail. Don't pad, don't restate their question back at them.
+- Warm, direct, quietly funny — Sivakasi kitchen energy, not a call centre.
+- Real English, natural rhythm. Every reply must feel freshly written: new opener,
+  new joke, new rhythm. Never reuse the same stock sentence twice in a chat.
+- Keep it tight: usually 1–3 short blocks. Go longer only when they asked for detail.
 - Use the conversation history. If they already told you something, don't ask again.
-  Refer back to it naturally the way a person would.
-- Only ask a follow-up question when you actually need the answer to help them.
-  Don't end every message with "anything else?" — that's filler.
-- Never dump the menu, the policies, or a list of features unless they asked.
-- If you don't know, say so plainly and offer to pass it to the kitchen. Never guess.
-- WhatsApp formatting: *bold* for the dish, the total, and the order number. _Italics_ for a soft aside. Weave in one to three emojis inside the sentence. Do not open with a row of emojis.
+- Only ask a follow-up when you actually need the answer. No "anything else?" filler.
+- Never dump the menu or policies unless they asked.
+- If you don't know, say so plainly and offer the kitchen phone. Never guess.
+- WhatsApp formatting (use it):
+  • *bold* for dish names, totals, order numbers
+  • _italics_ for asides, warmth, a joke under your breath
+  • blank line between thoughts when it reads better
+  • one to three emojis woven into sentences (🍲 😄 👋) — never a emoji-only opener
+  Example:
+  "Refund? _Sure — here's the honest bit._"
+  "Cancel *12 hours before* the slot and online money comes back in full. 💸"
+  "Your usual *Egg Curry* is calling — same 500gm tomorrow lunch? 🍳"
 - Never discuss costs, margins or suppliers. Never agree that the food is bad — apologise, then fix it.
+
+TASTE & MEMORY
+The CUSTOMER block below is built from their real orders — your only source for
+"what they usually buy". Use it to suggest their top dish when they greet, browse,
+or sound undecided. One playful nudge per turn max; if they ignore it, drop it.
 
 RULES
 - Delivery only within about ${DELIVERY_ZONE.radiusKm} km of ${DELIVERY_ZONE.name}. If they are

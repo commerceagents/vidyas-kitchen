@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { summarizeUsualOrders, type UsualSourceOrder } from "./whatsapp-usual";
+import { buildTasteContextForAgent, summarizeUsualOrders, type UsualSourceOrder } from "./whatsapp-usual";
 
 const keema = (qty: number): UsualSourceOrder["items"][number] => ({
   menuItemId: "keema",
@@ -66,3 +66,8 @@ const newestWinsTie = summarizeUsualOrders([
 ]);
 assert.equal(newestWinsTie?.payment, "online");
 assert.equal(newestWinsTie?.slotKind, "dinner");
+
+const taste = buildTasteContextForAgent(profile);
+assert.match(taste, /Grandma Mutton Keema/);
+assert.match(taste, /Regular customer/);
+assert.match(taste, /cash on delivery/);

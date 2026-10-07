@@ -33,7 +33,12 @@ export function prefersConversationalPath(text: string): boolean {
   if (/\b(gravy|curry|wings|chicken|mutton|egg|500gm|1kg|tomorrow|today|lunch|dinner|breakfast|order|saapadu)\b/i.test(t)) {
     return true;
   }
-  return t.split(/\s+/).length >= 4;
+  if (/^(hi|hello|hey|vanakkam|namaste)\b/i.test(t)) return true;
+  if (/\?/.test(t)) return true;
+  if (/\b(refund|cancel|delivery|driver|offer|discount|address|menu|track|help|price|cost|gst|spicy|recommend|suggest)\b/i.test(t)) {
+    return true;
+  }
+  return t.split(/\s+/).length >= 3;
 }
 
 /**
@@ -215,6 +220,70 @@ export function buildComplaintRecord(
     .join("\n");
   const target = [head, dishes].filter(Boolean).join("\n");
   return `${target}\n\n${note.trim()}`;
+}
+
+type ComplaintOrderPick = {
+  id: string;
+  ref: string;
+  meal: string;
+  day: string;
+  items: ComplaintItem[];
+};
+
+/** Parse "last order", "#00003", "dinner", or a dish name instead of forcing a list tap. */
+export function matchComplaintOrderFromText(text: string, orders: ComplaintOrderPick[]): ComplaintOrderPick | null {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t || orders.length === 0) return null;
+
+  if (/\b(last|latest|recent|newest|previous)\b/.test(t) && !looksLikeComplaintNote(t)) {
+    return orders[0] ?? null;
+  }
+
+  const numMatch = t.match(/#\s*0*(\d{1,6})\b|\border\s*#?\s*0*(\d{1,6})\b|\b0*(\d{4,6})\b/);
+  const rawNum = numMatch?.[1] || numMatch?.[2] || numMatch?.[3];
+  if (rawNum) {
+    const padded = rawNum.padStart(5, "0");
+    const byRef = orders.find((o) => o.ref.replace(/\D/g, "").endsWith(padded) || o.ref.includes(padded));
+    if (byRef) return byRef;
+  }
+
+  const mealHits = orders.filter((o) => o.meal && t.includes(o.meal.toLowerCase()));
+  if (mealHits.length === 1) return mealHits[0];
+
+  const dayHits = orders.filter((o) => o.day && t.includes(o.day.toLowerCase()));
+  if (dayHits.length === 1) return dayHits[0];
+
+  const dishHits = orders.filter((o) =>
+    o.items.some((item) => {
+      const name = item.name.toLowerCase();
+      if (name.length >= 4 && t.includes(name)) return true;
+      const token = name.split(/\s+/).find((word) => word.length >= 5);
+      return token ? t.includes(token) : false;
+    }),
+  );
+  if (dishHits.length === 1) return dishHits[0];
+
+  return null;
+}
+
+export function matchComplaintItemIndex(text: string, items: ComplaintItem[]): number | "all" | null {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t || items.length === 0) return null;
+  if (/\b(whole|entire|full|all|everything|box)\b/.test(t)) return items.length > 1 ? "all" : 0;
+  if (/^[1-9]$/.test(t)) {
+    const index = Number(t) - 1;
+    return index >= 0 && index < items.length ? index : null;
+  }
+  const hits = items
+    .map((item, index) => ({ index, item }))
+    .filter(({ item }) => {
+      const name = item.name.toLowerCase();
+      if (name.length >= 4 && t.includes(name)) return true;
+      const token = name.split(/\s+/).find((word) => word.length >= 5);
+      return token ? t.includes(token) : false;
+    });
+  if (hits.length === 1) return hits[0].index;
+  return null;
 }
 
 export function splitComplaintBody(body: string): { target: string; note: string } {

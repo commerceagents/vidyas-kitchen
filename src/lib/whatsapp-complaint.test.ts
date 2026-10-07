@@ -4,6 +4,8 @@ import {
   complaintItemRows,
   complaintOrderRow,
   looksLikeNewOrder,
+  matchComplaintItemIndex,
+  matchComplaintOrderFromText,
   parseComplaintAction,
   parseComplaintChoice,
   shouldStoreComplaint,
@@ -94,6 +96,34 @@ const split = splitComplaintBody(saved);
 check("the kitchen sees the order before the note", split.target.includes("#00003") && split.target.includes("500gm"));
 check("the note is separate from the order", split.note === "the chicken was cold");
 check("a dish line can name one pack", complaintDishLine([{ name: "Mom's Recipe Chicken Gravy", weight: "500gm", qty: 1 }]).includes("500gm"));
+
+const pickOrders = [
+  {
+    id: ORDER,
+    ref: "#00003",
+    meal: "Dinner",
+    day: "7 Oct",
+    items: [{ name: "Mom's Recipe Chicken Gravy", weight: "500gm", qty: 1 }],
+  },
+  {
+    id: "11111111-1111-1111-1111-111111111111",
+    ref: "#00002",
+    meal: "Lunch",
+    day: "5 Oct",
+    items: [{ name: "Egg Curry", weight: "500gm", qty: 1 }],
+  },
+];
+check("complaint pick understands last order", matchComplaintOrderFromText("my last order", pickOrders)?.ref === "#00003");
+check("complaint pick understands ticket number", matchComplaintOrderFromText("order #00002", pickOrders)?.ref === "#00002");
+check("complaint pick understands dinner", matchComplaintOrderFromText("the dinner one", pickOrders)?.meal === "Dinner");
+check("complaint item pick understands dish name", matchComplaintItemIndex("egg curry was cold", [{ name: "Egg Curry", weight: "500gm", qty: 1 }]) === 0);
+check(
+  "complaint item pick understands whole order",
+  matchComplaintItemIndex("the whole order", [
+    { name: "Mom's Recipe Chicken Gravy", weight: "500gm", qty: 1 },
+    { name: "Egg Curry", weight: "500gm", qty: 1 },
+  ]) === "all",
+);
 
 if (process.exitCode) {
   console.error("complaint tests failed");

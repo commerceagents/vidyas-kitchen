@@ -278,12 +278,28 @@ export function languageSetReply(lang: WaLang): string {
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
+/** One rotating line that nudges a repeat customer's top dish. */
+export function buildUsualTeaseLine(dish: string, variant: string, avoid?: string | null, roll = Math.random()): string {
+  const name = dish.trim();
+  return varyLine(
+    [
+      `_Your *${name}* ${variant} keeps winning here — same again? 🍲_`,
+      `_The stove still remembers your *${name}* ${variant}. Want me to line one up?_ 😄`,
+      `_${name} ${variant} — your greatest hits list. Shall we replay it? 🎵_`,
+      `_Honestly? *${name}* ${variant} suits you. One more round?_ 👋`,
+    ],
+    avoid,
+    roll,
+  );
+}
+
 export function buildWelcomeMessage(
   firstName?: string,
   kind: WelcomeKind = "new",
   lang?: WaLang,
   avoid?: string | null,
   roll = Math.random(),
+  usualTease?: string | null,
 ): string {
   const name = greetName(firstName);
   const noteEn = "Everything is cooked to order, so we need 24 hours. No rush orders.";
@@ -312,13 +328,26 @@ export function buildWelcomeMessage(
   }
 
   if (kind === "returning") {
+    const tease = usualTease ? ["", usualTease] : [];
     return pickLang(
       lang,
       varyLine(
         [
-          msg({ title: `Welcome back${name}`, lines: ["The usual, or shall we tempt you with something else today?"], note: noteEn }),
-          msg({ title: `Good to see you again${name}`, lines: ["Same order as last time, or feeling adventurous?"], note: noteEn }),
-          msg({ title: `Hey${name} 👋`, lines: ["Kitchen's open. Your usual, or something new from the stove?"], note: noteEn }),
+          msg({
+            title: `Welcome back${name}`,
+            lines: ["The usual, or shall we tempt you with something else today?", ...tease],
+            note: noteEn,
+          }),
+          msg({
+            title: `Good to see you again${name}`,
+            lines: ["Same order as last time, or feeling adventurous?", ...tease],
+            note: noteEn,
+          }),
+          msg({
+            title: `Hey${name} 👋`,
+            lines: ["Kitchen's open. Your usual, or something new from the stove?", ...tease],
+            note: noteEn,
+          }),
         ],
         avoid,
         roll,

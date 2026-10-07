@@ -118,7 +118,8 @@ for (const row of PENDING) {
 const menuWhileDate = routeTurn("picking_date", classifyTurn("what's on the menu", "picking_date"), 0);
 check("egg gravy prefers conversation", prefersConversationalPath("I would like to order egg gravy") === true);
 check("chicken gravy prefers conversation", prefersConversationalPath("chicken gravy for tomorrow dinner") === true);
-check("bare hi does not prefer conversation", prefersConversationalPath("hi") === false);
+check("hi prefers conversation", prefersConversationalPath("hi") === true);
+check("refund question prefers conversation", prefersConversationalPath("what is your refund policy?") === true);
 
 check("menu while picking date is answered then re-asked", menuWhileDate.action === "answer_menu_then_reask");
 

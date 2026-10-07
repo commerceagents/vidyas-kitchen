@@ -204,3 +204,42 @@ export async function fetchUsualProfile(phone: string): Promise<UsualProfile | n
 
   return summarizeUsualOrders(orders);
 }
+
+/**
+ * What the GPT agent needs to nudge repeat customers without inventing history.
+ * Built from real order rows — not model memory.
+ */
+export function buildTasteContextForAgent(profile: UsualProfile | null): string {
+  if (!profile?.dishes.length) {
+    return [
+      "- New on this number — no repeat order pattern yet.",
+      "- If they seem hungry but undecided, mention one kitchen favourite (Mom's Recipe Chicken Gravy) once — lightly, never pushy.",
+    ].join("\n");
+  }
+
+  const top = profile.dishes[0];
+  const lines = [
+    `- Regular customer. Most-ordered: *${top.name}* (${top.variant} × ${top.quantity}).`,
+  ];
+  if (profile.dishes.length > 1) {
+    lines.push(
+      `- Also repeats: ${profile.dishes
+        .slice(1)
+        .map((d) => `${d.name} (${d.variant})`)
+        .join(", ")}.`,
+    );
+  }
+  if (profile.slotKind) lines.push(`- Usual meal slot: ${profile.slotKind}.`);
+  if (profile.payment) {
+    lines.push(`- Usually pays ${profile.payment === "cod" ? "cash on delivery" : "online"}.`);
+  }
+  if (profile.address) {
+    const door = profile.address.replace(/\s+/g, " ").trim();
+    lines.push(`- Last door: ${door.length > 72 ? `${door.slice(0, 69)}...` : door}.`);
+  }
+  lines.push(
+    "- When they greet, browse, or hesitate — tease their top dish once, in a fresh funny line. If they say yes, call propose_order with that dish/size/qty and their usual slot/payment when sensible.",
+    "- Never repeat the exact same nudge line twice in one chat.",
+  );
+  return lines.join("\n");
+}

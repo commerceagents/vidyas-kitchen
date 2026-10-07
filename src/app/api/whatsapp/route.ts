@@ -44,6 +44,7 @@ import {
   buildUsualChangeMessage,
   buildUsualListBody,
   buildUsualPayNote,
+  buildUsualTeaseLine,
   buildWelcomeMessage,
   conversationalRoll,
   welcomeLogoImageUrl,
@@ -166,6 +167,8 @@ import {
   complaintOrderRow,
   complaintWriteAction,
   parseComplaintAction,
+  matchComplaintItemIndex,
+  matchComplaintOrderFromText,
   parseComplaintChoice,
   prefersConversationalPath,
   shouldStoreComplaint,
@@ -708,11 +711,15 @@ async function captureArmedComplaint(from: string, text: string): Promise<Respon
   if (phase.phase === "pick") {
     const orders = await loadComplaintOrders(from);
     if (orders.length === 0) return await beginComplaint(from);
+    const matched = matchComplaintOrderFromText(text, orders);
+    if (matched) return await focusComplaintOrder(from, matched);
     return await showComplaintOrders(from, orders);
   }
   if (phase.phase === "item") {
     const order = await loadComplaintOrder(from, phase.orderId);
     if (!order) return await beginComplaint(from);
+    const itemPick = matchComplaintItemIndex(text, order.items);
+    if (itemPick != null) return await askComplaintNote(from, order, itemPick);
     return await showComplaintItems(from, order);
   }
 
@@ -1346,7 +1353,7 @@ export async function POST(req: Request) {
         const filed = await captureArmedComplaint(from, text);
         if (filed) return filed;
       }
-      const supported = await answerSupport(from, text, session);
+      const supported = await answerSupport(from, text, session, profileName);
       if (supported) return supported;
     }
 
@@ -2772,7 +2779,7 @@ async function presentProposal(
   await updateSession(from, {
     state: "confirming_proposal",
     proposal,
-    recent_turns: chatTurns(turns).slice(-8),
+    recent_turns: [...chatTurns(turns), ...sessionNotes(turns)].slice(-10),
   });
 
   const buttons = [
@@ -3116,10 +3123,18 @@ async function showWelcome(from: string, profileName: string) {
   const avoid = lastAssistantText(session.recent_turns);
   const roll = conversationalRoll(from, "welcome");
 
-  const [active, returning] = await Promise.all([hasActiveOrder(from), hasOrders(from)]);
+  const [active, returning, profile] = await Promise.all([
+    hasActiveOrder(from),
+    hasOrders(from),
+    fetchUsualProfile(from).catch(() => null),
+  ]);
   const kind = active ? "active" : returning ? "returning" : "new";
   const buttons = await homeButtons(from);
-  const welcome = buildWelcomeMessage(firstName, kind, lang, avoid, roll);
+  const usualTease =
+    kind === "returning" && profile?.dishes[0]
+      ? buildUsualTeaseLine(profile.dishes[0].name, profile.dishes[0].variant, avoid, roll)
+      : null;
+  const welcome = buildWelcomeMessage(firstName, kind, lang, avoid, roll, usualTease);
 
   try {
     await sendButtons(from, welcome, buttons, {
@@ -3968,51 +3983,35 @@ function cancelWindowOpen(row: SupportOrderRow, now = Date.now()): boolean {
   return Number.isFinite(deadline) && now < deadline;
 }
 
-async function answerSupport(from: string, text: string, session: WhatsAppSession): Promise<Response | null> {
+async function answerSupport(
+  from: string,
+  text: string,
+  session: WhatsAppSession,
+  profileName: string,
+): Promise<Response | null> {
   const topic = supportTopic(text);
   if (!topic) return null;
   await updateSession(from, {
-    state: "idle",
     pending_options: null,
     selected_item_id: null,
     selected_variant: null,
   });
-  if (topic === "help") return await showHelpSupport(from);
-  if (topic === "refund") return await showRefundAnswer(from);
-  if (topic === "cancel_policy") {
-    await sendText(from, buildCancelPolicyAnswer());
-    return ack();
+  const bare = text.trim().toLowerCase();
+  if (topic === "help" && /^(help|support)\s*$/i.test(bare)) {
+    await updateSession(from, { state: "idle" });
+    return await showHelpSupport(from);
   }
-  if (topic === "cancel_placed") return await showCancelChoice(from, text);
-  if (topic === "call") {
-    await sendText(from, callUsDialReply(langOf(from)));
-    return ack();
+  if (topic === "cancel_placed") {
+    await updateSession(from, { state: "idle" });
+    return await showCancelChoice(from, text);
   }
-  if (topic === "driver") return await showDriverAnswer(from);
-  if (topic === "offers") return await showOfferAnswer(from);
-  if (topic === "address") {
-    const last = await fetchLastAddressAndSlot(from);
-    await sendText(from, buildAddressOnFileAnswer(last.address || session.delivery_address));
-    return ack();
+  if (topic === "resubscribe") {
+    await updateSession(from, { state: "idle" });
+    return await applyMarketingOptIn(from);
   }
-  if (topic === "best_seller") {
-    await sendText(from, buildBestSellerAnswer("Mom's Recipe Chicken Gravy"));
-    return ack();
-  }
-  if (topic === "spicy") {
-    await sendText(from, buildSpicyAnswer());
-    return ack();
-  }
-  if (topic === "bot") {
-    await sendText(from, buildBotAnswer());
-    return ack();
-  }
-  if (topic === "presence") {
-    await sendText(from, buildPresenceAnswer());
-    return ack();
-  }
-  if (topic === "resubscribe") return await applyMarketingOptIn(from);
-  return null;
+
+  await updateSession(from, { state: "ai_chat" });
+  return await handleAiChat(from, text, profileName);
 }
 
 async function showRefundAnswer(from: string) {
