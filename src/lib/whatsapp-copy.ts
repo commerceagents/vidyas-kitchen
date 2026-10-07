@@ -2025,7 +2025,7 @@ export function callUsDialReply(lang?: WaLang, orders: KitchenCallOrder[] = []):
             "",
             ...listed.map((order) => `*${order.dishes}*\nOrdered ${order.orderedOn} · ${order.ref}`),
             "",
-            "Name the dish when you call. The order number is on that line if they ask.",
+            "Tap Call the kitchen to open your phone. Name the dish — the order number is on that line if they ask.",
           ]
         : ["", "We're usually quick to pick up."]),
     ],

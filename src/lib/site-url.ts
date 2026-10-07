@@ -27,6 +27,13 @@ export function appOpenUrl(origin = publicSiteOrigin()): string {
   return u.toString();
 }
 
+/** Page whose only job is to open the kitchen number in the Phone app. */
+export function kitchenCallPageUrl(origin = publicSiteOrigin()): string {
+  const u = new URL(origin.replace(/\/$/, "") + "/call");
+  if (u.hostname === "vidyaskitchenhome.com") u.hostname = "www.vidyaskitchenhome.com";
+  return u.toString();
+}
+
 /** Origin for post-payment redirects — prefers the incoming request host on Vercel/local. */
 export function requestPublicOrigin(request: Request): string {
   const forwardedHost = request.headers.get("x-forwarded-host");

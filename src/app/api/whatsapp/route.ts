@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse, after } from "next/server";
 import { VidyaAgent, type MenuItem, type Message } from "@/lib/ai/agent";
-import { publicSiteOrigin } from "@/lib/site-url";
+import { kitchenCallPageUrl, publicSiteOrigin } from "@/lib/site-url";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { decodeOrderRatingButtonId } from "@/lib/whatsapp-order-notify";
@@ -4142,7 +4142,9 @@ async function recentKitchenCallOrders(from: string): Promise<KitchenCallOrder[]
 
 async function showCallKitchen(from: string) {
   const orders = await recentKitchenCallOrders(from).catch(() => [] as KitchenCallOrder[]);
-  await sendText(from, callUsDialReply(langOf(from), orders));
+  await sendCtaUrl(from, callUsDialReply(langOf(from), orders), kitchenCallPageUrl(), "Call the kitchen", {
+    footer: "Opens the Phone app",
+  });
   return ack();
 }
 
