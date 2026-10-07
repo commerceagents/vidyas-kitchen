@@ -39,17 +39,17 @@ export const NUDGE_TEMPLATES: Record<NudgeFamily, NudgeTemplate[]> = {
     {
       name: "vk_festival_cooking",
       body: "Festival cooking at Vidya's Kitchen. {{1}} runs through {{2}}. The bill shows the real saving. Reply STOP to opt out.",
-      example: ["Navaratri", "11 Oct, 20% on marked dishes"],
+      example: ["Navaratri", "11 Oct, 20% off"],
     },
     {
       name: "vk_festival_season",
-      body: "The kitchen is in season. {{1}}, until {{2}}. Only the dishes we marked are cut. Reply STOP to opt out.",
-      example: ["Navaratri", "11 Oct, 20% on marked dishes"],
+      body: "The kitchen is in season. {{1}}, until {{2}}. Reply STOP to opt out.",
+      example: ["Navaratri", "11 Oct, 20% off"],
     },
     {
       name: "vk_festival_open",
       body: "Something seasonal just opened. {{1}} is on until {{2}}. Tell me a dish if you want in. Reply STOP to opt out.",
-      example: ["Navaratri", "11 Oct, 20% on marked dishes"],
+      example: ["Navaratri", "11 Oct, 20% off"],
     },
   ],
   favourite: [
@@ -99,7 +99,7 @@ const SESSION: Record<NudgeFamily, ((a: string, b: string) => string)[]> = {
   ],
   festival: [
     (name, until) =>
-      `🪔 *${name}* is on through ${until}. The saving shows on the bill, only on the dishes the kitchen marked.\n\nReply STOP to skip festival notes. Order updates still come.`,
+      `🪔 *${name}* is on through ${until}. The saving shows on the bill.\n\nReply STOP to skip festival notes. Order updates still come.`,
     (name, until) =>
       `The stove is in festival mode. ✨ *${name}* until ${until}. Say a dish if you want a plate in that window.\n\nReply STOP and I'll keep the offers quiet.`,
     (name, until) =>

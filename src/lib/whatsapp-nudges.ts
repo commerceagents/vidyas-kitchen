@@ -156,7 +156,7 @@ export async function runWhatsAppNudges(now = new Date()): Promise<{
       ? {
           id: festival.id,
           name: festival.name,
-          detail: `${festival.date_end.slice(8, 10)} ${monthName(festival.date_end)}, ${pct}% on the marked dishes`,
+          detail: `${festival.date_end.slice(8, 10)} ${monthName(festival.date_end)}, ${pct}% off`,
           startedAt: ymdNoon(festival.date_start),
         }
       : null;

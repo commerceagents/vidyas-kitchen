@@ -26,7 +26,7 @@ const person = (over: Partial<NudgePerson> = {}): NudgePerson => ({
 const festival = {
   id: "nav",
   name: "Navaratri",
-  detail: "11 Oct, 20% on the marked dishes",
+  detail: "11 Oct, 20% off",
   startedAt: "2026-10-02T12:00:00+05:30",
 };
 const promo = {
@@ -40,6 +40,7 @@ const dish = { id: "moms", name: "Mom's Recipe Chicken Gravy", price: "₹349", 
 const festivePlan = planNudges({ now, people: [person()], promo, festival, dish });
 check("a fresh festival is not written as a promo code", festivePlan.length === 1 && festivePlan[0].family === "festival");
 check("festival text names the festival", festivePlan[0].sessionText.includes("Navaratri"));
+check("festival text does not say marked dishes", !/marked dishes|kitchen marked|dishes we marked/i.test(festivePlan[0].sessionText));
 check("festival text does not ask for a code", !/promo code|NAV20/i.test(festivePlan[0].sessionText));
 
 const promoPlan = planNudges({

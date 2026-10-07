@@ -1990,7 +1990,7 @@ export function buildOfferAnswer(offer: { name: string; pct: number; until: stri
   return msg({
     title: `${offer.name} is on 🎉`,
     lines: [
-      `*${offer.pct}%* off the dishes the kitchen marked for it, through ${offer.until}.`,
+      `*${offer.pct}%* off through ${offer.until}.`,
       "The bill shows the real saving. I won't quote a rupee amount until the order is priced.",
     ],
   });
