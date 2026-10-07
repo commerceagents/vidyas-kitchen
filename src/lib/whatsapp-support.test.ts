@@ -1,4 +1,4 @@
-import { buildCancelPolicyAnswer, buildDriverAnswer, buildOfferAnswer, buildRefundAnswer } from "./whatsapp-copy";
+import { buildCancelPolicyAnswer, buildDriverAnswer, buildOfferAnswer, buildRefundAnswer, callUsDialReply } from "./whatsapp-copy";
 import { supportOrderNumber, supportTopic } from "./whatsapp-support";
 
 function check(name: string, ok: boolean) {
@@ -55,6 +55,14 @@ const nav = buildOfferAnswer({ name: "Navaratri", pct: 20, until: "11 Oct" });
 check("a live offer uses the given percent", nav.includes("Navaratri") && nav.includes("20%"));
 
 check("cancel policy has the phone", buildCancelPolicyAnswer().includes("+919384020119"));
+
+const callBare = callUsDialReply();
+check("a call with no orders does not ask them to remember a number", callBare.includes("+919384020119") && !/order number if you have/i.test(callBare));
+
+const callListed = callUsDialReply(undefined, [
+  { ref: "#00005", dishes: "Mutton gravy", orderedOn: "Fri, 9 Oct" },
+]);
+check("a call lists the dish, the order date, and the number", callListed.includes("Mutton gravy") && callListed.includes("Fri, 9 Oct") && callListed.includes("#00005"));
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log("support tests passed");

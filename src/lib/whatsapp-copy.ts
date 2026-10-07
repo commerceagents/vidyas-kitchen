@@ -2006,14 +2006,28 @@ export function helpAndSupportReply(lang?: WaLang): string {
   );
 }
 
-export function callUsDialReply(lang?: WaLang): string {
+export type KitchenCallOrder = {
+  ref: string;
+  dishes: string;
+  /** When they placed it, e.g. "Fri, 9 Oct". */
+  orderedOn: string;
+};
+
+export function callUsDialReply(lang?: WaLang, orders: KitchenCallOrder[] = []): string {
+  const listed = orders.filter((order) => order.ref && order.dishes);
   return msg({
     title: pickLang(lang, "The kitchen is a call away 📞", "Kitchen call 📞"),
     lines: [
       `*${SUPPORT_PHONE_E164}*`,
       SUPPORT_EMAIL,
-      "",
-      "We're usually quick to pick up. Tell them the order number if you have one.",
+      ...(listed.length
+        ? [
+            "",
+            ...listed.map((order) => `*${order.dishes}*\nOrdered ${order.orderedOn} · ${order.ref}`),
+            "",
+            "Name the dish when you call. The order number is on that line if they ask.",
+          ]
+        : ["", "We're usually quick to pick up."]),
     ],
     note: "Kitchen hours, 9 AM to 8 PM.",
   });

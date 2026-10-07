@@ -124,6 +124,7 @@ import {
   buildPresenceAnswer,
   buildResubscribeAnswer,
   callUsDialReply,
+  type KitchenCallOrder,
   languageSetReply,
   marketingOptOutReply,
   notUnderstoodReply,
@@ -1468,8 +1469,7 @@ export async function POST(req: Request) {
       return await showTrackOrder(from);
     }
     if (isCallCmd) {
-      await sendText(from, callUsDialReply(langOf(from)));
-      return ack();
+      return await showCallKitchen(from);
     }
     if (isAppCmd) {
       return await showInstallApp(from, profileName);
@@ -1708,8 +1708,7 @@ async function handleResolvedId(
       await resetSession(from);
       return await showWelcome(from, profileName);
     case "hs_call":
-      await sendText(from, callUsDialReply(langOf(from)));
-      return ack();
+      return await showCallKitchen(from);
     case "hs_refund":
       return await showRefundAnswer(from);
     case "hs_cancel":
@@ -1731,8 +1730,7 @@ async function handleResolvedId(
       await sendText(from, olderOrderArrivedReply());
       return ack();
     case "stale_call":
-      await sendText(from, callUsDialReply(langOf(from)));
-      return ack();
+      return await showCallKitchen(from);
     case "rating_skip":
       await updateSession(from, { state: "idle", rating_order_id: null });
       await sendText(from, ratingThanksReply(langOf(from)));
@@ -4097,6 +4095,57 @@ async function handlePayCodTap(from: string, session: WhatsAppSession) {
   return await processConfirmOrder(from, session, "cod");
 }
 
+function dishNamesFromOrderItems(items: unknown): string {
+  const rows = Array.isArray(items) ? items : [];
+  const names = rows
+    .map((row) => {
+      const menu = (row as { menu_items?: { name?: string | null } | { name?: string | null }[] | null }).menu_items;
+      const raw = Array.isArray(menu) ? menu[0]?.name : menu?.name;
+      return raw ? formatFullDishName(String(raw)) : "";
+    })
+    .filter(Boolean);
+  const unique = [...new Set(names)];
+  if (unique.length === 0) return "Your order";
+  if (unique.length <= 2) return unique.join(", ");
+  return `${unique.slice(0, 2).join(", ")} +${unique.length - 2}`;
+}
+
+function orderedOnLabel(iso: string | null | undefined): string {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return "recently";
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+async function recentKitchenCallOrders(from: string): Promise<KitchenCallOrder[]> {
+  const { data } = await createServerSupabase()
+    .from("orders")
+    .select("id, order_number, created_at, order_items(menu_items(name))")
+    .in("phone_number", phoneVariants(from))
+    .order("created_at", { ascending: false })
+    .limit(4);
+  return ((data || []) as {
+    id: string;
+    order_number?: number | null;
+    created_at?: string | null;
+    order_items?: unknown;
+  }[]).map((row) => ({
+    ref: formatOrderRef(row.order_number, row.id),
+    dishes: dishNamesFromOrderItems(row.order_items),
+    orderedOn: orderedOnLabel(row.created_at),
+  }));
+}
+
+async function showCallKitchen(from: string) {
+  const orders = await recentKitchenCallOrders(from).catch(() => [] as KitchenCallOrder[]);
+  await sendText(from, callUsDialReply(langOf(from), orders));
+  return ack();
+}
+
 async function showHelpSupport(from: string) {
   await storeOptions(
     from,
@@ -4180,8 +4229,7 @@ async function answerSupport(
   }
   if (topic === "call") {
     await updateSession(from, { state: "idle" });
-    await sendText(from, callUsDialReply(langOf(from)));
-    return ack();
+    return await showCallKitchen(from);
   }
   if (topic === "refund") {
     await updateSession(from, { state: "idle" });
