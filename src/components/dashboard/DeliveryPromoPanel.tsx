@@ -7,7 +7,14 @@ import {
   saveDeliveryPromoAction,
   type DeliveryPromoUpsertPayload,
 } from "@/app/actions/delivery-promo";
-import { BASE_DELIVERY_INR, deliveryPromoSummary, type DeliveryPromoSettings } from "@/lib/delivery-promo";
+import {
+  BASE_DELIVERY_INR,
+  deliveryPromoFromMode,
+  deliveryPromoMode,
+  deliveryPromoSummary,
+  type DeliveryPromoMode,
+  type DeliveryPromoSettings,
+} from "@/lib/delivery-promo";
 import { DashboardSpinner } from "@/components/dashboard/DashboardSpinner";
 
 const FONT = "var(--font-outfit), system-ui, sans-serif";
@@ -28,33 +35,53 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+/** Digits only — no leading zeros, so 500 stays 500 not 0500. */
+function parseRupeeInput(raw: string): number {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return 0;
+  return Math.round(Number.parseInt(digits, 10));
+}
+
+function formatRupeeInput(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return String(Math.round(n));
+}
+
 export function DeliveryPromoPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState<DeliveryPromoSettings | null>(null);
+  const [mode, setMode] = useState<DeliveryPromoMode>("free_over_min");
+  const [valueText, setValueText] = useState("500");
   const [draft, setDraft] = useState<DeliveryPromoUpsertPayload>({
     active: false,
     discountInr: BASE_DELIVERY_INR,
     minOrderInr: 500,
   });
 
+  const applyMode = useCallback((nextMode: DeliveryPromoMode, valueInr: number, active: boolean) => {
+    const { discountInr, minOrderInr } = deliveryPromoFromMode(nextMode, valueInr);
+    setMode(nextMode);
+    setValueText(formatRupeeInput(nextMode === "free_over_min" ? minOrderInr : discountInr));
+    setDraft({ active, discountInr, minOrderInr });
+  }, []);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     const res = await loadDeliveryPromoAction();
     if (res.ok) {
-      setSaved(res.settings);
-      setDraft({
-        active: res.settings.active,
-        discountInr: res.settings.discountInr,
-        minOrderInr: res.settings.minOrderInr,
-      });
+      const settings = res.settings;
+      setSaved(settings);
+      const nextMode = deliveryPromoMode(settings);
+      const valueInr = nextMode === "free_over_min" ? settings.minOrderInr : settings.discountInr;
+      applyMode(nextMode, valueInr, settings.active);
       setError("");
     } else {
       setError(res.error || "Could not load delivery promo");
     }
     setLoading(false);
-  }, []);
+  }, [applyMode]);
 
   useEffect(() => {
     void refresh();
@@ -66,10 +93,44 @@ export function DeliveryPromoPanel() {
       draft.discountInr !== saved.discountInr ||
       draft.minOrderInr !== saved.minOrderInr);
 
+  const updateValue = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    const n = digits ? Number.parseInt(digits, 10) : 0;
+    setValueText(digits);
+    const { discountInr, minOrderInr } = deliveryPromoFromMode(mode, n);
+    setDraft((d) => ({ ...d, discountInr, minOrderInr }));
+  };
+
+  const switchMode = (nextMode: DeliveryPromoMode) => {
+    const fallback =
+      nextMode === "free_over_min"
+        ? draft.minOrderInr > 0
+          ? draft.minOrderInr
+          : 500
+        : draft.minOrderInr > 0
+          ? BASE_DELIVERY_INR
+          : draft.discountInr > 0
+            ? draft.discountInr
+            : BASE_DELIVERY_INR;
+    applyMode(nextMode, fallback, draft.active);
+  };
+
   const save = async () => {
     setSaving(true);
     setError("");
-    const res = await saveDeliveryPromoAction(draft);
+    const n = parseRupeeInput(valueText);
+    if (mode === "free_over_min" && n <= 0) {
+      setSaving(false);
+      setError("Enter the minimum food total for free delivery.");
+      return;
+    }
+    if (mode === "flat_off" && n <= 0) {
+      setSaving(false);
+      setError("Enter how much comes off delivery.");
+      return;
+    }
+    const { discountInr, minOrderInr } = deliveryPromoFromMode(mode, n);
+    const res = await saveDeliveryPromoAction({ active: draft.active, discountInr, minOrderInr });
     setSaving(false);
     if (!res.ok) {
       setError(res.error || "Save failed");
@@ -85,6 +146,29 @@ export function DeliveryPromoPanel() {
       </div>
     );
   }
+
+  const modeBtn = (id: DeliveryPromoMode, label: string, hint: string) => {
+    const on = mode === id;
+    return (
+      <button
+        type="button"
+        onClick={() => switchMode(id)}
+        style={{
+          textAlign: "left",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: `1px solid ${on ? `${GREEN}55` : BORDER}`,
+          background: on ? `${GREEN}12` : "#222",
+          color: "#fff",
+          fontFamily: FONT,
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>{label}</span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#888", lineHeight: 1.4 }}>{hint}</span>
+      </button>
+    );
+  };
 
   return (
     <div
@@ -119,7 +203,7 @@ export function DeliveryPromoPanel() {
                 Delivery discount
               </h3>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#888", fontFamily: FONT }}>
-                Runs until you turn it off. WhatsApp and the app both use this.
+                Pick one rule. WhatsApp and the app both use it until you turn it off.
               </p>
             </div>
             <button
@@ -143,66 +227,45 @@ export function DeliveryPromoPanel() {
             </button>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 12,
-              marginTop: 14,
-            }}
-          >
-            <label style={{ display: "block" }}>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "#888",
-                  fontFamily: FONT,
-                  marginBottom: 6,
-                }}
-              >
-                Off delivery (₹)
-              </span>
-              <input
-                style={inputStyle}
-                type="number"
-                min={1}
-                max={BASE_DELIVERY_INR}
-                value={draft.discountInr}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, discountInr: Math.round(Number(e.target.value) || 0) }))
-                }
-              />
-            </label>
-            <label style={{ display: "block" }}>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "#888",
-                  fontFamily: FONT,
-                  marginBottom: 6,
-                }}
-              >
-                Min food total (₹)
-              </span>
-              <input
-                style={inputStyle}
-                type="number"
-                min={0}
-                value={draft.minOrderInr}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, minOrderInr: Math.round(Number(e.target.value) || 0) }))
-                }
-              />
-            </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginTop: 14 }}>
+            {modeBtn(
+              "free_over_min",
+              "Free delivery over a minimum",
+              `Delivery becomes ₹0 when food total hits your number. Fee is always ₹${BASE_DELIVERY_INR}.`,
+            )}
+            {modeBtn(
+              "flat_off",
+              "Flat amount off delivery",
+              `Same rupee cut on every order — no minimum food total.`,
+            )}
           </div>
+
+          <label style={{ display: "block", marginTop: 14 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "#888",
+                fontFamily: FONT,
+                marginBottom: 6,
+              }}
+            >
+              {mode === "free_over_min" ? "Minimum food total (₹)" : "Off delivery (₹)"}
+            </span>
+            <input
+              style={inputStyle}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={mode === "free_over_min" ? "500" : String(BASE_DELIVERY_INR)}
+              value={valueText}
+              onChange={(e) => updateValue(e.target.value)}
+              onBlur={() => setValueText(formatRupeeInput(parseRupeeInput(valueText)))}
+            />
+          </label>
 
           <p style={{ margin: "12px 0 0", fontSize: 12, color: "#777", fontFamily: FONT }}>
             {draft.active

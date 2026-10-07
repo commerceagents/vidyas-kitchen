@@ -55,6 +55,31 @@ export function deliveryPromoApplies(
 export function deliveryPromoSummary(promo: DeliveryPromoSettings): string {
   const off = Math.round(promo.discountInr);
   const min = Math.round(promo.minOrderInr);
-  if (min > 0) return `₹${off} off delivery on orders over ₹${min}`;
-  return `₹${off} off delivery`;
+  if (min > 0) {
+    if (off >= BASE_DELIVERY_INR) return `Free delivery on orders over ₹${min}`;
+    return `₹${off} off delivery on orders over ₹${min}`;
+  }
+  if (off >= BASE_DELIVERY_INR) return "Free delivery on every order";
+  return `₹${off} off delivery on every order`;
+}
+
+/** Dashboard UI: free-over-minimum vs flat discount — never both inputs at once. */
+export type DeliveryPromoMode = "free_over_min" | "flat_off";
+
+export function deliveryPromoMode(settings: DeliveryPromoSettings): DeliveryPromoMode {
+  return settings.minOrderInr > 0 ? "free_over_min" : "flat_off";
+}
+
+export function deliveryPromoFromMode(
+  mode: DeliveryPromoMode,
+  valueInr: number,
+): Pick<DeliveryPromoSettings, "discountInr" | "minOrderInr"> {
+  const n = Math.max(0, Math.round(valueInr));
+  if (mode === "free_over_min") {
+    return { discountInr: BASE_DELIVERY_INR, minOrderInr: n };
+  }
+  return {
+    discountInr: Math.min(BASE_DELIVERY_INR, Math.max(1, n || BASE_DELIVERY_INR)),
+    minOrderInr: 0,
+  };
 }
