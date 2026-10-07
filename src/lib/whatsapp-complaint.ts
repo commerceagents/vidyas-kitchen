@@ -1,5 +1,5 @@
-import { dishQueryCategory } from "@/lib/ai/order-proposal";
-import { classifyTurn } from "@/lib/whatsapp-turn";
+import { dishQueryCategory, looksLikeCompoundOrder } from "@/lib/ai/order-proposal";
+import { asksAboutExistingOrder, asksForMenu, classifyTurn } from "@/lib/whatsapp-turn";
 import { supportTopic } from "@/lib/whatsapp-support";
 
 /**
@@ -31,8 +31,12 @@ export function looksLikeFoodOrder(text: string): boolean {
   const t = String(text || "").trim().toLowerCase();
   const namesFood =
     Boolean(dishQueryCategory(t)) ||
-    /\b(gravy|curry|wings|keema|stew|chukka|chalna)\b/.test(t);
+    /\b(gravy|curry|wings|keema|stew|chukka|chalna|pepper|biryani|idli|saapadu)\b/.test(t);
   if (!namesFood) return false;
+  // "mutton gravy 500gm tomorrow", "black pepper chicken gravy for lunch"
+  if (looksLikeCompoundOrder(text)) return true;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length <= 8) return true;
   return (
     /\b(i\s+want|i\s+need|can i get|could i get|do you have|have you got|got any)\b/.test(t) ||
     /\b(is it available|is .{0,40} available|available)\b/.test(t) ||
@@ -46,14 +50,16 @@ export function prefersConversationalPath(text: string): boolean {
   if (!t) return false;
   if (looksLikeNewOrder(t)) return true;
   if (dishQueryCategory(t)) return true;
-  if (/\b(gravy|curry|wings|chicken|mutton|egg|500gm|1kg|tomorrow|today|lunch|dinner|breakfast|order|saapadu)\b/i.test(t)) {
+  if (/\b(gravy|curry|wings|chicken|mutton|egg|500gm|1kg|tomorrow|today|lunch|dinner|breakfast|saapadu)\b/i.test(t)) {
     return true;
   }
   if (/^(hi|hello|hey|vanakkam|namaste)\b/i.test(t)) return true;
   if (/\?/.test(t)) return true;
-  if (/\b(refund|cancel|delivery|driver|offer|discount|address|menu|track|help|price|cost|gst|spicy|recommend|suggest)\b/i.test(t)) {
+  if (/\b(refund|cancel|delivery|driver|offer|discount|address|price|cost|gst|spicy|recommend|suggest)\b/i.test(t)) {
     return true;
   }
+  if (supportTopic(t) || asksForMenu(t) || asksAboutExistingOrder(t)) return false;
+  if (classifyTurn(t, "ai_chat").intent === "complaint") return false;
   return t.split(/\s+/).length >= 3;
 }
 
@@ -251,7 +257,7 @@ export function matchComplaintOrderFromText(text: string, orders: ComplaintOrder
   const t = String(text || "").trim().toLowerCase();
   if (!t || orders.length === 0) return null;
 
-  if (/\b(last|latest|recent|newest|previous)\b/.test(t) && !looksLikeComplaintNote(t)) {
+  if (/\b(last|latest|recent|newest|previous)\b/.test(t)) {
     return orders[0] ?? null;
   }
 

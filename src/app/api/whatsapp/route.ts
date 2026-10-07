@@ -174,6 +174,7 @@ import {
   matchComplaintOrderFromText,
   parseComplaintChoice,
   looksLikeFoodOrder,
+  looksLikeNewOrder,
   prefersConversationalPath,
   shouldStoreComplaint,
   type ComplaintItem,
@@ -225,6 +226,7 @@ import {
 import { classifyTurnWithModel } from "@/lib/ai/turn-intent";
 import {
   asksAboutExistingOrder,
+  asksForMenu,
   classifyTurn,
   isPendingState,
   pendingResume,
@@ -1443,6 +1445,40 @@ export async function POST(req: Request) {
       if (diverted) return diverted;
     }
 
+    // Structured taps beat the conversational lane — "menu" and "track my order"
+    // must not fall through to the AI cart path.
+    if (!interactiveReplyId && !resolvedId) {
+      if (isMenuCmd) {
+        await updateSession(from, { state: "browsing_category", proposal: null });
+        return await showFullMenu(from);
+      }
+      if (isCartCmd) {
+        return await showCart(from, session.cart);
+      }
+      if (isLangCmd) {
+        return await showWelcome(from, profileName);
+      }
+      if (isHelpCmd) {
+        return await showHelpSupport(from);
+      }
+      if (isTrackCmd) {
+        return await showTrackOrder(from);
+      }
+      if (isCallCmd) {
+        return await showCallKitchen(from);
+      }
+      if (isAppCmd) {
+        return await showInstallApp(from, profileName);
+      }
+      if (asksForMenu(text)) {
+        await updateSession(from, { state: "browsing_category", proposal: null });
+        return await showFullMenu(from);
+      }
+      if (classifyTurn(text, session.state).intent === "complaint") {
+        return await beginComplaint(from);
+      }
+    }
+
     if (
       !interactiveReplyId &&
       !resolvedId &&
@@ -1451,29 +1487,6 @@ export async function POST(req: Request) {
     ) {
       await updateSession(from, { state: "ai_chat" });
       return await handleAiChat(from, text, profileName);
-    }
-
-    if (isMenuCmd) {
-      await updateSession(from, { state: "browsing_category", proposal: null });
-      return await showFullMenu(from);
-    }
-    if (isCartCmd) {
-      return await showCart(from, session.cart);
-    }
-    if (isLangCmd) {
-      return await showWelcome(from, profileName);
-    }
-    if (isHelpCmd) {
-      return await showHelpSupport(from);
-    }
-    if (isTrackCmd) {
-      return await showTrackOrder(from);
-    }
-    if (isCallCmd) {
-      return await showCallKitchen(from);
-    }
-    if (isAppCmd) {
-      return await showInstallApp(from, profileName);
     }
 
     switch (session.state) {
@@ -2229,12 +2242,6 @@ async function handleInterrupt(
     return await beginComplaint(from);
   }
 
-  if (prefersConversationalPath(text)) {
-    await rememberInterrupt(from, session, 0);
-    await updateSession(from, { state: "ai_chat" });
-    return await handleAiChat(from, text, _profileName);
-  }
-
   await rememberInterrupt(from, session, decision.nextInterruptCount);
 
     if (decision.action === "mutate_cart_then_reask") {
@@ -2284,6 +2291,14 @@ async function handleInterrupt(
       );
     }
   }
+
+  // A full order sentence during checkout — not menu, track, or help side questions.
+  if (looksLikeFoodOrder(text) || looksLikeNewOrder(text)) {
+    await rememberInterrupt(from, session, 0);
+    await updateSession(from, { state: "ai_chat" });
+    return await handleAiChat(from, text, _profileName);
+  }
+
   return reaskPending(from, session.state);
 }
 
@@ -2490,7 +2505,7 @@ async function handlePickingDate(from: string, text: string, session: WhatsAppSe
     return await continueDraftOrder(from, draft, text);
   }
 
-  const date = parseDateInput(text);
+  const date = parseDateInput(text) || parseDateText(text);
   if (!date) {
     await sendText(from, buildDatePickerMessage(langOf(from)));
     return ack();
@@ -3391,14 +3406,22 @@ async function rememberDishCards(from: string, dishes: DishPricing[]): Promise<v
 
 async function sendLookalikeCarousel(from: string, query: string): Promise<void> {
   const category = dishQueryCategory(query);
-  const dishes = lookalikeDishes(query);
+  const menu = await getMenu();
+  const matches = await closeDishChoices(menu, query, category);
   const heading = await new VidyaAgent().writeMissingDishLine(query, category);
-  if (dishes.length === 0) {
+  const entries = (
+    matches.length > 0
+      ? matches.map((item) => dishPickerFromMenuRow(item))
+      : lookalikeDishes(query).map(dishPickerFromPricing)
+  ).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  if (entries.length === 0) {
     await sendText(from, heading);
     return;
   }
-  if (dishes.length > 0) await rememberDishCards(from, dishes);
-  const entries = dishes.map(dishPickerFromPricing);
+  await storeOptions(
+    from,
+    entries.map((entry) => ({ id: entry.id, title: entry.name })),
+  );
   await sendDishPicker(from, heading, entries, {
     listButton: "See dishes",
     sectionTitle: category ? categoryDisplayLabel(category) : "House favourites",
@@ -4233,6 +4256,10 @@ async function answerSupport(
   if (topic === "call") {
     await updateSession(from, { state: "idle" });
     return await showCallKitchen(from);
+  }
+  if (topic === "track") {
+    await updateSession(from, { state: "idle" });
+    return await showTrackOrder(from);
   }
   if (topic === "refund") {
     await updateSession(from, { state: "idle" });

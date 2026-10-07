@@ -79,7 +79,11 @@ export function isPendingState(state: SessionState): boolean {
 const COMPLAINT_RE =
   /\b(complaint|complain|cheated|disgusting|spoiled|spoilt|stale|worst|terrible|food poisoning)\b/i;
 const CANCEL_RE = /^(please\s+)?(cancel|cancel (this |the |my )?order|stop this order)\b/i;
-const MENU_RE = /\b(menu|what do you (have|sell)|what's available|what is available|show (me )?(the )?dishes)\b/i;
+const MENU_RE = /\b(menu|what do you (have|sell)|what's available|what is available|show (me )?(the )?(dishes|menu))\b/i;
+
+export function asksForMenu(text: string): boolean {
+  return MENU_RE.test(String(text || "").trim());
+}
 
 /**
  * A question about an order already placed. "I want to order chicken" is a

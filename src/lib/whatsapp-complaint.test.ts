@@ -114,6 +114,10 @@ const pickOrders = [
   },
 ];
 check("complaint pick understands last order", matchComplaintOrderFromText("my last order", pickOrders)?.ref === "#00003");
+check(
+  "complaint pick understands last order was cold",
+  matchComplaintOrderFromText("my last order was cold", pickOrders)?.ref === "#00003",
+);
 check("complaint pick understands ticket number", matchComplaintOrderFromText("order #00002", pickOrders)?.ref === "#00002");
 check("complaint pick understands dinner", matchComplaintOrderFromText("the dinner one", pickOrders)?.meal === "Dinner");
 check("complaint item pick understands dish name", matchComplaintItemIndex("egg curry was cold", [{ name: "Egg Curry", weight: "500gm", qty: 1 }]) === 0);

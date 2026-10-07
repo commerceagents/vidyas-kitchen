@@ -2,7 +2,7 @@
  * Simulates how free-text is routed before any WhatsApp send. Catches loops like
  * "I would like to order egg gravy" reopening the complaint picker.
  */
-import { classifyTurn, routeTurn } from "./whatsapp-turn";
+import { asksAboutExistingOrder, asksForMenu, classifyTurn, routeTurn } from "./whatsapp-turn";
 import { supportTopic } from "./whatsapp-support";
 import { looksLikeFoodOrder, looksLikeNewOrder, prefersConversationalPath, shouldStoreComplaint } from "./whatsapp-complaint";
 
@@ -17,7 +17,15 @@ function routeWhileComplaintOpen(say: string): "complaint" | "exit_complaint" {
 function routeIdle(say: string): Expect {
   const topic = supportTopic(say);
   if (topic) return "support";
-  if (looksLikeNewOrder(say)) return "order";
+  const lower = say.toLowerCase().trim();
+  const isMenuCmd =
+    /^(menu|browse|show menu|full menu|browse_menu|view_menu)\b/i.test(lower) || /^order$/i.test(lower);
+  const isTrackCmd =
+    /^(track|order status|where is my order|my orders?)\b/i.test(lower) || asksAboutExistingOrder(say);
+  if (isMenuCmd || asksForMenu(say)) return "turn:ask_menu";
+  if (isTrackCmd) return "turn:ask_status";
+  if (classifyTurn(say, "ai_chat").intent === "complaint") return "turn:complaint";
+  if (looksLikeNewOrder(say) || looksLikeFoodOrder(say) || prefersConversationalPath(say)) return "order";
   return `turn:${classifyTurn(say, "ai_chat").intent}`;
 }
 
@@ -52,8 +60,12 @@ const IDLE: Case[] = [
   { say: "are you a bot?", expect: "support", note: "bot" },
   { say: "what do people order", expect: "support", note: "best seller" },
   { say: "suggest something spicy", expect: "support", note: "spicy" },
+  { say: "menu", expect: "turn:ask_menu", note: "bare menu is structured, not AI cart" },
+  { say: "track my order", expect: "support", note: "track via support handler, not AI cart" },
   { say: "what's on the menu", expect: "turn:ask_menu", note: "menu question" },
-  { say: "Is there any pending order of me?", expect: "turn:ask_status", note: "status not menu" },
+  { say: "Is there any pending order of me?", expect: "support", note: "status via support track handler" },
+  { say: "mutton gravy 500gm tomorrow dinner", expect: "order", note: "bare dish order sentence" },
+  { say: "I need black pepper chicken gravy for 8th oct lunch 500gm cash", expect: "order", note: "full natural order" },
   { say: "this gravy was terrible", expect: "turn:complaint", note: "complaint during idle" },
 ];
 
@@ -129,7 +141,11 @@ check(
   looksLikeFoodOrder("I want mutton gravy is it available") === true,
 );
 check("i want chicken is food order", looksLikeFoodOrder("I want chicken gravy") === true);
+check("bare mutton gravy is food order", looksLikeFoodOrder("mutton gravy 500gm tomorrow") === true);
+check("black pepper one-liner is food order", looksLikeFoodOrder("black pepper chicken gravy for 8th oct lunch 500gm cash") === true);
 check("refund is not food order", looksLikeFoodOrder("what is your refund policy?") === false);
+check("track my order does not prefer conversation", prefersConversationalPath("track my order") === false);
+check("help alone does not prefer conversation", prefersConversationalPath("help") === false);
 check(
   "carousel menu uuid is a known reply id",
   /^[0-9a-f-]{36}$/i.test("38a96232-c038-4fb8-a399-fcbb4a3e1e2e"),

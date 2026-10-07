@@ -17,6 +17,7 @@ const DIRECT_HANDLERS = new Set<SupportTopic>([
   "best_seller",
   "spicy",
   "resubscribe",
+  "track",
 ]);
 
 function check(name: string, ok: boolean) {
@@ -45,6 +46,10 @@ const cases: { say: string; topic: SupportTopic }[] = [
   { say: "what do people order", topic: "best_seller" },
   { say: "suggest something spicy", topic: "spicy" },
   { say: "turn promos back on", topic: "resubscribe" },
+  { say: "track my order", topic: "track" },
+  { say: "where is my order", topic: "track" },
+  { say: "Is there any pending order of me?", topic: "track" },
+  { say: "change my delivery address", topic: "address" },
 ];
 
 for (const row of cases) {

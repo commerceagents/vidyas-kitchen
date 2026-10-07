@@ -4,6 +4,8 @@
  * stay on the cook path.
  */
 
+import { asksAboutExistingOrder } from "@/lib/whatsapp-turn";
+
 export type SupportTopic =
   | "help"
   | "refund"
@@ -17,7 +19,8 @@ export type SupportTopic =
   | "spicy"
   | "bot"
   | "presence"
-  | "resubscribe";
+  | "resubscribe"
+  | "track";
 
 export function supportTopic(text: string): SupportTopic | null {
   const t = String(text || "").trim().toLowerCase();
@@ -52,10 +55,14 @@ export function supportTopic(text: string): SupportTopic | null {
   }
   if (/\b(best seller|bestseller|most ordered|what do people order)\b/.test(t)) return "best_seller";
   if (/\b(something spicy|suggest something|surprise me)\b/.test(t)) return "spicy";
+  if (asksAboutExistingOrder(text)) return "track";
   if (
-    !/\b(change|update|new)\b/.test(t) &&
-    /\b(what address|which address|address do you have|address on file|saved address|my address)\b/.test(t)
+    /\b(change|update|edit|correct|wrong)\b/.test(t) &&
+    /\b(address|door|veedu|location|delivery)\b/.test(t)
   ) {
+    return "address";
+  }
+  if (/\b(what address|which address|address do you have|address on file|saved address|my address)\b/.test(t)) {
     return "address";
   }
   return null;
