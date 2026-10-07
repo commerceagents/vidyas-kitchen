@@ -4174,6 +4174,34 @@ async function answerSupport(
     await updateSession(from, { state: "idle" });
     return await applyMarketingOptIn(from);
   }
+  if (topic === "call") {
+    await updateSession(from, { state: "idle" });
+    await sendText(from, callUsDialReply(langOf(from)));
+    return ack();
+  }
+  if (topic === "refund") {
+    await updateSession(from, { state: "idle" });
+    return await showRefundAnswer(from);
+  }
+  if (topic === "cancel_policy") {
+    await updateSession(from, { state: "idle" });
+    await sendText(from, buildCancelPolicyAnswer(langOf(from)));
+    return ack();
+  }
+  if (topic === "driver") {
+    await updateSession(from, { state: "idle" });
+    return await showDriverAnswer(from);
+  }
+  if (topic === "offers") {
+    await updateSession(from, { state: "idle" });
+    return await showOfferAnswer(from);
+  }
+  if (topic === "address") {
+    await updateSession(from, { state: "idle" });
+    const profile = await fetchUsualProfile(from).catch(() => null);
+    await sendText(from, buildAddressOnFileAnswer(profile?.addresses?.[0] ?? null));
+    return ack();
+  }
 
   await updateSession(from, { state: "ai_chat" });
   return await handleAiChat(from, text, profileName);

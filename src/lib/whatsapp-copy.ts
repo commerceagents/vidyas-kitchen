@@ -279,6 +279,9 @@ export function languageSetReply(lang: WaLang): string {
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
+/** Shown once to new customers so they know the one-line order format. */
+export const QUICK_ORDER_EXAMPLE = "Mutton gravy 500gm tomorrow dinner, cash";
+
 /** One rotating line that nudges a repeat customer's top dish. */
 export function buildUsualTeaseLine(dish: string, variant: string, avoid?: string | null, roll = Math.random()): string {
   const name = dish.trim();
@@ -363,23 +366,38 @@ export function buildWelcomeMessage(
     );
   }
 
+  const quickOrderHint = `_One message? Try: "${QUICK_ORDER_EXAMPLE}"_`;
+  const quickOrderHintTa = `_Oru message-la order? Try: "${QUICK_ORDER_EXAMPLE}"_`;
+
   return pickLang(
     lang,
     varyLine(
       [
         msg({
           title: `Welcome to Vidya's Kitchen${name}`,
-          lines: ["Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg."],
+          lines: [
+            "Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg.",
+            "",
+            quickOrderHint,
+          ],
           note: noteEn,
         }),
         msg({
           title: `Hey${name} 👋`,
-          lines: ["Vidya's Kitchen — against-order food from Sivakasi. Tell me a dish when you're hungry."],
+          lines: [
+            "Vidya's Kitchen — against-order food from Sivakasi. Tell me a dish when you're hungry.",
+            "",
+            quickOrderHint,
+          ],
           note: noteEn,
         }),
         msg({
           title: `Vanakkam${name}`,
-          lines: ["Home-style chicken, mutton and egg gravies. Say what you'd like and we'll cook it fresh."],
+          lines: [
+            "Home-style chicken, mutton and egg gravies. Say what you'd like and we'll cook it fresh.",
+            "",
+            quickOrderHint,
+          ],
           note: noteEn,
         }),
       ],
@@ -390,7 +408,11 @@ export function buildWelcomeMessage(
       [
         msg({
           title: `Vidya's Kitchen-ku vanga${name}`,
-          lines: ["Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg."],
+          lines: [
+            "Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg.",
+            "",
+            quickOrderHintTa,
+          ],
           note: noteTa,
         }),
       ],

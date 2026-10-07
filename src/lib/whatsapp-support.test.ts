@@ -20,6 +20,7 @@ check("cancel my order is a placed cancel", supportTopic("cancel my order") === 
 check("cancel number is a placed cancel", supportTopic("cancel #00003") === "cancel_placed");
 check("how do I cancel is the policy", supportTopic("how do I cancel") === "cancel_policy");
 check("kitchen phone is a call", supportTopic("can I connect with the kitchen") === "call");
+check("call the kitchen is a call", supportTopic("Call the kitchen") === "call");
 check("call us is a call", supportTopic("call") === "call");
 check("driver question", supportTopic("where is my driver") === "driver");
 check("offers", supportTopic("any offers today") === "offers");
