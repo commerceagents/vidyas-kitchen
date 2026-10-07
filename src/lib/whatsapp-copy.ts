@@ -69,6 +69,7 @@ export const BTN = {
   chicken: "Chicken",
   mutton: "Mutton",
   egg: "Egg",
+  add: "Add",
   size500: "500gm",
   size1kg: "1kg",
   checkout: "Checkout",
@@ -611,7 +612,7 @@ export function buildVariantMessage(
       `1kg — ${money(prices["1kg"])}`,
       WA_SECTION_DIVIDER,
       "",
-      "_Tap Choose size, or type 500gm or 1kg. For more than one: 500gm 2._",
+      "_Tap 500gm or 1kg — qty 1 unless you say otherwise._",
     ].join("\n"),
     msg({
       title: itemName,
@@ -1195,7 +1196,7 @@ export function buildDishChoicePrompt(
   avoid?: string | null,
   roll = Math.random(),
 ): string {
-  return `${dishChoiceOpener(family, avoid, roll)}\n\n_Swipe the photo cards, tap Choose size, or type the dish name!_`;
+  return `${dishChoiceOpener(family, avoid, roll)}\n\n_Swipe the photo cards, tap Add, pick a size — confirm in two taps!_`;
 }
 
 /** @deprecated Use buildDishChoicePrompt — kept for tests. */

@@ -18,6 +18,7 @@ import {
   DELIVERY_SLOT_DEFS,
   type DeliverySlotKind,
 } from "@/lib/delivery-slots";
+import { nextBookableDateForKind } from "@/lib/whatsapp-last-order";
 import { WA_CART_MAX } from "@/lib/whatsapp-copy";
 import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
@@ -354,6 +355,53 @@ export function applySpokenDate(draft: ProposalDraft, source?: string | null): P
   }
   if (draft.date === date) return draft;
   return { ...draft, date };
+}
+
+/**
+ * Fill sensible defaults so a returning customer can reach Confirm after
+ * picking a dish and size — last slot/address/payment, else lunch tomorrow COD.
+ */
+export function applyFastLaneDefaults(
+  draft: ProposalDraft,
+  hints: {
+    lastAddress?: string | null;
+    lastSlotKind?: DeliverySlotKind | null;
+    lastPayment?: "online" | "cod" | null;
+  },
+): ProposalDraft {
+  const next: ProposalDraft = {
+    ...draft,
+    items: (draft.items || []).map((item) => ({ ...item })),
+  };
+
+  const slotKind =
+    parseSlotWord(String(next.slot || "")) ||
+    (() => {
+      const hour = parseHour(String(next.time || ""));
+      return hour == null ? null : slotKindForHour(hour);
+    })() ||
+    hints.lastSlotKind ||
+    "lunch";
+
+  if (!parseSlotWord(String(next.slot || "")) && parseHour(String(next.time || "")) == null) {
+    next.slot = slotKind;
+  }
+
+  if (!notedDeliveryDate(next)) {
+    const bookable = nextBookableDateForKind(slotKind);
+    if (bookable) next.date = bookable.ymd;
+  }
+
+  if (String(next.address || "").trim().length < 5 && hints.lastAddress && hints.lastAddress.trim().length >= 5) {
+    next.address = hints.lastAddress.trim();
+  }
+
+  if (!parsePaymentMethod(String(next.payment || ""))) {
+    if (hints.lastPayment === "online") next.payment = "online";
+    else next.payment = "cash";
+  }
+
+  return next;
 }
 
 export function parsePackSize(text: string): PackSize | null {

@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { choiceButtonTitle, listRowLabel } from "../dish-name";
 import { allDishPricing, pickCanonicalRows } from "../menu/dish-pricing";
 import { istAddCalendarDays, istCalendarYmd } from "../delivery-slots";
-import { applySpokenFamily, applySpokenSize, dishChoiceQuery, notedDeliveryDate } from "./order-proposal";
+import {
+  applyFastLaneDefaults,
+  applySpokenFamily,
+  applySpokenSize,
+  dishChoiceQuery,
+  notedDeliveryDate,
+} from "./order-proposal";
 import { isGravyStyleDish } from "../menu/embeddings";
 import { buildDishListPrompt } from "../whatsapp-copy";
 import { classifyTurn } from "../whatsapp-turn";
@@ -48,6 +54,17 @@ const prompt = buildDishListPrompt("chicken", null, 0);
 const promptAgain = buildDishListPrompt("chicken", prompt, 0);
 check("list prompt names the family", prompt.includes("chicken gravy options") && promptAgain.includes("chicken gravy options"));
 check("dish prompt mentions photo cards", prompt.includes("photo cards") && promptAgain.includes("photo cards"));
+check("dish prompt mentions Add tap", prompt.includes("Add") && promptAgain.includes("Add"));
+
+const fast = applyFastLaneDefaults(
+  { items: [{ dish: "mutton gravy", size: "500gm" }] },
+  { lastAddress: "12 Gandhi Nagar, Sivakasi", lastSlotKind: "dinner", lastPayment: "cod" },
+);
+check("fast lane keeps the dish size", fast.items?.[0]?.size === "500gm");
+check("fast lane fills last address", fast.address === "12 Gandhi Nagar, Sivakasi");
+check("fast lane fills last slot", fast.slot === "dinner");
+check("fast lane fills cash payment", fast.payment === "cash");
+check("fast lane picks a delivery date", Boolean(fast.date));
 check("list prompt does not repeat the same opener", prompt !== promptAgain);
 
 const moms = listRowLabel("Mom's Recipe - Chicken Gravy", "500gm ₹349 · 1kg ₹699");

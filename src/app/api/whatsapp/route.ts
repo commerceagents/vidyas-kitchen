@@ -181,6 +181,7 @@ import { logWhatsAppMessage, type WaMessageKind } from "@/lib/whatsapp-message-l
 import { unitPriceFor, packPricesFor, packPriceLine, formatInr, allDishPricing, dishPricingForRetailerId, pickCanonicalRows, type DishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import { KITCHEN_PICK_DISH_IDS } from "@/lib/menu/best-selling";
 import {
+  applyFastLaneDefaults,
   applySpokenDate,
   applySpokenFamily,
   applySpokenSize,
@@ -1325,7 +1326,7 @@ export async function POST(req: Request) {
 
     if (
       !interactiveReplyId &&
-      /^(choose size|select)$/i.test(text) &&
+      /^(choose size|select|add)$/i.test(text) &&
       (session.pending_options?.length || 0) > 0
     ) {
       const pending = session.pending_options!;
@@ -1775,26 +1776,44 @@ async function handleBrowsingCategory(from: string, text: string, profileName: s
   return await handleIdle(from, text, { cart: [] }, profileName);
 }
 
-/** A category order already named the size. Don't ask for 500gm again. */
+/** Fast lane: dish picked → size (if needed) → confirm card. Qty defaults to 1. */
+async function showFastSizePicker(from: string, item: MenuItem) {
+  const lang = langOf(from);
+  const prices = packPricesFor(item);
+  const buttons = [
+    { id: "var_500gm", title: BTN.size500 },
+    { id: "var_1kg", title: BTN.size1kg },
+  ];
+  await updateSession(from, { selected_item_id: item.id, state: "picking_variant" });
+  await storeOptions(from, buttons);
+  await sendButtons(from, buildVariantMessage(formatFullDishName(item.name), prices, lang), buttons);
+  return ack();
+}
+
 async function continuePickedDish(from: string, session: WhatsAppSession, item: MenuItem) {
-  await sendText(from, dishPickedAside(item.name, lastAssistantText(session.recent_turns)));
   const draft = readOpenDraft(session);
   const size =
     parsePackSize(String(draft?.items?.[0]?.size || "")) ||
-    parsePackSize(String(draft?.items?.[0]?.dish || "")) ||
-    "500gm";
-  const next: ProposalDraft = {
-    ...(draft || {}),
-    items: [
-      {
-        dish: item.name,
-        size,
-        quantity: Math.max(1, Math.floor(Number(draft?.items?.[0]?.quantity) || 1)),
-      },
-    ],
-  };
-  await updateSession(from, { selected_item_id: item.id, state: "ai_chat" });
-  return await continueDraftOrder(from, next);
+    parsePackSize(String(draft?.items?.[0]?.dish || ""));
+
+  if (size) {
+    await sendText(from, dishPickedAside(item.name, lastAssistantText(session.recent_turns)));
+    const next: ProposalDraft = {
+      ...(draft || {}),
+      items: [
+        {
+          dish: item.name,
+          size,
+          quantity: Math.max(1, Math.floor(Number(draft?.items?.[0]?.quantity) || 1)),
+        },
+      ],
+    };
+    await updateSession(from, { selected_item_id: item.id, state: "ai_chat" });
+    return await continueDraftOrder(from, next);
+  }
+
+  await sendText(from, dishPickedAside(item.name, lastAssistantText(session.recent_turns)));
+  return await showFastSizePicker(from, item);
 }
 
 async function handlePickingItem(from: string, text: string, profileName: string) {
@@ -2758,12 +2777,22 @@ async function presentProposal(
   const menu = await getMenu();
   const last = await fetchLastAddressAndSlot(from);
   const session = await getSession(from);
-  let draft = applySpokenFamily(applySpokenSize(applySpokenDate(incoming, sourceText), sourceText), sourceText);
+  const lastAddress = last.address || session.delivery_address;
+  const lastSlotKind = (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null;
+  const usualProfile = await fetchUsualProfile(from).catch(() => null);
+  let draft = applyFastLaneDefaults(
+    applySpokenFamily(applySpokenSize(applySpokenDate(incoming, sourceText), sourceText), sourceText),
+    {
+      lastAddress,
+      lastSlotKind,
+      lastPayment: usualProfile?.payment ?? null,
+    },
+  );
   const proposalInput = {
     menu,
     sourceText,
-    lastAddress: last.address || session.delivery_address,
-    lastSlotKind: (last.slotKind || session.delivery_slot_kind) as DeliverySlotKind | null,
+    lastAddress,
+    lastSlotKind,
   };
 
   let preparedChoices: MenuItem[] | null = null;
@@ -3422,8 +3451,9 @@ async function addDishByRetailer(from: string, retailerId: string) {
       image_url: pricing.imagePath,
     } satisfies MenuItem);
   const session = await getSession(from);
-  if (session.state === "ai_chat" && readStoredDraft(session.recent_turns)) {
-    return await continuePickedDish(from, session, item);
+  if (session.cart.length === 0) {
+    await updateSession(from, { state: "ai_chat" });
+    return await continuePickedDish(from, await getSession(from), item);
   }
   return await showVariantPicker(from, item);
 }
@@ -3485,7 +3515,7 @@ async function showSizedSectionItems(from: string, category: string, variant: Pa
   }));
   await storeOptions(from, entries.map((entry) => ({ id: entry.id, title: entry.name })));
   const heading = `${categoryDisplayLabel(category)} (${variant})`;
-  await sendDishPicker(from, `${heading}\nSwipe the photo cards or tap Select.`, entries, {
+  await sendDishPicker(from, `${heading}\nSwipe the cards and tap Add.`, entries, {
     listButton: "Menu",
     sectionTitle: heading,
     statedSize: variant,
@@ -3530,7 +3560,7 @@ async function showFullMenu(from: string) {
     const dishes = dishesInCategory(category).slice(0, 10);
     if (dishes.length === 0) continue;
     const label = categoryDisplayLabel(category);
-    const body = `${label}\nSwipe the photo cards, tap Choose size, then pick 500gm or 1kg.`;
+    const body = `${label}\nSwipe the cards, tap Add, then pick 500gm or 1kg.`;
     const entries = dishes.map(dishPickerFromPricing);
     await sendDishPicker(from, body, entries, {
       listButton: "View menu",
@@ -3588,7 +3618,7 @@ async function showCategoryItems(from: string, cat: string) {
     await rememberDishCards(from, dishes);
     await updateSession(from, { state: "picking_item" });
     const entries = dishes.map(dishPickerFromPricing);
-    await sendDishPicker(from, `${catLabel}\nSwipe the photo cards, tap Choose size, then pick 500gm or 1kg.`, entries, {
+    await sendDishPicker(from, `${catLabel}\nSwipe the cards, tap Add, then pick 500gm or 1kg.`, entries, {
       listButton: "View menu",
       sectionTitle: catLabel,
     });

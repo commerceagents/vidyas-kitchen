@@ -68,7 +68,7 @@ export function buildDishCarouselCards(
     title: entry.name,
     body: `${entry.name}\n${priceLine(entry, statedSize)}`.slice(0, 160),
     imageUrl: entry.imageUrl,
-    buttonTitle: statedSize ? "Select" : "Choose size",
+    buttonTitle: statedSize ? "Select" : "Add",
   }));
 }
 
