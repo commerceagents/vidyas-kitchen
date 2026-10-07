@@ -278,8 +278,19 @@ export function languageSetReply(lang: WaLang): string {
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
-/** Shown once to new customers so they know the one-line order format. */
+/** One-line order format. Shown on every welcome, including "hi". */
 export const QUICK_ORDER_EXAMPLE = "Mutton gravy 500gm tomorrow dinner, cash";
+
+function quickOrderLines(lang?: WaLang): string[] {
+  return [
+    "",
+    pickLang(
+      lang,
+      `_One message? Try: "${QUICK_ORDER_EXAMPLE}"_`,
+      `_Oru message-la order? Try: "${QUICK_ORDER_EXAMPLE}"_`,
+    ),
+  ];
+}
 
 /** One rotating line that nudges a repeat customer's top dish. */
 export function buildUsualTeaseLine(dish: string, variant: string, avoid?: string | null, roll = Math.random()): string {
@@ -313,16 +324,16 @@ export function buildWelcomeMessage(
       lang,
       varyLine(
         [
-          msg({ title: `Hello${name}`, lines: ["Your order is still on the move. Track it, or start the next one."] }),
-          msg({ title: `Still cooking for you${name}`, lines: ["That order is live. Track it here, or tell me the next dish."] }),
-          msg({ title: `Hey${name}`, lines: ["Your plate is in the works. Want a status check or a fresh order?"] }),
+          msg({ title: `Hello${name}`, lines: ["Your order is still on the move. Track it, or start the next one.", ...quickOrderLines(lang)] }),
+          msg({ title: `Still cooking for you${name}`, lines: ["That order is live. Track it here, or tell me the next dish.", ...quickOrderLines(lang)] }),
+          msg({ title: `Hey${name}`, lines: ["Your plate is in the works. Want a status check or a fresh order?", ...quickOrderLines(lang)] }),
         ],
         avoid,
         roll,
       ),
       varyLine(
         [
-          msg({ title: `Vanakkam${name}`, lines: ["Unga order innum vandhukondu iruku. Track pannunga, illa adutha order start pannunga."] }),
+          msg({ title: `Vanakkam${name}`, lines: ["Unga order innum vandhukondu iruku. Track pannunga, illa adutha order start pannunga.", ...quickOrderLines(lang)] }),
         ],
         avoid,
         roll,
@@ -338,17 +349,17 @@ export function buildWelcomeMessage(
         [
           msg({
             title: `Welcome back${name}`,
-            lines: ["The usual, or shall we tempt you with something else today?", ...tease],
+            lines: ["The usual, or shall we tempt you with something else today?", ...tease, ...quickOrderLines(lang)],
             note: noteEn,
           }),
           msg({
             title: `Good to see you again${name}`,
-            lines: ["Same order as last time, or feeling adventurous?", ...tease],
+            lines: ["Same order as last time, or feeling adventurous?", ...tease, ...quickOrderLines(lang)],
             note: noteEn,
           }),
           msg({
             title: `Hey${name} 👋`,
-            lines: ["Kitchen's open. Your usual, or something new from the stove?", ...tease],
+            lines: ["Kitchen's open. Your usual, or something new from the stove?", ...tease, ...quickOrderLines(lang)],
             note: noteEn,
           }),
         ],
@@ -357,16 +368,13 @@ export function buildWelcomeMessage(
       ),
       varyLine(
         [
-          msg({ title: `Vanakkam${name}`, lines: ["Regular order-a, illa indha vaatti vera edhachum try pannalama?"], note: noteTa }),
+          msg({ title: `Vanakkam${name}`, lines: ["Regular order-a, illa indha vaatti vera edhachum try pannalama?", ...quickOrderLines(lang)], note: noteTa }),
         ],
         avoid,
         roll,
       ),
     );
   }
-
-  const quickOrderHint = `_One message? Try: "${QUICK_ORDER_EXAMPLE}"_`;
-  const quickOrderHintTa = `_Oru message-la order? Try: "${QUICK_ORDER_EXAMPLE}"_`;
 
   return pickLang(
     lang,
@@ -376,8 +384,7 @@ export function buildWelcomeMessage(
           title: `Welcome to Vidya's Kitchen${name}`,
           lines: [
             "Sivakasi home cooking, made fresh for your order. Chicken, mutton and egg.",
-            "",
-            quickOrderHint,
+            ...quickOrderLines(lang),
           ],
           note: noteEn,
         }),
@@ -385,8 +392,7 @@ export function buildWelcomeMessage(
           title: `Hey${name} 👋`,
           lines: [
             "Vidya's Kitchen — against-order food from Sivakasi. Tell me a dish when you're hungry.",
-            "",
-            quickOrderHint,
+            ...quickOrderLines(lang),
           ],
           note: noteEn,
         }),
@@ -394,8 +400,7 @@ export function buildWelcomeMessage(
           title: `Vanakkam${name}`,
           lines: [
             "Home-style chicken, mutton and egg gravies. Say what you'd like and we'll cook it fresh.",
-            "",
-            quickOrderHint,
+            ...quickOrderLines(lang),
           ],
           note: noteEn,
         }),
@@ -409,8 +414,7 @@ export function buildWelcomeMessage(
           title: `Vidya's Kitchen-ku vanga${name}`,
           lines: [
             "Sivakasi home-style saapadu, unga order-ku fresh-a cook pannuvom. Chicken, mutton, egg.",
-            "",
-            quickOrderHintTa,
+            ...quickOrderLines(lang),
           ],
           note: noteTa,
         }),
