@@ -952,6 +952,25 @@ function readStoredDraft(turns: WhatsAppSession["recent_turns"]): ProposalDraft 
   }
 }
 
+/** Draft hidden turns are stripped before save; rebuild from the priced proposal when needed. */
+function proposalDraftFromSession(session: WhatsAppSession): ProposalDraft | null {
+  const stored = readStoredDraft(session.recent_turns);
+  if (stored) return stored;
+  const proposal = session.proposal;
+  if (!proposal) return null;
+  return {
+    items: proposal.cart.map((item) => ({
+      dish: item.name,
+      size: item.variant,
+      quantity: item.quantity,
+    })),
+    date: proposal.deliveryDate,
+    slot: proposal.slotKind,
+    address: proposal.address,
+    payment: proposal.paymentMethod === "cod" ? "cash" : "online",
+  };
+}
+
 function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalDraft): SessionTurns {
   const kept = chatTurns(turns);
   const interrupt = (turns || []).filter((t) => t.content.startsWith(VK_INTERRUPT_PREFIX));
@@ -963,7 +982,7 @@ function turnsWithDraft(turns: WhatsAppSession["recent_turns"], draft: ProposalD
 }
 
 const BOT_REPLY_ID =
-  /^(add_|addmore_|szsec_|sz500_|sz1kg_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_)/;
+  /^(add_|addmore_|szsec_|sz500_|sz1kg_|var_|book_|cat_|qty_|rm_|uq_|date_|slot_|stale_|order_|lang_|hs_|browse_|view_|track_|help_|quick_|reuse_|change_|new_|clear_|checkout|confirm_|cancel_|pay_|edit_|back_|open_|install_|change_proposal_)/;
 
 function isBotReplyId(value: string): boolean {
   return BOT_REPLY_ID.test(value);
@@ -1404,6 +1423,9 @@ export async function POST(req: Request) {
       case "picking_address":
         return await handlePickingAddress(from, text, session);
 
+      case "picking_proposal_address":
+        return await handlePickingProposalAddress(from, text, session);
+
       case "picking_pay_method":
         return await handlePickingPayMethod(from, text, session);
 
@@ -1558,10 +1580,15 @@ async function handleResolvedId(
       return await finishAddress(from, session, session.delivery_address || (await fetchLastAddressAndSlot(from)).address || "");
     case "new_address":
       return await askForAddress(from);
-    case "addr_map":
+    case "addr_map": {
+      const fresh = await getSession(from);
+      if (fresh.state === "picking_proposal_address") return await askForProposalMapPin(from);
       return await askForMapPin(from);
+    }
     case "confirm_proposal":
       return await confirmProposal(from, session);
+    case "change_proposal_address":
+      return await askForProposalAddress(from);
     case "cancel_proposal":
       await updateSession(from, { proposal: null, state: "idle" });
       return await showFullMenu(from);
@@ -1960,6 +1987,8 @@ function pendingQuestion(state: SessionState): string {
       return "Breakfast, lunch, or dinner?";
     case "picking_address":
       return "What's the delivery address?";
+    case "picking_proposal_address":
+      return "Which saved address should we use?";
     case "picking_pay_method":
       return "Pay online or cash?";
     case "awaiting_payment":
@@ -2200,6 +2229,7 @@ async function reaskPending(from: string, state: SessionState): Promise<Response
     return ack();
   }
   if (state === "picking_address") return await askForAddress(from);
+  if (state === "picking_proposal_address") return await askForProposalAddress(from);
   if (state === "picking_pay_method") return await offerPayOrConfirm(from, session);
   if (state === "awaiting_payment") {
     await updateSession(from, { state: "awaiting_payment" });
@@ -2320,6 +2350,13 @@ async function handleConfirmingProposal(
     await updateSession(from, { proposal: null, state: "idle" });
     return await showFullMenu(from);
   }
+  if (
+    resolved === "change_proposal_address" ||
+    /\b(change|different|new|vera)\b[\s\S]{0,24}\b(address|door|veedu|location)\b/i.test(lower) ||
+    /\b(address|door|veedu|location)\b[\s\S]{0,24}\b(change|different|new|vera)\b/i.test(lower)
+  ) {
+    return await askForProposalAddress(from);
+  }
   // Anything else is a correction — hand it back to the model with the draft
   // still in view rather than making them start again.
   await updateSession(from, { state: "ai_chat" });
@@ -2361,6 +2398,11 @@ async function handlePickingAddress(from: string, text: string, session: WhatsAp
   return await finishAddress(from, session, text.trim());
 }
 
+async function handlePickingProposalAddress(from: string, text: string, _session: WhatsAppSession) {
+  if (text.length < 5) return await askForProposalAddress(from);
+  return await updateProposalAddress(from, text.trim());
+}
+
 /**
  * A shared pin is checked against the real delivery radius. When the chat was
  * waiting for an address this completes that step; otherwise we just tell them
@@ -2384,9 +2426,14 @@ async function handleSharedLocation(
     `Pinned location (${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)})`;
   await updateSession(from, { delivery_address: address });
   const fresh = await getSession(from);
-  const draft = readStoredDraft(fresh.recent_turns);
+  const draft = proposalDraftFromSession(fresh);
 
-  if (draft && (session.state === "ai_chat" || session.state === "confirming_proposal")) {
+  if (
+    draft &&
+    (session.state === "ai_chat" ||
+      session.state === "confirming_proposal" ||
+      session.state === "picking_proposal_address")
+  ) {
     return await presentProposal(from, { ...draft, address }, address);
   }
 
@@ -2730,6 +2777,7 @@ async function presentProposal(
 
   const buttons = [
     { id: "confirm_proposal", title: BTN.confirmOrder },
+    { id: "change_proposal_address", title: BTN.changeAddress },
     { id: "cancel_proposal", title: BTN.startOver },
   ];
   await storeOptions(from, buttons);
@@ -2864,20 +2912,24 @@ async function askForMapPin(from: string) {
   return ack();
 }
 
-async function askForAddress(from: string) {
-  await updateSession(from, { state: "picking_address" });
-  const profile = await fetchUsualProfile(from).catch(() => null);
-  const saved = profile?.addresses ?? [];
-  if (saved.length === 0) return await askForMapPin(from);
-
-  const rows = [
-    ...saved.slice(0, 8).map((address, index) => ({
+function savedAddressRows(addresses: string[]) {
+  return [
+    ...addresses.slice(0, 8).map((address, index) => ({
       id: `addr_${index}`,
       title: clipLabel(address, 24),
       description: clipLabel(address, 72),
     })),
     { id: "addr_map", title: "Choose on map", description: "Drop a pin. No need to type it." },
   ];
+}
+
+async function askForAddress(from: string) {
+  await updateSession(from, { state: "picking_address" });
+  const profile = await fetchUsualProfile(from).catch(() => null);
+  const saved = profile?.addresses ?? [];
+  if (saved.length === 0) return await askForMapPin(from);
+
+  const rows = savedAddressRows(saved);
   await sendList(from, buildAddressChoicesMessage(langOf(from)), "Address", [
     { title: "Deliver to", rows },
   ]);
@@ -2888,11 +2940,67 @@ async function askForAddress(from: string) {
   return ack();
 }
 
+async function askForProposalMapPin(from: string) {
+  await updateSession(from, { state: "picking_proposal_address" });
+  await sendLocationRequest(from, buildMapPinPrompt(langOf(from)));
+  return ack();
+}
+
+async function askForProposalAddress(from: string) {
+  const session = await getSession(from);
+  if (!session.proposal && !proposalDraftFromSession(session)) {
+    return await askForAddress(from);
+  }
+  await updateSession(from, { state: "picking_proposal_address" });
+  const profile = await fetchUsualProfile(from).catch(() => null);
+  const saved = profile?.addresses ?? [];
+  if (saved.length === 0) return await askForProposalMapPin(from);
+
+  const rows = savedAddressRows(saved);
+  await sendList(from, buildAddressChoicesMessage(langOf(from)), "Address", [
+    { title: "Deliver to", rows },
+  ]);
+  await storeOptions(
+    from,
+    rows.map((row) => ({ id: row.id, title: row.title })),
+  );
+  return ack();
+}
+
+async function updateProposalAddress(from: string, address: string) {
+  if (!address || address.length < 5) return await askForProposalAddress(from);
+
+  const pinLabel = /^Pinned location \(/.test(address);
+  if (!pinLabel) {
+    const check = checkTypedAddress(address);
+    if (check.status !== "ok") {
+      await sendText(from, check.message);
+      return await askForProposalMapPin(from);
+    }
+  }
+
+  const session = await getSession(from);
+  const draft = proposalDraftFromSession(session);
+  if (!draft) {
+    await updateSession(from, { state: "idle", proposal: null });
+    return await showFullMenu(from);
+  }
+
+  await updateSession(from, { delivery_address: address });
+  return await presentProposal(from, { ...draft, address }, address);
+}
+
 async function useSavedAddress(from: string, index: number) {
   const profile = await fetchUsualProfile(from);
   const address = profile?.addresses[index];
-  if (!address) return await askForAddress(from);
   const session = await getSession(from);
+  if (!address) {
+    if (session.state === "picking_proposal_address") return await askForProposalAddress(from);
+    return await askForAddress(from);
+  }
+  if (session.state === "picking_proposal_address") {
+    return await updateProposalAddress(from, address);
+  }
   return await finishAddress(from, session, address);
 }
 

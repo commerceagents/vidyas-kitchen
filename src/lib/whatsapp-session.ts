@@ -27,6 +27,7 @@ export type SessionState =
   | "picking_date"
   | "picking_slot"
   | "picking_address"
+  | "picking_proposal_address"
   | "confirming_last"
   | "confirming_proposal"
   | "picking_pay_method"

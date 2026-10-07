@@ -62,6 +62,7 @@ export const PENDING_STATES: SessionState[] = [
   "picking_date",
   "picking_slot",
   "picking_address",
+  "picking_proposal_address",
   "picking_pay_method",
   "awaiting_payment",
   "confirming_last",
@@ -126,6 +127,7 @@ function directAnswer(state: SessionState, text: string): string | null {
     }
   }
   if (state === "picking_address" && raw.length >= 8 && !raw.includes("?")) return raw;
+  if (state === "picking_proposal_address" && raw.length >= 8 && !raw.includes("?")) return raw;
   if (state === "picking_pay_method" && /\b(cash|cod|upi|online|gpay|phonepe|paytm)\b/i.test(lower)) return lower;
   if (state === "awaiting_payment" && /^(pay|paid|done|yes|confirm)\b/i.test(lower)) return lower;
   if (state === "confirming_last" && /^(same|yes|ok|okay|change|edit|no)\b/i.test(lower)) return lower;
