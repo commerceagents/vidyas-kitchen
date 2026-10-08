@@ -6,8 +6,6 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { decodeOrderRatingButtonId } from "@/lib/whatsapp-order-notify";
 import { saveOrderRatingByPhone, saveOrderRatingCommentByPhone } from "@/lib/order-rating";
-import { transitionOrderStatusInDb } from "@/lib/order-transition";
-import { OrderStatus } from "@/lib/order-status";
 import {
   readStaleOrderContext,
   staleNoticeAlreadySent,
