@@ -313,15 +313,21 @@ function DriverOrderDetailInner() {
   const isCod = (order?.payment_method || "").toLowerCase() === "cod";
   const cashOutstanding = isCod && String(order?.payment_status || PaymentStatus.PENDING) !== PaymentStatus.PAID;
   const moneyMarked = !cashOutstanding || collectVia != null;
+  /** Customer pinned the drop on the map at checkout — unlock cash/UPI collection. */
+  const showCollectCash = cashOutstanding && hasDropPin && hasArrived;
   // Cash or UPI is the unlock on a pay-at-the-door order. A GPS reading that
   // still says "too far" must not keep the swipe gray once the money is in
   // hand — phones in Sivakasi often sit hundreds of metres off between buildings.
-  const deliverBlock: string | null = !moneyMarked
-    ? "Mark the money collected first — cash or UPI"
-    : !withinRange && !cashOutstanding
-      ? `You're ${distanceM != null ? `${Math.round(distanceM)} m` : "too far"} from the drop — move within ${PROXIMITY_UNLOCK_M} m`
-      : null;
-  const canMarkDelivered = deliverBlock == null;
+  const deliverBlock: string | null = !hasArrived
+    ? null
+    : cashOutstanding && !hasDropPin
+      ? "Waiting for the customer's map pin before you can collect payment"
+      : !moneyMarked && showCollectCash
+        ? "Mark the money collected first — cash or UPI"
+        : !withinRange && !cashOutstanding
+          ? `You're ${distanceM != null ? `${Math.round(distanceM)} m` : "too far"} from the drop — move within ${PROXIMITY_UNLOCK_M} m`
+          : null;
+  const canMarkDelivered = hasArrived && deliverBlock == null;
 
   // GPS tracking while en route
   useEffect(() => {
@@ -803,13 +809,19 @@ function DriverOrderDetailInner() {
           </div>
         </motion.div>
 
-        {cashOutstanding && amount != null && (
+        {showCollectCash && amount != null && (
           <div style={{ background: "rgba(245,166,35,0.12)", borderRadius: 16, padding: "14px 16px" }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#F5A623", letterSpacing: "0.08em" }}>COLLECT — CASH OR UPI</p>
             <p style={{ margin: "4px 0 0", fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em" }}>
               ₹{amount.toLocaleString("en-IN")}
             </p>
           </div>
+        )}
+
+        {isOut && cashOutstanding && !hasDropPin && (
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#8E8E93", lineHeight: 1.45, padding: "0 2px" }}>
+            Payment collection unlocks once the customer has pinned their delivery location on the map.
+          </p>
         )}
 
         {isCod && !cashOutstanding && (
@@ -819,19 +831,11 @@ function DriverOrderDetailInner() {
           </div>
         )}
 
-        {/* Call / Navigate */}
-        <div style={{ display: "flex", gap: 10 }}>
-          {callPhone && (
-            <SecondaryLink href={`tel:${callPhone.replace(/\s/g, "")}`} icon={<Phone size={17} strokeWidth={2.1} />}>
-              Call
-            </SecondaryLink>
-          )}
-          {mapsUrl && (
-            <SecondaryLink href={mapsUrl} external icon={<Navigation size={17} strokeWidth={2.1} />}>
-              Navigate
-            </SecondaryLink>
-          )}
-        </div>
+        {callPhone && (
+          <SecondaryLink href={`tel:${callPhone.replace(/\s/g, "")}`} icon={<Phone size={17} strokeWidth={2.1} />}>
+            Call customer
+          </SecondaryLink>
+        )}
 
         {actionErr && (
           <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: D.red, background: D.redFaint, padding: "10px 12px", borderRadius: 11 }}>
@@ -907,34 +911,7 @@ function DriverOrderDetailInner() {
               </button>
             )}
 
-            {!hasArrived && (
-              <button
-                type="button"
-                disabled={arriving}
-                onClick={() => void handleArrived()}
-                style={{
-                  width: "100%",
-                  minHeight: 50,
-                  borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  background: "transparent",
-                  color: "#fff",
-                  fontSize: 15,
-                  fontWeight: 800,
-                  fontFamily: D.font,
-                  cursor: arriving ? "wait" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                {arriving ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <BellRing size={18} strokeWidth={2.1} />}
-                {arriving ? "Telling them…" : "I've reached the customer"}
-              </button>
-            )}
-
-            {cashOutstanding && amount != null && (
+            {showCollectCash && amount != null && (
               <div
                 style={{
                   padding: "14px",
@@ -1009,13 +986,7 @@ function DriverOrderDetailInner() {
               </div>
             )}
 
-            {deliverBlock && (
-              <p style={{ fontSize: 13, color: "#8E8E93", margin: 0, textAlign: "center", fontWeight: 600, lineHeight: 1.45 }}>
-                {deliverBlock}
-              </p>
-            )}
-
-            {!withinRange && !canMarkDelivered && (
+            {!withinRange && !canMarkDelivered && hasArrived && (
               <button
                 type="button"
                 onClick={() => setGpsOverride(true)}
@@ -1072,14 +1043,52 @@ function DriverOrderDetailInner() {
             padding: "10px 16px max(14px, env(safe-area-inset-bottom, 12px))",
             background: "#121212",
             borderTop: "1px solid rgba(255,255,255,0.06)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
           }}
         >
-          <SwipeAction
-            label={deliverBlock ? "Swipe blocked — see above" : "Swipe to mark delivered"}
-            doneLabel="Delivered"
-            disabled={!canMarkDelivered}
-            onSwipe={handleComplete}
-          />
+          {!hasArrived ? (
+            <button
+              type="button"
+              disabled={arriving}
+              onClick={() => void handleArrived()}
+              style={{
+                width: "100%",
+                minHeight: 60,
+                borderRadius: RADIUS.control,
+                border: "none",
+                background: D.red,
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 800,
+                fontFamily: D.font,
+                cursor: arriving ? "wait" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 9,
+                boxShadow: "0 6px 18px rgba(232, 73, 45, 0.35)",
+              }}
+            >
+              {arriving ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /> : <BellRing size={20} strokeWidth={2.1} />}
+              {arriving ? "Telling them…" : "I've reached the customer"}
+            </button>
+          ) : (
+            <>
+              {deliverBlock && (
+                <p style={{ margin: 0, fontSize: 13, color: "#8E8E93", textAlign: "center", fontWeight: 600, lineHeight: 1.45 }}>
+                  {deliverBlock}
+                </p>
+              )}
+              <SwipeAction
+                label={deliverBlock ? "Swipe blocked — see above" : "Swipe to mark delivered"}
+                doneLabel="Delivered"
+                disabled={!canMarkDelivered}
+                onSwipe={handleComplete}
+              />
+            </>
+          )}
         </div>
       )}
 
