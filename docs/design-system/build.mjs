@@ -451,7 +451,7 @@ const harness = `<!doctype html>
 
 <section class="shot dark" id="s-swipe">
   <div id="m-swipe" style="width:280px;height:60px;border-radius:14px;background:#E8492D;position:relative;color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">
-    <span style="position:absolute;left:4px;top:4px;width:52px;height:52px;border-radius:12px;background:#fff"></span>
+    <span style="position:absolute;left:4px;top:4px;width:52px;height:52px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#E8492D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
     Swipe to mark delivered
   </div>
 </section>
@@ -687,7 +687,7 @@ function buildDocument(shots, measures) {
         ${shot("s-job", "Job card", ["Surface #1C1C1E. Name 22/800. Recipient chip 11/800.", "Slot line 15/800."])}
         ${shot("s-collect", "Collect cash", ["Shown after a map pin exists and the driver has arrived.", "Amber label #F5A623. Amount 28/800."])}
         ${shot("s-reach", "I've reached", ["Footer primary. Height 60, radius 14 (RADIUS.control), fill D.red #E84040.", "After this tap the footer becomes the swipe."])}
-        ${shot("s-swipe", "Swipe to deliver", ["Track #E8492D, height 60, handle 52.", "Label 15/800."])}
+        ${shot("s-swipe", "Swipe to deliver", ["Track #E8492D, height 60, handle 52.", "Handle arrow is the 19px chevron from SwipeAction. Label 15/800."])}
       </div>`,
     ),
     sheet(
