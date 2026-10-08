@@ -144,7 +144,8 @@ function stylePhrase(family: "chicken" | "mutton" | "egg", text: string): string
 const ORDER_FILLER = new Set([
   "to", "it", "on", "at", "in", "is", "be", "do", "so", "up", "we", "us",
   "like", "would", "can", "get", "send", "book", "place", "start", "make",
-  "tomorrow", "today", "tonight", "tomo", "tmr", "tmrw", "naalai", "nalai",
+  "need", "order", "want", "please", "payment", "pay",
+  "tomorrow", "tomorow", "tommorow", "tommorows", "tommorrow", "today", "tonight", "tomo", "tmr", "tmrw", "naalai", "nalai",
   "dinner", "lunch", "breakfast", "night", "evening", "morning", "noon",
   "cash", "cod", "online", "upi", "card",
   "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
@@ -156,6 +157,7 @@ function identifyingWords(text: string): string[] {
   return tokens(text).filter((word) => {
     if (CATEGORY_WORDS.has(word) || FAMILY_WORDS.has(word) || ORDER_FILLER.has(word)) return false;
     if (/^\d/.test(word)) return false;
+    if (parsePackSize(word) || parsePaymentMethod(word) || parseSlotWord(word) || parseDateText(word)) return false;
     return true;
   });
 }
@@ -186,6 +188,11 @@ export function dishChoiceQuery(draftDish: string, source?: string | null): stri
   if (family && /\b(curry|curries)\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "curry");
   if (family && /\bwings?\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "wings");
   if (family && /\bdry\b/i.test(blob)) return withIdentifyingWords(spoken, draftDish, family, "dry");
+  // "black pepper chicken" without "gravy" — still a named dish, not the whole family.
+  const spokenIds = identifyingWords(spoken);
+  if (family && spokenIds.length > 0) {
+    return `${spokenIds.join(" ")} ${family}`.replace(/\s+/g, " ").trim();
+  }
   if (spokenFamily && !String(draftDish || "").trim()) return spokenFamily;
   return String(draftDish || spoken).trim();
 }
@@ -307,7 +314,9 @@ export function parseDateText(text: string): string | null {
 
   const today = istCalendarYmd();
   if (/\b(today|innaiku|inniku)\b/.test(t)) return today;
-  if (/\b(tomorrow|tomo|tmr|tmrw|naalai|nalai|naalaiku)\b/.test(t)) return istAddCalendarDays(today, 1);
+  if (/\b(tomorrow|tomorow|tommorow|tommorows|tommorrow|tomo|tmr|tmrw|naalai|nalai|naalaiku)\b/.test(t)) {
+    return istAddCalendarDays(today, 1);
+  }
   if (/\b(day after tomorrow|day after|naalaimarunaal)\b/.test(t)) return istAddCalendarDays(today, 2);
 
   const monthNames =
@@ -702,11 +711,12 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
 
   const cart: CartItem[] = [];
   for (const raw of rawItems.slice(0, WA_CART_MAX)) {
-    const matches = searchMenuDishes(menu, String(raw.dish));
+    const dishLine = dishChoiceQuery(String(raw.dish), input.sourceText);
+    const matches = searchMenuDishes(menu, dishLine);
     if (matches.length === 0) {
       return { ok: false, kind: "missing", field: "dish" };
     }
-    const named = identifyingWords(String(raw.dish));
+    const named = identifyingWords(dishLine);
     let covering = named.length
       ? matches.filter((item) => {
           const name = tokens(item.name);

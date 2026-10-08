@@ -123,6 +123,29 @@ check(
     "I need to order black pepper chicken gravy for 8th oct lunch 500gm, cash",
   ) === "black pepper chicken gravy",
 );
+check(
+  "black pepper chicken without gravy is not flattened to chicken",
+  dishChoiceQuery(
+    "chicken",
+    "i need black pepper chicken 500gm tommorows dinner cash payment",
+  ) === "black pepper chicken",
+);
+check("tommorows is tomorrow", parseDateText("tommorows dinner") === tomorrow);
+const barePepper = applySpokenCheckout(
+  { items: [{ dish: "chicken" }] },
+  "i need black pepper chicken 500gm tommorows dinner cash payment",
+);
+check("tommorows dinner sets slot", barePepper.slot === "dinner");
+check("spoken cash on bare pepper order", barePepper.payment === "cash");
+check("tommorows sets delivery date", barePepper.date === tomorrow);
+const pepperFamily = applySpokenFamily(
+  { items: [{ dish: "chicken" }] },
+  "i need black pepper chicken 500gm tommorows dinner cash payment",
+);
+check(
+  "bare pepper sentence upgrades chicken draft",
+  pepperFamily.items?.[0]?.dish === "black pepper chicken",
+);
 check("8th oct is a calendar day", parseDateText("for 8th oct lunch")?.endsWith("-10-08") === true);
 const spoken = applySpokenCheckout(
   { items: [{ dish: "chicken gravy" }], slot: "dinner", payment: "online" },
