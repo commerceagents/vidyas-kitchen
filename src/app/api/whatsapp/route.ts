@@ -192,6 +192,7 @@ import {
   buildProposal,
   dishChoiceQuery,
   dishQueryCategory,
+  filterDishChoicesByIdentifyingWords,
   fillDraftFromReply,
   notedDeliveryDate,
   isProposalStillValid,
@@ -2816,7 +2817,7 @@ async function presentProposal(
     const draftDish = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ");
     const query = dishChoiceQuery(draftDish, sourceText);
     const family = dishQueryCategory(query) || dishQueryCategory(sourceText || "") || dishQueryCategory(draftDish);
-    const options = await closeDishChoices(menu, query, family);
+    const options = pickCanonicalRows(filterDishChoicesByIdentifyingWords(await closeDishChoices(menu, query, family), query));
     preparedChoices = options;
     if (options.length === 1) {
       const named: ProposalDraft = {
@@ -2887,7 +2888,17 @@ async function presentProposal(
       const draftDish = (draft.items || []).map((item) => item.dish).filter(Boolean).join(" ");
       const query = dishChoiceQuery(draftDish, sourceText);
       const family = dishQueryCategory(query) || dishQueryCategory(sourceText || "") || dishQueryCategory(draftDish);
-      const options = preparedChoices ?? (await closeDishChoices(menu, query, family));
+      const rawOptions = preparedChoices ?? (await closeDishChoices(menu, query, family));
+      const options = pickCanonicalRows(filterDishChoicesByIdentifyingWords(rawOptions, query));
+      if (options.length === 1) {
+        const named: ProposalDraft = {
+          ...draft,
+          items: (draft.items || []).map((item, index) =>
+            index === 0 ? { ...item, dish: options[0].name } : item,
+          ),
+        };
+        return await presentProposal(from, named, sourceText);
+      }
       if (options.length > 0) {
         const statedSize = parsePackSize(sourceText || "");
         const pick = options.slice(0, 10);

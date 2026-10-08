@@ -22,7 +22,7 @@ import { nextBookableDateForKind } from "@/lib/whatsapp-last-order";
 import { WA_CART_MAX } from "@/lib/whatsapp-copy";
 import { cartGrandTotal, cartItemsSubtotal, type CartItem } from "@/lib/whatsapp-cart";
 import { isCodAllowedForTotal } from "@/lib/cod-policy";
-import { unitPriceFor, resolveDishPricing, type PackSize } from "@/lib/menu/dish-pricing";
+import { pickCanonicalRows, unitPriceFor, resolveDishPricing, type PackSize } from "@/lib/menu/dish-pricing";
 import type { MenuItem } from "@/lib/ai/agent";
 
 export type ProposalPaymentMethod = "online" | "cod";
@@ -144,7 +144,7 @@ function stylePhrase(family: "chicken" | "mutton" | "egg", text: string): string
 const ORDER_FILLER = new Set([
   "to", "it", "on", "at", "in", "is", "be", "do", "so", "up", "we", "us",
   "like", "would", "can", "get", "send", "book", "place", "start", "make",
-  "need", "order", "want", "please", "payment", "pay",
+  "need", "order", "want", "please", "payment", "pay", "qty", "quantity", "quantities", "pack", "packs",
   "tomorrow", "tomorow", "tommorow", "tommorows", "tommorrow", "today", "tonight", "tomo", "tmr", "tmrw", "naalai", "nalai",
   "dinner", "lunch", "breakfast", "night", "evening", "morning", "noon",
   "cash", "cod", "online", "upi", "card",
@@ -407,14 +407,47 @@ export function applySpokenSize(draft: ProposalDraft, source?: string | null): P
  * Date, size, slot, and payment named in this sentence overwrite leftovers.
  * "8th oct lunch, cash" must not keep yesterday's dinner slot.
  */
+export function applySpokenQuantity(draft: ProposalDraft, source?: string | null): ProposalDraft {
+  const text = String(source || "");
+  const packs = parsePackQuantities(text);
+  if (packs.length === 1) {
+    return {
+      ...draft,
+      items: (draft.items || []).map((item) => ({
+        ...item,
+        size: item.size || packs[0].size,
+        quantity: packs[0].quantity,
+      })),
+    };
+  }
+  const qty = parseSpokenQuantity(text);
+  if (qty != null && qty >= 1) {
+    return {
+      ...draft,
+      items: (draft.items || []).map((item) => ({ ...item, quantity: qty })),
+    };
+  }
+  return draft;
+}
+
 export function applySpokenCheckout(draft: ProposalDraft, source?: string | null): ProposalDraft {
   const text = String(source || "");
-  let next = applySpokenSize(applySpokenDate(draft, text), text);
+  let next = applySpokenQuantity(applySpokenSize(applySpokenDate(draft, text), text), text);
   const slot = parseSlotWord(text);
   if (slot) next = { ...next, slot };
   const pay = parsePaymentMethod(text);
   if (pay) next = { ...next, payment: pay === "cod" ? "cash" : "online" };
   return next;
+}
+
+/** Drop lookalikes when the customer named a specific dish — "black pepper" is not sister-in-law pepper. */
+export function filterDishChoicesByIdentifyingWords(options: MenuItem[], query: string): MenuItem[] {
+  const ids = identifyingWords(String(query || ""));
+  if (ids.length === 0) return options;
+  return options.filter((item) => {
+    const name = tokens(item.name);
+    return ids.every((word) => name.some((part) => part.startsWith(word) || word.startsWith(part)));
+  });
 }
 
 /** Write the noted day onto the draft, and drop a leftover past date. */
@@ -725,20 +758,21 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
       : matches;
     const tight = matches.filter((m) => m.name.toLowerCase() === String(raw.dish).toLowerCase().trim());
     if (tight.length === 1) covering = tight;
+    const canonical = pickCanonicalRows(covering.length > 0 ? covering : matches);
     // "black pepper" is one dish. "chicken gravy" is the whole family.
-    if (covering.length !== 1) {
+    if (canonical.length !== 1) {
       const bareFamily = named.length === 0 && matches.length > 1 && tokens(String(raw.dish)).length < 3;
-      const namedButUnclear = named.length > 0;
+      const namedButUnclear = named.length > 0 && canonical.length > 1;
       if (bareFamily || namedButUnclear) {
         return {
           ok: false,
           kind: "missing",
           field: "dish",
-          dishOptions: (covering.length > 0 ? covering : matches).slice(0, 8),
+          dishOptions: canonical.slice(0, 8),
         };
       }
     }
-    const item = covering[0] || matches[0];
+    const item = canonical[0] || covering[0] || matches[0];
 
     const size =
       parsePackSize(String(raw.size || "")) ??
@@ -748,7 +782,12 @@ export function buildProposal(input: BuildProposalInput): ProposalResult {
       return { ok: false, kind: "missing", field: "size", dishOptions: [item] };
     }
 
-    const quantity = Math.max(1, Math.min(10, Math.floor(Number(raw.quantity) || 1)));
+    const packQty = parsePackQuantities(String(input.sourceText || "")).find((row) => row.size === size);
+    const spokenQty = parseSpokenQuantity(String(input.sourceText || ""));
+    const quantity = Math.max(
+      1,
+      Math.min(10, Math.floor(Number(raw.quantity) || packQty?.quantity || spokenQty || 1)),
+    );
     const unitPrice = unitPriceFor(item, size);
     if (unitPrice <= 0) {
       return { ok: false, kind: "rejected", reason: "We could not price that dish. Please pick it from the menu." };

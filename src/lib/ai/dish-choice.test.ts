@@ -7,9 +7,12 @@ import {
   applySpokenCheckout,
   applySpokenFamily,
   applySpokenSize,
+  buildProposal,
   dishChoiceQuery,
+  filterDishChoicesByIdentifyingWords,
   notedDeliveryDate,
   parseDateText,
+  parsePackQuantities,
 } from "./order-proposal";
 import { isGravyStyleDish } from "../menu/embeddings";
 import { buildDishListPrompt } from "../whatsapp-copy";
@@ -146,6 +149,50 @@ check(
   "bare pepper sentence upgrades chicken draft",
   pepperFamily.items?.[0]?.dish === "black pepper chicken",
 );
+const fullPepperMsg =
+  "I would like to order black pepper chicken for tomorrow's dinner 500gm cash payment";
+check("tomorrow's dinner is tomorrow", parseDateText(fullPepperMsg) === tomorrow);
+const fullPepperDraft = applySpokenFamily(
+  applySpokenCheckout({ items: [{ dish: "chicken" }] }, fullPepperMsg),
+  fullPepperMsg,
+);
+const pepperMenu = [
+  { id: "38a96232-c038-4fb8-a399-fcbb4a3e1e2e", name: "BLACK PEPPER CHICKEN GRAVY", category: "chicken", price: 799, created_at: "2026-04-11T19:29:24.718Z" },
+  { id: "921303ff-b004-4f1e-b8f9-1edc3c122ed7", name: "Black Pepper Chicken Gravy (500gm)", category: "chicken", price: 399, created_at: "2026-05-27T11:07:40.849Z" },
+  { id: "8c621691-b064-4f1f-9fff-df8a23dde896", name: "Black Pepper Chicken Gravy (1kg)", category: "chicken", price: 799, created_at: "2026-05-27T11:07:40.849Z" },
+  { id: "sil", name: "PEPPER CHICKEN (SISTER-IN-LAW'S RECIPE)", category: "chicken", price: 425, created_at: "2026-05-27T11:07:40.849Z" },
+];
+const fullPepperProposal = buildProposal({
+  menu: pepperMenu,
+  draft: fullPepperDraft,
+  sourceText: fullPepperMsg,
+  lastAddress: "12 Gandhi Nagar, Sivakasi",
+  lastSlotKind: "dinner",
+});
+check(
+  "a full black pepper sentence builds a proposal, not a picker",
+  fullPepperProposal.ok === true &&
+    fullPepperProposal.proposal?.cart[0]?.variant === "500gm" &&
+    fullPepperProposal.proposal?.slotKind === "dinner",
+);
+check(
+  "black pepper query drops sister-in-law pepper from choices",
+  filterDishChoicesByIdentifyingWords(pepperMenu, "black pepper chicken").length === 3 &&
+    !filterDishChoicesByIdentifyingWords(pepperMenu, "black pepper chicken").some((row) => row.id === "sil"),
+);
+check("500gm 2 qty parses", parsePackQuantities("500gm 2 qty")[0]?.quantity === 2);
+const qtyMsg = "black pepper chicken 500gm 2 qty tomorrow dinner cash";
+const twoPack = applySpokenCheckout({ items: [{ dish: "black pepper chicken" }] }, qtyMsg);
+check("500gm 2 qty lands on the draft", twoPack.items?.[0]?.size === "500gm" && twoPack.items?.[0]?.quantity === 2);
+check("qty is not treated as part of the dish name", twoPack.items?.[0]?.dish === "black pepper chicken");
+const twoPackProposal = buildProposal({
+  menu: pepperMenu,
+  draft: applySpokenFamily(twoPack, qtyMsg),
+  sourceText: qtyMsg,
+  lastAddress: "12 Gandhi Nagar, Sivakasi",
+  lastSlotKind: "dinner",
+});
+check("two packs of 500gm are priced", twoPackProposal.ok === true && twoPackProposal.proposal?.cart[0]?.quantity === 2);
 check("8th oct is a calendar day", parseDateText("for 8th oct lunch")?.endsWith("-10-08") === true);
 const spoken = applySpokenCheckout(
   { items: [{ dish: "chicken gravy" }], slot: "dinner", payment: "online" },
