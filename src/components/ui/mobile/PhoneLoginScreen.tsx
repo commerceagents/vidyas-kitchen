@@ -579,27 +579,35 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
   // state update commits.
   useEffect(() => {
     const el = otpCatcherRef.current;
-    if (!el || !showOtp || otpVerifySuccess) return;
+    if (!el || !showOtp || otpVerifySuccess || verifyLoading) return;
     const onNativeInput = (e: Event) => {
       applyIncomingOtpRef.current((e.target as HTMLInputElement).value);
     };
     el.addEventListener("input", onNativeInput);
     return () => el.removeEventListener("input", onNativeInput);
-  }, [showOtp, otpVerifySuccess]);
+  }, [showOtp, otpVerifySuccess, verifyLoading]);
 
-  // Keep the catcher focused throughout the OTP flow so Android's keyboard
-  // suggestion bar appears and stays linked to the right field.
+  // After a wrong or expired code the catcher must stay live — refocus once the
+  // spinner clears so iOS/Android keyboards come back without a manual tap.
   useEffect(() => {
-    if (!showOtp || otpVerifySuccess || verifyLoading) return;
+    if (!showOtp || otpVerifySuccess || verifyLoading || !otpError) return;
     const t = window.setTimeout(() => {
       const el = otpCatcherRef.current;
       if (!el) return;
-      // Reset the DOM value so previous digits don't linger in an uncontrolled input.
       el.value = "";
-      el.focus();
+      el.focus({ preventScroll: true });
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [showOtp, otpVerifySuccess, verifyLoading, otpError]);
+
+  // Keep the catcher focused when the OTP sheet opens or a fresh code is sent.
+  useEffect(() => {
+    if (!showOtp || otpVerifySuccess || verifyLoading || otpError) return;
+    const t = window.setTimeout(() => {
+      otpCatcherRef.current?.focus({ preventScroll: true });
     }, 40);
     return () => window.clearTimeout(t);
-  }, [showOtp, sendLoading, otpVerifySuccess, verifyLoading]);
+  }, [showOtp, sendLoading, otpVerifySuccess, verifyLoading, resendEpoch, otpError]);
 
   const dismissOtp = useCallback(() => {
     if (otpVerifySuccess) return;
@@ -852,29 +860,41 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                   </div>
                   <p style={SUCCESS_STATUS.hint}>Taking you to the map…</p>
                 </div>
-              ) : verifyLoading ? (
-                <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span
-                    aria-hidden
-                    style={{
-                      display: "block",
-                      width: 48,
-                      height: 48,
-                      borderRadius: "50%",
-                      border: "4px solid rgba(189,35,32,0.2)",
-                      borderTopColor: C.red,
-                      animation: "vk-otp-spin 0.75s linear infinite",
-                    }}
-                  />
-                  <style>{`@keyframes vk-otp-spin { to { transform: rotate(360deg); } }`}</style>
-                </div>
               ) : (
-                <div>
+                <div style={{ position: "relative" }}>
+                  {verifyLoading && (
+                    <div
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(245,245,247,0.72)",
+                        borderRadius: 16,
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "block",
+                          width: 48,
+                          height: 48,
+                          borderRadius: "50%",
+                          border: "4px solid rgba(189,35,32,0.2)",
+                          borderTopColor: C.red,
+                          animation: "vk-otp-spin 0.75s linear infinite",
+                        }}
+                      />
+                      <style>{`@keyframes vk-otp-spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  )}
                   <form
                     autoComplete="on"
                     onSubmit={(e) => e.preventDefault()}
                     style={S.otpRow}
-                    onClick={() => otpCatcherRef.current?.focus()}
+                    onClick={() => !verifyLoading && otpCatcherRef.current?.focus()}
                   >
                     {otp.map((digit, i) => {
                       const filledLen = otp.join("").length;
@@ -925,8 +945,13 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                       maxLength={OTP_LEN}
                       defaultValue=""
                       autoFocus
+                      readOnly={verifyLoading}
                       aria-label="One-time code"
-                      style={S.otpCatcher}
+                      aria-invalid={otpError}
+                      style={{
+                        ...S.otpCatcher,
+                        pointerEvents: verifyLoading ? "none" : "auto",
+                      }}
                     />
                   </form>
 
@@ -941,7 +966,9 @@ export function PhoneLoginScreen({ onVerified, prefilledPhone, displayName }: Ph
                         fontFamily: C.mono,
                       }}
                     >
-                      That code didn&apos;t work. Try again.
+                      {canResend
+                        ? "That code didn't work — it may have expired. Tap Resend code, then try again."
+                        : "That code didn't work. Try again."}
                     </p>
                   )}
 
