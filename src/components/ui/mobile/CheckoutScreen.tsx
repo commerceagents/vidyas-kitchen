@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from "react";
-import Image from "next/image";
+import { ProtectedMenuImage } from "@/components/ui/mobile/ProtectedMenuImage";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -1311,7 +1311,7 @@ export function CheckoutScreen({
                               background: "rgba(0,0,0,0.04)",
                             }}
                           >
-                            <Image
+                            <ProtectedMenuImage
                               src={item.image}
                               alt={fullDishName}
                               fill
@@ -1785,7 +1785,7 @@ export function CheckoutScreen({
                         zIndex: 3 - i,
                       }}
                     >
-                      <Image src={it.image} alt="" fill sizes="34px" style={{ objectFit: "cover" }} />
+                      <ProtectedMenuImage src={it.image} alt="" fill sizes="34px" style={{ objectFit: "cover" }} />
                     </div>
                   ))}
                 </div>

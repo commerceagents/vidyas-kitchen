@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, RefObject, useCallback, useMemo, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import Image from "next/image";
+import { ProtectedMenuImage } from "@/components/ui/mobile/ProtectedMenuImage";
 import { House, Receipt, User, MagnifyingGlass, ArrowLeft, ArrowRight, Heart, X, Star, Faders, ShoppingBag, MapPin, Warning, Plus, Lightning, Briefcase, Check } from "@phosphor-icons/react";
 
 import { supabase } from "@/lib/supabase";
@@ -717,7 +717,7 @@ function BestSellingCard({
               willChange: "transform",
             }}
           >
-            <Image
+            <ProtectedMenuImage
               src={imgSrc}
               alt={item.name}
               fill
@@ -1105,7 +1105,7 @@ function DishDetailView({
               />
             )}
           </AnimatePresence>
-          <Image
+          <ProtectedMenuImage
             src={imgSrc}
             alt={item.name}
             fill
@@ -1550,7 +1550,7 @@ function DishDetailView({
                         background: "rgba(0,0,0,0.04)",
                       }}
                     >
-                      <Image src={thumb} alt={sn} fill sizes="64px" style={{ objectFit: "cover" }} />
+                      <ProtectedMenuImage src={thumb} alt={sn} fill sizes="64px" style={{ objectFit: "cover" }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p
@@ -3938,7 +3938,7 @@ function MenuGridCard({
             {gridChip.text}
           </span>
         )}
-        <Image
+        <ProtectedMenuImage
           src={imgSrc}
           alt=""
           fill

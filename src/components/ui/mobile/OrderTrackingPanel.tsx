@@ -13,6 +13,7 @@ import { CenterSpinner, EmptyState, EMPTY_ICON_COLOR } from "@/components/ui/mob
 import { C, C_TEXT_MUTED, C_TEXT_SEC } from "@/components/ui/mobile/mobile-design-tokens";
 import { TYPO as TypeScale } from "@/components/ui/mobile/mobile-typography";
 import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
+import { ProtectedMenuPhoto } from "@/components/ui/mobile/ProtectedMenuImage";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
@@ -1717,8 +1718,7 @@ export function OrderTrackingPanel({
                           aria-hidden
                         >
                           {thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- menu photo from public/menu-images
-                            <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <ProtectedMenuPhoto src={thumb} alt="" />
                           ) : (
                             <CookingPot size={22} weight="regular" color={C.red} />
                           )}

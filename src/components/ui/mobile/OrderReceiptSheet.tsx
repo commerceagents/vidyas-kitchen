@@ -12,6 +12,7 @@ import { formatOrderRef, normalizeOrderStatus, OrderStatus } from "@/lib/order-s
 import { whatsappBotLink } from "@/lib/whatsapp-copy";
 import { getVkToken } from "@/lib/vk-session";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
+import { ProtectedMenuPhoto } from "@/components/ui/mobile/ProtectedMenuImage";
 
 const fontUi = C.mono;
 
@@ -279,8 +280,7 @@ export function OrderReceiptSheet({
                     }}
                   >
                     {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- menu photo from public/menu-images
-                      <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <ProtectedMenuPhoto src={thumb} alt="" />
                     ) : (
                       <CookingPot size={20} weight="regular" color={C.red} />
                     )}

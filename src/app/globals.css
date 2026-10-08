@@ -82,6 +82,22 @@ body {
   color: rgba(0, 0, 0, 0.32);
 }
 
+/* Copyright menu photography — discourage save / copy on long-press */
+.vk-menu-photo,
+.vk-menu-photo img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.vk-menu-photo-shield {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
 .btn-primary {
   background: var(--primary);
   color: white;
