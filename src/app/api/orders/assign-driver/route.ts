@@ -4,6 +4,7 @@ import { requireDashboardSession } from "@/lib/dashboard-auth";
 import { sendText } from "@/lib/whatsapp-send";
 import { normalizeDriverPhone } from "@/lib/driver-auth";
 import { notifyDriverAssigned } from "@/lib/push-driver-notify";
+import { resolveOrderCustomerContact } from "@/lib/order-customer";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://vidyaskitchenhome.com";
 
@@ -22,7 +23,9 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error } = await supabaseAdmin
       .from("orders")
-      .select("id, delivery_address, users:customer_id(full_name), order_items(quantity, menu_items(name))")
+      .select(
+        "id, phone_number, recipient_name, recipient_phone, delivery_address, users:customer_id(full_name, phone_number), order_items(quantity, menu_items(name))",
+      )
       .eq("id", orderId)
       .single();
 
@@ -32,12 +35,15 @@ export async function POST(req: NextRequest) {
 
     const r = row as {
       id: string;
+      phone_number?: string | null;
+      recipient_name?: string | null;
+      recipient_phone?: string | null;
       delivery_address?: string | null;
-      users?: { full_name?: string | null } | null;
+      users?: { full_name?: string | null; phone_number?: string | null } | null;
       order_items?: { quantity?: number | null; menu_items?: { name?: string | null } | null }[] | null;
     };
 
-    const customerName = r.users?.full_name?.trim() || "Customer";
+    const customer = await resolveOrderCustomerContact(supabaseAdmin, r);
     const items = Array.isArray(r.order_items) ? r.order_items : [];
     const first = items[0];
     let itemLine = "See kitchen list";
@@ -50,7 +56,8 @@ export async function POST(req: NextRequest) {
     const driverUrl = `${SITE}/driver/order/${encodeURIComponent(orderId)}`;
     const text =
       `🍱 *New delivery for you!*\n\n` +
-      `Customer: ${customerName}\n` +
+      `Customer: ${customer.name}\n` +
+      (customer.phone ? `Phone: ${customer.phone}\n` : "") +
       `Item: ${itemLine}\n` +
       `Address: ${r.delivery_address || "—"}\n\n` +
       `Open the driver app to pick up & deliver:\n${driverUrl}`;

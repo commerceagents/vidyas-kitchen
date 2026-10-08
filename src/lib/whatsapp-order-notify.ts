@@ -29,7 +29,8 @@ import {
 import { giftTrackUrl } from "@/lib/gift-track";
 import { sendSms } from "@/lib/sms";
 import { toE164Phone } from "@/lib/test-numbers";
-import { updateSession } from "@/lib/whatsapp-session";
+import { getSession, updateSession } from "@/lib/whatsapp-session";
+import { staleNoticeAlreadySent, turnsWithStaleOrder } from "@/lib/whatsapp-stale-order";
 import { loadWaLang } from "@/lib/whatsapp-lang";
 import { formatInr } from "@/lib/menu/dish-pricing";
 import { formatFullDishName } from "@/lib/dish-name";
@@ -317,11 +318,17 @@ async function sendOlderOrderNotice(
   kind: OlderOrderKind,
   trackUrl: string,
 ): Promise<void> {
+  const session = await getSession(to).catch(() => null);
+  if (session && staleNoticeAlreadySent(session.recent_turns, order.id, kind)) return;
+
   const slotLine = formatSlotLineForCustomer(order.delivery_slot, order.delivery_slot_kind) || "the booked time";
   const text = olderOrderAskReply(ref, slotLine, kind);
   const buttons = olderOrderButtons(kind);
   try {
-    await updateSession(to, { pending_options: buttons });
+    await updateSession(to, {
+      pending_options: buttons,
+      recent_turns: turnsWithStaleOrder(session?.recent_turns, order.id, kind),
+    });
   } catch (e) {
     console.error("[whatsapp-order-notify] store older-order buttons", e);
   }

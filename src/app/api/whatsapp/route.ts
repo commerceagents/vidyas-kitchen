@@ -6,6 +6,13 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import { supabase } from "@/lib/supabase";
 import { decodeOrderRatingButtonId } from "@/lib/whatsapp-order-notify";
 import { saveOrderRatingByPhone, saveOrderRatingCommentByPhone } from "@/lib/order-rating";
+import { transitionOrderStatusInDb } from "@/lib/order-transition";
+import { OrderStatus } from "@/lib/order-status";
+import {
+  readStaleOrderContext,
+  staleNoticeAlreadySent,
+  turnsWithStaleOrder,
+} from "@/lib/whatsapp-stale-order";
 import { createPaymentLink } from "@/lib/payments";
 import {
   istCalendarYmd,
@@ -682,6 +689,31 @@ async function focusComplaintOrder(from: string, order: ComplaintOrder) {
   return await askComplaintNote(from, order, order.items.length === 1 ? 0 : "all");
 }
 
+async function confirmStaleArrived(from: string) {
+  const session = await getSession(from);
+  const ctx = readStaleOrderContext(session.recent_turns);
+  if (ctx?.orderId) {
+    const result = await transitionOrderStatusInDb(createServerSupabase(), ctx.orderId, OrderStatus.DELIVERED, {
+      notifyCustomer: false,
+    });
+    if (!result.ok) {
+      console.error("[WA] stale arrived could not mark delivered", ctx.orderId, result.error);
+    }
+  }
+  await sendText(from, olderOrderArrivedReply());
+  return ack();
+}
+
+async function beginStaleComplaint(from: string) {
+  const session = await getSession(from);
+  const ctx = readStaleOrderContext(session.recent_turns);
+  if (ctx?.orderId) {
+    const order = await loadComplaintOrder(from, ctx.orderId);
+    if (order) return await askComplaintNote(from, order, "all");
+  }
+  return await beginComplaint(from);
+}
+
 async function beginComplaint(from: string) {
   const orders = await loadComplaintOrders(from);
   if (orders.length === 0) {
@@ -903,9 +935,16 @@ async function showSpecificOrderStatus(from: string, refNum: string, profileName
   const slotLine = formatSlotLineForCustomer(row.delivery_slot, row.delivery_slot_kind);
   const olderKind = olderKindForAskedOrder(row.status, row.delivery_slot);
   if (olderKind) {
-    const buttons = olderOrderButtons(olderKind);
-    await storeOptions(from, buttons);
-    await sendButtons(from, olderOrderAskReply(ref, slotLine, olderKind), buttons);
+    const session = await getSession(from);
+    if (!staleNoticeAlreadySent(session.recent_turns, row.id, olderKind)) {
+      const buttons = olderOrderButtons(olderKind);
+      await updateSession(from, {
+        pending_options: buttons,
+        recent_turns: turnsWithStaleOrder(session.recent_turns, row.id, olderKind),
+      });
+      await storeOptions(from, buttons);
+      await sendButtons(from, olderOrderAskReply(ref, slotLine, olderKind), buttons);
+    }
     return ack();
   }
 
@@ -1735,15 +1774,15 @@ async function handleResolvedId(
     case "hs_payments":
       return await showPaymentsSummary(from);
     case "stale_issue":
-    case "stale_missing":
       return await beginComplaint(from);
+    case "stale_missing":
+      return await beginStaleComplaint(from);
     case "stale_latest":
       return await showTrackOrder(from);
     case "stale_again":
       return await showQuickReorder(from);
     case "stale_arrived":
-      await sendText(from, olderOrderArrivedReply());
-      return ack();
+      return await confirmStaleArrived(from);
     case "stale_call":
       return await showCallKitchen(from);
     case "rating_skip":
