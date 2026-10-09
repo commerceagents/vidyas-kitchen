@@ -1494,28 +1494,6 @@ export function OrderTrackingPanel({
                       onEta={setRideEta}
                     />
                   ) : null}
-                  {showLiveMap && trackSnap.deliveryAddress ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 10,
-                        right: 10,
-                        bottom: 10,
-                        zIndex: 2,
-                        background: "rgba(255,255,255,0.96)",
-                        borderRadius: 12,
-                        padding: "8px 10px",
-                        boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-                      }}
-                    >
-                      <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.red, fontFamily: fontUi }}>
-                        DELIVERING TO
-                      </p>
-                      <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 700, color: C.text, fontFamily: fontUi, lineHeight: 1.35 }}>
-                        {trackSnap.deliveryAddress}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
 
                 {showLiveMap ? (
