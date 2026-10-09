@@ -226,74 +226,6 @@ export function DriverLoginScreen({
           boxSizing: "border-box",
         }}
       >
-        {/* Pulsing Driver Logo */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.82, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 340, damping: 26 }}
-          style={{
-            marginBottom: 20,
-            position: "relative",
-            width: 110,
-            height: 110,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              aria-hidden
-              style={{
-                position: "absolute",
-                width: 88,
-                height: 88,
-                borderRadius: "50%",
-                border: `1px solid rgba(189,35,32,0.3)`,
-                pointerEvents: "none",
-              }}
-              animate={{
-                scale: [1, 1.45],
-                opacity: [0.3 - i * 0.08, 0],
-              }}
-              transition={{
-                duration: 3.2,
-                repeat: Infinity,
-                ease: "easeOut",
-                delay: i * 1.05,
-              }}
-            />
-          ))}
-
-          <div
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: "50%",
-              overflow: "hidden",
-              boxShadow: "0 10px 32px rgba(189,35,32,0.25)",
-              border: `2.5px solid rgba(189,35,32,0.4)`,
-              position: "relative",
-              zIndex: 2,
-              clipPath: "circle(50% at 50% 50%)",
-              WebkitClipPath: "circle(50% at 50% 50%)",
-              background: "#fff",
-            }}
-          >
-            <img
-              src="/driver-icon-512.png"
-              alt="VK's Driver"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
-          </div>
-        </motion.div>
-
         {/* Brand headers */}
         <motion.p
           initial={{ opacity: 0, y: 6 }}
@@ -326,7 +258,7 @@ export function DriverLoginScreen({
         >
           {driverName ? (
             <span>
-              Hey, <span style={{ color: D.red }}>{driverName.split(" ")[0]}!</span> 👋
+              Hey, <span style={{ color: D.red }}>{driverName.split(" ")[0]}!</span>
             </span>
           ) : (
             "Driver Portal"
