@@ -1218,7 +1218,8 @@ function SecondaryLink({
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       style={{
-        flex: 1,
+        width: "100%",
+        flexShrink: 0,
         height: 50,
         borderRadius: 14,
         background: "transparent",
