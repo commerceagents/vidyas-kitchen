@@ -17,7 +17,7 @@ import { ProtectedMenuPhoto } from "@/components/ui/mobile/ProtectedMenuImage";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
-import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
+import { DELIVERY_ZONE, distanceKm, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { geocodeDeliveryAddress } from "@/lib/ensure-delivery-pin";
 
 // Mapbox GL is ~200kB and only ever renders while an order is out for
@@ -1063,39 +1063,21 @@ function RideStatusCard({
         style={{
           marginTop: 16,
           display: "grid",
-          gridTemplateColumns: rideEta ? "1fr 1fr" : "1fr",
+          gridTemplateColumns: "1fr 1fr",
           gap: 10,
         }}
       >
-        {rideEta ? (
-          <>
-            <RideStatTile
-              label="Est. arrival"
-              value={timerMain}
-              unit={timerUnit || "mins"}
-              accent
-            />
-            <RideStatTile label="Distance" value={kmAway || "—"} unit={distanceUnit} />
-          </>
-        ) : !fresh && fixAt ? (
-          <>
-            <RideStatTile label="Driver" value="—" unit={rideSeenLabel(fixAt)} />
-            <RideStatTile
-              label="Booked slot"
-              value={slot?.time || "—"}
-              unit={slot?.date || "Waiting for live location"}
-            />
-          </>
-        ) : (
-          <>
-            <RideStatTile label="Est. arrival" value="…" unit="Calculating route" accent />
-            <RideStatTile
-              label="Booked slot"
-              value={slot?.time || "—"}
-              unit={slot?.date || "On the way"}
-            />
-          </>
-        )}
+        <RideStatTile
+          label="Est. arrival"
+          value={rideEta ? timerMain : "…"}
+          unit={rideEta ? timerUnit || "mins" : "Calculating route"}
+          accent
+        />
+        <RideStatTile
+          label="Distance"
+          value={kmAway || "…"}
+          unit={kmAway ? distanceUnit : fixAt && !fresh ? rideSeenLabel(fixAt) : "Updating"}
+        />
       </div>
 
       {phone ? (
@@ -1259,7 +1241,12 @@ export function OrderTrackingPanel({
     const addr = trackSnap?.deliveryAddress?.trim();
     if (!outForDelivery || !addr) return;
     const gift = Boolean(trackSnap?.recipientName?.trim() || trackSnap?.isGiftOrder);
-    const needsPin = !apiPinOk || gift;
+    const pinOnKitchen =
+      apiPinOk &&
+      apiLat != null &&
+      apiLng != null &&
+      distanceKm(apiLat, apiLng, DELIVERY_ZONE.lat, DELIVERY_ZONE.lng) < 0.45;
+    const needsPin = !apiPinOk || gift || pinOnKitchen;
     if (!needsPin) return;
 
     let cancelled = false;
@@ -1275,16 +1262,10 @@ export function OrderTrackingPanel({
     return () => {
       cancelled = true;
     };
-  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk]);
+  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk, apiLat, apiLng]);
 
-  const pinLat =
-    isGiftTrack && clientPin?.lat != null
-      ? clientPin.lat
-      : (clientPin?.lat ?? (apiPinOk ? apiLat : null));
-  const pinLng =
-    isGiftTrack && clientPin?.lng != null
-      ? clientPin.lng
-      : (clientPin?.lng ?? (apiPinOk ? apiLng : null));
+  const pinLat = clientPin?.lat ?? (apiPinOk ? apiLat : null);
+  const pinLng = clientPin?.lng ?? (apiPinOk ? apiLng : null);
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
   // Show the last fix even when it has gone quiet — a phone that locked its
   // screen mid-ride stops reporting, and blanking the map then tells the

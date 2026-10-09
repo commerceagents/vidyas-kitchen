@@ -191,32 +191,31 @@ export function LiveDeliveryMap({
   const glidingRef = useRef(false);
   const routeRef = useRef<Route | null>(null);
 
-  const driverInZone =
-    driverLat != null && driverLng != null && isInsideDeliveryZone(driverLat, driverLng);
+  const kitchenLat = DELIVERY_ZONE.lat;
+  const kitchenLng = DELIVERY_ZONE.lng;
+  const driverNearDrop =
+    driverLat != null &&
+    driverLng != null &&
+    Number.isFinite(driverLat) &&
+    Number.isFinite(driverLng) &&
+    isInsideDeliveryZone(driverLat, driverLng) &&
+    haversineMeters(driverLat, driverLng, customerLat, customerLng) <= MAX_SANE_ROUTE_M;
 
-  /** Where Directions starts — never Chennai when the food is riding in Sivakasi. */
-  const routeFrom = useMemo((): LatLng | null => {
-    if (driverInZone && driverLat != null && driverLng != null) {
+  /**
+   * Start of the line the customer should see.
+   * A ping in Chennai (or any fix far from the Sivakasi drop) is not the ride —
+   * the bike works from the kitchen, so the route is kitchen → door until GPS
+   * is actually near the drop.
+   */
+  const routeFrom = useMemo((): LatLng => {
+    if (driverNearDrop && driverLat != null && driverLng != null) {
       return { lat: driverLat, lng: driverLng };
     }
-    if (giftTracking) {
-      return { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
-    }
-    if (driverLat != null && driverLng != null) {
-      return { lat: driverLat, lng: driverLng };
-    }
-    return null;
-  }, [driverInZone, driverLat, driverLng, giftTracking]);
+    return { lat: kitchenLat, lng: kitchenLng };
+  }, [driverNearDrop, driverLat, driverLng, kitchenLat, kitchenLng]);
 
-  /** Scooter icon — snap to the local route when the GPS fix is off-zone. */
-  const markerAt = useMemo((): LatLng | null => {
-    if (driverInZone && driverLat != null && driverLng != null) {
-      return { lat: driverLat, lng: driverLng };
-    }
-    if (giftTracking && routeFrom) return routeFrom;
-    if (driverLat != null && driverLng != null) return { lat: driverLat, lng: driverLng };
-    return null;
-  }, [driverInZone, driverLat, driverLng, giftTracking, routeFrom]);
+  /** Scooter sits on that same local start so it stays in frame with the stroke. */
+  const markerAt = routeFrom;
 
   useEffect(() => {
     shownRef.current = shown;
@@ -417,6 +416,8 @@ export function LiveDeliveryMap({
         const durationS = Number(first?.duration) || 0;
         if (distanceM > MAX_SANE_ROUTE_M) {
           setRoute(null);
+          setRoadCoords(null);
+          roadRef.current = null;
           return;
         }
         setRoute({
@@ -440,15 +441,7 @@ export function LiveDeliveryMap({
   // Without a road route we still draw driver → door, just dashed, so it reads
   // as "roughly this way" rather than "ride through these buildings".
   const pathFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
-    if (roadCoords && roadCoords.length >= 2) {
-      const coords = tailFromRider(roadCoords, shown);
-      if (coords.length < 2) return null;
-      return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
-    }
-    if (!routeFrom) return null;
-    const chordM = haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng);
-    if (chordM > MAX_SANE_ROUTE_M) return null;
-    return {
+    const chord = (): GeoJSON.Feature<GeoJSON.LineString> => ({
       type: "Feature",
       properties: {},
       geometry: {
@@ -458,7 +451,15 @@ export function LiveDeliveryMap({
           [customerLng, customerLat],
         ],
       },
-    };
+    });
+    if (roadCoords && roadCoords.length >= 2) {
+      const coords = tailFromRider(roadCoords, shown ?? routeFrom);
+      if (coords.length >= 2) {
+        return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
+      }
+    }
+    if (haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng) < 15) return null;
+    return chord();
   }, [roadCoords, shown, routeFrom, customerLat, customerLng]);
 
   const onRoad = Boolean(route?.coords?.length);
@@ -468,8 +469,8 @@ export function LiveDeliveryMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || userMoved) return;
-    if (!routeFrom) {
-      map.easeTo({ center: [customerLng, customerLat], zoom: 14, duration: 600 });
+    if (haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng) < 40) {
+      map.easeTo({ center: [customerLng, customerLat], zoom: 15.2, duration: 600 });
       return;
     }
     // Fit the whole road line, not just the endpoints: a route that swings wide
@@ -520,16 +521,12 @@ export function LiveDeliveryMap({
       }
       return;
     }
-    if (routeFrom) {
-      const metres = Math.max(0, Math.round(haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng)));
-      if (metres <= MAX_SANE_ROUTE_M) {
-        cb({
-          minutes: Math.max(1, Math.round(metres / 400)),
-          metres,
-        });
-      } else {
-        cb(null);
-      }
+    const metres = Math.max(0, Math.round(haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng)));
+    if (metres >= 15 && metres <= MAX_SANE_ROUTE_M) {
+      cb({
+        minutes: Math.max(1, Math.round(metres / 400)),
+        metres,
+      });
       return;
     }
     cb(null);
@@ -574,12 +571,12 @@ export function LiveDeliveryMap({
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={
                 onRoad
-                  ? { "line-color": ROUTE_RED, "line-width": 5, "line-opacity": 1 }
+                  ? { "line-color": ROUTE_RED, "line-width": 6, "line-opacity": 1 }
                   : {
                       "line-color": ROUTE_RED,
-                      "line-width": 4.5,
+                      "line-width": 5.5,
                       "line-opacity": 1,
-                      "line-dasharray": [1.6, 1.6],
+                      "line-dasharray": [1.4, 1.2],
                     }
               }
             />
@@ -599,7 +596,7 @@ export function LiveDeliveryMap({
         </Marker>
 
         {shown ? (
-          <Marker longitude={shown.lng} latitude={shown.lat} anchor="center" style={{ zIndex: 3 }}>
+          <Marker longitude={shown.lng} latitude={shown.lat} anchor="center" style={{ zIndex: 5 }}>
             <div
               aria-hidden
               style={{
@@ -612,7 +609,7 @@ export function LiveDeliveryMap({
                 transform: `rotate(${rotation}deg)`,
                 transformOrigin: "50% 50%",
                 transition: roadCoords ? "none" : turnReady ? "transform 0.4s ease-out" : "none",
-                opacity: driverStale ? 0.55 : 1,
+                opacity: 1,
                 pointerEvents: "none",
               }}
             />

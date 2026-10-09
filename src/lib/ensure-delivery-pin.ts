@@ -11,20 +11,29 @@ async function geocodeQuery(query: string): Promise<{ lat: number; lng: number }
   if (!token || q.length < 6) return null;
   const url =
     `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
-    `?access_token=${encodeURIComponent(token)}&country=in&limit=1` +
+    `?access_token=${encodeURIComponent(token)}&country=in&limit=5` +
+    `&types=address,poi,neighborhood,locality` +
     `&proximity=${DELIVERY_ZONE.lng},${DELIVERY_ZONE.lat}`;
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = (await res.json()) as {
-      features?: { center?: [number, number] }[];
+      features?: { center?: [number, number]; place_type?: string[]; relevance?: number }[];
     };
-    const center = data.features?.[0]?.center;
-    if (!center || center.length < 2) return null;
-    const [lng, lat] = center;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    if (!isInsideDeliveryZone(lat, lng)) return null;
-    return { lat, lng };
+    for (const feature of data.features ?? []) {
+      const types = feature.place_type ?? [];
+      // A lone "Sivakasi" city hit sits on the kitchen and hides the route.
+      if (types.length === 1 && (types[0] === "place" || types[0] === "locality" || types[0] === "region")) {
+        continue;
+      }
+      const center = feature.center;
+      if (!center || center.length < 2) continue;
+      const [lng, lat] = center;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      if (!isInsideDeliveryZone(lat, lng)) continue;
+      return { lat, lng };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -37,9 +46,9 @@ export async function geocodeDeliveryAddress(address: string): Promise<{ lat: nu
   const parts = full.split(",").map((p) => p.trim()).filter(Boolean);
   const attempts = [
     full,
-    parts.length >= 2 ? parts.slice(-3).join(", ") : "",
-    parts.find((p) => /sivakasi/i.test(p)) ? `${parts.find((p) => /sivakasi/i.test(p))}, Tamil Nadu` : "",
-    "Parasakthi Colony, Sivakasi, Tamil Nadu",
+    `${full}, Sivakasi, Tamil Nadu`,
+    parts.length >= 2 ? `${parts.slice(-3).join(", ")}, Tamil Nadu` : "",
+    parts.find((p) => /sivakasi/i.test(p)) ? `${parts[0]}, Sivakasi, Tamil Nadu` : "",
   ].filter((q, i, arr) => q && arr.indexOf(q) === i);
 
   for (const q of attempts) {
