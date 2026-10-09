@@ -1252,7 +1252,7 @@ export function OrderTrackingPanel({
   useEffect(() => {
     setClientPin(null);
     const addr = trackSnap?.deliveryAddress?.trim();
-    if (!outForDelivery || !addr) return;
+    if (!outForDelivery || !addr || apiPinOk) return;
 
     let cancelled = false;
     (async () => {
@@ -1267,10 +1267,10 @@ export function OrderTrackingPanel({
     return () => {
       cancelled = true;
     };
-  }, [outForDelivery, trackSnap?.deliveryAddress]);
+  }, [outForDelivery, trackSnap?.deliveryAddress, apiPinOk]);
 
-  const pinLat = clientPin?.lat ?? (apiPinOk ? apiLat : null);
-  const pinLng = clientPin?.lng ?? (apiPinOk ? apiLng : null);
+  const pinLat = apiPinOk ? apiLat : clientPin?.lat ?? null;
+  const pinLng = apiPinOk ? apiLng : clientPin?.lng ?? null;
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
   // Show the last fix even when it has gone quiet — a phone that locked its
   // screen mid-ride stops reporting, and blanking the map then tells the
@@ -1471,6 +1471,7 @@ export function OrderTrackingPanel({
               <div style={{ position: "relative", marginBottom: 14 }}>
                 <div
                   style={{
+                    position: "relative",
                     borderRadius: 22,
                     overflow: "hidden",
                     border: `1px solid ${C.border}`,
@@ -1492,6 +1493,28 @@ export function OrderTrackingPanel({
                       height={preview ? 360 : 280}
                       onEta={setRideEta}
                     />
+                  ) : null}
+                  {showLiveMap && trackSnap.deliveryAddress ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        right: 10,
+                        bottom: 10,
+                        zIndex: 2,
+                        background: "rgba(255,255,255,0.96)",
+                        borderRadius: 12,
+                        padding: "8px 10px",
+                        boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                      }}
+                    >
+                      <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: C.red, fontFamily: fontUi }}>
+                        DELIVERING TO
+                      </p>
+                      <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 700, color: C.text, fontFamily: fontUi, lineHeight: 1.35 }}>
+                        {trackSnap.deliveryAddress}
+                      </p>
+                    </div>
                   ) : null}
                 </div>
 

@@ -71,6 +71,15 @@ function snapAlong(line: RoadLine, lng: number, lat: number): { km: number; inde
   return { km, index: typeof index === "number" ? index : 0 };
 }
 
+/** Hug the road only when the GPS is already on it. A far fix stays where it is. */
+function snapOnRoad(line: RoadLine, lng: number, lat: number): { km: number; point: LatLng } | null {
+  const snap = snapAlong(line, lng, lat);
+  if (!snap) return null;
+  const at = pointAtKm(line, snap.km);
+  if (haversineMeters(lat, lng, at.lat, at.lng) > 250) return null;
+  return { km: snap.km, point: at };
+}
+
 function pointAtKm(line: RoadLine, km: number): LatLng {
   const [lng, lat] = along(line, Math.max(0, km), ALONG).geometry.coordinates;
   return { lng, lat };
@@ -209,12 +218,11 @@ export function LiveDeliveryMap({
     setRoadCoords(latest.coords);
     const here = shownRef.current;
     if (!here) return;
-    const snap = snapAlong(line, here.lng, here.lat);
+    const snap = snapOnRoad(line, here.lng, here.lat);
     if (!snap) return;
     alongKmRef.current = snap.km;
-    const p = pointAtKm(line, snap.km);
-    shownRef.current = p;
-    setShown(p);
+    shownRef.current = snap.point;
+    setShown(snap.point);
     const next = nextRotation(rotationRef.current, headingAtKm(line, snap.km));
     rotationRef.current = next;
     setRotation(next);
@@ -232,18 +240,15 @@ export function LiveDeliveryMap({
     };
 
     if (!from) {
-      if (line) {
-        const snap = snapAlong(line, to.lng, to.lat);
-        if (snap) {
-          alongKmRef.current = snap.km;
-          const p = pointAtKm(line, snap.km);
-          shownRef.current = p;
-          setShown(p);
-          const next = nextRotation(null, headingAtKm(line, snap.km));
-          rotationRef.current = next;
-          setRotation(next);
-          return;
-        }
+      const snap = line ? snapOnRoad(line, to.lng, to.lat) : null;
+      if (snap) {
+        alongKmRef.current = snap.km;
+        shownRef.current = snap.point;
+        setShown(snap.point);
+        const next = nextRotation(null, headingAtKm(line!, snap.km));
+        rotationRef.current = next;
+        setRotation(next);
+        return;
       }
       frame.current = requestAnimationFrame(() => setShown(to));
       return () => cancelAnimationFrame(frame.current);
@@ -267,7 +272,7 @@ export function LiveDeliveryMap({
     }
 
     if (line) {
-      const snap = snapAlong(line, to.lng, to.lat);
+      const snap = snapOnRoad(line, to.lng, to.lat);
       if (snap) {
         if (Math.abs(snap.km - alongKmRef.current) < 0.008) return;
         const fromKm = alongKmRef.current;
@@ -350,12 +355,17 @@ export function LiveDeliveryMap({
     const lng = jumped ? driverLng : here?.lng ?? driverLng;
     const lat = jumped ? driverLat : here?.lat ?? driverLat;
     if (lng == null || lat == null) return;
-    const snap = snapAlong(line, lng, lat);
-    if (!snap) return;
+    const snap = snapOnRoad(line, lng, lat);
+    if (!snap) {
+      if (driverLat != null && driverLng != null) {
+        shownRef.current = { lat: driverLat, lng: driverLng };
+        setShown({ lat: driverLat, lng: driverLng });
+      }
+      return;
+    }
     alongKmRef.current = snap.km;
-    const p = pointAtKm(line, snap.km);
-    shownRef.current = p;
-    setShown(p);
+    shownRef.current = snap.point;
+    setShown(snap.point);
     const next = nextRotation(rotationRef.current, headingAtKm(line, snap.km));
     rotationRef.current = next;
     setRotation(next);
@@ -448,14 +458,12 @@ export function LiveDeliveryMap({
     }
     // Fit the whole road line, not just the endpoints: a route that swings wide
     // would otherwise spill outside the frame.
-    const pts: [number, number][] = roadCoords?.length
-      ? [...roadCoords]
-      : route?.coords?.length
-        ? [...route.coords]
-        : [
-            [routeFrom.lng, routeFrom.lat],
-            [customerLng, customerLat],
-          ];
+    const pts: [number, number][] = [
+      [routeFrom.lng, routeFrom.lat],
+      [customerLng, customerLat],
+    ];
+    const road = roadCoords?.length ? roadCoords : route?.coords;
+    if (road?.length) pts.push(...road);
     // The scooter is still gliding toward this fix. Leave it in the frame,
     // otherwise the camera jumps to the new ping and the rider slides off-screen.
     const riding = shownRef.current;

@@ -13,7 +13,8 @@ async function geocodeQuery(query: string): Promise<{ lat: number; lng: number }
     `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
     `?access_token=${encodeURIComponent(token)}&country=in&limit=5` +
     `&types=address,poi,neighborhood,locality` +
-    `&proximity=${DELIVERY_ZONE.lng},${DELIVERY_ZONE.lat}`;
+    `&proximity=${DELIVERY_ZONE.lng},${DELIVERY_ZONE.lat}` +
+    `&bbox=${DELIVERY_ZONE.lng - 0.16},${DELIVERY_ZONE.lat - 0.14},${DELIVERY_ZONE.lng + 0.16},${DELIVERY_ZONE.lat + 0.14}`;
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
