@@ -8,7 +8,6 @@ import { lineString, point } from "@turf/helpers";
 import nearestPointOnLine from "@turf/nearest-point-on-line";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
-import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { haversineMeters } from "@/lib/geo";
 
 const ROUTE_RED = "#BD2320";
@@ -25,8 +24,6 @@ const GLIDE_MS = 2800;
 const ROUTE_REFRESH_M = 40;
 /** ...or after this long, so traffic-driven ETA changes still land. */
 const ROUTE_MAX_AGE_MS = 45_000;
-/** Sivakasi local delivery — beyond this, pins or Directions are wrong. */
-const MAX_SANE_ROUTE_M = 45_000;
 
 const zoomBtnStyle = {
   width: 36,
@@ -155,9 +152,8 @@ export function LiveDeliveryMap({
   driverLat,
   driverLng,
   /** True when the last GPS fix is old enough that the bike is a memory, not a live position. */
-  driverStale = false,
-  /** Gift senders may be far away — route is always kitchen ↔ Sivakasi drop-off. */
-  giftTracking = false,
+  driverStale: _driverStale = false,
+  giftTracking: _giftTracking = false,
   height,
   onEta,
 }: {
@@ -191,30 +187,13 @@ export function LiveDeliveryMap({
   const glidingRef = useRef(false);
   const routeRef = useRef<Route | null>(null);
 
-  const kitchenLat = DELIVERY_ZONE.lat;
-  const kitchenLng = DELIVERY_ZONE.lng;
-  const driverNearDrop =
-    driverLat != null &&
-    driverLng != null &&
-    Number.isFinite(driverLat) &&
-    Number.isFinite(driverLng) &&
-    isInsideDeliveryZone(driverLat, driverLng) &&
-    haversineMeters(driverLat, driverLng, customerLat, customerLng) <= MAX_SANE_ROUTE_M;
+  /** The scooter is the driver's last real fix — never the kitchen or the sender's house. */
+  const routeFrom = useMemo((): LatLng | null => {
+    if (driverLat == null || driverLng == null) return null;
+    if (!Number.isFinite(driverLat) || !Number.isFinite(driverLng)) return null;
+    return { lat: driverLat, lng: driverLng };
+  }, [driverLat, driverLng]);
 
-  /**
-   * Start of the line the customer should see.
-   * A ping in Chennai (or any fix far from the Sivakasi drop) is not the ride —
-   * the bike works from the kitchen, so the route is kitchen → door until GPS
-   * is actually near the drop.
-   */
-  const routeFrom = useMemo((): LatLng => {
-    if (driverNearDrop && driverLat != null && driverLng != null) {
-      return { lat: driverLat, lng: driverLng };
-    }
-    return { lat: kitchenLat, lng: kitchenLng };
-  }, [driverNearDrop, driverLat, driverLng, kitchenLat, kitchenLng]);
-
-  /** Scooter sits on that same local start so it stays in frame with the stroke. */
   const markerAt = routeFrom;
 
   useEffect(() => {
@@ -414,12 +393,6 @@ export function LiveDeliveryMap({
         if (!coords?.length) throw new Error("no route");
         const distanceM = Number(first?.distance) || 0;
         const durationS = Number(first?.duration) || 0;
-        if (distanceM > MAX_SANE_ROUTE_M) {
-          setRoute(null);
-          setRoadCoords(null);
-          roadRef.current = null;
-          return;
-        }
         setRoute({
           coords,
           distanceM,
@@ -441,6 +414,7 @@ export function LiveDeliveryMap({
   // Without a road route we still draw driver → door, just dashed, so it reads
   // as "roughly this way" rather than "ride through these buildings".
   const pathFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
+    if (!routeFrom) return null;
     const chord = (): GeoJSON.Feature<GeoJSON.LineString> => ({
       type: "Feature",
       properties: {},
@@ -458,7 +432,6 @@ export function LiveDeliveryMap({
         return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
       }
     }
-    if (haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng) < 15) return null;
     return chord();
   }, [roadCoords, shown, routeFrom, customerLat, customerLng]);
 
@@ -469,8 +442,8 @@ export function LiveDeliveryMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || userMoved) return;
-    if (haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng) < 40) {
-      map.easeTo({ center: [customerLng, customerLat], zoom: 15.2, duration: 600 });
+    if (!routeFrom) {
+      map.easeTo({ center: [customerLng, customerLat], zoom: 15, duration: 600 });
       return;
     }
     // Fit the whole road line, not just the endpoints: a route that swings wide
@@ -510,19 +483,14 @@ export function LiveDeliveryMap({
     const cb = onEtaRef.current;
     if (!cb) return;
     if (route) {
-      const metres = Math.max(0, Math.round(route.distanceM));
-      if (metres <= MAX_SANE_ROUTE_M) {
-        cb({
-          minutes: Math.max(1, Math.round(route.durationS / 60)),
-          metres,
-        });
-      } else {
-        cb(null);
-      }
+      cb({
+        minutes: Math.max(1, Math.round(route.durationS / 60)),
+        metres: Math.max(0, Math.round(route.distanceM)),
+      });
       return;
     }
-    const metres = Math.max(0, Math.round(haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng)));
-    if (metres >= 15 && metres <= MAX_SANE_ROUTE_M) {
+    if (routeFrom) {
+      const metres = Math.max(0, Math.round(haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng)));
       cb({
         minutes: Math.max(1, Math.round(metres / 400)),
         metres,

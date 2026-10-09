@@ -17,7 +17,7 @@ import { ProtectedMenuPhoto } from "@/components/ui/mobile/ProtectedMenuImage";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
-import { DELIVERY_ZONE, distanceKm, isInsideDeliveryZone } from "@/lib/delivery-zone";
+import { isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { geocodeDeliveryAddress } from "@/lib/ensure-delivery-pin";
 
 // Mapbox GL is ~200kB and only ever renders while an order is out for
@@ -745,11 +745,11 @@ function formatKm(metres: number) {
   return `${Math.max(50, Math.round(metres / 50) * 50)} m`;
 }
 
-/** Drop cross-country junk when the drop pin and driver fix disagree. */
+/** Keep any real driver → drop distance, including a long trip into Sivakasi. */
 function sanitizeRideEta(eta: { minutes: number; metres: number } | null): { minutes: number; metres: number } | null {
   if (!eta) return null;
   if (!Number.isFinite(eta.minutes) || !Number.isFinite(eta.metres)) return null;
-  if (eta.metres > 45_000 || eta.minutes > 120) return null;
+  if (eta.metres < 0 || eta.minutes < 0) return null;
   return eta;
 }
 
@@ -842,6 +842,20 @@ function RideStatusCard({
   const title = here ? atGiftDoor || "At your door" : "Out for delivery";
   const rideEta = sanitizeRideEta(eta);
   const kmAway = rideEta && !here ? formatKm(rideEta.metres) : null;
+  const arrivalValue = !rideEta
+    ? "…"
+    : rideEta.minutes >= 90
+      ? String(Math.max(1, Math.round(rideEta.minutes / 60)))
+      : String(rideEta.minutes);
+  const arrivalUnit = !rideEta
+    ? "Calculating route"
+    : rideEta.minutes >= 90
+      ? Math.round(rideEta.minutes / 60) === 1
+        ? "hr"
+        : "hrs"
+      : rideEta.minutes === 1
+        ? "min"
+        : "mins";
   const sub = here
     ? giftTo
       ? who
@@ -884,8 +898,6 @@ function RideStatusCard({
           : rideSeenLabel(fixAt)
         : sub
     : sub;
-  const timerMain = here ? "✓" : rideEta ? String(rideEta.minutes) : "–";
-  const timerUnit = here ? "" : !rideEta ? "" : rideEta.minutes === 1 ? "min" : "mins";
   const initial = who ? who.trim().charAt(0).toUpperCase() : "";
 
   if (here) {
@@ -984,7 +996,8 @@ function RideStatusCard({
     );
   }
 
-  const distanceUnit = giftTo ? `to gift in ${DELIVERY_ZONE.name}` : "to you";
+  const distanceUnit =
+    giftTo && giftTo !== "your recipient" ? `to ${giftTo}` : "to delivery";
 
   return (
     <div
@@ -1069,8 +1082,8 @@ function RideStatusCard({
       >
         <RideStatTile
           label="Est. arrival"
-          value={rideEta ? timerMain : "…"}
-          unit={rideEta ? timerUnit || "mins" : "Calculating route"}
+          value={rideEta ? arrivalValue : "…"}
+          unit={arrivalUnit}
           accent
         />
         <RideStatTile
@@ -1240,14 +1253,6 @@ export function OrderTrackingPanel({
     setClientPin(null);
     const addr = trackSnap?.deliveryAddress?.trim();
     if (!outForDelivery || !addr) return;
-    const gift = Boolean(trackSnap?.recipientName?.trim() || trackSnap?.isGiftOrder);
-    const pinOnKitchen =
-      apiPinOk &&
-      apiLat != null &&
-      apiLng != null &&
-      distanceKm(apiLat, apiLng, DELIVERY_ZONE.lat, DELIVERY_ZONE.lng) < 0.45;
-    const needsPin = !apiPinOk || gift || pinOnKitchen;
-    if (!needsPin) return;
 
     let cancelled = false;
     (async () => {
@@ -1262,7 +1267,7 @@ export function OrderTrackingPanel({
     return () => {
       cancelled = true;
     };
-  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk, apiLat, apiLng]);
+  }, [outForDelivery, trackSnap?.deliveryAddress]);
 
   const pinLat = clientPin?.lat ?? (apiPinOk ? apiLat : null);
   const pinLng = clientPin?.lng ?? (apiPinOk ? apiLng : null);
