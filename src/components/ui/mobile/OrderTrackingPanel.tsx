@@ -73,6 +73,8 @@ export type OrderTrackSnap = {
   driverArrivedAt?: string | null;
   driverName?: string | null;
   driverPhone?: string | null;
+  recipientName?: string | null;
+  isGiftOrder?: boolean;
   cancellationDeadline?: string | null;
   paymentLinkId?: string | null;
   lines?: { name: string; quantity: number; unitPrice: number; imageUrl?: string | null }[];
@@ -735,6 +737,12 @@ function DriverCallSheet({
 }
 
 /** Driver and live minutes, sitting under the map so the route stays visible. */
+function formatKm(metres: number) {
+  if (metres >= 10000) return `${Math.round(metres / 1000)} km`;
+  if (metres >= 1000) return `${(metres / 1000).toFixed(1)} km`;
+  return `${Math.max(50, Math.round(metres / 50) * 50)} m`;
+}
+
 function RideStatusCard({
   arrived,
   driverOnMap,
@@ -745,6 +753,7 @@ function RideStatusCard({
   fixAt,
   driverName,
   driverPhone,
+  giftRecipient,
 }: {
   arrived: boolean;
   driverOnMap: boolean;
@@ -755,16 +764,23 @@ function RideStatusCard({
   fixAt: string | null;
   driverName: string | null;
   driverPhone: string | null;
+  giftRecipient?: string | null;
 }) {
   const [callOpen, setCallOpen] = useState(false);
   const phone = driverPhoneParts(driverPhone);
   const who = driverName?.trim() || "";
+  const giftTo = giftRecipient?.trim() || "";
   const here = arrived;
-  const title = here ? "At your door" : "Out for delivery";
+  const title = here ? (giftTo ? "Arrived at delivery address" : "At your door") : "Out for delivery";
+  const kmAway = eta && !here ? formatKm(eta.metres) : null;
   const sub = here
-    ? who
-      ? `${who} is here with your order`
-      : "Your driver is here with your order"
+    ? giftTo
+      ? who
+        ? `${who} is at ${giftTo}'s address with the gift`
+        : `The order for ${giftTo} has arrived`
+      : who
+        ? `${who} is here with your order`
+        : "Your driver is here with your order"
     : !driverOnMap
       ? who
         ? `${who} is on the way to deliver your order`
@@ -774,10 +790,12 @@ function RideStatusCard({
           ? `${who} · ${rideSeenLabel(fixAt)}`
           : rideSeenLabel(fixAt)
         : who
-          ? `${who} is on the way to deliver your order`
-          : "Your driver is on the way to deliver your order";
-  const timerMain = eta ? String(eta.minutes) : "–";
-  const timerUnit = !eta ? "" : eta.minutes === 1 ? "min" : "mins";
+          ? `${who} is on the way${kmAway ? ` · ${kmAway} away` : ""}`
+          : kmAway
+            ? `Driver is on the way · ${kmAway} away`
+            : "Your driver is on the way to deliver your order";
+  const timerMain = here ? "✓" : eta ? String(eta.minutes) : "–";
+  const timerUnit = here ? "" : !eta ? "" : eta.minutes === 1 ? "min" : "mins";
   const initial = who ? who.trim().charAt(0).toUpperCase() : "";
 
   if (here) {
@@ -822,10 +840,10 @@ function RideStatusCard({
           </div>
         </div>
         <p style={{ margin: "14px 0 0", fontSize: 19, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
-          At your door
+          {giftTo ? "Arrived at delivery address" : "At your door"}
         </p>
         <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.35 }}>
-          Your order has arrived
+          {giftTo ? `Gift delivered to ${giftTo}` : "Your order has arrived"}
         </p>
         {phone ? (
           <button
@@ -928,6 +946,28 @@ function RideStatusCard({
           >
             <Phone size={18} weight="fill" />
           </button>
+        ) : null}
+        {kmAway && !here ? (
+          <div
+            aria-hidden
+            style={{
+              flexShrink: 0,
+              padding: "8px 10px",
+              borderRadius: 12,
+              background: C.redFaint,
+              color: C.red,
+              fontSize: 13,
+              fontWeight: 800,
+              fontFamily: fontUi,
+              lineHeight: 1.1,
+              textAlign: "center",
+            }}
+          >
+            {kmAway}
+            <span style={{ display: "block", marginTop: 2, fontSize: 9, fontWeight: 700, opacity: 0.85 }}>
+              {giftTo ? "to gift address" : "to delivery"}
+            </span>
+          </div>
         ) : null}
         <div
           aria-label={here ? "Driver is here" : eta ? `${eta.minutes} minutes away` : "Estimating arrival"}
@@ -1033,10 +1073,17 @@ export function OrderTrackingPanel({
   // it overrides the hero copy instead of moving the stage rail forward.
   const driverArrived = outForDelivery && Boolean(trackSnap?.driverArrivedAt);
   const driverWho = trackSnap?.driverName?.trim() || "";
+  const giftRecipient = trackSnap?.recipientName?.trim() || "";
   const hero = driverArrived
     ? {
-        headline: "Your driver has arrived",
-        sub: driverWho ? `${driverWho} is at your door` : "They're at your door with your order",
+        headline: giftRecipient ? "Arrived at the delivery address" : "Your driver has arrived",
+        sub: giftRecipient
+          ? driverWho
+            ? `${driverWho} is at ${giftRecipient}'s address in Sivakasi`
+            : `The gift for ${giftRecipient} has reached the door`
+          : driverWho
+            ? `${driverWho} is at your door`
+            : "They're at your door with your order",
       }
     : driverWho && outForDelivery
       ? { headline: "On the way", sub: `${driverWho} is on the way to deliver your order` }
@@ -1047,8 +1094,8 @@ export function OrderTrackingPanel({
   // prop is just this device's current session pin, which drifts if the
   // customer changes their address after checkout (or is ordering for someone
   // else entirely).
-  const pinLat = trackSnap?.deliveryLat ?? location?.lat ?? null;
-  const pinLng = trackSnap?.deliveryLng ?? location?.lng ?? null;
+  const pinLat = trackSnap?.deliveryLat ?? null;
+  const pinLng = trackSnap?.deliveryLng ?? null;
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
   // Show the last fix even when it has gone quiet — a phone that locked its
   // screen mid-ride stops reporting, and blanking the map then tells the
@@ -1285,6 +1332,7 @@ export function OrderTrackingPanel({
                     fixAt={trackSnap?.driverLocationAt ?? null}
                     driverName={trackSnap?.driverName ?? null}
                     driverPhone={trackSnap?.driverPhone ?? null}
+                    giftRecipient={giftRecipient || null}
                   />
                   </>
                 ) : (

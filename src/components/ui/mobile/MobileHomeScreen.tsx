@@ -1704,6 +1704,8 @@ type TrackSnapshot = {
   driverArrivedAt?: string | null;
   driverName?: string | null;
   driverPhone?: string | null;
+  recipientName?: string | null;
+  isGiftOrder?: boolean;
   cancellationDeadline?: string | null;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
@@ -1744,6 +1746,8 @@ function toTrackSnapshot(raw: Record<string, unknown>): TrackSnapshot {
     driverArrivedAt: str(raw.driverArrivedAt),
     driverName: str(raw.driverName),
     driverPhone: str(raw.driverPhone),
+    recipientName: str(raw.recipientName),
+    isGiftOrder: raw.isGiftOrder === true,
     cancellationDeadline: str(raw.cancellationDeadline),
     paymentMethod: str(raw.paymentMethod),
     paymentStatus: str(raw.paymentStatus),

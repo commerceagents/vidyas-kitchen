@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { normalizeDriverPhone, requireDriverSession } from "@/lib/driver-auth";
 import { generateUPILink, kitchenUpiVpa } from "@/lib/payments";
+import { ensureOrderDeliveryPin } from "@/lib/ensure-delivery-pin";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -62,12 +63,28 @@ export async function GET(request: Request) {
       if (byPhone?.full_name) users = byPhone;
     }
 
+    const pin = await ensureOrderDeliveryPin(
+      supabase,
+      id,
+      row.delivery_address,
+      (row as { delivery_lat?: number | null }).delivery_lat,
+      (row as { delivery_lng?: number | null }).delivery_lng,
+    );
+
     const amount = Math.round(Number(row.total_amount) || 0);
     const vpa = kitchenUpiVpa();
     const link = amount > 0 ? generateUPILink(amount, String(row.id)) : null;
     const collectUpi = vpa && link ? { vpa, link, amount } : vpa ? { vpa, link: null as string | null, amount } : null;
 
-    return NextResponse.json({ order: { ...row, users, collectUpi } });
+    return NextResponse.json({
+      order: {
+        ...row,
+        delivery_lat: pin.lat,
+        delivery_lng: pin.lng,
+        users,
+        collectUpi,
+      },
+    });
   } catch (e) {
     console.error("[driver-order]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

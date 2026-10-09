@@ -463,15 +463,23 @@ export function LiveDeliveryMap({
   useEffect(() => {
     const cb = onEtaRef.current;
     if (!cb) return;
-    if (!route) {
-      cb(null);
+    if (route) {
+      cb({
+        minutes: Math.max(1, Math.round(route.durationS / 60)),
+        metres: Math.max(0, Math.round(route.distanceM)),
+      });
       return;
     }
-    cb({
-      minutes: Math.max(1, Math.round(route.durationS / 60)),
-      metres: Math.max(0, Math.round(route.distanceM)),
-    });
-  }, [route]);
+    if (driverLat != null && driverLng != null) {
+      const metres = Math.max(0, Math.round(haversineMeters(driverLat, driverLng, customerLat, customerLng)));
+      cb({
+        minutes: Math.max(1, Math.round(metres / 400)),
+        metres,
+      });
+      return;
+    }
+    cb(null);
+  }, [route, driverLat, driverLng, customerLat, customerLng]);
 
   return (
     <div className="vk-live-map" style={{ width: "100%", height, position: "relative" }}>

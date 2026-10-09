@@ -4,6 +4,7 @@ import { computeOrderBreakdownFromItemSubtotal } from "@/lib/order-pricing";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { verifyGiftTrackToken } from "@/lib/gift-track";
 import { authorizePhone } from "@/lib/firebase-verify";
+import { ensureOrderDeliveryPin } from "@/lib/ensure-delivery-pin";
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
         id, order_number, status, updated_at, delivery_address, delivery_slot, delivery_slot_kind, phone_number, rating_stars, rating_comment, total_amount,
         discount_amount, offer_label,
         payment_method, payment_status, cod_failure_reason, payment_link_id,
-        delivery_lat, delivery_lng, cancellation_deadline, recipient_phone,
+        delivery_lat, delivery_lng, cancellation_deadline, recipient_phone, recipient_name,
         driver_last_lat, driver_last_lng, driver_location_at, driver_arrived_at,
         refund_status, refund_amount,
         order_items (
@@ -119,6 +120,11 @@ export async function GET(request: Request) {
       driverPhone = phone.length === 10 ? phone : null;
     }
 
+    const rawLat = (row as { delivery_lat?: number | null }).delivery_lat;
+    const rawLng = (row as { delivery_lng?: number | null }).delivery_lng;
+    const pin = await ensureOrderDeliveryPin(supabase, orderId, row.delivery_address, rawLat, rawLng);
+    const recipientName = String((row as { recipient_name?: string | null }).recipient_name || "").trim() || null;
+
     return NextResponse.json({
       orderId: row.id,
       orderNumber: (row as { order_number?: number | null }).order_number ?? null,
@@ -133,8 +139,10 @@ export async function GET(request: Request) {
       ratingStars: row.rating_stars,
       ratingComment: row.rating_comment,
       totalAmount,
-      deliveryLat: (row as { delivery_lat?: number | null }).delivery_lat ?? null,
-      deliveryLng: (row as { delivery_lng?: number | null }).delivery_lng ?? null,
+      deliveryLat: pin.lat,
+      deliveryLng: pin.lng,
+      recipientName,
+      isGiftOrder: Boolean(recipientName || recPhone.replace(/\D/g, "").length >= 10),
       driverLastLat: (row as { driver_last_lat?: number | null }).driver_last_lat ?? null,
       driverLastLng: (row as { driver_last_lng?: number | null }).driver_last_lng ?? null,
       driverLocationAt: (row as { driver_location_at?: string | null }).driver_location_at ?? null,
