@@ -252,14 +252,23 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
   const isDashboard = (data.url || "").includes("/dashboard") || (data.tag || "").startsWith("vk-dash");
-  const title = data.title || (isDashboard ? "Vidya's Kitchen Dashboard" : "Vidya's Kitchen");
-  const defaultIcon = isDashboard ? "/dashboard-icon-192.png" : "/icon-192.png";
+  const isDriver = (data.url || "").includes("/driver") || (data.tag || "").startsWith("vk-driver");
+  const title = data.title || (isDriver ? "VK's Driver" : isDashboard ? "Vidya's Kitchen Dashboard" : "Vidya's Kitchen");
+  // Android's status icon (badge) must be a white silhouette. A full-colour
+  // square renders as an empty white box. iOS uses the large icon when the
+  // payload provides one, otherwise the installed web app icon.
+  const defaultIcon = isDriver
+    ? "/driver-icon-192.png"
+    : isDashboard
+      ? "/dashboard-icon-192.png"
+      : "/icon-192.png";
+  const defaultBadge = isDriver ? "/driver-badge-96.png" : defaultIcon;
   const options = {
     body: data.body || "",
-    icon: data.icon || defaultIcon,
-    badge: data.badge || defaultIcon,
-    tag: data.tag || (isDashboard ? "vk-dashboard-order" : "vk-order"),
-    data: { url: data.url || (isDashboard ? "/dashboard" : "/") },
+    icon: isDriver ? "/driver-icon-192.png" : (data.icon || defaultIcon),
+    badge: isDriver ? "/driver-badge-96.png" : (data.badge || defaultBadge),
+    tag: data.tag || (isDriver ? "vk-driver-order" : isDashboard ? "vk-dashboard-order" : "vk-order"),
+    data: { url: data.url || (isDriver ? "/driver" : isDashboard ? "/dashboard" : "/") },
   };
   if (Array.isArray(data.actions) && data.actions.length > 0) {
     options.actions = data.actions;
@@ -274,7 +283,6 @@ self.addEventListener("push", (event) => {
   // Home-screen icon number. Kitchen and driver alerts carry the live count of
   // waiting orders; an alert without one (e.g. "driver arrived") leaves the
   // badge as it is rather than resetting it to 1.
-  const isDriver = (data.url || "").includes("/driver") || (data.tag || "").startsWith("vk-driver");
   if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
     if (typeof data.badgeCount === "number") {
       if (data.badgeCount > 0) navigator.setAppBadge(data.badgeCount).catch(() => {});

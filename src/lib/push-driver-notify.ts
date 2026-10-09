@@ -204,7 +204,7 @@ export function driverOrderAlertPayload(input: {
     tag: input.tag,
     url: input.url,
     icon: `${origin}/driver-icon-192.png`,
-    badge: `${origin}/driver-icon-192.png`,
+    badge: `${origin}/driver-badge-96.png`,
     urgent: true,
     actions: [{ action: "open", title: "Open order" }],
   };
