@@ -63,12 +63,14 @@ export async function GET(request: Request) {
       if (byPhone?.full_name) users = byPhone;
     }
 
+    const recipientName = String((row as { recipient_name?: string | null }).recipient_name || "").trim();
     const pin = await ensureOrderDeliveryPin(
       supabase,
       id,
       row.delivery_address,
       (row as { delivery_lat?: number | null }).delivery_lat,
       (row as { delivery_lng?: number | null }).delivery_lng,
+      { giftOrder: Boolean(recipientName || String(row.recipient_phone || "").replace(/\D/g, "").length >= 10) },
     );
 
     const amount = Math.round(Number(row.total_amount) || 0);

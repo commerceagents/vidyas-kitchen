@@ -17,6 +17,7 @@ import { ProtectedMenuPhoto } from "@/components/ui/mobile/ProtectedMenuImage";
 import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
+import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 
 // Mapbox GL is ~200kB and only ever renders while an order is out for
 // delivery, so it stays out of the main bundle.
@@ -1062,6 +1063,7 @@ export function OrderTrackingPanel({
   const [cancelErr, setCancelErr] = useState<string | null>(null);
   const [resumeFetching, setResumeFetching] = useState(false);
   const [resumeErr, setResumeErr] = useState<string | null>(null);
+  const [clientPin, setClientPin] = useState<{ lat: number; lng: number } | null>(null);
 
   const mapToken = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "" : "";
   const stage = trackSnap ? trackStage(trackSnap.status) : -1;
@@ -1094,8 +1096,45 @@ export function OrderTrackingPanel({
   // prop is just this device's current session pin, which drifts if the
   // customer changes their address after checkout (or is ordering for someone
   // else entirely).
-  const pinLat = trackSnap?.deliveryLat ?? null;
-  const pinLng = trackSnap?.deliveryLng ?? null;
+  const apiLat = trackSnap?.deliveryLat ?? null;
+  const apiLng = trackSnap?.deliveryLng ?? null;
+  const apiPinOk =
+    apiLat != null && apiLng != null && Number.isFinite(apiLat) && Number.isFinite(apiLng) && isInsideDeliveryZone(apiLat, apiLng);
+
+  useEffect(() => {
+    setClientPin(null);
+    const addr = trackSnap?.deliveryAddress?.trim();
+    if (!outForDelivery || !addr || !mapToken) return;
+    const gift = Boolean(trackSnap?.recipientName?.trim() || trackSnap?.isGiftOrder);
+    const needsPin = !apiPinOk || gift;
+    if (!needsPin) return;
+
+    let cancelled = false;
+    (async () => {
+      const url =
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addr)}.json` +
+        `?access_token=${encodeURIComponent(mapToken)}&country=in&limit=1` +
+        `&proximity=${DELIVERY_ZONE.lng},${DELIVERY_ZONE.lat}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { features?: { center?: [number, number] }[] };
+        const center = data.features?.[0]?.center;
+        if (!center || cancelled) return;
+        const [lng, lat] = center;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isInsideDeliveryZone(lat, lng)) return;
+        setClientPin({ lat, lng });
+      } catch {
+        /* map still works once /api/orders/status geocodes */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk, mapToken]);
+
+  const pinLat = clientPin?.lat ?? (apiPinOk ? apiLat : null);
+  const pinLng = clientPin?.lng ?? (apiPinOk ? apiLng : null);
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
   // Show the last fix even when it has gone quiet — a phone that locked its
   // screen mid-ride stops reporting, and blanking the map then tells the

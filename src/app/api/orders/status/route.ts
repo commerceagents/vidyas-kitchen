@@ -122,8 +122,10 @@ export async function GET(request: Request) {
 
     const rawLat = (row as { delivery_lat?: number | null }).delivery_lat;
     const rawLng = (row as { delivery_lng?: number | null }).delivery_lng;
-    const pin = await ensureOrderDeliveryPin(supabase, orderId, row.delivery_address, rawLat, rawLng);
     const recipientName = String((row as { recipient_name?: string | null }).recipient_name || "").trim() || null;
+    const pin = await ensureOrderDeliveryPin(supabase, orderId, row.delivery_address, rawLat, rawLng, {
+      giftOrder: Boolean(recipientName || recPhone.replace(/\D/g, "").length >= 10),
+    });
 
     return NextResponse.json({
       orderId: row.id,
