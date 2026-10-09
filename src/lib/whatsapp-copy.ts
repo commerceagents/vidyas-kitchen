@@ -1788,22 +1788,47 @@ export function notifyOrderOutForDelivery(lang?: WaLang): string {
 }
 
 /** The sender of a gift is not at the door. Cash, if any, is collected there. */
-export function notifyGiftSenderDriverArrived(isCod: boolean, amount: number, lang?: WaLang): string {
+export function notifyGiftSenderDriverArrived(
+  isCod: boolean,
+  amount: number,
+  recipientName: string,
+  lang?: WaLang,
+): string {
+  const who = recipientName.trim().split(/\s+/)[0] || "";
+  const atDoor = who ? `${who}'s door` : "the delivery address";
   return pickLang(
     lang,
     msg({
       title: "The driver has arrived",
       lines: [
-        "The driver is at their door.",
-        isCod ? `They pay ${money(amount)} — cash, or the QR on the driver's phone.` : null,
+        `The driver is at ${atDoor}.`,
+        isCod ? `${who || "They"} pay ${money(amount)} — cash, or the QR on the driver's phone.` : null,
       ],
     }),
     msg({
       title: "Driver vandhutaaru",
       lines: [
-        "Driver avanga veetla irukaaru.",
-        isCod ? `Avanga ${money(amount)} cash kudukkalam, illana driver phone-la irukura QR-ah scan pannalam.` : null,
+        who ? `Driver ${who} veetla irukaaru.` : "Driver delivery address-la irukaaru.",
+        isCod ? `${who || "Avanga"} ${money(amount)} cash kudukkalam, illana driver phone-la irukura QR-ah scan pannalam.` : null,
       ],
+    }),
+  );
+}
+
+/** Gift buyer — delivery and taste feedback happen at the recipient, not the sender. */
+export function notifyGiftSenderDelivered(recipientName: string, ref: string, lang?: WaLang): string {
+  const who = recipientName.trim().split(/\s+/)[0] || "the recipient";
+  return pickLang(
+    lang,
+    msg({
+      title: "Gift delivered",
+      lines: [`We handed order ${ref} to ${who}.`, "We asked them how it tasted."],
+      note: "Track anytime from the button below.",
+    }),
+    msg({
+      title: "Gift deliver aachu",
+      lines: [`Order ${ref} ${who}-kku kuduthom.`, "Eppadi irundhuchu-nu avanga-kitta kekanom."],
+      note: "Track panna button-ah use pannunga.",
     }),
   );
 }
@@ -2691,8 +2716,17 @@ export function giftRecipientWhatsApp(kind: GiftNotifyKind, opts: {
       });
     case "delivered":
       return msg({
-        title: "Delivered",
-        lines: [`${sender}'s order is with you. Enjoy.`],
+        title: "🍽️ It's there",
+        lines: [
+          `${sender}'s order is with you. Hope it's still steaming.`,
+          "",
+          "1. Excellent",
+          "2. Good",
+          "3. Okay",
+          "4. Could be better",
+          "5. Not satisfied",
+        ],
+        note: "Reply with a number. It takes a second and it genuinely helps.",
       });
     case "cancelled":
       return msg({

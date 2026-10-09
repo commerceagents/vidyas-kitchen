@@ -772,7 +772,9 @@ function RideStatusCard({
   const who = driverName?.trim() || "";
   const giftTo = giftRecipient?.trim() || "";
   const here = arrived;
-  const title = here ? (giftTo ? "Arrived at delivery address" : "At your door") : "Out for delivery";
+  const atGiftDoor =
+    giftTo && giftTo !== "your recipient" ? `At ${giftTo}'s door` : giftTo ? "At the delivery address" : "";
+  const title = here ? atGiftDoor || "At your door" : "Out for delivery";
   const kmAway = eta && !here ? formatKm(eta.metres) : null;
   const sub = here
     ? giftTo
@@ -784,17 +786,25 @@ function RideStatusCard({
         : "Your driver is here with your order"
     : !driverOnMap
       ? who
-        ? `${who} is on the way to deliver your order`
+        ? giftTo
+          ? giftTo === "your recipient"
+            ? `${who} is on the way to the gift address`
+            : `${who} is on the way to ${giftTo}'s address`
+          : `${who} is on the way to deliver your order`
         : "Your driver will appear once they start sharing their location"
       : !fresh
         ? who
           ? `${who} · ${rideSeenLabel(fixAt)}`
           : rideSeenLabel(fixAt)
         : who
-          ? `${who} is on the way${kmAway ? ` · ${kmAway} away` : ""}`
+          ? giftTo
+            ? `${who} is on the way to ${giftTo === "your recipient" ? "the gift address" : `${giftTo}'s address`}${kmAway ? ` · ${kmAway} away` : ""}`
+            : `${who} is on the way${kmAway ? ` · ${kmAway} away` : ""}`
           : kmAway
             ? `Driver is on the way · ${kmAway} away`
-            : "Your driver is on the way to deliver your order";
+            : giftTo
+              ? "Your driver is on the way to the gift address"
+              : "Your driver is on the way to deliver your order";
   const timerMain = here ? "✓" : eta ? String(eta.minutes) : "–";
   const timerUnit = here ? "" : !eta ? "" : eta.minutes === 1 ? "min" : "mins";
   const initial = who ? who.trim().charAt(0).toUpperCase() : "";
@@ -841,10 +851,14 @@ function RideStatusCard({
           </div>
         </div>
         <p style={{ margin: "14px 0 0", fontSize: 19, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
-          {giftTo ? "Arrived at delivery address" : "At your door"}
+          {atGiftDoor || "At your door"}
         </p>
         <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.35 }}>
-          {giftTo ? `Gift delivered to ${giftTo}` : "Your order has arrived"}
+          {giftTo
+            ? giftTo === "your recipient"
+              ? "The driver has arrived with the gift"
+              : `${who ? `${who} has arrived at ${giftTo}'s door` : `The gift for ${giftTo} has arrived`}`
+            : "Your order has arrived"}
         </p>
         {phone ? (
           <button
@@ -1075,20 +1089,36 @@ export function OrderTrackingPanel({
   // it overrides the hero copy instead of moving the stage rail forward.
   const driverArrived = outForDelivery && Boolean(trackSnap?.driverArrivedAt);
   const driverWho = trackSnap?.driverName?.trim() || "";
-  const giftRecipient = trackSnap?.recipientName?.trim() || "";
+  const giftRecipient =
+    trackSnap?.recipientName?.trim() || (trackSnap?.isGiftOrder ? "your recipient" : "");
   const hero = driverArrived
     ? {
-        headline: giftRecipient ? "Arrived at the delivery address" : "Your driver has arrived",
+        headline: giftRecipient
+          ? giftRecipient === "your recipient"
+            ? "Driver has arrived"
+            : `At ${giftRecipient}'s door`
+          : "Your driver has arrived",
         sub: giftRecipient
           ? driverWho
-            ? `${driverWho} is at ${giftRecipient}'s address in Sivakasi`
-            : `The gift for ${giftRecipient} has reached the door`
+            ? giftRecipient === "your recipient"
+              ? `${driverWho} is at the gift delivery address`
+              : `${driverWho} is at ${giftRecipient}'s door with the gift`
+            : giftRecipient === "your recipient"
+              ? "The gift has reached the delivery address"
+              : `The gift for ${giftRecipient} has reached the door`
           : driverWho
             ? `${driverWho} is at your door`
             : "They're at your door with your order",
       }
     : driverWho && outForDelivery
-      ? { headline: "On the way", sub: `${driverWho} is on the way to deliver your order` }
+      ? {
+          headline: "On the way",
+          sub: giftRecipient
+            ? giftRecipient === "your recipient"
+              ? `${driverWho} is on the way to the gift address`
+              : `${driverWho} is on the way to ${giftRecipient}'s address`
+            : `${driverWho} is on the way to deliver your order`,
+        }
       : heroCopy(trackSnap?.status ?? "");
   const eta = etaParts(trackSnap?.deliverySlot);
   const undelivered = n === "undelivered";
@@ -1371,7 +1401,7 @@ export function OrderTrackingPanel({
                     fixAt={trackSnap?.driverLocationAt ?? null}
                     driverName={trackSnap?.driverName ?? null}
                     driverPhone={trackSnap?.driverPhone ?? null}
-                    giftRecipient={giftRecipient || null}
+                    giftRecipient={giftRecipient ? giftRecipient : null}
                   />
                   </>
                 ) : (

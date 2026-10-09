@@ -14,7 +14,7 @@ import { CheckoutScreen } from "./CheckoutScreen";
 import { GraffitiBurstDots } from "@/components/ui/mobile/GraffitiChip";
 import { clearPendingOnlinePayment, clearUiSession, readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { clearSavedCart, pruneCart, readSavedCart, writeSavedCart } from "@/lib/vk-cart-storage";
-import { isOrderInFlight } from "@/lib/order-status";
+import { isActiveLiveTrackStatus, pickPrimaryLiveOrder } from "@/lib/order-status";
 import { disablePush } from "@/lib/push-subscribe";
 import { getVkToken } from "@/lib/vk-session";
 import {
@@ -538,10 +538,6 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
   const autoResumedTracking = useRef(false);
   useEffect(() => {
     if (autoResumedTracking.current) return;
-    if (trackingOrderId) {
-      autoResumedTracking.current = true;
-      return;
-    }
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) return;
 
@@ -562,19 +558,19 @@ export function MobileShell({ prefilledPhone, prefilledName, cancelOrderId, canc
         };
         if (cancelled || !res.ok || !Array.isArray(data.orders)) return;
 
-        // The API already returns newest first.
-        // Skip pending_payment: those haven't reached the kitchen yet and
-        // no money has changed hands. Auto-resuming them latches the app to
-        // an abandoned checkout screen with no usable actions, and gives the
-        // kitchen board a stream of ghost "Pending Pay" rows on every app
-        // open. The customer can find unpaid orders in their history if
-        // they want to retry or dismiss them.
-        const live = data.orders.find(
-          (o) => isOrderInFlight(o.status) && o.status !== "pending_payment",
-        );
-        if (live) {
-          sessionStorage.setItem(SS_TRACK_ORDER, live.orderId);
-          setTrackingOrderId(live.orderId);
+        const live = pickPrimaryLiveOrder(data.orders);
+        if (!live) return;
+
+        const pinned = trackingOrderId;
+        const pinnedRow = pinned ? data.orders.find((o) => o.orderId === pinned) : null;
+        const pinnedStillLive = pinnedRow ? isActiveLiveTrackStatus(pinnedRow.status) : false;
+
+        // Session storage can keep a delivered order id — bump to the newest in-flight one.
+        if (!pinned || !pinnedStillLive) {
+          if (live.orderId !== pinned) {
+            sessionStorage.setItem(SS_TRACK_ORDER, live.orderId);
+            setTrackingOrderId(live.orderId);
+          }
         }
       } catch {
         // Non-critical: the customer can still reach the order from All orders.

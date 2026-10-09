@@ -15,6 +15,7 @@ import {
   driverPinCaption,
   notifyDriverArrived,
   notifyGiftSenderDriverArrived,
+  notifyGiftSenderDelivered,
   giftRecipientWhatsApp,
   giftRecipientSms,
   olderOrderAskReply,
@@ -269,6 +270,34 @@ function recipientPaysAtDoor(
   return recipient.length === 10 && recipient !== buyer;
 }
 
+async function loadGiftOrderNotifyMeta(
+  order: NotifyOrderRow,
+): Promise<{ isGift: boolean; recipientFirstName: string }> {
+  try {
+    const supabase = createServerSupabase();
+    const { data } = await supabase
+      .from("orders")
+      .select("recipient_name, recipient_phone, phone_number")
+      .eq("id", order.id)
+      .maybeSingle();
+    const recPhone = String((data as { recipient_phone?: string | null } | null)?.recipient_phone || "").replace(
+      /\D/g,
+      "",
+    );
+    const buyerPhone = String(
+      (data as { phone_number?: string | null } | null)?.phone_number || order.phone_number || "",
+    ).replace(/\D/g, "");
+    const isGift = recPhone.length >= 10 && buyerPhone.slice(-10) !== recPhone.slice(-10);
+    const recipientFirstName =
+      String((data as { recipient_name?: string | null } | null)?.recipient_name || "")
+        .trim()
+        .split(/\s+/)[0] || "the recipient";
+    return { isGift, recipientFirstName };
+  } catch {
+    return { isGift: false, recipientFirstName: "the recipient" };
+  }
+}
+
 function giftKindForStatus(status: string): GiftNotifyKind | null {
   switch (status) {
     case OrderStatus.PAID:
@@ -507,6 +536,13 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
       }
     }
     if (!delivered) await sendSms(recPhone, smsBody);
+    if (delivered && waTo) {
+      try {
+        await updateSession(waTo, { pending_options: deliveredRatingPendingOptions(order.id) });
+      } catch (e) {
+        console.error("[WA] store gift recipient delivered rating options", e);
+      }
+    }
   } catch (e) {
     console.error("[whatsapp-order-notify] gift recipient", e);
   }
@@ -514,6 +550,7 @@ async function notifyGiftRecipient(order: NotifyOrderRow, kind: GiftNotifyKind):
 
 export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<void> {
   const giftKind = giftKindForStatus(order.status);
+  const giftMeta = giftKind ? await loadGiftOrderNotifyMeta(order) : null;
   // Awaited, never fire-and-forget: serverless can freeze the moment the caller
   // responds, which silently drops the recipient's message. notifyGiftRecipient
   // swallows its own errors, so this cannot break the buyer's notification.
@@ -656,6 +693,20 @@ export async function notifyWhatsAppOrderEvent(order: NotifyOrderRow): Promise<v
       await card("dispatched");
       break;
     case OrderStatus.DELIVERED: {
+      if (giftMeta?.isGift) {
+        const body = notifyGiftSenderDelivered(giftMeta.recipientFirstName, short, lang);
+        const outcome = await sendCtaUrl(to, body, trackUrl, BTN.track);
+        if (!outcome.ok) {
+          await sendOrderUpdateTemplate(to, {
+            name: await displayNameForPhone(order.phone_number, "there"),
+            ref: short,
+            line: `Your gift was delivered to ${giftMeta.recipientFirstName}. We asked them for feedback.`,
+            slot: bill.slotLine || "See the app for your slot",
+            url: trackUrl,
+          });
+        }
+        break;
+      }
       try {
         await updateSession(to, { pending_options: deliveredRatingPendingOptions(order.id) });
       } catch (e) {
@@ -764,7 +815,7 @@ export async function notifyWhatsAppDriverArrived(
 ): Promise<void> {
   const { data, error } = await supabase
     .from("orders")
-    .select("id, phone_number, recipient_phone, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, order_number")
+    .select("id, phone_number, recipient_phone, recipient_name, status, payment_method, payment_status, total_amount, delivery_slot, delivery_slot_kind, order_number")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -773,6 +824,7 @@ export async function notifyWhatsAppDriverArrived(
   const row = data as {
     phone_number?: string | null;
     recipient_phone?: string | null;
+    recipient_name?: string | null;
     status?: string | null;
     payment_method?: string | null;
     payment_status?: string | null;
@@ -823,8 +875,12 @@ export async function notifyWhatsAppDriverArrived(
     String(row.payment_method || "").toLowerCase() === "cod" &&
     String(row.payment_status || "").toLowerCase() !== "paid";
   const lang = (await loadWaLang(to)) ?? undefined;
+  const recipientFirst =
+    String(row.recipient_name || "")
+      .trim()
+      .split(/\s+/)[0] || "";
   const arrivedCopy = recipientPaysAtDoor(row.phone_number, row.recipient_phone)
-    ? notifyGiftSenderDriverArrived(cashDue, Number(row.total_amount) || 0, lang)
+    ? notifyGiftSenderDriverArrived(cashDue, Number(row.total_amount) || 0, recipientFirst, lang)
     : notifyDriverArrived(cashDue, Number(row.total_amount) || 0, lang);
 
   await sendCtaUrl(

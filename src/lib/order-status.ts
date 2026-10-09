@@ -78,6 +78,16 @@ export function isOrderInFlight(status: string): boolean {
   );
 }
 
+/** In-flight and past checkout — what the Live order tab should track by default. */
+export function isActiveLiveTrackStatus(status: string): boolean {
+  return isOrderInFlight(status) && normalizeOrderStatus(status) !== OrderStatus.PENDING_PAYMENT;
+}
+
+/** Newest in-flight order from `/api/orders/history` (list is newest-first). */
+export function pickPrimaryLiveOrder<T extends { orderId: string; status: string }>(orders: T[]): T | null {
+  return orders.find((o) => isActiveLiveTrackStatus(o.status)) ?? null;
+}
+
 /** Legacy DB values → normalize for transition checks. */
 export function normalizeOrderStatus(raw: string): string {
   const s = String(raw || "").toLowerCase().trim();

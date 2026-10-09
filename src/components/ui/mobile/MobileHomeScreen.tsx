@@ -37,6 +37,7 @@ import { useActiveFestival } from "./festival-pricing-context";
 import { readUiSession, writeUiSession } from "@/lib/vk-ui-session";
 import { SizeQtyDrawer, cartLineKey, qtyForDish, dishCartSizeLabel } from "@/components/ui/mobile/SizeQtyDrawer";
 import { formatFullDishName } from "@/lib/dish-name";
+import { isActiveLiveTrackStatus, pickPrimaryLiveOrder } from "@/lib/order-status";
 
 /** Eyebrow label — location header (sentence case: “Delivering to”) */
 const DELIVERING_TO_STYLE = {
@@ -2003,6 +2004,42 @@ export function MobileHomeScreen({
     // `addressSavedAt` restarts the poll so an address the customer just changed
     // is reflected immediately rather than on the next tick.
   }, [trackingOrderId, customerPhone, giftTrackToken, addressSavedAt]);
+
+  /** If session storage still points at a finished order, follow the newest in-flight one. */
+  const promoteToLiveOrder = useCallback(async () => {
+    if (!onTrackOrder || !trackingOrderId || trackingOrderId === "preview" || giftTrackToken) return;
+    const phone = customerPhone.trim();
+    if (phone.replace(/\D/g, "").length < 10) return;
+    try {
+      const headers: Record<string, string> = {};
+      const token = await getVkToken().catch(() => null);
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`/api/orders/history?phone=${encodeURIComponent(phone)}`, { headers });
+      const data = (await res.json().catch(() => ({}))) as {
+        orders?: { orderId: string; status: string }[];
+      };
+      if (!res.ok || !Array.isArray(data.orders)) return;
+      const live = pickPrimaryLiveOrder(data.orders);
+      if (!live || live.orderId === trackingOrderId) return;
+      const pinned = data.orders.find((o) => o.orderId === trackingOrderId);
+      if (pinned && isActiveLiveTrackStatus(pinned.status)) return;
+      onTrackOrder(live.orderId);
+      setOrdersView("track");
+    } catch {
+      /* history is optional; Live tab keeps showing the pinned order */
+    }
+  }, [customerPhone, giftTrackToken, onTrackOrder, trackingOrderId]);
+
+  useEffect(() => {
+    if (!trackSnap?.status || !trackingOrderId || trackingOrderId === "preview") return;
+    if (isActiveLiveTrackStatus(trackSnap.status)) return;
+    void promoteToLiveOrder();
+  }, [trackSnap?.status, trackingOrderId, promoteToLiveOrder]);
+
+  useEffect(() => {
+    if (activeNav !== "orders" || ordersView !== "track") return;
+    void promoteToLiveOrder();
+  }, [activeNav, ordersView, promoteToLiveOrder]);
 
   useEffect(() => {
     if (!trackSnap?.status) return;
