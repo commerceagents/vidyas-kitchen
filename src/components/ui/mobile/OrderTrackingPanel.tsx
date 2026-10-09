@@ -18,6 +18,7 @@ import { resolveOrderItemImageUrl } from "@/lib/menu/item-image";
 import { GraffitiSpotlight } from "@/components/ui/mobile/GraffitiChip";
 import { ConfirmDialog } from "@/components/ui/mobile/ConfirmDialog";
 import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
+import { geocodeDeliveryAddress } from "@/lib/ensure-delivery-pin";
 
 // Mapbox GL is ~200kB and only ever renders while an order is out for
 // delivery, so it stays out of the main bundle.
@@ -983,7 +984,7 @@ function RideStatusCard({
     );
   }
 
-  const distanceUnit = giftTo ? "to gift address" : "to you";
+  const distanceUnit = giftTo ? `to gift in ${DELIVERY_ZONE.name}` : "to you";
 
   return (
     <div
@@ -1251,29 +1252,22 @@ export function OrderTrackingPanel({
   const apiPinOk =
     apiLat != null && apiLng != null && Number.isFinite(apiLat) && Number.isFinite(apiLng) && isInsideDeliveryZone(apiLat, apiLng);
 
+  const isGiftTrack = Boolean(trackSnap?.isGiftOrder || trackSnap?.recipientName?.trim());
+
   useEffect(() => {
     setClientPin(null);
     const addr = trackSnap?.deliveryAddress?.trim();
-    if (!outForDelivery || !addr || !mapToken) return;
+    if (!outForDelivery || !addr) return;
     const gift = Boolean(trackSnap?.recipientName?.trim() || trackSnap?.isGiftOrder);
     const needsPin = !apiPinOk || gift;
     if (!needsPin) return;
 
     let cancelled = false;
     (async () => {
-      const url =
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addr)}.json` +
-        `?access_token=${encodeURIComponent(mapToken)}&country=in&limit=1` +
-        `&proximity=${DELIVERY_ZONE.lng},${DELIVERY_ZONE.lat}`;
       try {
-        const res = await fetch(url);
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { features?: { center?: [number, number] }[] };
-        const center = data.features?.[0]?.center;
-        if (!center || cancelled) return;
-        const [lng, lat] = center;
-        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isInsideDeliveryZone(lat, lng)) return;
-        setClientPin({ lat, lng });
+        const hit = await geocodeDeliveryAddress(addr);
+        if (!hit || cancelled) return;
+        setClientPin(hit);
       } catch {
         /* map still works once /api/orders/status geocodes */
       }
@@ -1281,10 +1275,16 @@ export function OrderTrackingPanel({
     return () => {
       cancelled = true;
     };
-  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk, mapToken]);
+  }, [outForDelivery, trackSnap?.deliveryAddress, trackSnap?.recipientName, trackSnap?.isGiftOrder, apiPinOk]);
 
-  const pinLat = clientPin?.lat ?? (apiPinOk ? apiLat : null);
-  const pinLng = clientPin?.lng ?? (apiPinOk ? apiLng : null);
+  const pinLat =
+    isGiftTrack && clientPin?.lat != null
+      ? clientPin.lat
+      : (clientPin?.lat ?? (apiPinOk ? apiLat : null));
+  const pinLng =
+    isGiftTrack && clientPin?.lng != null
+      ? clientPin.lng
+      : (clientPin?.lng ?? (apiPinOk ? apiLng : null));
   const driverFixFresh = isFreshDriverFix(trackSnap?.driverLocationAt);
   // Show the last fix even when it has gone quiet — a phone that locked its
   // screen mid-ride stops reporting, and blanking the map then tells the
@@ -1502,6 +1502,7 @@ export function OrderTrackingPanel({
                       driverLat={driverLat ?? null}
                       driverLng={driverLng ?? null}
                       driverStale={driverLat != null && !driverFixFresh}
+                      giftTracking={isGiftTrack}
                       height={preview ? 360 : 280}
                       onEta={setRideEta}
                     />

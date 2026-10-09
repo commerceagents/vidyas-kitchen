@@ -8,7 +8,11 @@ import { lineString, point } from "@turf/helpers";
 import nearestPointOnLine from "@turf/nearest-point-on-line";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { C } from "@/components/ui/mobile/mobile-design-tokens";
+import { DELIVERY_ZONE, isInsideDeliveryZone } from "@/lib/delivery-zone";
 import { haversineMeters } from "@/lib/geo";
+
+const ROUTE_RED = "#BD2320";
+const ROUTE_RED_DARK = "#8B1A18";
 
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 
@@ -152,6 +156,8 @@ export function LiveDeliveryMap({
   driverLng,
   /** True when the last GPS fix is old enough that the bike is a memory, not a live position. */
   driverStale = false,
+  /** Gift senders may be far away — route is always kitchen ↔ Sivakasi drop-off. */
+  giftTracking = false,
   height,
   onEta,
 }: {
@@ -161,6 +167,7 @@ export function LiveDeliveryMap({
   driverLat: number | null;
   driverLng: number | null;
   driverStale?: boolean;
+  giftTracking?: boolean;
   height: number;
   /** Live road time, so the card under the map can show it without covering the route. */
   onEta?: (eta: { minutes: number; metres: number } | null) => void;
@@ -183,6 +190,33 @@ export function LiveDeliveryMap({
   const alongKmRef = useRef(0);
   const glidingRef = useRef(false);
   const routeRef = useRef<Route | null>(null);
+
+  const driverInZone =
+    driverLat != null && driverLng != null && isInsideDeliveryZone(driverLat, driverLng);
+
+  /** Where Directions starts — never Chennai when the food is riding in Sivakasi. */
+  const routeFrom = useMemo((): LatLng | null => {
+    if (driverInZone && driverLat != null && driverLng != null) {
+      return { lat: driverLat, lng: driverLng };
+    }
+    if (giftTracking) {
+      return { lat: DELIVERY_ZONE.lat, lng: DELIVERY_ZONE.lng };
+    }
+    if (driverLat != null && driverLng != null) {
+      return { lat: driverLat, lng: driverLng };
+    }
+    return null;
+  }, [driverInZone, driverLat, driverLng, giftTracking]);
+
+  /** Scooter icon — snap to the local route when the GPS fix is off-zone. */
+  const markerAt = useMemo((): LatLng | null => {
+    if (driverInZone && driverLat != null && driverLng != null) {
+      return { lat: driverLat, lng: driverLng };
+    }
+    if (giftTracking && routeFrom) return routeFrom;
+    if (driverLat != null && driverLng != null) return { lat: driverLat, lng: driverLng };
+    return null;
+  }, [driverInZone, driverLat, driverLng, giftTracking, routeFrom]);
 
   useEffect(() => {
     shownRef.current = shown;
@@ -209,8 +243,8 @@ export function LiveDeliveryMap({
   };
 
   useEffect(() => {
-    if (driverLat == null || driverLng == null) return;
-    const to = { lat: driverLat, lng: driverLng };
+    if (!markerAt) return;
+    const to = markerAt;
     const from = shownRef.current;
     const line = roadRef.current;
 
@@ -314,7 +348,7 @@ export function LiveDeliveryMap({
     };
     frame.current = requestAnimationFrame(step);
     return stop;
-  }, [driverLat, driverLng, customerLat, customerLng]);
+  }, [markerAt, customerLat, customerLng]);
 
   // Once a glide finishes, or as soon as the first road arrives, lock the
   // scooter onto that polyline. A glide already in flight keeps its road so
@@ -353,22 +387,23 @@ export function LiveDeliveryMap({
   // dots tells the customer nothing about how far away the food really is —
   // 400m as the crow flies can be a 2km loop around the tank bund.
   useEffect(() => {
-    if (!token || driverLat == null || driverLng == null) {
+    if (!token || !routeFrom) {
       setRoute(null);
       routeReqRef.current = null;
       return;
     }
     const prev = routeReqRef.current;
-    const moved = !prev || haversineMeters(prev.lat, prev.lng, driverLat, driverLng) >= ROUTE_REFRESH_M;
+    const moved =
+      !prev || haversineMeters(prev.lat, prev.lng, routeFrom.lat, routeFrom.lng) >= ROUTE_REFRESH_M;
     const aged = !prev || Date.now() - prev.at >= ROUTE_MAX_AGE_MS;
     if (!moved && !aged) return;
-    routeReqRef.current = { lat: driverLat, lng: driverLng, at: Date.now() };
+    routeReqRef.current = { lat: routeFrom.lat, lng: routeFrom.lng, at: Date.now() };
 
     const ctrl = new AbortController();
     (async () => {
       try {
         const res = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/driving/${driverLng},${driverLat};${customerLng},${customerLat}` +
+          `https://api.mapbox.com/directions/v5/mapbox/driving/${routeFrom.lng},${routeFrom.lat};${customerLng},${customerLat}` +
             `?geometries=geojson&overview=full&access_token=${encodeURIComponent(token)}`,
           { signal: ctrl.signal },
         );
@@ -400,7 +435,7 @@ export function LiveDeliveryMap({
     })();
 
     return () => ctrl.abort();
-  }, [token, driverLat, driverLng, customerLat, customerLng]);
+  }, [token, routeFrom, customerLat, customerLng]);
 
   // Without a road route we still draw driver → door, just dashed, so it reads
   // as "roughly this way" rather than "ride through these buildings".
@@ -410,8 +445,8 @@ export function LiveDeliveryMap({
       if (coords.length < 2) return null;
       return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
     }
-    if (driverLat == null || driverLng == null) return null;
-    const chordM = haversineMeters(driverLat, driverLng, customerLat, customerLng);
+    if (!routeFrom) return null;
+    const chordM = haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng);
     if (chordM > MAX_SANE_ROUTE_M) return null;
     return {
       type: "Feature",
@@ -419,12 +454,12 @@ export function LiveDeliveryMap({
       geometry: {
         type: "LineString",
         coordinates: [
-          [driverLng, driverLat],
+          [routeFrom.lng, routeFrom.lat],
           [customerLng, customerLat],
         ],
       },
     };
-  }, [roadCoords, shown, driverLat, driverLng, customerLat, customerLng]);
+  }, [roadCoords, shown, routeFrom, customerLat, customerLng]);
 
   const onRoad = Boolean(route?.coords?.length);
 
@@ -433,7 +468,7 @@ export function LiveDeliveryMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || userMoved) return;
-    if (driverLat == null || driverLng == null) {
+    if (!routeFrom) {
       map.easeTo({ center: [customerLng, customerLat], zoom: 14, duration: 600 });
       return;
     }
@@ -444,7 +479,7 @@ export function LiveDeliveryMap({
       : route?.coords?.length
         ? [...route.coords]
         : [
-            [driverLng, driverLat],
+            [routeFrom.lng, routeFrom.lat],
             [customerLng, customerLat],
           ];
     // The scooter is still gliding toward this fix. Leave it in the frame,
@@ -468,7 +503,7 @@ export function LiveDeliveryMap({
       ],
       { padding: { top: 72, bottom: 64, left: 56, right: 56 }, maxZoom: 15.5, duration: 1200 },
     );
-  }, [driverLat, driverLng, customerLat, customerLng, route, roadCoords, userMoved]);
+  }, [routeFrom, customerLat, customerLng, route, roadCoords, userMoved]);
 
   useEffect(() => {
     const cb = onEtaRef.current;
@@ -485,8 +520,8 @@ export function LiveDeliveryMap({
       }
       return;
     }
-    if (driverLat != null && driverLng != null) {
-      const metres = Math.max(0, Math.round(haversineMeters(driverLat, driverLng, customerLat, customerLng)));
+    if (routeFrom) {
+      const metres = Math.max(0, Math.round(haversineMeters(routeFrom.lat, routeFrom.lng, customerLat, customerLng)));
       if (metres <= MAX_SANE_ROUTE_M) {
         cb({
           minutes: Math.max(1, Math.round(metres / 400)),
@@ -498,7 +533,7 @@ export function LiveDeliveryMap({
       return;
     }
     cb(null);
-  }, [route, driverLat, driverLng, customerLat, customerLng]);
+  }, [route, routeFrom, customerLat, customerLng]);
 
   return (
     <div className="vk-live-map" style={{ width: "100%", height, position: "relative" }}>
@@ -531,7 +566,7 @@ export function LiveDeliveryMap({
               id="vk-delivery-route-casing"
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{ "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.95 }}
+              paint={{ "line-color": ROUTE_RED_DARK, "line-width": 7, "line-opacity": 1 }}
             />
             <Layer
               id="vk-delivery-route-line"
@@ -539,10 +574,10 @@ export function LiveDeliveryMap({
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={
                 onRoad
-                  ? { "line-color": C.red, "line-width": 5, "line-opacity": 1 }
+                  ? { "line-color": ROUTE_RED, "line-width": 5, "line-opacity": 1 }
                   : {
-                      "line-color": C.red,
-                      "line-width": 4,
+                      "line-color": ROUTE_RED,
+                      "line-width": 4.5,
                       "line-opacity": 1,
                       "line-dasharray": [1.6, 1.6],
                     }
