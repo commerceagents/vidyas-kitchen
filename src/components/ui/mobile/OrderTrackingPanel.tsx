@@ -744,6 +744,70 @@ function formatKm(metres: number) {
   return `${Math.max(50, Math.round(metres / 50) * 50)} m`;
 }
 
+/** Drop cross-country junk when the drop pin and driver fix disagree. */
+function sanitizeRideEta(eta: { minutes: number; metres: number } | null): { minutes: number; metres: number } | null {
+  if (!eta) return null;
+  if (!Number.isFinite(eta.minutes) || !Number.isFinite(eta.metres)) return null;
+  if (eta.metres > 80_000 || eta.minutes > 120) return null;
+  return eta;
+}
+
+function RideStatTile({
+  label,
+  value,
+  unit,
+  accent,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: "14px 12px",
+        borderRadius: 14,
+        background: accent ? C.redFaint : "rgba(0,0,0,0.035)",
+        border: accent ? `1px solid ${C.redBorder}` : "1px solid rgba(0,0,0,0.06)",
+        textAlign: "center",
+        minHeight: 72,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: accent ? C.red : "rgba(0,0,0,0.42)",
+          fontFamily: fontUi,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 26,
+          fontWeight: 800,
+          letterSpacing: "-0.03em",
+          color: accent ? C.red : C.text,
+          fontFamily: fontUi,
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: C_TEXT_MUTED, fontFamily: fontUi }}>{unit}</span>
+    </div>
+  );
+}
+
 function RideStatusCard({
   arrived,
   driverOnMap,
@@ -775,7 +839,8 @@ function RideStatusCard({
   const atGiftDoor =
     giftTo && giftTo !== "your recipient" ? `At ${giftTo}'s door` : giftTo ? "At the delivery address" : "";
   const title = here ? atGiftDoor || "At your door" : "Out for delivery";
-  const kmAway = eta && !here ? formatKm(eta.metres) : null;
+  const rideEta = sanitizeRideEta(eta);
+  const kmAway = rideEta && !here ? formatKm(rideEta.metres) : null;
   const sub = here
     ? giftTo
       ? who
@@ -798,15 +863,28 @@ function RideStatusCard({
           : rideSeenLabel(fixAt)
         : who
           ? giftTo
-            ? `${who} is on the way to ${giftTo === "your recipient" ? "the gift address" : `${giftTo}'s address`}${kmAway ? ` · ${kmAway} away` : ""}`
-            : `${who} is on the way${kmAway ? ` · ${kmAway} away` : ""}`
-          : kmAway
-            ? `Driver is on the way · ${kmAway} away`
-            : giftTo
-              ? "Your driver is on the way to the gift address"
-              : "Your driver is on the way to deliver your order";
-  const timerMain = here ? "✓" : eta ? String(eta.minutes) : "–";
-  const timerUnit = here ? "" : !eta ? "" : eta.minutes === 1 ? "min" : "mins";
+            ? `${who} is on the way to ${giftTo === "your recipient" ? "the gift address" : `${giftTo}'s address`}`
+            : `${who} is on the way to you`
+          : giftTo
+            ? "Your driver is on the way to the gift address"
+            : "Your driver is on the way to deliver your order";
+  const enRouteSub = !here
+    ? !driverOnMap
+      ? who
+        ? giftTo
+          ? giftTo === "your recipient"
+            ? `${who} is heading to the gift address`
+            : `${who} is heading to ${giftTo}'s address`
+          : `${who} is on the way with your order`
+        : "Your driver will appear once they start sharing their location"
+      : !fresh
+        ? who
+          ? `${who} · ${rideSeenLabel(fixAt)}`
+          : rideSeenLabel(fixAt)
+        : sub
+    : sub;
+  const timerMain = here ? "✓" : rideEta ? String(rideEta.minutes) : "–";
+  const timerUnit = here ? "" : !rideEta ? "" : rideEta.minutes === 1 ? "min" : "mins";
   const initial = who ? who.trim().charAt(0).toUpperCase() : "";
 
   if (here) {
@@ -905,125 +983,155 @@ function RideStatusCard({
     );
   }
 
+  const distanceUnit = giftTo ? "to gift address" : "to you";
+
   return (
     <div
       style={{
         marginTop: 12,
         background: C.white,
-        borderRadius: 22,
+        borderRadius: 20,
         border: `1px solid ${C.border}`,
-        boxShadow: "0 10px 28px rgba(0,0,0,0.06)",
-        padding: "14px 14px 12px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+        padding: "18px 18px 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <span
           aria-hidden
           style={{
-            width: 54,
-            height: 54,
+            width: 52,
+            height: 52,
             flexShrink: 0,
-            borderRadius: 16,
-            background: "#F6F3EE",
-            border: "1px solid rgba(0,0,0,0.05)",
-            backgroundImage: "url(/rider-topdown.png)",
-            backgroundSize: "72%",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center",
-          }}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
-            {title}
-          </p>
-          <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi, lineHeight: 1.35 }}>
-            {sub}
-          </p>
-        </div>
-        {phone ? (
-          <button
-            type="button"
-            aria-label={`Show ${who || "driver"}'s phone number`}
-            onClick={() => setCallOpen(true)}
-            style={{
-              width: 40,
-              height: 40,
-              flexShrink: 0,
-              borderRadius: "50%",
-              border: "none",
-              background: C.redFaint,
-              color: C.red,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
-          >
-            <Phone size={18} weight="fill" />
-          </button>
-        ) : null}
-        {kmAway && !here ? (
-          <div
-            aria-hidden
-            style={{
-              flexShrink: 0,
-              padding: "8px 10px",
-              borderRadius: 12,
-              background: C.redFaint,
-              color: C.red,
-              fontSize: 13,
-              fontWeight: 800,
-              fontFamily: fontUi,
-              lineHeight: 1.1,
-              textAlign: "center",
-            }}
-          >
-            {kmAway}
-            <span style={{ display: "block", marginTop: 2, fontSize: 9, fontWeight: 700, opacity: 0.85 }}>
-              {giftTo ? "to gift address" : "to delivery"}
-            </span>
-          </div>
-        ) : null}
-        <div
-          aria-label={here ? "Driver is here" : eta ? `${eta.minutes} minutes away` : "Estimating arrival"}
-          style={{
-            width: 58,
-            height: 58,
-            flexShrink: 0,
-            borderRadius: 16,
-            background: `linear-gradient(180deg, #D44845 0%, ${C.red} 100%)`,
-            color: "#fff",
+            borderRadius: "50%",
+            background: C.redFaint,
+            color: C.red,
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 6px 14px rgba(189,35,32,0.28)",
+            fontSize: 18,
+            fontWeight: 800,
+            fontFamily: fontUi,
+            overflow: "hidden",
           }}
         >
-          <span
-            style={{
-              fontSize: here ? 15 : 22,
-              fontWeight: 800,
-              fontFamily: fontUi,
-              lineHeight: 1,
-              letterSpacing: "-0.03em",
-            }}
-          >
-            {timerMain}
-          </span>
-          {timerUnit ? (
-            <span style={{ marginTop: 1, fontSize: 11, fontWeight: 700, fontFamily: fontUi, opacity: 0.92 }}>{timerUnit}</span>
-          ) : null}
+          {initial ? (
+            initial
+          ) : (
+            <span
+              style={{
+                width: "100%",
+                height: "100%",
+                backgroundImage: "url(/rider-topdown.png)",
+                backgroundSize: "68%",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+              }}
+            />
+          )}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
+            {who || "Your driver"}
+          </p>
+          <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 600, color: C_TEXT_MUTED, fontFamily: fontUi }}>
+            Your delivery partner
+          </p>
         </div>
       </div>
-      {slot ? (
-        <p style={{ margin: "10px 2px 0", fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.38)", fontFamily: fontUi }}>
-          {slot.date} · {slot.time}
+
+      <div style={{ marginTop: 18 }}>
+        <p style={{ margin: 0, fontSize: 19, fontWeight: 800, color: C.text, fontFamily: fontUi, letterSpacing: "-0.02em" }}>
+          {title}
         </p>
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 14,
+            fontWeight: 600,
+            color: C_TEXT_MUTED,
+            fontFamily: fontUi,
+            lineHeight: 1.45,
+          }}
+        >
+          {enRouteSub}
+        </p>
+      </div>
+
+      <div
+        style={{
+          marginTop: 16,
+          display: "grid",
+          gridTemplateColumns: rideEta ? "1fr 1fr" : "1fr",
+          gap: 10,
+        }}
+      >
+        {rideEta ? (
+          <>
+            <RideStatTile
+              label="Est. arrival"
+              value={timerMain}
+              unit={timerUnit || "mins"}
+              accent
+            />
+            <RideStatTile label="Distance" value={kmAway || "—"} unit={distanceUnit} />
+          </>
+        ) : (
+          <RideStatTile
+            label="Route"
+            value="—"
+            unit={slot ? `Booked for ${slot.time}` : "Updating live route…"}
+          />
+        )}
+      </div>
+
+      {phone ? (
+        <button
+          type="button"
+          onClick={() => setCallOpen(true)}
+          style={{
+            marginTop: 16,
+            width: "100%",
+            height: 48,
+            border: `1.5px solid ${C.redBorder}`,
+            borderRadius: 14,
+            background: C.white,
+            color: C.red,
+            fontSize: 15,
+            fontWeight: 800,
+            fontFamily: fontUi,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            cursor: "pointer",
+          }}
+        >
+          <Phone size={18} weight="fill" />
+          Contact driver
+        </button>
       ) : null}
-      <p style={{ margin: "4px 2px 0", fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.28)", fontFamily: fontUi, letterSpacing: "0.06em" }}>
-        ORDER {orderRef}
-      </p>
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+        {slot ? (
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.38)", fontFamily: fontUi }}>
+            {slot.date} · {slot.time}
+          </p>
+        ) : null}
+        <p
+          style={{
+            margin: slot ? "6px 0 0" : 0,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "rgba(0,0,0,0.28)",
+            fontFamily: fontUi,
+            letterSpacing: "0.06em",
+          }}
+        >
+          ORDER {orderRef}
+        </p>
+      </div>
+
       <AnimatePresence>
         {callOpen && phone ? (
           <DriverCallSheet name={who || "Your driver"} phone={phone} onClose={() => setCallOpen(false)} />
