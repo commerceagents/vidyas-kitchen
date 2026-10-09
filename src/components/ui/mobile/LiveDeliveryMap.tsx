@@ -21,6 +21,8 @@ const GLIDE_MS = 2800;
 const ROUTE_REFRESH_M = 40;
 /** ...or after this long, so traffic-driven ETA changes still land. */
 const ROUTE_MAX_AGE_MS = 45_000;
+/** Sivakasi local delivery — beyond this, pins or Directions are wrong. */
+const MAX_SANE_ROUTE_M = 45_000;
 
 const zoomBtnStyle = {
   width: 36,
@@ -376,10 +378,16 @@ export function LiveDeliveryMap({
         const first = j.routes?.[0];
         const coords = first?.geometry?.coordinates;
         if (!coords?.length) throw new Error("no route");
+        const distanceM = Number(first?.distance) || 0;
+        const durationS = Number(first?.duration) || 0;
+        if (distanceM > MAX_SANE_ROUTE_M) {
+          setRoute(null);
+          return;
+        }
         setRoute({
           coords,
-          distanceM: Number(first?.distance) || 0,
-          durationS: Number(first?.duration) || 0,
+          distanceM,
+          durationS,
         });
       } catch (e) {
         if ((e as Error)?.name === "AbortError") return;
@@ -403,6 +411,8 @@ export function LiveDeliveryMap({
       return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
     }
     if (driverLat == null || driverLng == null) return null;
+    const chordM = haversineMeters(driverLat, driverLng, customerLat, customerLng);
+    if (chordM > MAX_SANE_ROUTE_M) return null;
     return {
       type: "Feature",
       properties: {},
@@ -464,18 +474,27 @@ export function LiveDeliveryMap({
     const cb = onEtaRef.current;
     if (!cb) return;
     if (route) {
-      cb({
-        minutes: Math.max(1, Math.round(route.durationS / 60)),
-        metres: Math.max(0, Math.round(route.distanceM)),
-      });
+      const metres = Math.max(0, Math.round(route.distanceM));
+      if (metres <= MAX_SANE_ROUTE_M) {
+        cb({
+          minutes: Math.max(1, Math.round(route.durationS / 60)),
+          metres,
+        });
+      } else {
+        cb(null);
+      }
       return;
     }
     if (driverLat != null && driverLng != null) {
       const metres = Math.max(0, Math.round(haversineMeters(driverLat, driverLng, customerLat, customerLng)));
-      cb({
-        minutes: Math.max(1, Math.round(metres / 400)),
-        metres,
-      });
+      if (metres <= MAX_SANE_ROUTE_M) {
+        cb({
+          minutes: Math.max(1, Math.round(metres / 400)),
+          metres,
+        });
+      } else {
+        cb(null);
+      }
       return;
     }
     cb(null);
@@ -520,11 +539,11 @@ export function LiveDeliveryMap({
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={
                 onRoad
-                  ? { "line-color": C.red, "line-width": 4.5, "line-opacity": driverStale ? 0.45 : 1 }
+                  ? { "line-color": C.red, "line-width": 5, "line-opacity": 1 }
                   : {
                       "line-color": C.red,
-                      "line-width": 3.5,
-                      "line-opacity": driverStale ? 0.4 : 0.75,
+                      "line-width": 4,
+                      "line-opacity": 1,
                       "line-dasharray": [1.6, 1.6],
                     }
               }

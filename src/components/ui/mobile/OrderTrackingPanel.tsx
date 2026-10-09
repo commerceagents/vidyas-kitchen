@@ -748,7 +748,7 @@ function formatKm(metres: number) {
 function sanitizeRideEta(eta: { minutes: number; metres: number } | null): { minutes: number; metres: number } | null {
   if (!eta) return null;
   if (!Number.isFinite(eta.minutes) || !Number.isFinite(eta.metres)) return null;
-  if (eta.metres > 80_000 || eta.minutes > 120) return null;
+  if (eta.metres > 45_000 || eta.minutes > 120) return null;
   return eta;
 }
 
@@ -1076,12 +1076,24 @@ function RideStatusCard({
             />
             <RideStatTile label="Distance" value={kmAway || "—"} unit={distanceUnit} />
           </>
+        ) : !fresh && fixAt ? (
+          <>
+            <RideStatTile label="Driver" value="—" unit={rideSeenLabel(fixAt)} />
+            <RideStatTile
+              label="Booked slot"
+              value={slot?.time || "—"}
+              unit={slot?.date || "Waiting for live location"}
+            />
+          </>
         ) : (
-          <RideStatTile
-            label="Route"
-            value="—"
-            unit={slot ? `Booked for ${slot.time}` : "Updating live route…"}
-          />
+          <>
+            <RideStatTile label="Est. arrival" value="…" unit="Calculating route" accent />
+            <RideStatTile
+              label="Booked slot"
+              value={slot?.time || "—"}
+              unit={slot?.date || "On the way"}
+            />
+          </>
         )}
       </div>
 
